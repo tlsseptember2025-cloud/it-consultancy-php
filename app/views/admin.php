@@ -48,17 +48,55 @@ $today = $todayStmt->fetch()['today'];
 require dirname(__DIR__, 2) . '/config/database.php';
 
 $search = $_GET['search'] ?? '';
+$status = $_GET['status'] ?? '';
+
+$limit = 5;
+
+$pageNumber = $_GET['p'] ?? 1;
+
+if ($pageNumber < 1) {
+    $pageNumber = 1;
+}
+
+$offset = ($pageNumber - 1) * $limit;
+
+$sql = "SELECT * FROM messages WHERE 1";
+
+$params = [];
 
 if ($search) {
-    $stmt = $pdo->prepare("SELECT * FROM messages 
-        WHERE name LIKE ? OR email LIKE ? 
-        ORDER BY created_at DESC");
 
-    $stmt->execute(["%$search%", "%$search%"]);
-} else {
-    $stmt = $pdo->query("SELECT * FROM messages ORDER BY created_at DESC");
+    $sql .= " AND (name LIKE ? OR email LIKE ?)";
+
+    $params[] = "%$search%";
+    $params[] = "%$search%";
 }
+
+if ($status) {
+
+    $sql .= " AND status = ?";
+
+    $params[] = $status;
+}
+
+$countSql = str_replace("SELECT *", "SELECT COUNT(*)", $sql);
+
+$countStmt = $pdo->prepare($countSql);
+
+$countStmt->execute($params);
+
+$totalMessages = $countStmt->fetchColumn();
+
+$totalPages = ceil($totalMessages / $limit);
+
+$sql .= " ORDER BY created_at DESC LIMIT $limit OFFSET $offset";
+
+$stmt = $pdo->prepare($sql);
+
+$stmt->execute($params);
+
 $messages = $stmt->fetchAll();
+
 ?>
 
 <?php
@@ -71,14 +109,49 @@ $todayStmt = $pdo->query("SELECT COUNT(*) as today FROM messages WHERE DATE(crea
 $today = $todayStmt->fetch()['today'];
 ?>
 
-<form method="GET" class="mb-3">
-    <input type="hidden" name="page" value="admin">
-    
-    <input type="text" name="search" placeholder="Search by name or email" 
-           value="<?= $_GET['search'] ?? '' ?>" class="form-control w-25 d-inline">
+<div class="card p-3 mb-4">
 
-    <button type="submit" class="btn btn-primary">Search</button>
-</form>
+    <form method="GET" class="row g-3 align-items-center">
+
+        <input type="hidden" name="page" value="admin">
+
+        <div class="col-md-4">
+            <input
+                type="text"
+                id="searchInput"
+                name="search"
+                placeholder="Search by name or email"
+                value="<?= $_GET['search'] ?? '' ?>"
+                class="form-control">
+        </div>
+
+        <div class="col-md-3">
+            <select name="status" class="form-select">
+
+                <option value="">All Status</option>
+
+                <option value="read"
+                    <?= ($_GET['status'] ?? '') === 'read' ? 'selected' : '' ?>>
+                    Read
+                </option>
+
+                <option value="unread"
+                    <?= ($_GET['status'] ?? '') === 'unread' ? 'selected' : '' ?>>
+                    Unread
+                </option>
+
+            </select>
+        </div>
+
+        <div class="col-md-2">
+            <button class="btn btn-primary w-100">
+                Filter
+            </button>
+        </div>
+
+    </form>
+
+</div>
 
 <table border="1" cellpadding="10">
     <tr>
