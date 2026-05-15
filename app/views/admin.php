@@ -185,4 +185,21 @@ $today = $todayStmt->fetch()['today'];
     <?php endforeach; ?>
 </table>
 
+<nav class="mt-4">
+
+    <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+
+        <a
+            class="btn btn-sm <?= $i == $pageNumber ? 'btn-primary' : 'btn-outline-primary' ?> me-1"
+
+            href="?page=admin&p=<?= $i ?>&search=<?= urlencode($search) ?>&status=<?= urlencode($status) ?>">
+
+            <?= $i ?>
+
+        </a>
+
+    <?php endfor; ?>
+
+</nav>
+
 <?php require __DIR__ . '/layouts/footer.php'; ?>
