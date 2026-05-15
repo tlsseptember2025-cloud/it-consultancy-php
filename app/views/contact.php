@@ -1,13 +1,74 @@
 <?php require __DIR__ . '/layouts/header.php'; ?>
 
-<h1>Contact Us</h1>
+<div class="row justify-content-center">
 
-<form method="POST">
-    <input type="text" name="name" placeholder="Your Name" required><br><br>
-    <input type="email" name="email" placeholder="Your Email" required><br><br>
-    <textarea name="message" placeholder="Message" required></textarea><br><br>
-    <button type="submit">Send</button>
-</form>
+    <div class="col-md-8">
+
+        <div class="card shadow-sm">
+
+            <div class="card-body p-4">
+
+                <h2 class="mb-4">
+                    Contact Us
+                </h2>
+
+                <form method="POST">
+
+                    <div class="mb-3">
+
+                        <label class="form-label">
+                            Your Name
+                        </label>
+
+                        <input
+                            type="text"
+                            name="name"
+                            class="form-control"
+                            required>
+
+                    </div>
+
+                    <div class="mb-3">
+
+                        <label class="form-label">
+                            Your Email
+                        </label>
+
+                        <input
+                            type="email"
+                            name="email"
+                            class="form-control"
+                            required>
+
+                    </div>
+
+                    <div class="mb-3">
+
+                        <label class="form-label">
+                            Message
+                        </label>
+
+                        <textarea
+                            name="message"
+                            class="form-control"
+                            rows="5"
+                            required></textarea>
+
+                    </div>
+
+                    <button class="btn btn-primary">
+                        Send Message
+                    </button>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
 
 <?php
 require dirname(__DIR__, 2) . '/config/database.php';

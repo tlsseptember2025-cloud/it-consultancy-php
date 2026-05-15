@@ -11,17 +11,50 @@
 </head>
 <body>
 
-<nav>
-    <a href="?page=home">Home</a> |
-    <a href="?page=services">Services</a> |
-    <a href="?page=contact">Contact</a> |
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
 
-    <?php if (isset($_SESSION['user'])): ?>
-        <a href="?page=admin">Admin</a> |
-        <a href="?page=logout">Logout</a>
-    <?php else: ?>
-        <a href="?page=login">Login</a>
-    <?php endif; ?>
+    <div class="container-fluid">
+
+        <a class="navbar-brand" href="?page=home">
+            IT Consultancy
+        </a>
+
+        <div class="navbar-nav">
+
+            <a class="nav-link" href="?page=home">
+                Home
+            </a>
+
+            <a class="nav-link" href="?page=services">
+                Services
+            </a>
+
+            <a class="nav-link" href="?page=contact">
+                Contact
+            </a>
+
+            <?php if (isset($_SESSION['user'])): ?>
+
+                <a class="nav-link" href="?page=admin">
+                    Admin
+                </a>
+
+                <a class="nav-link text-danger" href="?page=logout">
+                    Logout
+                </a>
+
+            <?php else: ?>
+
+                <a class="nav-link" href="?page=login">
+                    Login
+                </a>
+
+            <?php endif; ?>
+
+        </div>
+
+    </div>
+
 </nav>
 
 <hr>
