@@ -20,7 +20,9 @@ $todayStmt = $pdo->query("SELECT COUNT(*) as today FROM messages WHERE DATE(crea
 $today = $todayStmt->fetch()['today'];
 ?>
 
-<h1>Admin - Messages</h1>
+<h1 class="mb-4 pt-3">
+    Admin - Messages
+</h1>
 
 <div class="row mb-4">
 

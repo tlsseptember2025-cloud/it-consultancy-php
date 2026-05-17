@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
 
     <title>IT Consultancy</title>
@@ -9,9 +10,10 @@
         rel="stylesheet">
 
 </head>
+
 <body>
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark py-3">
 
     <div class="container-fluid">
 
@@ -57,4 +59,4 @@
 
 </nav>
 
-<hr>
+<div class="container py-4">

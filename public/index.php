@@ -1,5 +1,5 @@
-<?php
+<?php session_start(); ?>
 
-session_start(); // ✅ START SESSION HERE ONLY
+<?php
 
 require_once '../routes.php';
