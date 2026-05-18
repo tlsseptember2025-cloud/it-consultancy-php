@@ -155,53 +155,55 @@ $today = $todayStmt->fetch()['today'];
 
 </div>
 
-<table border="1" cellpadding="10">
-    <tr>
-        <th>Name</th>
-        <th>Email</th>
-        <th>Message</th>
-        <th>Date</th>
-        <th>Status</th>
-        <th>Action</th>
-    </tr>
+<div id="results">
+    <table border="1" cellpadding="10">
+        <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Message</th>
+            <th>Date</th>
+            <th>Status</th>
+            <th>Action</th>
+        </tr>
 
-    <?php foreach ($messages as $msg): ?>
-    <tr>
-        <td><?= htmlspecialchars($msg['name']) ?></td>
-        <td><?= htmlspecialchars($msg['email']) ?></td>
-        <td><?= htmlspecialchars($msg['message']) ?></td>
-        <td><?= $msg['created_at'] ?></td>
-        <td>
-            <?php if ($msg['status'] === 'unread'): ?>
-                <span style="color:red;">Unread</span>
-            <?php else: ?>
-                <span style="color:green;">Read</span>
-            <?php endif; ?>
-        </td>
-        <td>
-            <a class="btn btn-sm btn-info" href="?page=view&id=<?= $msg['id'] ?>">View</a>
-            <a class="btn btn-sm btn-warning" href="?page=edit&id=<?= $msg['id'] ?>">Edit</a>
-            <a class="btn btn-sm btn-danger" href="?page=delete&id=<?= $msg['id'] ?>" onclick="return confirm('Delete this message?')">Delete</a>
-        </td>
-    </tr>
-    <?php endforeach; ?>
-</table>
+        <?php foreach ($messages as $msg): ?>
+        <tr>
+            <td><?= htmlspecialchars($msg['name']) ?></td>
+            <td><?= htmlspecialchars($msg['email']) ?></td>
+            <td><?= htmlspecialchars($msg['message']) ?></td>
+            <td><?= $msg['created_at'] ?></td>
+            <td>
+                <?php if ($msg['status'] === 'unread'): ?>
+                    <span style="color:red;">Unread</span>
+                <?php else: ?>
+                    <span style="color:green;">Read</span>
+                <?php endif; ?>
+            </td>
+            <td>
+                <a class="btn btn-sm btn-info" href="?page=view&id=<?= $msg['id'] ?>">View</a>
+                <a class="btn btn-sm btn-warning" href="?page=edit&id=<?= $msg['id'] ?>">Edit</a>
+                <a class="btn btn-sm btn-danger" href="?page=delete&id=<?= $msg['id'] ?>" onclick="return confirm('Delete this message?')">Delete</a>
+            </td>
+        </tr>
+        <?php endforeach; ?>
+    </table>
 
-<nav class="mt-4">
+    <nav class="mt-4">
 
-    <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+        <?php for ($i = 1; $i <= $totalPages; $i++): ?>
 
-        <a
-            class="btn btn-sm <?= $i == $pageNumber ? 'btn-primary' : 'btn-outline-primary' ?> me-1"
+            <a
+                class="btn btn-sm <?= $i == $pageNumber ? 'btn-primary' : 'btn-outline-primary' ?> me-1"
 
-            href="?page=admin&p=<?= $i ?>&search=<?= urlencode($search) ?>&status=<?= urlencode($status) ?>">
+                href="?page=admin&p=<?= $i ?>&search=<?= urlencode($search) ?>&status=<?= urlencode($status) ?>">
 
-            <?= $i ?>
+                <?= $i ?>
 
-        </a>
+            </a>
 
-    <?php endfor; ?>
+        <?php endfor; ?>
 
-</nav>
+    </nav>
+</div>
 
 <?php require __DIR__ . '/layouts/footer.php'; ?>
