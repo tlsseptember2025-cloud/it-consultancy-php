@@ -39,6 +39,22 @@ switch ($page) {
     require 'app/views/view.php';
     break;
 
+    case 'services-admin':
+    require 'app/views/services-admin.php';
+    break;
+
+    case 'add-service':
+    require 'app/views/add-service.php';
+    break;
+
+    case 'edit-service':
+    require 'app/views/edit-service.php';
+    break;
+
+    case 'delete-service':
+    require 'app/views/delete-service.php';
+    break;
+
     default:
         echo "404 - Page not found";
 }

@@ -50,7 +50,11 @@
                 <?php if (isset($_SESSION['user'])): ?>
 
                     <a class="nav-link" href="?page=admin">
-                        Admin
+                        Dashboard
+                    </a>
+
+                    <a class="nav-link" href="?page=services-admin">
+                        Manage Services
                     </a>
 
                     <a class="nav-link text-danger" href="?page=logout">
