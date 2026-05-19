@@ -21,37 +21,51 @@
             IT Consultancy
         </a>
 
-        <div class="navbar-nav">
+        <button
+            class="navbar-toggler"
+            type="button"
+            data-bs-toggle="collapse"
+            data-bs-target="#navbarNav">
 
-            <a class="nav-link" href="?page=home">
-                Home
-            </a>
+            <span class="navbar-toggler-icon"></span>
 
-            <a class="nav-link" href="?page=services">
-                Services
-            </a>
+        </button>
 
-            <a class="nav-link" href="?page=contact">
-                Contact
-            </a>
+        <div class="collapse navbar-collapse" id="navbarNav">
 
-            <?php if (isset($_SESSION['user'])): ?>
+            <div class="navbar-nav ms-auto">
 
-                <a class="nav-link" href="?page=admin">
-                    Admin
+                <a class="nav-link" href="?page=home">
+                    Home
                 </a>
 
-                <a class="nav-link text-danger" href="?page=logout">
-                    Logout
+                <a class="nav-link" href="?page=services">
+                    Services
                 </a>
 
-            <?php else: ?>
-
-                <a class="nav-link" href="?page=login">
-                    Login
+                <a class="nav-link" href="?page=contact">
+                    Contact
                 </a>
 
-            <?php endif; ?>
+                <?php if (isset($_SESSION['user'])): ?>
+
+                    <a class="nav-link" href="?page=admin">
+                        Admin
+                    </a>
+
+                    <a class="nav-link text-danger" href="?page=logout">
+                        Logout
+                    </a>
+
+                <?php else: ?>
+
+                    <a class="nav-link" href="?page=login">
+                        Login
+                    </a>
+
+                <?php endif; ?>
+
+            </div>
 
         </div>
 

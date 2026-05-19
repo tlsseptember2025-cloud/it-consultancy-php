@@ -156,7 +156,10 @@ $today = $todayStmt->fetch()['today'];
 </div>
 
 <div id="results">
-    <table border="1" cellpadding="10">
+    <div class="table-responsive">
+
+    <table class="table table-hover table-bordered align-middle">
+
         <tr>
             <th>Name</th>
             <th>Email</th>
@@ -165,7 +168,7 @@ $today = $todayStmt->fetch()['today'];
             <th>Status</th>
             <th>Action</th>
         </tr>
-
+        
         <?php foreach ($messages as $msg): ?>
         <tr>
             <td><?= htmlspecialchars($msg['name']) ?></td>
@@ -187,6 +190,7 @@ $today = $todayStmt->fetch()['today'];
         </tr>
         <?php endforeach; ?>
     </table>
+    </div>
 
     <nav class="mt-4">
 
