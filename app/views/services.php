@@ -39,6 +39,12 @@ $services = $stmt->fetchAll();
 
                     </p>
 
+                    <h5 class="mt-3 text-primary">
+
+                        $<?= number_format($service['price'], 2) ?>
+
+                    </h5>
+
                 </div>
 
             </div>
