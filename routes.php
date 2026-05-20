@@ -15,9 +15,9 @@ switch ($page) {
         require 'app/views/contact.php';
         break;
 
-    case 'admin':
-        require 'app/views/admin.php';
-        break;
+    case 'messages':
+    require 'app/views/messages.php';
+    break;
 
     case 'login':
     require 'app/views/login.php';

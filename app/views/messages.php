@@ -201,7 +201,7 @@ $today = $todayStmt->fetch()['today'];
             <a
                 class="btn btn-sm <?= $i == $pageNumber ? 'btn-primary' : 'btn-outline-primary' ?> me-1"
 
-                href="?page=admin&p=<?= $i ?>&search=<?= urlencode($search) ?>&status=<?= urlencode($status) ?>">
+                href="?page=messages&p=<?= $i ?>&search=<?= urlencode($search) ?>&status=<?= urlencode($status) ?>">
 
                 <?= $i ?>
 

@@ -33,43 +33,48 @@
 
         <div class="collapse navbar-collapse" id="navbarNav">
 
-            <div class="navbar-nav ms-auto">
+            
+        <div class="navbar-nav ms-auto">
 
-                <a class="nav-link" href="?page=home">
-                    Home
-                </a>
+    <?php if (isset($_SESSION['user'])): ?>
 
-                <a class="nav-link" href="?page=services">
-                    Services
-                </a>
+        <a class="nav-link" href="?page=dashboard">
+            Dashboard
+        </a>
 
-                <a class="nav-link" href="?page=contact">
-                    Contact
-                </a>
+        <a class="nav-link" href="?page=messages">
+            Messages
+        </a>
 
-                <?php if (isset($_SESSION['user'])): ?>
+        <a class="nav-link" href="?page=services-admin">
+            Manage Services
+        </a>
 
-                    <a class="nav-link" href="?page=admin">
-                        Messages
-                    </a>
+        <a class="nav-link text-danger" href="?page=logout">
+            Logout
+        </a>
 
-                    <a class="nav-link" href="?page=services-admin">
-                        Manage Services
-                    </a>
+    <?php else: ?>
 
-                    <a class="nav-link text-danger" href="?page=logout">
-                        Logout
-                    </a>
+        <a class="nav-link" href="?page=home">
+            Home
+        </a>
 
-                <?php else: ?>
+        <a class="nav-link" href="?page=services">
+            Services
+        </a>
 
-                    <a class="nav-link" href="?page=login">
-                        Login
-                    </a>
+        <a class="nav-link" href="?page=contact">
+            Contact
+        </a>
 
-                <?php endif; ?>
+        <a class="nav-link" href="?page=login">
+            Login
+        </a>
 
-            </div>
+    <?php endif; ?>
+
+</div>
 
         </div>
 

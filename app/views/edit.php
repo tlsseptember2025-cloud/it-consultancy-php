@@ -40,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $id
     ]);
 
-    header("Location: ?page=admin");
+    header("Location: ?page=messages");
     exit;
 }
 ?>

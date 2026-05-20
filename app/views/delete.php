@@ -13,5 +13,5 @@ if (isset($_GET['id'])) {
     $stmt->execute([$_GET['id']]);
 }
 
-header("Location: ?page=admin");
+header("Location: ?page=messages");
 exit;

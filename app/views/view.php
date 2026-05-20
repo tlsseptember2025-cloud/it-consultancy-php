@@ -34,6 +34,6 @@ $pdo->prepare("UPDATE messages SET status='read' WHERE id=?")->execute([$id]);
 </div>
 
 <br>
-<a class="btn btn-secondary" href="?page=admin">Back</a>
+<a class="btn btn-secondary" href="?page=messages">Back</a>
 
 <?php require __DIR__ . '/layouts/footer.php'; ?>

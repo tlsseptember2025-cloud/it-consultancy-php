@@ -4,7 +4,7 @@ require dirname(__DIR__, 2) . '/config/database.php';
 
 if (isset($_SESSION['user'])) {
 
-    header('Location: ?page=admin');
+    header('Location: ?page=dashboard');
     exit;
 }
 
@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $_SESSION['user'] = $user['email'];
 
-        header('Location: ?page=admin');
+        header('Location: ?page=dashboard');
         exit;
 
     } else {

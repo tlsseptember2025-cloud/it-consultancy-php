@@ -28,7 +28,7 @@ if (searchInput) {
 
         let search = this.value;
 
-        fetch('?page=admin&search=' + encodeURIComponent(search))
+        fetch('?page=messages&search=' + encodeURIComponent(search))
 
             .then(response => response.text())
 
