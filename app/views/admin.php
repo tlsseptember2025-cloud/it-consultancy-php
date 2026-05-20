@@ -163,6 +163,7 @@ $today = $todayStmt->fetch()['today'];
         <tr>
             <th>Name</th>
             <th>Email</th>
+            <th>Service</th>
             <th>Message</th>
             <th>Date</th>
             <th>Status</th>
@@ -173,6 +174,7 @@ $today = $todayStmt->fetch()['today'];
         <tr>
             <td><?= htmlspecialchars($msg['name']) ?></td>
             <td><?= htmlspecialchars($msg['email']) ?></td>
+            <td><?= htmlspecialchars($msg['service']) ?></td>
             <td><?= htmlspecialchars($msg['message']) ?></td>
             <td><?= $msg['created_at'] ?></td>
             <td>

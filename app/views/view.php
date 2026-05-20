@@ -28,6 +28,7 @@ $pdo->prepare("UPDATE messages SET status='read' WHERE id=?")->execute([$id]);
 <div class="card p-3">
     <p><strong>Name:</strong> <?= htmlspecialchars($message['name']) ?></p>
     <p><strong>Email:</strong> <?= htmlspecialchars($message['email']) ?></p>
+    <p><strong>Service:</strong><?= htmlspecialchars($message['service']) ?></p>
     <p><strong>Message:</strong><br><?= nl2br(htmlspecialchars($message['message'])) ?></p>
     <p><strong>Date:</strong> <?= $message['created_at'] ?></p>
 </div>

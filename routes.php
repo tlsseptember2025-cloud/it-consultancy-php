@@ -55,6 +55,10 @@ switch ($page) {
     require 'app/views/delete-service.php';
     break;
 
+    case 'dashboard':
+    require 'app/views/dashboard.php';
+    break;
+
     default:
         echo "404 - Page not found";
 }
