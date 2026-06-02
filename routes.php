@@ -99,6 +99,26 @@ switch ($page) {
         require 'app/views/delete-request.php';
         break;
 
+    case 'payments':
+        require 'app/views/payments.php';
+        break;
+
+    case 'add-payment':
+        require 'app/views/add-payment.php';
+        break;
+
+    case 'view-payment':
+        require 'app/views/view-payment.php';
+        break;
+
+    case 'edit-payment':
+        require 'app/views/edit-payment.php';
+        break;
+
+    case 'delete-payment':
+        require 'app/views/delete-payment.php';
+        break;
+
     default:
         echo "404 - Page not found";
 }

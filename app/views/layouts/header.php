@@ -54,6 +54,10 @@
             Requests
         </a>
 
+        <a class="nav-link" href="?page=payments">
+            Payments
+        </a>
+
         <a class="nav-link" href="?page=services-admin">
             Manage Services
         </a>
