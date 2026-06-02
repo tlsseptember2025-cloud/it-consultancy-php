@@ -59,6 +59,46 @@ switch ($page) {
     require 'app/views/dashboard.php';
     break;
 
+    case 'customers':
+    require 'app/views/customers.php';
+    break;
+
+    case 'add-customer':
+        require 'app/views/add-customer.php';
+        break;
+
+    case 'edit-customer':
+        require 'app/views/edit-customer.php';
+        break;
+
+    case 'delete-customer':
+        require 'app/views/delete-customer.php';
+        break;
+
+    case 'view-customer':
+        require 'app/views/view-customer.php';
+        break;
+
+    case 'requests':
+    require 'app/views/requests.php';
+    break;
+
+    case 'add-request':
+        require 'app/views/add-request.php';
+        break;
+
+    case 'view-request':
+        require 'app/views/view-request.php';
+        break;
+
+    case 'edit-request':
+        require 'app/views/edit-request.php';
+        break;
+
+    case 'delete-request':
+        require 'app/views/delete-request.php';
+        break;
+
     default:
         echo "404 - Page not found";
 }

@@ -1,0 +1,155 @@
+<?php
+
+if (!isset($_SESSION['user'])) {
+    header("Location: ?page=login");
+    exit;
+}
+
+require dirname(__DIR__, 2) . '/config/database.php';
+
+$stmt = $pdo->query("
+    SELECT
+        requests.*,
+        customers.name AS customer_name,
+        services.title AS service_title
+    FROM requests
+    JOIN customers
+        ON customers.id = requests.customer_id
+    JOIN services
+        ON services.id = requests.service_id
+    ORDER BY requests.created_at DESC
+");
+
+$requests = $stmt->fetchAll();
+
+?>
+
+<?php require __DIR__ . '/layouts/header.php'; ?>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+
+    <h2 class="mb-0">
+        Requests
+    </h2>
+
+    <a
+        href="?page=add-request"
+        class="btn btn-primary">
+
+        Add Request
+
+    </a>
+
+</div>
+
+<div class="table-responsive">
+
+    <table class="table table-bordered table-hover">
+
+        <thead>
+
+            <tr>
+
+                <th>Customer</th>
+                <th>Service</th>
+                <th>Quoted Price</th>
+                <th>Status</th>
+                <th>Date</th>
+                <th>Action</th>
+
+            </tr>
+
+        </thead>
+
+        <tbody>
+
+            <?php foreach ($requests as $request): ?>
+
+                <tr>
+
+                    <td>
+                        <?= htmlspecialchars($request['customer_name']) ?>
+                    </td>
+
+                    <td>
+                        <?= htmlspecialchars($request['service_title']) ?>
+                    </td>
+
+                    <td>
+                        $<?= number_format($request['quoted_price'], 2) ?>
+                    </td>
+
+                    <td>
+
+                        <?php if ($request['status'] === 'Pending'): ?>
+
+                            <span class="badge bg-warning">
+                                Pending
+                            </span>
+
+                        <?php elseif ($request['status'] === 'Completed'): ?>
+
+                            <span class="badge bg-success">
+                                Completed
+                            </span>
+
+                        <?php elseif ($request['status'] === 'Cancelled'): ?>
+
+                            <span class="badge bg-danger">
+                                Cancelled
+                            </span>
+
+                        <?php else: ?>
+
+                            <span class="badge bg-primary">
+                                <?= htmlspecialchars($request['status']) ?>
+                            </span>
+
+                        <?php endif; ?>
+
+                    </td>
+
+                    <td>
+                        <?= $request['created_at'] ?>
+                    </td>
+
+                    <td>
+
+                        <a
+                            href="?page=view-request&id=<?= $request['id'] ?>"
+                            class="btn btn-info btn-sm">
+
+                            View
+
+                        </a>
+
+                        <a
+                            href="?page=edit-request&id=<?= $request['id'] ?>"
+                            class="btn btn-warning btn-sm">
+
+                            Edit
+
+                        </a>
+
+                        <a
+                            href="?page=delete-request&id=<?= $request['id'] ?>"
+                            class="btn btn-danger btn-sm"
+                            onclick="return confirm('Delete request?')">
+
+                            Delete
+
+                        </a>
+
+                    </td>
+
+                </tr>
+
+            <?php endforeach; ?>
+
+        </tbody>
+
+    </table>
+
+</div>
+
+<?php require __DIR__ . '/layouts/footer.php'; ?>
