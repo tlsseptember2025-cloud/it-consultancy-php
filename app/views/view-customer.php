@@ -19,6 +19,38 @@ $stmt->execute([$id]);
 
 $customer = $stmt->fetch();
 
+$requestsStmt = $pdo->prepare("
+    SELECT
+        requests.*,
+        services.title AS service_title
+    FROM requests
+    JOIN services
+        ON services.id = requests.service_id
+    WHERE requests.customer_id = ?
+    ORDER BY requests.created_at DESC
+");
+
+$requestsStmt->execute([$id]);
+
+$requests = $requestsStmt->fetchAll();
+
+$paymentsStmt = $pdo->prepare("
+    SELECT
+        payments.*,
+        services.title AS service_title
+    FROM payments
+    JOIN requests
+        ON requests.id = payments.request_id
+    JOIN services
+        ON services.id = requests.service_id
+    WHERE requests.customer_id = ?
+    ORDER BY payments.created_at DESC
+");
+
+$paymentsStmt->execute([$id]);
+
+$payments = $paymentsStmt->fetchAll();
+
 if (!$customer) {
     die('Customer not found');
 }
@@ -59,6 +91,96 @@ if (!$customer) {
             <strong>Notes:</strong><br>
             <?= nl2br(htmlspecialchars($customer['notes'])) ?>
         </p>
+
+        <hr>
+
+<h3 class="mb-3">
+    Requests
+</h3>
+
+<table class="table table-bordered">
+
+    <thead>
+
+        <tr>
+
+            <th>Service</th>
+            <th>Price</th>
+            <th>Status</th>
+
+        </tr>
+
+    </thead>
+
+    <tbody>
+
+        <?php foreach ($requests as $request): ?>
+
+            <tr>
+
+                <td>
+                    <?= htmlspecialchars($request['service_title']) ?>
+                </td>
+
+                <td>
+                    $<?= number_format($request['quoted_price'], 2) ?>
+                </td>
+
+                <td>
+                    <?= htmlspecialchars($request['status']) ?>
+                </td>
+
+            </tr>
+
+        <?php endforeach; ?>
+
+    </tbody>
+
+</table>
+
+<h3 class="mb-3 mt-5">
+    Payments
+</h3>
+
+<table class="table table-bordered">
+
+    <thead>
+
+        <tr>
+
+            <th>Service</th>
+            <th>Amount</th>
+            <th>Status</th>
+
+        </tr>
+
+    </thead>
+
+    <tbody>
+
+        <?php foreach ($payments as $payment): ?>
+
+            <tr>
+
+                <td>
+                    <?= htmlspecialchars($payment['service_title']) ?>
+                </td>
+
+                <td>
+                    $<?= number_format($payment['amount'], 2) ?>
+                </td>
+
+                <td>
+                    <?= htmlspecialchars($payment['status']) ?>
+                </td>
+
+            </tr>
+
+        <?php endforeach; ?>
+
+    </tbody>
+
+</table>
 
         <a
             href="?page=customers"
