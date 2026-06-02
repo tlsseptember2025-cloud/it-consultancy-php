@@ -25,7 +25,21 @@ $services = $stmt->fetchAll();
 
             <div class="card shadow-sm mb-4 h-100">
 
-                <div class="card-body">
+                <div class="card-body text-center">
+
+                    <?php if (!empty($service['image'])): ?>
+
+                        <img
+                            src="../uploads/<?= htmlspecialchars($service['image']) ?>"
+                            alt="<?= htmlspecialchars($service['title']) ?>"
+                            class="img-fluid rounded mb-3"
+                            style="
+                                width:120px;
+                                height:120px;
+                                object-fit:cover;
+                            ">
+
+                    <?php endif; ?>
 
                     <h4 class="card-title">
 

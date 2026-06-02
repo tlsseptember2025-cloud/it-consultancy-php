@@ -29,9 +29,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $description = trim($_POST['description']);
     $price = trim($_POST['price']);
 
+    $image = $service['image'];
+
+    if (!empty($_FILES['image']['name'])) {
+
+        $image = time() . '_' . basename($_FILES['image']['name']);
+
+        move_uploaded_file(
+            $_FILES['image']['tmp_name'],
+            dirname(__DIR__, 2) . '/uploads/' . $image
+        );
+    }
+
     $stmt = $pdo->prepare("
         UPDATE services
-        SET title = ?, description = ?, price = ?
+        SET title = ?, description = ?, price = ?, image = ?
         WHERE id = ?
     ");
 
@@ -39,6 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $title,
         $description,
         $price,
+        $image,
         $id
     ]);
 
@@ -62,7 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     Edit Service
                 </h2>
 
-                <form method="POST">
+                <form method="POST" enctype="multipart/form-data">
 
                     <div class="mb-3">
 
@@ -106,6 +119,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             class="form-control"
                             value="<?= $service['price'] ?>"
                             required>
+
+                            <div class="mb-3">
+
+                                <label class="form-label">
+                                    Current Image
+                                </label>
+
+                                <br>
+
+                                <?php if (!empty($service['image'])): ?>
+
+                                    <img
+                                        src="../uploads/<?= htmlspecialchars($service['image']) ?>"
+                                        width="120"
+                                        class="img-thumbnail mb-3">
+
+                                <?php else: ?>
+
+                                    <p>No image uploaded.</p>
+
+                                <?php endif; ?>
+
+                            </div>
+
+<div class="mb-3">
+
+    <label class="form-label">
+        New Image
+    </label>
+
+    <input
+        type="file"
+        name="image"
+        class="form-control"
+        accept="image/*">
+
+</div>
 
                     </div>
 

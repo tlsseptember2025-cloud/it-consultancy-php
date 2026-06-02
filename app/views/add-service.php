@@ -14,12 +14,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $description = trim($_POST['description']);
     $price = trim($_POST['price']);
 
+    $image = null;
+
+    if (!empty($_FILES['image']['name'])) {
+
+        $image = time() . '_' . basename($_FILES['image']['name']);
+
+        move_uploaded_file(
+            $_FILES['image']['tmp_name'],
+            dirname(__DIR__, 2) . '/uploads/' . $image
+        );
+    }
+
     $stmt = $pdo->prepare("
-        INSERT INTO services (title, description, price)
-        VALUES (?, ?, ?)
+        INSERT INTO services (title, description, price, image)
+        VALUES (?, ?, ?, ?)
     ");
 
-    $stmt->execute([$title, $description, $price]);
+    $stmt->execute([
+        $title,
+        $description,
+        $price,
+        $image
+    ]);
 
     header('Location: ?page=services-admin');
     exit;
@@ -41,7 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     Add Service
                 </h2>
 
-                <form method="POST">
+                <form method="POST" enctype="multipart/form-data">
 
                     <div class="mb-3">
 
@@ -83,6 +100,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             name="price"
                             class="form-control"
                             required>
+
+                            <div class="mb-3">
+
+                                <label class="form-label">
+                                    Service Image
+                                </label>
+
+                                <input
+                                    type="file"
+                                    name="image"
+                                    class="form-control"
+                                    accept="image/*">
+
+                            </div>
 
                     </div>
 

@@ -41,6 +41,7 @@ $services = $stmt->fetchAll();
 
         <tr>
 
+            <th>Image</th>
             <th>Title</th>
             <th>Description</th>
             <th>Price</th>
@@ -51,6 +52,19 @@ $services = $stmt->fetchAll();
         <?php foreach ($services as $service): ?>
 
             <tr>
+
+                <td>
+
+                    <?php if (!empty($service['image'])): ?>
+
+                        <img
+                            src="../uploads/<?= htmlspecialchars($service['image']) ?>"
+                            width="80"
+                            class="img-thumbnail">
+
+                    <?php endif; ?>
+
+                </td>
 
                 <td>
                     <?= htmlspecialchars($service['title']) ?>
