@@ -51,6 +51,27 @@ $paymentsStmt->execute([$id]);
 
 $payments = $paymentsStmt->fetchAll();
 
+$totalRequestsValue = 0;
+$totalPaid = 0;
+
+foreach ($requests as $request) {
+
+    $totalRequestsValue += $request['quoted_price'];
+}
+
+foreach ($payments as $payment) {
+
+    if (
+        $payment['status'] === 'Paid' ||
+        $payment['status'] === 'Partially Paid'
+    ) {
+        $totalPaid += $payment['amount'];
+    }
+}
+
+$outstandingBalance =
+    $totalRequestsValue - $totalPaid;
+
 if (!$customer) {
     die('Customer not found');
 }
@@ -91,6 +112,78 @@ if (!$customer) {
             <strong>Notes:</strong><br>
             <?= nl2br(htmlspecialchars($customer['notes'])) ?>
         </p>
+
+        <hr>
+
+<div class="row mb-4">
+
+    <div class="col-md-4">
+
+        <div class="card text-center border-primary">
+
+            <div class="card-body">
+
+                <h6>
+                    Total Requests Value
+                </h6>
+
+                <h4 class="text-primary">
+
+                    $<?= number_format($totalRequestsValue, 2) ?>
+
+                </h4>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="col-md-4">
+
+        <div class="card text-center border-success">
+
+            <div class="card-body">
+
+                <h6>
+                    Total Paid
+                </h6>
+
+                <h4 class="text-success">
+
+                    $<?= number_format($totalPaid, 2) ?>
+
+                </h4>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="col-md-4">
+
+        <div class="card text-center border-danger">
+
+            <div class="card-body">
+
+                <h6>
+                    Outstanding Balance
+                </h6>
+
+                <h4 class="text-danger">
+
+                    $<?= number_format($outstandingBalance, 2) ?>
+
+                </h4>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
 
         <hr>
 

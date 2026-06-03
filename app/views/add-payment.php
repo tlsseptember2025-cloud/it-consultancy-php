@@ -7,43 +7,102 @@ if (!isset($_SESSION['user'])) {
 
 require dirname(__DIR__, 2) . '/config/database.php';
 
+$error = '';
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    $stmt = $pdo->prepare("
-        INSERT INTO payments
-        (
-            request_id,
-            amount,
-            status,
-            payment_date,
-            notes
-        )
-        VALUES (?, ?, ?, ?, ?)
-    ");
+    $requestId = $_POST['request_id'];
+    $amount = (float) $_POST['amount'];
 
-    $stmt->execute([
-        $_POST['request_id'],
-        $_POST['amount'],
-        $_POST['status'],
-        $_POST['payment_date'],
-        $_POST['notes']
-    ]);
+    $balanceStmt = $pdo->prepare("
+    SELECT
+        requests.quoted_price,
 
-    header("Location: ?page=payments");
-    exit;
+        COALESCE(
+            SUM(payments.amount),
+            0
+        ) AS paid_amount
+
+    FROM requests
+
+    LEFT JOIN payments
+        ON payments.request_id = requests.id
+
+    WHERE requests.id = ?
+
+    GROUP BY requests.id
+");
+
+$balanceStmt->execute([$requestId]);
+
+$requestData = $balanceStmt->fetch();
+
+$outstandingBalance =
+    $requestData['quoted_price']
+    -
+    $requestData['paid_amount'];
+
+
+    if ($amount > $outstandingBalance) {
+
+        $error =
+            "Payment exceeds outstanding balance. Remaining balance is $" .
+            number_format($outstandingBalance, 2);
+    }
+
+    if (empty($error)) {
+        $stmt = $pdo->prepare("
+            INSERT INTO payments
+            (
+                request_id,
+                amount,
+                status,
+                payment_date,
+                notes
+            )
+            VALUES (?, ?, ?, ?, ?)
+        ");
+
+        $stmt->execute([
+            $_POST['request_id'],
+            $_POST['amount'],
+            $_POST['status'],
+            $_POST['payment_date'],
+            $_POST['notes']
+        ]);
+
+        header("Location: ?page=payments");
+        exit;
+    }
 }
 
 $requests = $pdo->query("
     SELECT
         requests.id,
         requests.quoted_price,
+
+        COALESCE(
+            SUM(payments.amount),
+            0
+        ) AS paid_amount,
+
         customers.name,
+
         services.title
+
     FROM requests
+
     JOIN customers
         ON customers.id = requests.customer_id
+
     JOIN services
         ON services.id = requests.service_id
+
+    LEFT JOIN payments
+        ON payments.request_id = requests.id
+
+    GROUP BY requests.id
+
     ORDER BY requests.id DESC
 ")->fetchAll();
 
@@ -63,6 +122,42 @@ $requests = $pdo->query("
                     Add Payment
                 </h2>
 
+                <?php if (!empty($error)): ?>
+
+                    <div id="errorAlert" class="alert alert-danger">
+
+                        <?= htmlspecialchars($error) ?>
+
+                    </div>
+
+                <?php endif; ?>
+
+                <script>
+
+                    setTimeout(function() {
+
+                        const alert =
+                            document.getElementById('errorAlert');
+
+                        if (alert) {
+
+                            alert.style.transition =
+                                'opacity 0.5s ease';
+
+                            alert.style.opacity = '0';
+
+                            setTimeout(function() {
+
+                                alert.remove();
+
+                            }, 500);
+
+                        }
+
+                    }, 5000);
+
+                </script>
+
                 <form method="POST">
 
                     <div class="mb-3">
@@ -73,6 +168,7 @@ $requests = $pdo->query("
 
                         <select
                             name="request_id"
+                            id="request_id"
                             class="form-select"
                             required>
 
@@ -82,7 +178,9 @@ $requests = $pdo->query("
 
                             <?php foreach ($requests as $request): ?>
 
-                                <option value="<?= $request['id'] ?>">
+                                <option
+                                    value="<?= $request['id'] ?>"
+                                    data-price="<?= $request['quoted_price'] - $request['paid_amount'] ?>">
 
                                     #<?= $request['id'] ?>
                                     -
@@ -109,6 +207,7 @@ $requests = $pdo->query("
                             type="number"
                             step="0.01"
                             name="amount"
+                            id="amount"
                             class="form-control"
                             required>
 
@@ -176,5 +275,25 @@ $requests = $pdo->query("
     </div>
 
 </div>
+
+<script>
+
+document
+    .getElementById('request_id')
+    .addEventListener('change', function() {
+
+        let option =
+            this.options[this.selectedIndex];
+
+        let price =
+            option.getAttribute('data-price');
+
+        document
+            .getElementById('amount')
+            .value = price;
+
+    });
+
+</script>
 
 <?php require __DIR__ . '/layouts/footer.php'; ?>
