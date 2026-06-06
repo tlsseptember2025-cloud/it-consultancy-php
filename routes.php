@@ -75,6 +75,10 @@ switch ($page) {
         require 'app/views/delete-customer.php';
         break;
 
+    case 'backup':
+        require __DIR__ . '/app/views/backup.php';
+        break;
+
     case 'view-customer':
         require 'app/views/view-customer.php';
         break;
