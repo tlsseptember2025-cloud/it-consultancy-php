@@ -1,5 +1,7 @@
 <?php
 
+require __DIR__ . '/config/database.php';
+
 $page = $_GET['page'] ?? 'home';
 
 switch ($page) {
@@ -130,6 +132,20 @@ switch ($page) {
     case 'delete-payment':
         require 'app/views/delete-payment.php';
         break;
+
+    case 'delete-refund':
+
+        $stmt = $pdo->prepare("
+            DELETE FROM refunds
+            WHERE id = ?
+        ");
+
+        $stmt->execute([
+            $_GET['id']
+        ]);
+
+        header('Location: ?page=refunds');
+        exit;
 
     default:
         echo "404 - Page not found";

@@ -36,7 +36,7 @@ $unreadMessages = $pdo->query("
 ")->fetchColumn();
 
 $totalPayments = $pdo->query("
-    SELECT COUNT(*)
+    SELECT COALESCE(SUM(amount), 0)
     FROM payments
 ")->fetchColumn();
 
@@ -50,13 +50,38 @@ $totalQuoted = $pdo->query("
     FROM requests
 ")->fetchColumn();
 
+$totalRefunded = $pdo->query("
+    SELECT COALESCE(SUM(amount),0)
+    FROM refunds
+")->fetchColumn();
+
+$netRevenue = $totalRevenue - $totalRefunded;
+
 $outstandingBalance = $totalQuoted - $totalRevenue;
+
+
 
 /*
 |--------------------------------------------------------------------------
 | Recent Activity
 |--------------------------------------------------------------------------
 */
+
+$latestRefund = $pdo->query("
+    SELECT
+        refunds.*,
+        customers.name,
+        services.title
+    FROM refunds
+    JOIN requests
+        ON requests.id = refunds.request_id
+    JOIN customers
+        ON customers.id = requests.customer_id
+    JOIN services
+        ON services.id = requests.service_id
+    ORDER BY refunds.id DESC
+    LIMIT 1
+")->fetch();
 
 $latestRequest = $pdo->query("
     SELECT
@@ -120,7 +145,7 @@ $latestMessage = $pdo->query("
     </div>
 
     <div class="col-md-3">
-        <div class="card border-warning text-center">
+        <div class="card text-center" style="border-color: var(--bs-orange);">
             <div class="card-body">
                 <h6>Total Services</h6>
                 <h2 class="text-warning"><?= $totalServices ?></h2>
@@ -141,17 +166,44 @@ $latestMessage = $pdo->query("
 
 <div class="row g-4">
 
-    <div class="col-md-4">
-        <div class="card bg-success text-white shadow-sm">
+    <div class="col-md-3">
+        <div class="card bg-info text-white shadow-sm">
             <div class="card-body">
-                <h4>Total Revenue</h4>
-                <h1>$<?= number_format($totalRevenue, 2) ?></h1>
+                <h4>Total Payments</h4>
+                <h1>$<?= number_format($totalPayments, 2) ?></h1>
             </div>
         </div>
     </div>
 
-    <div class="col-md-4">
-        <div class="card bg-warning text-white shadow-sm">
+    <div class="col-md-3">
+
+        <div class="card bg-danger text-white shadow-sm">
+
+            <div class="card-body">
+
+                <h4>Total Refunded</h4>
+
+                <h1>
+                    $<?= number_format($totalRefunded, 2) ?>
+                </h1>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="col-md-3">
+        <div class="card bg-success text-white shadow-sm">
+            <div class="card-body">
+                <h4>Net Revenue</h4>
+                <h1>$<?= number_format($netRevenue, 2) ?></h1>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card text-white shadow-sm" style="background-color: var(--bs-orange);">
             <div class="card-body">
                 <h4>Outstanding Balance</h4>
                 <h1>$<?= number_format($outstandingBalance, 2) ?></h1>
@@ -159,14 +211,7 @@ $latestMessage = $pdo->query("
         </div>
     </div>
 
-    <div class="col-md-4">
-        <div class="card bg-info text-white shadow-sm">
-            <div class="card-body">
-                <h4>Total Payments</h4>
-                <h1><?= $totalPayments ?></h1>
-            </div>
-        </div>
-    </div>
+</div>
 
 <div class="card shadow-sm mt-5">
 
@@ -180,7 +225,7 @@ $latestMessage = $pdo->query("
 
     <div class="row">
 
-        <div class="col-md-4">
+        <div class="col-md-3">
 
             <div class="border-start border-4 border-primary rounded p-3 h-100">
 
@@ -251,7 +296,7 @@ $statusColor = match ($latestRequest['status']) {
 
         </div>
 
-        <div class="col-md-4">
+        <div class="col-md-3">
 
             <div class="border-start border-4 border-success rounded p-3 h-100">
 
@@ -302,11 +347,11 @@ $paymentColor = match ($latestPayment['status']) {
 
 ?>
 
-<span class="badge bg-<?= $paymentColor ?>">
+            <span class="badge bg-<?= $paymentColor ?>">
 
-    <?= htmlspecialchars($latestPayment['status']) ?>
+                <?= htmlspecialchars($latestPayment['status']) ?>
 
-</span>
+                    </span>
 
                     </span>
 
@@ -320,7 +365,7 @@ $paymentColor = match ($latestPayment['status']) {
 
         </div>
 
-        <div class="col-md-4">
+        <div class="col-md-3">
 
             <div class="border-start border-4 border-danger rounded p-3 h-100">
 
@@ -346,13 +391,13 @@ $paymentColor = match ($latestPayment['status']) {
 
                     <?= htmlspecialchars(substr($latestMessage['message'], 0, 80)) ?>
 
-<br><br>
+                <br><br>
 
-<small class="text-muted">
+                <small class="text-muted">
 
-    <?= date('M d, Y', strtotime($latestMessage['created_at'])) ?>
+                    <?= date('M d, Y', strtotime($latestMessage['created_at'])) ?>
 
-</small>
+                </small>
 
                 <?php else: ?>
 
@@ -364,7 +409,43 @@ $paymentColor = match ($latestPayment['status']) {
 
         </div>
 
+        <div class="col-md-3">
+
+    <div class="border-start border-4 border-warning rounded p-3 h-100" style="border-color: orange !important;">
+
+    <h5 style="color: var(--bs-orange);">
+        Latest Refund
+    </h5>
+
+        <?php if ($latestRefund): ?>
+
+            <strong>
+                <?= htmlspecialchars($latestRefund['name']) ?>
+            </strong>
+
+            <br>
+
+            <?= htmlspecialchars($latestRefund['title']) ?>
+
+            <br>
+
+            <strong style="color: var(--bs-orange);">
+                $<?= number_format($latestRefund['amount'], 2) ?>
+            </strong>
+
+            <br>
+
+            <?= date('M d, Y', strtotime($latestRefund['refund_date'])) ?>
+
+        <?php else: ?>
+
+            No refunds found.
+
+        <?php endif; ?>
+
     </div>
+
+</div>
 
 </div>
 

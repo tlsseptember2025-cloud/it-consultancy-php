@@ -65,6 +65,8 @@ $refunds = $pdo->query("
 
                     <th>Reason</th>
 
+                    <th>Actions</th>
+
                 </tr>
 
             </thead>
@@ -97,6 +99,19 @@ $refunds = $pdo->query("
 
                         <td>
                             <?= htmlspecialchars($refund['reason']) ?>
+                        </td>
+
+                        <td>
+
+                            <a
+                                href="?page=delete-refund&id=<?= $refund['id'] ?>"
+                                class="btn btn-sm btn-danger"
+                                onclick="return confirm('Delete refund?')">
+
+                                Delete
+
+                            </a>
+
                         </td>
 
                     </tr>
