@@ -56,7 +56,7 @@ $totalRefunded = $pdo->query("
 ")->fetchColumn();
 
 $netRevenue = $totalRevenue - $totalRefunded;
-
+$totalRevenue = $totalPayments - $totalRefunded;
 $outstandingBalance = $totalQuoted - $totalRevenue;
 
 
