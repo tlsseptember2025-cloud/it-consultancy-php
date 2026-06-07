@@ -105,6 +105,36 @@ INSERT INTO `payments` VALUES (3,1,5.00,'Partially Paid','2026-06-03 09:17:00','
 UNLOCK TABLES;
 
 --
+-- Table structure for table `refunds`
+--
+
+DROP TABLE IF EXISTS `refunds`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `refunds` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `request_id` int(11) NOT NULL,
+  `amount` decimal(10,2) NOT NULL,
+  `refund_date` datetime NOT NULL,
+  `reason` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `request_id` (`request_id`),
+  CONSTRAINT `refunds_ibfk_1` FOREIGN KEY (`request_id`) REFERENCES `requests` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `refunds`
+--
+
+LOCK TABLES `refunds` WRITE;
+/*!40000 ALTER TABLE `refunds` DISABLE KEYS */;
+INSERT INTO `refunds` VALUES (3,1,15.00,'2026-06-07 13:10:00','ok','2026-06-07 09:10:48');
+/*!40000 ALTER TABLE `refunds` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
 -- Table structure for table `requests`
 --
 
@@ -199,4 +229,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-06-07  9:11:04
+-- Dump completed on 2026-06-07 13:36:41
