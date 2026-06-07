@@ -8,21 +8,87 @@ if (!isset($_SESSION['user'])) {
 
 require dirname(__DIR__, 2) . '/config/database.php';
 
-$totalMessages = $pdo->query("
-    SELECT COUNT(*) FROM messages
+/*
+|--------------------------------------------------------------------------
+| Statistics
+|--------------------------------------------------------------------------
+*/
+
+$totalCustomers = $pdo->query("
+    SELECT COUNT(*)
+    FROM customers
 ")->fetchColumn();
 
-$unreadMessages = $pdo->query("
-    SELECT COUNT(*) FROM messages
-    WHERE status = 'unread'
+$totalRequests = $pdo->query("
+    SELECT COUNT(*)
+    FROM requests
 ")->fetchColumn();
 
 $totalServices = $pdo->query("
-    SELECT COUNT(*) FROM services
+    SELECT COUNT(*)
+    FROM services
 ")->fetchColumn();
 
+$unreadMessages = $pdo->query("
+    SELECT COUNT(*)
+    FROM messages
+    WHERE status = 'unread'
+")->fetchColumn();
+
+$totalPayments = $pdo->query("
+    SELECT COUNT(*)
+    FROM payments
+")->fetchColumn();
+
+$totalRevenue = $pdo->query("
+    SELECT COALESCE(SUM(amount),0)
+    FROM payments
+")->fetchColumn();
+
+$totalQuoted = $pdo->query("
+    SELECT COALESCE(SUM(quoted_price),0)
+    FROM requests
+")->fetchColumn();
+
+$outstandingBalance = $totalQuoted - $totalRevenue;
+
+/*
+|--------------------------------------------------------------------------
+| Recent Activity
+|--------------------------------------------------------------------------
+*/
+
+$latestRequest = $pdo->query("
+    SELECT
+        customers.name,
+        services.title,
+        requests.status
+    FROM requests
+    JOIN customers
+        ON customers.id = requests.customer_id
+    JOIN services
+        ON services.id = requests.service_id
+    ORDER BY requests.id DESC
+    LIMIT 1
+")->fetch();
+
+$latestPayment = $pdo->query("
+    SELECT
+        customers.name,
+        payments.amount,
+        payments.status
+    FROM payments
+    JOIN requests
+        ON requests.id = payments.request_id
+    JOIN customers
+        ON customers.id = requests.customer_id
+    ORDER BY payments.id DESC
+    LIMIT 1
+")->fetch();
+
 $latestMessage = $pdo->query("
-    SELECT * FROM messages
+    SELECT *
+    FROM messages
     ORDER BY created_at DESC
     LIMIT 1
 ")->fetch();
@@ -31,64 +97,73 @@ $latestMessage = $pdo->query("
 
 <?php require __DIR__ . '/layouts/header.php'; ?>
 
-<h1 class="mb-5">
-    Dashboard
-</h1>
+<div class="row mb-4">
+
+    <div class="col-md-3">
+        <div class="card border-primary text-center">
+            <div class="card-body">
+                <h6>Total Customers</h6>
+                <h2 class="text-primary"><?= $totalCustomers ?></h2>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card border-success text-center">
+            <div class="card-body">
+                <h6>Total Requests</h6>
+                <h2 class="text-success"><?= $totalRequests ?></h2>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card border-warning text-center">
+            <div class="card-body">
+                <h6>Total Services</h6>
+                <h2 class="text-warning"><?= $totalServices ?></h2>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card border-danger text-center">
+            <div class="card-body">
+                <h6>Unread Messages</h6>
+                <h2 class="text-danger"><?= $unreadMessages ?></h2>
+            </div>
+        </div>
+    </div>
+
+</div>
 
 <div class="row g-4">
 
     <div class="col-md-4">
-
-        <div class="card bg-primary text-white shadow-sm">
-
-            <div class="card-body">
-
-                <h4>Total Messages</h4>
-
-                <h1>
-                    <?= $totalMessages ?>
-                </h1>
-
-            </div>
-
-        </div>
-
-    </div>
-
-    <div class="col-md-4">
-
-        <div class="card bg-danger text-white shadow-sm">
-
-            <div class="card-body">
-
-                <h4>Unread Messages</h4>
-
-                <h1>
-                    <?= $unreadMessages ?>
-                </h1>
-
-            </div>
-
-        </div>
-
-    </div>
-
-    <div class="col-md-4">
-
         <div class="card bg-success text-white shadow-sm">
-
             <div class="card-body">
-
-                <h4>Total Services</h4>
-
-                <h1>
-                    <?= $totalServices ?>
-                </h1>
-
+                <h4>Total Revenue</h4>
+                <h1>$<?= number_format($totalRevenue, 2) ?></h1>
             </div>
-
         </div>
+    </div>
 
+    <div class="col-md-4">
+        <div class="card bg-warning text-white shadow-sm">
+            <div class="card-body">
+                <h4>Outstanding Balance</h4>
+                <h1>$<?= number_format($outstandingBalance, 2) ?></h1>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card bg-info text-white shadow-sm">
+            <div class="card-body">
+                <h4>Total Payments</h4>
+                <h1><?= $totalPayments ?></h1>
+            </div>
+        </div>
     </div>
 
 </div>
@@ -97,43 +172,87 @@ $latestMessage = $pdo->query("
 
     <div class="card-body">
 
-        <h3 class="mb-4">
-            Latest Message
-        </h3>
+        <h3 class="mb-4">Recent Activity</h3>
 
-        <?php if ($latestMessage): ?>
+        <div class="row">
 
-            <p>
+            <div class="col-md-4">
 
-                <strong>Name:</strong>
+                <div class="border rounded p-3 h-100">
 
-                <?= htmlspecialchars($latestMessage['name']) ?>
+                    <h5 class="text-primary">Latest Request</h5>
 
-            </p>
+                    <?php if ($latestRequest): ?>
 
-            <p>
+                        <strong><?= htmlspecialchars($latestRequest['name']) ?></strong><br>
 
-                <strong>Service:</strong>
+                        <?= htmlspecialchars($latestRequest['title']) ?><br>
 
-                <?= htmlspecialchars($latestMessage['service']) ?>
+                        <span class="badge bg-primary">
+                            <?= htmlspecialchars($latestRequest['status']) ?>
+                        </span>
 
-            </p>
+                    <?php else: ?>
 
-            <p>
+                        No requests found.
 
-                <strong>Message:</strong>
+                    <?php endif; ?>
 
-                <?= htmlspecialchars($latestMessage['message']) ?>
+                </div>
 
-            </p>
+            </div>
 
-        <?php else: ?>
+            <div class="col-md-4">
 
-            <p>
-                No messages found.
-            </p>
+                <div class="border rounded p-3 h-100">
 
-        <?php endif; ?>
+                    <h5 class="text-success">Latest Payment</h5>
+
+                    <?php if ($latestPayment): ?>
+
+                        <strong><?= htmlspecialchars($latestPayment['name']) ?></strong><br>
+
+                        $<?= number_format($latestPayment['amount'], 2) ?><br>
+
+                        <span class="badge bg-success">
+                            <?= htmlspecialchars($latestPayment['status']) ?>
+                        </span>
+
+                    <?php else: ?>
+
+                        No payments found.
+
+                    <?php endif; ?>
+
+                </div>
+
+            </div>
+
+            <div class="col-md-4">
+
+                <div class="border rounded p-3 h-100">
+
+                    <h5 class="text-danger">Latest Message</h5>
+
+                    <?php if ($latestMessage): ?>
+
+                        <strong><?= htmlspecialchars($latestMessage['name']) ?></strong><br>
+
+                        <?= htmlspecialchars($latestMessage['service']) ?><br>
+
+                        <?= htmlspecialchars(substr($latestMessage['message'], 0, 80)) ?>
+
+                    <?php else: ?>
+
+                        No messages found.
+
+                    <?php endif; ?>
+
+                </div>
+
+            </div>
+
+        </div>
 
     </div>
 
