@@ -97,7 +97,6 @@ $latestMessage = $pdo->query("
 
 <?php require __DIR__ . '/layouts/header.php'; ?>
 
-<<<<<<< HEAD
 <div class="row mb-4">
 
     <div class="col-md-3">
@@ -166,7 +165,6 @@ $latestMessage = $pdo->query("
             </div>
         </div>
     </div>
-=======
 <?php
 
 if (!isset($_SESSION['user'])) {
@@ -415,14 +413,11 @@ $balanceColor =
 
 </div>
 
->>>>>>> 1e4cf9a1f4ffac8b1bb3eeaca0bc5b10afee1296
 
 </div>
 
 <div class="card shadow-sm mt-5">
 
-
-<<<<<<< HEAD
         <h3 class="mb-4">Recent Activity</h3>
 
         <div class="row">
@@ -500,7 +495,7 @@ $balanceColor =
                     <?php endif; ?>
 
                 </div>
-=======
+
 <div class="card-body">
 
     <h3 class="mb-4">
@@ -690,7 +685,6 @@ $paymentColor = match ($latestPayment['status']) {
                     No messages found.
 
                 <?php endif; ?>
->>>>>>> 1e4cf9a1f4ffac8b1bb3eeaca0bc5b10afee1296
 
             </div>
 
@@ -700,10 +694,9 @@ $paymentColor = match ($latestPayment['status']) {
 
 </div>
 
-<<<<<<< HEAD
+
 <?php require __DIR__ . '/layouts/footer.php'; ?>
-=======
+
 </div>
 
 <?php require __DIR__ . '/layouts/footer.php'; ?>
->>>>>>> 1e4cf9a1f4ffac8b1bb3eeaca0bc5b10afee1296
