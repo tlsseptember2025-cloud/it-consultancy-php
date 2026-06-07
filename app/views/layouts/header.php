@@ -62,6 +62,10 @@
             Manage Services
         </a>
 
+        <a href="?page=refunds" class="nav-link">
+            Refunds
+        </a>
+
         <a href="?page=backup" class="nav-link">
             Database Backup
         </a>

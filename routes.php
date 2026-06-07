@@ -103,6 +103,14 @@ switch ($page) {
         require 'app/views/delete-request.php';
         break;
 
+    case 'refunds':
+        require __DIR__ . '/app/views/refunds.php';
+        break;
+
+    case 'add-refund':
+        require __DIR__ . '/app/views/add-refund.php';
+        break;
+
     case 'payments':
         require 'app/views/payments.php';
         break;
