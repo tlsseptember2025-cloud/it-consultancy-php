@@ -62,6 +62,10 @@
             Manage Services
         </a>
 
+        <a href="?page=backup" class="nav-link">
+            Database Backup
+        </a>
+
         <a class="nav-link text-danger" href="?page=logout">
             Logout
         </a>

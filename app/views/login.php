@@ -2,6 +2,79 @@
 
 require dirname(__DIR__, 2) . '/config/database.php';
 
+$totalCustomers = $pdo->query("
+    SELECT COUNT(*)
+    FROM customers
+")->fetchColumn();
+
+$totalRequests = $pdo->query("
+    SELECT COUNT(*)
+    FROM requests
+")->fetchColumn();
+
+$totalServices = $pdo->query("
+    SELECT COUNT(*)
+    FROM services
+")->fetchColumn();
+
+$unreadMessages = $pdo->query("
+    SELECT COUNT(*)
+    FROM messages
+    WHERE status = 'unread'
+")->fetchColumn();
+
+$totalPayments = $pdo->query("
+    SELECT COUNT(*)
+    FROM payments
+")->fetchColumn();
+
+$totalRevenue = $pdo->query("
+    SELECT COALESCE(SUM(amount),0)
+    FROM payments
+")->fetchColumn();
+
+$totalQuoted = $pdo->query("
+    SELECT COALESCE(SUM(quoted_price),0)
+    FROM requests
+")->fetchColumn();
+
+$outstandingBalance = $totalQuoted - $totalRevenue;
+
+$latestRequest = $pdo->query("
+    SELECT
+        customers.name,
+        services.title,
+        requests.status
+    FROM requests
+    JOIN customers
+        ON customers.id = requests.customer_id
+    JOIN services
+        ON services.id = requests.service_id
+    ORDER BY requests.id DESC
+    LIMIT 1
+")->fetch();
+
+$latestPayment = $pdo->query("
+    SELECT
+        customers.name,
+        payments.amount,
+        payments.status
+    FROM payments
+    JOIN requests
+        ON requests.id = payments.request_id
+    JOIN customers
+        ON customers.id = requests.customer_id
+    ORDER BY payments.id DESC
+    LIMIT 1
+")->fetch();
+
+$latestMessage = $pdo->query("
+    SELECT *
+    FROM messages
+    ORDER BY id DESC
+    LIMIT 1
+")->fetch();
+
 if (isset($_SESSION['user'])) {
 
     header('Location: ?page=dashboard');
