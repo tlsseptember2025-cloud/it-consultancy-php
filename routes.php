@@ -34,6 +34,10 @@ switch ($page) {
     header("Location: ?page=home");
     exit;
 
+    case 'deposit-slips':
+    require '../app/views/deposit-slips.php';
+    break;
+
     case 'customer-dashboard':
     require __DIR__ . '/app/views/customer-dashboard.php';
     break;

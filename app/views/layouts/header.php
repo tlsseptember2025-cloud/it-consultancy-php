@@ -63,6 +63,10 @@
                         Manage Services
                     </a>
 
+                    <a href="?page=deposit-slips" class="nav-link">
+                        Deposit Slips
+                    </a>
+
                     <a class="nav-link" href="?page=refunds">
                         Refunds
                     </a>
