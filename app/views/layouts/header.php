@@ -33,68 +33,108 @@
 
         <div class="collapse navbar-collapse" id="navbarNav">
 
-            
-        <div class="navbar-nav ms-auto">
+            <div class="navbar-nav ms-auto">
 
-    <?php if (isset($_SESSION['user'])): ?>
+                <?php if (isset($_SESSION['user'])): ?>
 
-        <a class="nav-link" href="?page=dashboard">
-            Dashboard
-        </a>
+                    <!-- ADMIN MENU -->
 
-        <a class="nav-link" href="?page=messages">
-            Messages
-        </a>
+                    <a class="nav-link" href="?page=dashboard">
+                        Dashboard
+                    </a>
 
-        <a class="nav-link" href="?page=customers">
-            Customers
-        </a>
+                    <a class="nav-link" href="?page=messages">
+                        Messages
+                    </a>
 
-        <a class="nav-link" href="?page=requests">
-            Requests
-        </a>
+                    <a class="nav-link" href="?page=customers">
+                        Customers
+                    </a>
 
-        <a class="nav-link" href="?page=payments">
-            Payments
-        </a>
+                    <a class="nav-link" href="?page=requests">
+                        Requests
+                    </a>
 
-        <a class="nav-link" href="?page=services-admin">
-            Manage Services
-        </a>
+                    <a class="nav-link" href="?page=payments">
+                        Payments
+                    </a>
 
-        <a href="?page=refunds" class="nav-link">
-            Refunds
-        </a>
+                    <a class="nav-link" href="?page=services-admin">
+                        Manage Services
+                    </a>
 
-        <a href="?page=backup" class="nav-link">
-            Database Backup
-        </a>
+                    <a class="nav-link" href="?page=refunds">
+                        Refunds
+                    </a>
 
-        <a class="nav-link text-danger" href="?page=logout">
-            Logout
-        </a>
+                    <a class="nav-link" href="?page=backup">
+                        Database Backup
+                    </a>
 
-    <?php else: ?>
+                    <a class="nav-link text-danger" href="?page=logout">
+                        Logout
+                    </a>
 
-        <a class="nav-link" href="?page=home">
-            Home
-        </a>
+                <?php elseif (isset($_SESSION['customer'])): ?>
 
-        <a class="nav-link" href="?page=services">
-            Services
-        </a>
+                    <!-- CUSTOMER MENU -->
 
-        <a class="nav-link" href="?page=contact">
-            Contact
-        </a>
+                    <a class="nav-link" href="?page=customer-dashboard">
+                        Dashboard
+                    </a>
 
-        <a class="nav-link" href="?page=login">
-            Login
-        </a>
+                    <a class="nav-link" href="?page=customer-dashboard">
+                        My Requests
+                    </a>
 
-    <?php endif; ?>
+                    <a class="nav-link" href="?page=customer-dashboard">
+                        My Payments
+                    </a>
 
-</div>
+                    <a class="nav-link" href="?page=customer-dashboard">
+                        My Refunds
+                    </a>
+
+                    <a class="nav-link" href="?page=customer-upload-slip">
+                        Upload Slip
+                    </a>
+
+                    <a class="nav-link text-danger"
+                       href="?page=customer-logout">
+                        Logout
+                    </a>
+
+                <?php else: ?>
+
+                    <!-- PUBLIC MENU -->
+
+                    <a class="nav-link" href="?page=home">
+                        Home
+                    </a>
+
+                    <a class="nav-link" href="?page=services">
+                        Services
+                    </a>
+
+                    <a class="nav-link" href="?page=contact">
+                        Contact
+                    </a>
+
+                    <a class="nav-link" href="?page=customer-register">
+                        Register
+                    </a>
+
+                    <a class="nav-link" href="?page=customer-login">
+                        Customer Login
+                    </a>
+
+                    <a class="nav-link" href="?page=login">
+                        Admin Login
+                    </a>
+
+                <?php endif; ?>
+
+            </div>
 
         </div>
 

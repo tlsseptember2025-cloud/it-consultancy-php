@@ -29,14 +29,18 @@ switch ($page) {
     require __DIR__ . '/app/views/customer-login.php';
     break;
 
+    case 'customer-logout':
+    unset($_SESSION['customer']);
+    header("Location: ?page=home");
+    exit;
 
     case 'customer-dashboard':
-    echo 'Customer logged in successfully!';
+    require __DIR__ . '/app/views/customer-dashboard.php';
     break;
 
-
-
-
+    case 'customer-upload-slip':
+    require __DIR__ . '/app/views/customer-upload-slip.php';
+    break;
 
     case 'customer-register':
     require __DIR__ . '/app/views/customer-register.php';
