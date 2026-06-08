@@ -87,15 +87,15 @@
                         Dashboard
                     </a>
 
-                    <a class="nav-link" href="?page=customer-dashboard">
+                    <a class="nav-link" href="?page=customer-requests">
                         My Requests
                     </a>
 
-                    <a class="nav-link" href="?page=customer-dashboard">
+                    <a class="nav-link" href="?page=customer-payments">
                         My Payments
                     </a>
 
-                    <a class="nav-link" href="?page=customer-dashboard">
+                    <a class="nav-link" href="?page=customer-refunds">
                         My Refunds
                     </a>
 

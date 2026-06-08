@@ -19,9 +19,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         requests.quoted_price,
 
         COALESCE(
-            SUM(payments.amount),
+            SUM(DISTINCT payments.amount),
             0
-        ) AS paid_amount
+        ) AS paid_amount,
+
+        (
+            SELECT COALESCE(
+                SUM(refunds.amount),
+                0
+            )
+            FROM refunds
+            WHERE refunds.request_id = requests.id
+        ) AS refunded_amount
 
     FROM requests
 
@@ -39,9 +48,8 @@ $requestData = $balanceStmt->fetch();
 
 $outstandingBalance =
     $requestData['quoted_price']
-    -
-    $requestData['paid_amount'];
-
+    - $requestData['paid_amount']
+    + $requestData['refunded_amount'];
 
     if ($amount > $outstandingBalance) {
 
@@ -105,6 +113,9 @@ $requests = $pdo->query("
 
     ORDER BY requests.id DESC
 ")->fetchAll();
+
+    $selectedRequestId =
+    $_GET['request_id'] ?? null;
 
 ?>
 
@@ -180,7 +191,10 @@ $requests = $pdo->query("
 
                                 <option
                                     value="<?= $request['id'] ?>"
-                                    data-price="<?= $request['quoted_price'] - $request['paid_amount'] ?>">
+                                    data-price="<?= $request['quoted_price'] - $request['paid_amount'] ?>"
+                                    <?= $selectedRequestId == $request['id']
+                                        ? 'selected'
+                                        : '' ?>>
 
                                     #<?= $request['id'] ?>
                                     -

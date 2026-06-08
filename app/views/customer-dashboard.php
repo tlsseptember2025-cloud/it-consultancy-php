@@ -70,203 +70,53 @@ $refunds = $refunds->fetchAll();
 
     </p>
 
-    <div class="card shadow-sm mt-4">
+    <div class="row">
 
-    <div class="card-body">
+    <div class="col-md-4 mb-3">
 
-        <h3 class="mb-4">
+        <div class="card border-primary">
 
-            My Requests
+            <div class="card-body text-center">
 
-        </h3>
+                <h5>My Requests</h5>
 
-        <table class="table table-bordered">
+                <h2><?= count($requests) ?></h2>
 
-            <thead>
+            </div>
 
-                <tr>
-
-                    <th>Service</th>
-
-                    <th>Quoted Price</th>
-
-                    <th>Status</th>
-
-                    <th>Date</th>
-
-                </tr>
-
-            </thead>
-
-            <tbody>
-
-                <?php foreach ($requests as $request): ?>
-
-                    <tr>
-
-                        <td>
-                            <?= htmlspecialchars($request['title']) ?>
-                        </td>
-
-                        <td>
-                            $<?= number_format($request['quoted_price'], 2) ?>
-                        </td>
-
-                        <td>
-                            <?= htmlspecialchars($request['status']) ?>
-                        </td>
-
-                        <td>
-                            <?= date('M d, Y', strtotime($request['created_at'])) ?>
-                        </td>
-
-                    </tr>
-
-                <?php endforeach; ?>
-
-            </tbody>
-
-        </table>
+        </div>
 
     </div>
 
-    <div class="card shadow-sm mt-4">
+    <div class="col-md-4 mb-3">
 
-        <div class="card-body">
+        <div class="card border-success">
 
-        <h3 class="mb-4">
+            <div class="card-body text-center">
 
-            My Payments
+                <h5>My Payments</h5>
 
-        </h3>
+                <h2><?= count($payments) ?></h2>
 
-        <table class="table table-bordered">
+            </div>
 
-            <thead>
-
-                <tr>
-
-                    <th>Amount</th>
-
-                    <th>Status</th>
-
-                    <th>Date</th>
-
-                </tr>
-
-            </thead>
-
-            <tbody>
-
-                <?php if ($payments): ?>
-
-                    <?php foreach ($payments as $payment): ?>
-
-                        <tr>
-
-                            <td>
-                                $<?= number_format($payment['amount'], 2) ?>
-                            </td>
-
-                            <td>
-                                <?= htmlspecialchars($payment['status']) ?>
-                            </td>
-
-                            <td>
-                                <?= date('M d, Y', strtotime($payment['payment_date'])) ?>
-                            </td>
-
-                        </tr>
-
-                    <?php endforeach; ?>
-
-                <?php else: ?>
-
-                    <tr>
-
-                        <td colspan="3" class="text-center">
-
-                            No payments found.
-
-                        </td>
-
-                    </tr>
-
-                <?php endif; ?>
-
-            </tbody>
-
-        </table>
+        </div>
 
     </div>
 
-    <div class="card shadow-sm mt-4">
+    <div class="col-md-4 mb-3">
 
-    <div class="card-body">
+        <div class="card border-danger">
 
-        <h3 class="mb-4">
+            <div class="card-body text-center">
 
-            My Refunds
+                <h5>My Refunds</h5>
 
-        </h3>
+                <h2><?= count($refunds) ?></h2>
 
-        <table class="table table-bordered">
+            </div>
 
-            <thead>
-
-                <tr>
-
-                    <th>Amount</th>
-
-                    <th>Date</th>
-
-                    <th>Reason</th>
-
-                </tr>
-
-            </thead>
-
-            <tbody>
-
-                <?php if ($refunds): ?>
-
-                    <?php foreach ($refunds as $refund): ?>
-
-                        <tr>
-
-                            <td>
-                                $<?= number_format($refund['amount'], 2) ?>
-                            </td>
-
-                            <td>
-                                <?= date('M d, Y', strtotime($refund['refund_date'])) ?>
-                            </td>
-
-                            <td>
-                                <?= htmlspecialchars($refund['reason']) ?>
-                            </td>
-
-                        </tr>
-
-                    <?php endforeach; ?>
-
-                <?php else: ?>
-
-                    <tr>
-
-                        <td colspan="3" class="text-center">
-
-                            No refunds found.
-
-                        </td>
-
-                    </tr>
-
-                <?php endif; ?>
-
-            </tbody>
-
-        </table>
+        </div>
 
     </div>
 

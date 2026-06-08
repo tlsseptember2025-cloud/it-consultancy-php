@@ -29,36 +29,56 @@ $requests = $stmt->fetchAll();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    $fileName = time() . '_' . basename($_FILES['slip']['name']);
+    $requestId = $_POST['request_id'];
 
-    $targetPath =
-        __DIR__ .
-        '/../../public/uploads/slips/' .
-        $fileName;
-
-    move_uploaded_file(
-        $_FILES['slip']['tmp_name'],
-        $targetPath
-    );
-
-    $stmt = $pdo->prepare("
-        INSERT INTO payment_slips
-        (
-            customer_id,
-            request_id,
-            file_name
-        )
-        VALUES (?, ?, ?)
+    $checkStmt = $pdo->prepare("
+        SELECT id
+        FROM payment_slips
+        WHERE request_id = ?
+        AND status = 'Pending'
+        LIMIT 1
     ");
 
-    $stmt->execute([
-        $_SESSION['customer']['id'],
-        $_POST['request_id'],
-        $fileName
-    ]);
+    $checkStmt->execute([$requestId]);
 
-    $success =
-        'Deposit slip uploaded successfully.';
+    if ($checkStmt->fetch()) {
+
+        $error =
+            'A pending deposit slip already exists for this request. Please wait for admin review.';
+
+    } else {
+
+        $fileName = time() . '_' . basename($_FILES['slip']['name']);
+
+        $targetPath =
+            __DIR__ .
+            '/../../public/uploads/slips/' .
+            $fileName;
+
+        move_uploaded_file(
+            $_FILES['slip']['tmp_name'],
+            $targetPath
+        );
+
+        $stmt = $pdo->prepare("
+            INSERT INTO payment_slips
+            (
+                customer_id,
+                request_id,
+                file_name
+            )
+            VALUES (?, ?, ?)
+        ");
+
+        $stmt->execute([
+            $_SESSION['customer']['id'],
+            $requestId,
+            $fileName
+        ]);
+
+        $success =
+            'Deposit slip uploaded successfully.';
+    }
 }
 
 ?>
@@ -71,7 +91,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             Upload Deposit Slip
         </h2>
 
-        <?php if (!empty($success)): ?>
+        <?php if (!empty($error)): ?>
+
+    <div class="alert alert-danger">
+
+        <?= $error ?>
+
+    </div>
+
+<?php endif; ?>
+
+<?php if (!empty($success)): ?>
 
     <div class="alert alert-success">
 

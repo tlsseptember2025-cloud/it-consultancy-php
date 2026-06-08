@@ -146,6 +146,14 @@ switch ($page) {
         require 'app/views/add-payment.php';
         break;
 
+    case 'approve-slip':
+    require 'app/views/approve-slip.php';
+    break;
+
+    case 'reject-slip':
+    require 'app/views/reject-slip.php';
+    break;
+
     case 'view-payment':
         require 'app/views/view-payment.php';
         break;
@@ -157,6 +165,18 @@ switch ($page) {
     case 'delete-payment':
         require 'app/views/delete-payment.php';
         break;
+
+    case 'customer-requests':
+    require __DIR__ . '/app/views/customer-requests.php';
+    break;
+
+    case 'customer-payments':
+    require __DIR__ . '/app/views/customer-payments.php';
+    break;
+
+    case 'customer-refunds':
+    require __DIR__ . '/app/views/customer-refunds.php';
+    break;
 
     case 'delete-refund':
 
