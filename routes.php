@@ -25,6 +25,23 @@ switch ($page) {
     require 'app/views/login.php';
     break;
 
+    case 'customer-login':
+    require __DIR__ . '/app/views/customer-login.php';
+    break;
+
+
+    case 'customer-dashboard':
+    echo 'Customer logged in successfully!';
+    break;
+
+
+
+
+
+    case 'customer-register':
+    require __DIR__ . '/app/views/customer-register.php';
+    break;
+
     case 'logout':
     require 'app/views/logout.php';
     break;

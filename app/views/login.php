@@ -135,7 +135,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 <?php endif; ?>
 
-                <form method="POST">
+                <form method="POST" autocomplete="off">
 
                     <div class="mb-3">
 
@@ -147,6 +147,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             type="email"
                             name="email"
                             class="form-control"
+                            autocomplete="new-email"
                             required>
 
                     </div>
@@ -161,6 +162,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             type="password"
                             name="password"
                             class="form-control"
+                            autocomplete="new-password"
                             required>
 
                     </div>
