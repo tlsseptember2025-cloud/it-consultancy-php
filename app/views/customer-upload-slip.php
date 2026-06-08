@@ -48,6 +48,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     } else {
 
+        $allowedExtensions = [
+        'jpg',
+        'jpeg',
+        'png',
+        'pdf'
+    ];
+
+    $fileExtension = strtolower(
+        pathinfo(
+            $_FILES['slip']['name'],
+            PATHINFO_EXTENSION
+        )
+    );
+
+    if (!in_array($fileExtension, $allowedExtensions)) {
+
+        $error =
+            'Only JPG, JPEG, PNG and PDF files are allowed.';
+
+    } else {
+
         $fileName = time() . '_' . basename($_FILES['slip']['name']);
 
         $targetPath =
@@ -79,6 +100,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $success =
             'Deposit slip uploaded successfully.';
     }
+}
+
+        
 }
 
 ?>
