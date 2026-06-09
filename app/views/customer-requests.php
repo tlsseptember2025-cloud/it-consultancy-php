@@ -129,6 +129,30 @@ $requests = $stmt->fetchAll();
 
     <?php endif; ?>
 
+    <?php if ($request['workflow_stage'] === 'Proposal Sent'): ?>
+
+        <a
+            href="?page=view-proposal&request_id=<?= $request['id'] ?>"
+            class="btn btn-primary btn-sm">
+
+            View Proposal
+
+        </a>
+
+    <?php endif; ?>
+
+    <?php if ($request['workflow_stage'] === 'Proposal Accepted'): ?>
+
+    <a
+        href="?page=schedule-service&request_id=<?= $request['id'] ?>"
+        class="btn btn-success btn-sm">
+
+        Schedule Service
+
+    </a>
+
+<?php endif; ?>
+
 </td>
 
                     </tr>

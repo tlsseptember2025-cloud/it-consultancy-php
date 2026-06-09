@@ -141,13 +141,37 @@ $requests = $stmt->fetchAll();
 
                         </a>
 
-                        <?php if ($request['workflow_stage'] === 'Submitted'): ?>
+                       <?php if ($request['workflow_stage'] === 'Submitted'): ?>
 
                             <a
                                 href="?page=approve-consultation&id=<?= $request['id'] ?>"
                                 class="btn btn-success btn-sm">
 
                                 Approve Consultation
+
+                            </a>
+
+                        <?php endif; ?>
+
+                        <?php if ($request['workflow_stage'] === 'Consultation Scheduled'): ?>
+
+                            <a
+                                href="?page=confirm-consultation-admin&id=<?= $request['id'] ?>"
+                                class="btn btn-primary btn-sm">
+
+                                Confirm Consultation
+
+                            </a>
+
+                        <?php endif; ?>
+
+                        <?php if ($request['workflow_stage'] === 'Consultation Confirmed'): ?>
+
+                            <a
+                                href="?page=create-proposal&id=<?= $request['id'] ?>"
+                                class="btn btn-dark btn-sm">
+
+                                Create Proposal
 
                             </a>
 

@@ -212,6 +212,34 @@ switch ($page) {
     require __DIR__ . '/app/views/confirm-consultation.php';
     break;
 
+    case 'confirm-consultation-admin':
+    require __DIR__ . '/app/views/confirm-consultation-admin.php';
+    break;
+
+    case 'create-proposal':
+    require __DIR__ . '/app/views/create-proposal.php';
+    break;
+
+    case 'view-proposal':
+    require __DIR__ . '/app/views/view-proposal.php';
+    break;
+
+    case 'accept-proposal-confirm':
+    require __DIR__ . '/app/views/accept-proposal-confirm.php';
+    break;
+
+    case 'service-slots':
+    require __DIR__ . '/app/views/service-slots.php';
+    break;
+
+    case 'schedule-service':
+    require __DIR__ . '/app/views/schedule-service.php';
+    break;
+
+    case 'confirm-service':
+    require __DIR__ . '/app/views/confirm-service.php';
+    break;
+
     default:
         echo "404 - Page not found";
 }

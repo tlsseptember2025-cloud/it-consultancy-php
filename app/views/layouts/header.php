@@ -59,6 +59,10 @@
                         Consultation Slots
                     </a>
 
+                    <a class="nav-link" href="?page=service-slots">
+                        Service Slots
+                    </a>
+
                     <a class="nav-link" href="?page=payments">
                         Payments
                     </a>
