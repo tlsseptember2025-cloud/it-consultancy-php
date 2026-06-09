@@ -9,12 +9,31 @@ require dirname(__DIR__, 2) . '/config/database.php';
 
 $id = $_GET['id'] ?? 0;
 
-$stmt = $pdo->prepare("
-    DELETE FROM requests
-    WHERE id = ?
+$slipStmt = $pdo->prepare("
+    SELECT COUNT(*)
+    FROM payment_slips
+    WHERE request_id = ?
 ");
 
-$stmt->execute([$id]);
+$slipStmt->execute([$id]);
+
+if ($slipStmt->fetchColumn() > 0) {
+
+    $_SESSION['error'] =
+        'Cannot delete request because deposit slips exist.';
+
+} else {
+
+    $stmt = $pdo->prepare("
+        DELETE FROM requests
+        WHERE id = ?
+    ");
+
+    $stmt->execute([$id]);
+
+    $_SESSION['success'] =
+        'Request deleted successfully.';
+}
 
 header("Location: ?page=requests");
 exit;

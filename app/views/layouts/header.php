@@ -91,6 +91,11 @@
                         My Requests
                     </a>
 
+                    <a class="nav-link"
+                        href="?page=customer-request-service">
+                        Request Service
+                    </a>
+
                     <a class="nav-link" href="?page=customer-payments">
                         My Payments
                     </a>

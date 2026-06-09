@@ -174,6 +174,10 @@ switch ($page) {
     require __DIR__ . '/app/views/customer-payments.php';
     break;
 
+    case 'customer-request-service':
+    require __DIR__ . '/app/views/customer-request-service.php';
+    break;
+
     case 'customer-refunds':
     require __DIR__ . '/app/views/customer-refunds.php';
     break;

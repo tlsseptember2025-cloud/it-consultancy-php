@@ -1,9 +1,9 @@
 <?php
 
-$host = 'db5020646106.hosting-data.io';
-$dbname = 'dbs15765712';
-$username = 'dbu1056528';
-$password = 'Fatima@2020';
+$host = 'localhost';
+$dbname = 'consultancy';
+$username = 'root';
+$password = '';
 
 try {
 

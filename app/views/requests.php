@@ -76,7 +76,19 @@ $requests = $stmt->fetchAll();
                     </td>
 
                     <td>
-                        $<?= number_format($request['quoted_price'], 2) ?>
+
+                        <?php if ($request['quoted_price'] > 0): ?>
+
+                            $<?= number_format($request['quoted_price'], 2) ?>
+
+                        <?php else: ?>
+
+                            <span class="text-muted">
+                                Awaiting Quote
+                            </span>
+
+                        <?php endif; ?>
+
                     </td>
 
                     <td>
