@@ -7,11 +7,26 @@ $customerId = $_SESSION['customer']['id'];
 $stmt = $pdo->prepare("
     SELECT
         r.*,
-        s.title AS service_title
+
+        s.title AS service_title,
+
+        cs.slot_date,
+
+        cs.slot_time
+
     FROM requests r
+
     JOIN services s
         ON r.service_id = s.id
+
+    LEFT JOIN consultation_bookings cb
+        ON cb.request_id = r.id
+
+    LEFT JOIN consultation_slots cs
+        ON cs.id = cb.slot_id
+
     WHERE r.customer_id = ?
+
     ORDER BY r.id DESC
 ");
 
@@ -36,7 +51,9 @@ $requests = $stmt->fetchAll();
                     <th>Service</th>
                     <th>Quoted Price</th>
                     <th>Status</th>
+                    <th>Workflow Stage</th>
                     <th>Date</th>
+                    <th>Action</th>
 
                 </tr>
 
@@ -53,7 +70,19 @@ $requests = $stmt->fetchAll();
                         </td>
 
                         <td>
-                            $<?= number_format($request['quoted_price'], 2) ?>
+
+                            <?php if ($request['quoted_price'] > 0): ?>
+
+                                $<?= number_format($request['quoted_price'], 2) ?>
+
+                            <?php else: ?>
+
+                                <span class="text-muted">
+                                    Awaiting Quote
+                                </span>
+
+                            <?php endif; ?>
+
                         </td>
 
                         <td>
@@ -61,8 +90,46 @@ $requests = $stmt->fetchAll();
                         </td>
 
                         <td>
+                            <?= htmlspecialchars($request['workflow_stage']) ?>
+                        </td>
+
+                        <td>
                             <?= date('M d, Y', strtotime($request['created_at'])) ?>
                         </td>
+
+                        <td>
+
+    <?php if ($request['workflow_stage'] === 'Consultation Approved'): ?>
+
+        <a
+            href="?page=schedule-consultation&request_id=<?= $request['id'] ?>"
+            class="btn btn-success btn-sm">
+
+            Schedule Consultation
+
+        </a>
+
+    <?php elseif ($request['workflow_stage'] === 'Consultation Scheduled'): ?>
+
+        <span class="badge bg-info">
+
+            <?= date(
+                'M d, Y',
+                strtotime($request['slot_date'])
+            ) ?>
+
+            @
+
+            <?= date(
+                'h:i A',
+                strtotime($request['slot_time'])
+            ) ?>
+
+        </span>
+
+    <?php endif; ?>
+
+</td>
 
                     </tr>
 

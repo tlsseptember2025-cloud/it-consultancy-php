@@ -196,6 +196,22 @@ switch ($page) {
         header('Location: ?page=refunds');
         exit;
 
+    case 'consultation-slots':
+        require __DIR__ . '/app/views/consultation-slots.php';
+        break;
+
+    case 'approve-consultation':
+        require __DIR__ . '/app/views/approve-consultation.php';
+        break;
+
+    case 'schedule-consultation':
+    require __DIR__ . '/app/views/schedule-consultation.php';
+    break;
+
+    case 'confirm-consultation':
+    require __DIR__ . '/app/views/confirm-consultation.php';
+    break;
+
     default:
         echo "404 - Page not found";
 }

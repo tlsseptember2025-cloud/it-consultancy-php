@@ -55,6 +55,10 @@
                         Requests
                     </a>
 
+                     <a class="nav-link" href="?page=consultation-slots">
+                        Consultation Slots
+                    </a>
+
                     <a class="nav-link" href="?page=payments">
                         Payments
                     </a>

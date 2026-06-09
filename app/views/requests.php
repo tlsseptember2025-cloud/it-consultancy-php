@@ -11,7 +11,8 @@ $stmt = $pdo->query("
     SELECT
         requests.*,
         customers.name AS customer_name,
-        services.title AS service_title
+        services.title AS service_title,
+        requests.workflow_stage
     FROM requests
     JOIN customers
         ON customers.id = requests.customer_id
@@ -54,6 +55,7 @@ $requests = $stmt->fetchAll();
                 <th>Service</th>
                 <th>Quoted Price</th>
                 <th>Status</th>
+                <th>Workflow Stage</th>
                 <th>Date</th>
                 <th>Action</th>
 
@@ -122,6 +124,10 @@ $requests = $stmt->fetchAll();
                     </td>
 
                     <td>
+                        <?= htmlspecialchars($request['workflow_stage']) ?>
+                    </td>
+
+                    <td>
                         <?= $request['created_at'] ?>
                     </td>
 
@@ -134,6 +140,18 @@ $requests = $stmt->fetchAll();
                             View
 
                         </a>
+
+                        <?php if ($request['workflow_stage'] === 'Submitted'): ?>
+
+                            <a
+                                href="?page=approve-consultation&id=<?= $request['id'] ?>"
+                                class="btn btn-success btn-sm">
+
+                                Approve Consultation
+
+                            </a>
+
+                        <?php endif; ?>
 
                         <a
                             href="?page=edit-request&id=<?= $request['id'] ?>"
