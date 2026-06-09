@@ -240,6 +240,10 @@ switch ($page) {
     require __DIR__ . '/app/views/confirm-service.php';
     break;
 
+    case 'approve-service-schedule':
+    require __DIR__ . '/app/views/approve-service-schedule.php';
+    break;
+
     default:
         echo "404 - Page not found";
 }

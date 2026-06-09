@@ -177,6 +177,18 @@ $requests = $stmt->fetchAll();
 
                         <?php endif; ?>
 
+                        <?php if ($request['workflow_stage'] === 'Service Scheduled'): ?>
+
+    <a
+        href="?page=approve-service-schedule&id=<?= $request['id'] ?>"
+        class="btn btn-success btn-sm">
+
+        Approve Service
+
+    </a>
+
+<?php endif; ?>
+
                         <a
                             href="?page=edit-request&id=<?= $request['id'] ?>"
                             class="btn btn-warning btn-sm">
