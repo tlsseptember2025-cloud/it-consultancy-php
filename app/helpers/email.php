@@ -49,3 +49,20 @@ function sendEmail(
         return false;
     }
 }
+
+function sendConsultationApprovedEmail($email, $name)
+{
+    $subject = 'Consultation Approved';
+
+    $body = "
+        <h2>Hello {$name},</h2>
+
+        <p>Your consultation request has been approved.</p>
+
+        <p>Please log in and schedule your consultation.</p>
+
+        <p>IT Consultancy Team</p>
+    ";
+
+    return sendEmail($email, $subject, $body);
+}

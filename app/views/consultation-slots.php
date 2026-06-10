@@ -8,19 +8,24 @@ if (!isset($_SESSION['user'])) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    $stmt = $pdo->prepare("
-        INSERT INTO consultation_slots
-        (
-            slot_date,
-            slot_time
-        )
-        VALUES (?, ?)
-    ");
+$stmt = $pdo->prepare("
+    INSERT INTO consultation_slots
+    (
+        slot_date,
+        slot_time,
+        consultation_method,
+        meeting_link
+    )
+    VALUES (?, ?, ?, ?)
+");
 
-    $stmt->execute([
-        $_POST['slot_date'],
-        $_POST['slot_time']
-    ]);
+$stmt->execute([
+    $_POST['slot_date'],
+    $_POST['slot_time'],
+    $_POST['consultation_method'],
+    $_POST['meeting_link']
+]);   
+
 }
 
 $slots = $pdo->query("
@@ -43,39 +48,72 @@ require __DIR__ . '/layouts/header.php';
 
         <form method="POST" class="row g-3 mb-4">
 
-            <div class="col-md-5">
+    <div class="col-md-2">
 
-                <input
-                    type="date"
-                    name="slot_date"
-                    class="form-control"
-                    required>
+        <input
+            type="date"
+            name="slot_date"
+            class="form-control"
+            required>
 
-            </div>
+    </div>
 
-            <div class="col-md-5">
+    <div class="col-md-2">
 
-                <input
-                    type="time"
-                    name="slot_time"
-                    class="form-control"
-                    required>
+        <select
+            name="consultation_method"
+            class="form-select"
+            required>
 
-            </div>
+            <option value="">
+                Select Method
+            </option>
 
-            <div class="col-md-2">
+            <option value="Google Meet">
+                Google Meet
+            </option>
 
-                <button
-                    type="submit"
-                    class="btn btn-primary w-100">
+            <option value="Zoom">
+                Zoom
+            </option>
 
-                    Add Slot
+        </select>
 
-                </button>
+    </div>
 
-            </div>
+    <div class="col-md-3">
 
-        </form>
+    <input
+        type="text"
+        name="meeting_link"
+        class="form-control"
+        placeholder="Meeting Link (optional)">
+
+    </div>
+
+    <div class="col-md-2">
+
+        <input
+            type="time"
+            name="slot_time"
+            class="form-control"
+            required>
+
+    </div>
+
+    <div class="col-md-2">
+
+        <button
+            type="submit"
+            class="btn btn-primary w-100">
+
+            Add Slot
+
+        </button>
+
+    </div>
+
+</form>
 
         <table class="table table-bordered">
 
@@ -85,6 +123,8 @@ require __DIR__ . '/layouts/header.php';
 
                     <th>ID</th>
                     <th>Date</th>
+                    <th>Method</th>
+                    <th>Meeting Link</th>
                     <th>Time</th>
                     <th>Status</th>
 
@@ -98,21 +138,35 @@ require __DIR__ . '/layouts/header.php';
 
                     <tr>
 
-                        <td><?= $slot['id'] ?></td>
+    <td><?= $slot['id'] ?></td>
 
-                        <td><?= $slot['slot_date'] ?></td>
+    <td><?= $slot['slot_date'] ?></td>
 
-                        <td><?= $slot['slot_time'] ?></td>
+    <td><?= htmlspecialchars($slot['consultation_method']) ?></td>
 
-                        <td>
+    <td>
+        <?php if (!empty($slot['meeting_link'])): ?>
 
-                            <?= $slot['is_booked']
-                                ? 'Booked'
-                                : 'Available' ?>
+            <a
+                href="<?= htmlspecialchars($slot['meeting_link']) ?>"
+                target="_blank">
+                Open Link
+            </a>
 
-                        </td>
+        <?php else: ?>
 
-                    </tr>
+            -
+
+        <?php endif; ?>
+    </td>
+
+    <td><?= $slot['slot_time'] ?></td>
+
+    <td>
+        <?= $slot['is_booked'] ? 'Booked' : 'Available' ?>
+    </td>
+
+</tr>
 
                 <?php endforeach; ?>
 

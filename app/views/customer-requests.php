@@ -9,10 +9,10 @@ $stmt = $pdo->prepare("
         r.*,
 
         s.title AS service_title,
-
         cs.slot_date,
-
-        cs.slot_time
+        cs.slot_time,
+        cs.consultation_method,
+        cs.meeting_link
 
     FROM requests r
 
@@ -111,23 +111,45 @@ $requests = $stmt->fetchAll();
 
     <?php elseif ($request['workflow_stage'] === 'Consultation Scheduled'): ?>
 
-        <span class="badge bg-info">
+    <div>
 
-            <?= date(
-                'M d, Y',
-                strtotime($request['slot_date'])
-            ) ?>
+       <span class="badge bg-danger">
 
-            @
+    <?= date(
+        'M d, Y',
+        strtotime($request['slot_date'])
+    ) ?>
 
-            <?= date(
-                'h:i A',
-                strtotime($request['slot_time'])
-            ) ?>
+    @
 
-        </span>
+    <?= date(
+        'h:i A',
+        strtotime($request['slot_time'])
+    ) ?>
 
-    <?php endif; ?>
+    @
+
+    <?= htmlspecialchars($request['consultation_method']) ?>
+
+</span>
+
+<?php if (!empty($request['meeting_link'])): ?>
+
+    <a
+    href="<?= htmlspecialchars($request['meeting_link']) ?>"
+    target="_blank"
+    class="btn btn-success btn-sm ms-3">
+
+    Join Meeting
+
+</a>
+
+<?php endif; ?>
+
+
+    </div>
+
+<?php endif; ?>
 
     <?php if ($request['workflow_stage'] === 'Proposal Sent'): ?>
 

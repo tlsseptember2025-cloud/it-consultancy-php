@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/../helpers/email.php';
+
 if (!isset($_SESSION['customer'])) {
 
     header('Location: ?page=customer-login');
@@ -18,6 +20,20 @@ $stmt = $pdo->prepare("
 $stmt->execute([$slotId]);
 
 $slot = $stmt->fetch();
+
+$stmtCustomer = $pdo->prepare("
+    SELECT
+        customers.name,
+        customers.email
+    FROM requests
+    JOIN customers
+        ON customers.id = requests.customer_id
+    WHERE requests.id = ?
+");
+
+$stmtCustomer->execute([$requestId]);
+
+$customer = $stmtCustomer->fetch();
 
 if (!$slot) {
 
@@ -72,6 +88,67 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ");
 
         $stmt->execute([$requestId]);
+
+        if ($customer && !empty($customer['email'])) {
+
+    $date = date(
+    'M d, Y',
+    strtotime($slot['slot_date'])
+);
+
+$time = date(
+    'h:i A',
+    strtotime($slot['slot_time'])
+);
+
+$body = "
+    <h2>Hello {$customer['name']},</h2>
+
+    <p>Your consultation has been scheduled.</p>
+
+    <p>
+        <strong>Date:</strong> {$date}
+    </p>
+
+    <p>
+        <strong>Time:</strong> {$time}
+    </p>
+
+    <p>
+        <strong>Method:</strong>
+        {$slot['consultation_method']}
+    </p>
+";
+
+if (!empty($slot['meeting_link'])) {
+
+    $body .= "
+        <p>
+            <strong>Meeting Link:</strong><br>
+
+            <a href='{$slot['meeting_link']}'>
+                Join Meeting
+            </a>
+        </p>
+    ";
+}
+
+$body .= "
+    <p>
+        Please be available at the scheduled time.
+    </p>
+
+    <p>
+        IT Consultancy Team
+    </p>
+";
+
+sendEmail(
+    $customer['email'],
+    'Consultation Scheduled',
+    $body
+);
+}
 
         header('Location: ?page=customer-requests');
         exit;
