@@ -244,8 +244,8 @@ switch ($page) {
     require __DIR__ . '/app/views/approve-service-schedule.php';
     break;
 
-    case 'test-email':
-    require __DIR__ . '/app/views/test-email.php';
+    case 'complete-consultation':
+    require __DIR__ . '/app/views/complete-consultation.php';
     break;
 
     default:
