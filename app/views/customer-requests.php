@@ -151,7 +151,19 @@ $requests = $stmt->fetchAll();
 
     </a>
 
-<?php endif; ?>
+    <?php endif; ?>
+
+    <?php if ($request['workflow_stage'] === 'Awaiting Payment'): ?>
+
+    <a
+        href="?page=upload-deposit-slip&request_id=<?= $request['id'] ?>"
+        class="btn btn-warning btn-sm">
+
+        Upload Deposit Slip
+
+    </a>
+
+    <?php endif; ?>
 
 </td>
 
