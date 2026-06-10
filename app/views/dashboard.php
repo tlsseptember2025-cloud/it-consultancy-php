@@ -55,6 +55,30 @@ $totalRefunded = $pdo->query("
     FROM refunds
 ")->fetchColumn();
 
+$consultations = $pdo->query("
+    SELECT
+        c.name,
+        cs.slot_date,
+        cs.slot_time
+
+    FROM consultation_bookings cb
+
+    JOIN consultation_slots cs
+        ON cb.slot_id = cs.id
+
+    JOIN requests r
+        ON cb.request_id = r.id
+
+    JOIN customers c
+        ON r.customer_id = c.id
+
+    ORDER BY
+        cs.slot_date,
+        cs.slot_time
+
+    LIMIT 5
+")->fetchAll();
+
 $netRevenue = $totalRevenue - $totalRefunded;
 $totalRevenue = $totalPayments - $totalRefunded;
 $outstandingBalance = $totalQuoted - $totalRevenue;
@@ -120,6 +144,36 @@ $latestMessage = $pdo->query("
     LIMIT 1
 ")->fetch();
 
+$servicesScheduled = $pdo->query("
+    SELECT
+        c.name,
+        ss.service_date,
+        ss.service_time
+
+    FROM service_bookings sb
+
+    JOIN service_slots ss
+        ON sb.slot_id = ss.id
+
+    JOIN requests r
+        ON sb.request_id = r.id
+
+    JOIN customers c
+        ON r.customer_id = c.id
+
+    ORDER BY
+        ss.service_date,
+        ss.service_time
+
+    LIMIT 5
+")->fetchAll();
+
+$awaitingPayment = $pdo->query("
+    SELECT COUNT(*)
+    FROM requests
+    WHERE workflow_stage = 'Awaiting Payment'
+")->fetchColumn();
+
 ?>
 
 <?php require __DIR__ . '/layouts/header.php'; ?>
@@ -164,7 +218,7 @@ $latestMessage = $pdo->query("
 
 </div>
 
-<div class="row g-4">
+ <div class="row g-4">
 
     <div class="col-md-3">
         <div class="card bg-info text-white shadow-sm">
@@ -211,84 +265,54 @@ $latestMessage = $pdo->query("
         </div>
     </div>
 
+ </div>
+
 </div>
 
-<div class="card shadow-sm mt-5">
 
-<div class="card-body">
+    <div class="row mt-4">
 
-    <h3 class="mb-4">
+      <div class="row justify-content-center mt-4">
 
-        Recent Activity
+    <!-- Upcoming Consultations -->
 
-    </h3>
+    <div class="col-lg-3 col-md-6 mb-3">
 
-    <div class="row">
+        <div class="card shadow-sm h-100">
 
-        <div class="col-md-3">
+            <div class="card-header">
+                Upcoming Consultations
+            </div>
 
-            <div class="border-start border-4 border-primary rounded p-3 h-100">
+            <div class="card-body">
 
-                <h5 class="text-primary">
+                <?php if (empty($consultations)): ?>
 
-                    Latest Request
-
-                </h5>
-
-                <?php if ($latestRequest): ?>
-
-                    <strong>
-
-                        <?= htmlspecialchars($latestRequest['name']) ?>
-
-                    </strong>
-
-                    <br>
-
-                    <?= htmlspecialchars($latestRequest['title']) ?>
-
-<br>
-
-<strong class="text-success">
-
-    $<?= number_format($latestRequest['quoted_price'], 2) ?>
-
-</strong>
-
-<br>
-
-                    <br>
-
-                    <span class="badge bg-info">
-
-                        <?php
-
-$statusColor = match ($latestRequest['status']) {
-
-    'Pending' => 'warning',
-
-    'In Progress' => 'info',
-
-    'Completed' => 'success',
-
-    'Cancelled' => 'danger',
-
-    default => 'secondary'
-};
-
-?>
-
-<span class="badge bg-<?= $statusColor ?>">
-
-    <?= htmlspecialchars($latestRequest['status']) ?>
-
-</span>
-
-                    </span>
+                    <p class="text-muted">
+                        No consultations scheduled.
+                    </p>
 
                 <?php else: ?>
 
-                    No requests found.
+                    <?php foreach ($consultations as $c): ?>
+
+                        <div class="border-bottom mb-2 pb-2">
+
+                            <strong>
+                                <?= htmlspecialchars($c['name']) ?>
+                            </strong>
+
+                            <br>
+
+                            <?= date('M d, Y', strtotime($c['slot_date'])) ?>
+
+                            <br>
+
+                            <?= date('h:i A', strtotime($c['slot_time'])) ?>
+
+                        </div>
+
+                    <?php endforeach; ?>
 
                 <?php endif; ?>
 
@@ -296,68 +320,47 @@ $statusColor = match ($latestRequest['status']) {
 
         </div>
 
-        <div class="col-md-3">
+    </div>
 
-            <div class="border-start border-4 border-success rounded p-3 h-100">
+    <!-- Upcoming Services -->
 
-                <h5 class="text-success">
+    <div class="col-lg-3 col-md-6 mb-3">
 
-                    Latest Payment
+        <div class="card shadow-sm h-100">
 
-                </h5>
+            <div class="card-header">
+                Upcoming Services
+            </div>
 
-                <?php if ($latestPayment): ?>
+            <div class="card-body">
 
-                    <strong>
+                <?php if (empty($servicesScheduled)): ?>
 
-                        <?= htmlspecialchars($latestPayment['name']) ?>
-
-                    </strong>
-
-                    <br>
-
-                    $<?= number_format($latestPayment['amount'], 2) ?>
-
-<br>
-
-<small class="text-muted">
-
-    <?= date('M d, Y', strtotime($latestPayment['payment_date'])) ?>
-
-</small>
-
-<br>
-
-                    <br>
-
-                    <span class="badge bg-success">
-
-                        <?php
-
-$paymentColor = match ($latestPayment['status']) {
-
-    'Paid' => 'success',
-
-    'Partial' => 'warning',
-
-    'Unpaid' => 'danger',
-
-    default => 'secondary'
-};
-
-?>
-
-            <span class="badge bg-<?= $paymentColor ?>">
-
-                <?= htmlspecialchars($latestPayment['status']) ?>
-
-                    </span>
-
-                    </span>
+                    <p class="text-muted">
+                        No services scheduled.
+                    </p>
 
                 <?php else: ?>
 
-                    No payments found.
+                    <?php foreach ($servicesScheduled as $service): ?>
+
+                        <div class="border-bottom mb-2 pb-2">
+
+                            <strong>
+                                <?= htmlspecialchars($service['name']) ?>
+                            </strong>
+
+                            <br>
+
+                            <?= date('M d, Y', strtotime($service['service_date'])) ?>
+
+                            <br>
+
+                            <?= date('h:i A', strtotime($service['service_time'])) ?>
+
+                        </div>
+
+                    <?php endforeach; ?>
 
                 <?php endif; ?>
 
@@ -365,90 +368,185 @@ $paymentColor = match ($latestPayment['status']) {
 
         </div>
 
-        <div class="col-md-3">
+    </div>
 
-            <div class="border-start border-4 border-danger rounded p-3 h-100">
+    <!-- Awaiting Payment -->
 
-                <h5 class="text-danger">
+    <div class="col-lg-3 col-md-6 mb-3">
 
-                    Latest Message
+        <div class="card shadow-sm h-100">
 
-                </h5>
+            <div class="card-header">
+                Awaiting Payment
+            </div>
 
-                <?php if ($latestMessage): ?>
+            <div class="card-body text-center">
 
-                    <strong>
+                <h1 class="text-warning">
+                    <?= $awaitingPayment ?>
+                </h1>
 
-                        <?= htmlspecialchars($latestMessage['name']) ?>
-
-                    </strong>
-
-                    <br>
-
-                    <?= htmlspecialchars($latestMessage['service']) ?>
-
-                    <br>
-
-                    <?= htmlspecialchars(substr($latestMessage['message'], 0, 80)) ?>
-
-                <br><br>
-
-                <small class="text-muted">
-
-                    <?= date('M d, Y', strtotime($latestMessage['created_at'])) ?>
-
-                </small>
-
-                <?php else: ?>
-
-                    No messages found.
-
-                <?php endif; ?>
+                <p class="mb-0">
+                    Requests awaiting payment
+                </p>
 
             </div>
 
         </div>
-
-        <div class="col-md-3">
-
-    <div class="border-start border-4 border-warning rounded p-3 h-100" style="border-color: orange !important;">
-
-    <h5 style="color: var(--bs-orange);">
-        Latest Refund
-    </h5>
-
-        <?php if ($latestRefund): ?>
-
-            <strong>
-                <?= htmlspecialchars($latestRefund['name']) ?>
-            </strong>
-
-            <br>
-
-            <?= htmlspecialchars($latestRefund['title']) ?>
-
-            <br>
-
-            <strong style="color: var(--bs-orange);">
-                $<?= number_format($latestRefund['amount'], 2) ?>
-            </strong>
-
-            <br>
-
-            <?= date('M d, Y', strtotime($latestRefund['refund_date'])) ?>
-
-        <?php else: ?>
-
-            No refunds found.
-
-        <?php endif; ?>
 
     </div>
 
 </div>
 
-</div>
+<!-- Recent Activity -->
+
+<div class="card mt-4 shadow-sm">
+
+    <div class="card-body">
+
+        <h3 class="text-center mb-4">
+            Recent Activity
+        </h3>
+
+        <div class="row justify-content-center g-4">
+
+            <!-- Latest Request -->
+
+            <div class="col-lg-3 col-md-6 mb-3">
+
+                <div class="border-start border-4 border-primary rounded p-3 h-100">
+
+                    <h5 class="text-primary">
+                        Latest Request
+                    </h5>
+
+                    <?php if ($latestRequest): ?>
+
+                        <strong>
+                            <?= htmlspecialchars($latestRequest['name']) ?>
+                        </strong>
+
+                        <br>
+
+                        <?= htmlspecialchars($latestRequest['title']) ?>
+
+                        <br>
+
+                        <strong class="text-success">
+                            $<?= number_format($latestRequest['quoted_price'], 2) ?>
+                        </strong>
+
+                    <?php else: ?>
+
+                        No requests found.
+
+                    <?php endif; ?>
+
+                </div>
+
+            </div>
+
+            <!-- Latest Payment -->
+
+            <div class="col-lg-2 col-md-4">
+                
+
+                <div class="border-start border-4 border-success rounded p-3 h-100">
+
+                    <h5 class="text-success">
+                        Latest Payment
+                    </h5>
+
+                    <?php if ($latestPayment): ?>
+
+                        <strong>
+                            <?= htmlspecialchars($latestPayment['name']) ?>
+                        </strong>
+
+                        <br>
+
+                        $<?= number_format($latestPayment['amount'], 2) ?>
+
+                        <br>
+
+                        <?= htmlspecialchars($latestPayment['status']) ?>
+
+                    <?php else: ?>
+
+                        No payments found.
+
+                    <?php endif; ?>
+
+                </div>
+
+            </div>
+
+            <!-- Latest Message -->
+
+            <div class="col-lg-2 col-md-4">
+
+                <div class="border-start border-4 border-danger rounded p-3 h-100">
+
+                    <h5 class="text-danger">
+                        Latest Message
+                    </h5>
+
+                    <?php if ($latestMessage): ?>
+
+                        <strong>
+                            <?= htmlspecialchars($latestMessage['name']) ?>
+                        </strong>
+
+                        <br>
+
+                        <?= htmlspecialchars(substr($latestMessage['message'], 0, 60)) ?>...
+
+                    <?php else: ?>
+
+                        No messages found.
+
+                    <?php endif; ?>
+
+                </div>
+
+            </div>
+
+            <!-- Latest Refund -->
+
+            <div class="col-lg-2 col-md-4">
+
+                <div class="border-start border-4 border-warning rounded p-3 h-100">
+
+                    <h5 style="color: orange;">
+                        Latest Refund
+                    </h5>
+
+                    <?php if ($latestRefund): ?>
+
+                        <strong>
+                            <?= htmlspecialchars($latestRefund['name']) ?>
+                        </strong>
+
+                        <br>
+
+                        $<?= number_format($latestRefund['amount'], 2) ?>
+
+                    <?php else: ?>
+
+                        No refunds found.
+
+                    <?php endif; ?>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
 
 </div>
+
+    </div>
 
 <?php require __DIR__ . '/layouts/footer.php'; ?>
