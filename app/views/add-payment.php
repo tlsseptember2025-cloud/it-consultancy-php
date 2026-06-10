@@ -79,6 +79,21 @@ $outstandingBalance =
             $_POST['notes']
         ]);
 
+        if ($_POST['status'] === 'Paid') {
+
+    $update = $pdo->prepare("
+        UPDATE requests
+        SET
+            workflow_stage = 'Service Active',
+            status = 'In Progress'
+        WHERE id = ?
+    ");
+
+    $update->execute([
+    $_POST['request_id']
+]);
+}
+
         header("Location: ?page=payments");
         exit;
     }
