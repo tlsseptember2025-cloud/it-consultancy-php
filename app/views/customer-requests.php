@@ -153,7 +153,8 @@ $requests = $stmt->fetchAll();
 
     <?php endif; ?>
 
-    <?php if ($request['workflow_stage'] === 'Awaiting Payment'): ?>
+    <?php if ($request['workflow_stage'] === WF_AWAITING_PAYMENT): ?>
+        
 
     <a
         href="?page=customer-upload-slip&request_id=<?= $request['id'] ?>"
@@ -163,7 +164,7 @@ $requests = $stmt->fetchAll();
 
     </a>
 
-    <?php elseif ($request['workflow_stage'] === 'Payment Submitted'): ?>
+    <?php elseif ($request['workflow_stage'] === WF_PAYMENT_SUBMITTED): ?>
 
     <span class="badge bg-info">
         Payment Under Review
