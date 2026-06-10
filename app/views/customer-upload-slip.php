@@ -97,6 +97,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $fileName
         ]);
 
+        $update = $pdo->prepare("
+    UPDATE requests
+    SET workflow_stage = 'Payment Submitted'
+    WHERE id = ?
+");
+
+$update->execute([$requestId]);
+
         $success =
             'Deposit slip uploaded successfully.';
     }

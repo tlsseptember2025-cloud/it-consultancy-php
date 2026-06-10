@@ -156,12 +156,18 @@ $requests = $stmt->fetchAll();
     <?php if ($request['workflow_stage'] === 'Awaiting Payment'): ?>
 
     <a
-        href="?page=upload-deposit-slip&request_id=<?= $request['id'] ?>"
+        href="?page=customer-upload-slip&request_id=<?= $request['id'] ?>"
         class="btn btn-warning btn-sm">
 
         Upload Deposit Slip
 
     </a>
+
+    <?php elseif ($request['workflow_stage'] === 'Payment Submitted'): ?>
+
+    <span class="badge bg-info">
+        Payment Under Review
+    </span>
 
     <?php endif; ?>
 
