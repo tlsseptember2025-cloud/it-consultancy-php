@@ -244,6 +244,10 @@ switch ($page) {
     require __DIR__ . '/app/views/approve-service-schedule.php';
     break;
 
+    case 'test-email':
+    require __DIR__ . '/app/views/test-email.php';
+    break;
+
     default:
         echo "404 - Page not found";
 }
