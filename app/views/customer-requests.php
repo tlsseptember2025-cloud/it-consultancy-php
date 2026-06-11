@@ -197,7 +197,7 @@ $requests = $stmt->fetchAll();
 
     <span class="badge bg-secondary">
 
-        Awaiting Quote
+        Awaiting Proposal
 
     </span>
 
