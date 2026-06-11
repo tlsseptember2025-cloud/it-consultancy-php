@@ -44,7 +44,6 @@ $services = $stmt->fetchAll();
             <th>Image</th>
             <th>Title</th>
             <th>Description</th>
-            <th>Price</th>
             <th>Action</th>
 
         </tr>
@@ -72,10 +71,6 @@ $services = $stmt->fetchAll();
 
                 <td>
                     <?= htmlspecialchars($service['description']) ?>
-                </td>
-
-                <td>
-                    $<?= number_format($service['price'], 2) ?>
                 </td>
 
                 <td>

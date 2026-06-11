@@ -192,7 +192,16 @@ $requests = $stmt->fetchAll();
         Payment Under Review
     </span>
 
-    <?php endif; ?>
+
+    <?php elseif ($request['workflow_stage'] === 'Consultation Completed'): ?>
+
+    <span class="badge bg-secondary">
+
+        Awaiting Quote
+
+    </span>
+
+<?php endif; ?>
 
 </td>
 

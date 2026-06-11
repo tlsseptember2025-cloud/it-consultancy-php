@@ -27,14 +27,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $stmt = $pdo->prepare("
-        INSERT INTO services (title, description, price, image)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO services (title, description, image)
+        VALUES (?, ?, ?)
     ");
 
     $stmt->execute([
         $title,
         $description,
-        $price,
         $image
     ]);
 
@@ -89,17 +88,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
 
                     <div class="mb-3">
-
-                        <label class="form-label">
-                            Price
-                        </label>
-
-                        <input
-                            type="number"
-                            step="0.01"
-                            name="price"
-                            class="form-control"
-                            required>
 
                             <div class="mb-3">
 

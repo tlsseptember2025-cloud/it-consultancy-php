@@ -43,14 +43,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $stmt = $pdo->prepare("
         UPDATE services
-        SET title = ?, description = ?, price = ?, image = ?
+        SET title = ?, description = ?, image = ?
         WHERE id = ?
     ");
 
     $stmt->execute([
         $title,
         $description,
-        $price,
         $image,
         $id
     ]);
@@ -107,18 +106,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
 
                     <div class="mb-3">
-
-                        <label class="form-label">
-                            Price
-                        </label>
-
-                        <input
-                            type="number"
-                            step="0.01"
-                            name="price"
-                            class="form-control"
-                            value="<?= $service['price'] ?>"
-                            required>
 
                             <div class="mb-3">
 
