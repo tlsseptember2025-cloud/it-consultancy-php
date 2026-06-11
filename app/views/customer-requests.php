@@ -9,10 +9,14 @@ $stmt = $pdo->prepare("
         r.*,
 
         s.title AS service_title,
+
         cs.slot_date,
         cs.slot_time,
         cs.consultation_method,
-        cs.meeting_link
+        cs.meeting_link,
+
+        ss.service_date,
+        ss.service_time
 
     FROM requests r
 
@@ -24,6 +28,12 @@ $stmt = $pdo->prepare("
 
     LEFT JOIN consultation_slots cs
         ON cs.id = cb.slot_id
+
+    LEFT JOIN service_bookings sb
+        ON sb.request_id = r.id
+
+    LEFT JOIN service_slots ss
+        ON ss.id = sb.slot_id
 
     WHERE r.customer_id = ?
 
@@ -219,15 +229,30 @@ $requests = $stmt->fetchAll();
 
     </a>
 
-    <?php elseif ($request['workflow_stage'] === 'Service Scheduled'): ?>
+    <?php elseif (
+    $request['workflow_stage'] === 'Service Scheduled'
+    || $request['workflow_stage'] === 'Service Active'
+): ?>
 
-    <span class="badge bg-info">
+    <small>
 
-        Awaiting Approval
+        <?= date(
+            'M d, Y',
+            strtotime($request['service_date'])
+        ) ?>
 
-    </span>
+        <br>
 
-    <?php endif; ?>
+        <?= date(
+            'h:i A',
+            strtotime($request['service_time'])
+        ) ?>
+
+    </small>
+
+<?php endif; ?>
+
+    
 
 </td>
 
