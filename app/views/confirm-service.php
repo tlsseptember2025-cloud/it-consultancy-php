@@ -21,7 +21,7 @@ $slot = $stmt->fetch();
 
 if (!$slot) {
 
-    die('Consultation slot not found.');
+    die('Service slot not found.');
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -39,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($isBooked) {
 
         $error =
-            'Sorry, this consultation slot is no longer available.';
+            'Sorry, this service slot is no longer available.';
 
     } else {
 
@@ -86,7 +86,9 @@ require __DIR__ . '/layouts/header.php';
     <div class="card-body">
 
         <h2 class="mb-4">
-            Confirm Consultation
+          
+            Confirm Service Booking
+
         </h2>
 
         <?php if (!empty($error)): ?>

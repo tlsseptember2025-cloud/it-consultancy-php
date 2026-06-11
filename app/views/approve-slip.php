@@ -42,7 +42,35 @@ $stmt->execute([$requestId]);
 
 $request = $stmt->fetch();
 
-header(
-    'Location: ?page=add-payment&request_id=' . $requestId
-);
+$stmt = $pdo->prepare("
+    INSERT INTO payments
+    (
+        request_id,
+        amount,
+        status,
+        payment_date,
+        notes
+    )
+    VALUES (?, ?, 'Paid', NOW(), ?)
+");
+
+$stmt->execute([
+    $requestId,
+    $request['quoted_price'],
+    'Payment approved from deposit slip review'
+]);
+
+$stmt = $pdo->prepare("
+UPDATE requests
+SET
+    workflow_stage = 'Awaiting Service Scheduling',
+    status = 'Approved'
+WHERE id = ?
+");
+
+$stmt->execute([
+    $requestId
+]);
+
+header('Location: ?page=requests');
 exit;

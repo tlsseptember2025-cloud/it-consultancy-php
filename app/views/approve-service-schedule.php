@@ -10,7 +10,9 @@ $id = $_GET['id'] ?? 0;
 
 $stmt = $pdo->prepare("
     UPDATE requests
-    SET workflow_stage = 'Awaiting Payment'
+    SET
+        workflow_stage = 'Service Active',
+        status = 'In Progress'
     WHERE id = ?
 ");
 

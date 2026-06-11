@@ -209,7 +209,25 @@ $requests = $stmt->fetchAll();
 
     </span>
 
-<?php endif; ?>
+    <?php elseif ($request['workflow_stage'] === 'Awaiting Service Scheduling'): ?>
+
+    <a
+        href="?page=schedule-service&request_id=<?= $request['id'] ?>"
+        class="btn btn-success btn-sm">
+
+        Book Service
+
+    </a>
+
+    <?php elseif ($request['workflow_stage'] === 'Service Scheduled'): ?>
+
+    <span class="badge bg-info">
+
+        Awaiting Approval
+
+    </span>
+
+    <?php endif; ?>
 
 </td>
 
