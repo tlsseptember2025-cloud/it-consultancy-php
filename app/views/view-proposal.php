@@ -9,11 +9,11 @@ if (!isset($_SESSION['customer'])) {
 $requestId = $_GET['request_id'] ?? 0;
 
 $stmt = $pdo->prepare("
-    SELECT *
-    FROM service_proposals
-    WHERE request_id = ?
-    ORDER BY id DESC
-    LIMIT 1
+    SELECT
+        proposal,
+        quoted_price
+    FROM requests
+    WHERE id = ?
 ");
 
 $stmt->execute([$requestId]);
@@ -35,24 +35,27 @@ require __DIR__ . '/layouts/header.php';
 
             <strong>Quoted Price:</strong>
 
-            $<?= number_format(
-                $proposal['proposed_price'],
-                2
-            ) ?>
+            <?= number_format($proposal['quoted_price'], 2) ?>
 
         </p>
 
         <hr>
 
-        <pre><?= htmlspecialchars(
-            $proposal['proposal_text']
-        ) ?></pre>
+        <pre><?= nl2br(htmlspecialchars($proposal['proposal'])) ?></pre>
 
         <a
             href="?page=accept-proposal-confirm&request_id=<?= $requestId ?>"
             class="btn btn-success">
 
             Accept Proposal
+
+        </a>
+
+        <a
+            href="?page=reject-proposal&request_id=<?= $requestId ?>"
+            class="btn btn-danger">
+
+            Reject Proposal
 
         </a>
 

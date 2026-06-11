@@ -144,29 +144,7 @@ $latestMessage = $pdo->query("
     LIMIT 1
 ")->fetch();
 
-$servicesScheduled = $pdo->query("
-    SELECT
-        c.name,
-        ss.service_date,
-        ss.service_time
-
-    FROM service_bookings sb
-
-    JOIN service_slots ss
-        ON sb.slot_id = ss.id
-
-    JOIN requests r
-        ON sb.request_id = r.id
-
-    JOIN customers c
-        ON r.customer_id = c.id
-
-    ORDER BY
-        ss.service_date,
-        ss.service_time
-
-    LIMIT 5
-")->fetchAll();
+$servicesScheduled = [];
 
 $awaitingPayment = $pdo->query("
     SELECT COUNT(*)

@@ -12,12 +12,24 @@ $stmt = $pdo->query("
         requests.*,
         customers.name AS customer_name,
         services.title AS service_title,
-        requests.workflow_stage
+        requests.workflow_stage,
+        ps.id AS slip_id
+
     FROM requests
+
     JOIN customers
         ON customers.id = requests.customer_id
+
     JOIN services
         ON services.id = requests.service_id
+
+    LEFT JOIN payment_slips ps
+        ON ps.id = (
+            SELECT MAX(id)
+            FROM payment_slips
+            WHERE request_id = requests.id
+        )
+
     ORDER BY requests.created_at DESC
 ");
 
@@ -57,6 +69,7 @@ $requests = $stmt->fetchAll();
                 <th>Status</th>
                 <th>Workflow Stage</th>
                 <th>Date</th>
+                
                 <th>Action</th>
 
             </tr>
@@ -131,6 +144,8 @@ $requests = $stmt->fetchAll();
                         <?= $request['created_at'] ?>
                     </td>
 
+                    
+
                     <td>
 
                         <a
@@ -177,6 +192,18 @@ $requests = $stmt->fetchAll();
 
                         <?php endif; ?>
 
+                        <?php if ($request['workflow_stage'] === 'Proposal Rejected'): ?>
+
+                            <a
+                                href="?page=edit-request&id=<?= $request['id'] ?>"
+                                class="btn btn-danger btn-sm">
+
+                                Revise Proposal
+
+                            </a>
+
+                        <?php endif; ?>
+
                         <?php if ($request['workflow_stage'] === 'Consultation Scheduled'): ?>
 
                             <a
@@ -201,13 +228,66 @@ $requests = $stmt->fetchAll();
 
                         <?php endif; ?>
 
-                        <a
-                            href="?page=edit-request&id=<?= $request['id'] ?>"
-                            class="btn btn-warning btn-sm">
+                        <?php if ($request['workflow_stage'] !== 'Consultation Completed'): ?>
 
-                            Edit
+                            <a
+                                href="?page=edit-request&id=<?= $request['id'] ?>"
+                                class="btn btn-warning btn-sm">
 
-                        </a>
+                                Edit
+
+                            </a>
+
+                        <?php endif; ?>
+
+                        <?php if (
+                            $request['workflow_stage'] === 'Consultation Completed'
+                            && empty($request['proposal'])
+                            ): ?>
+
+                            <a
+                                href="?page=edit-request&id=<?= $request['id'] ?>"
+                                class="btn btn-info btn-sm">
+
+                                Create Proposal
+
+                            </a>
+
+                        <?php endif; ?>
+
+                        <?php if (
+                            in_array(
+                            $request['workflow_stage'],
+                            [
+                                'Consultation Completed',
+                                'Proposal Rejected'
+                            ]
+                        )
+                            && !empty($request['proposal'])
+                            && !empty($request['quoted_price'])
+                            ): ?>
+
+                            <a
+                                href="?page=send-proposal&id=<?= $request['id'] ?>"
+                                class="btn btn-success btn-sm">
+
+                                Send Proposal
+
+                            </a>
+
+                        <?php endif; ?>
+
+                        <?php if ($request['workflow_stage'] === 'Payment Submitted'): ?>
+
+                            <a
+                                href="?page=view-slip&id=<?= $request['slip_id'] ?>"
+                                class="btn btn-success btn-sm">
+
+                                Review Payment
+
+                            </a>
+
+                        <?php endif; ?>
 
                         <a
                             href="?page=delete-request&id=<?= $request['id'] ?>"

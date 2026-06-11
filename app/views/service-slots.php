@@ -38,7 +38,7 @@ require __DIR__ . '/layouts/header.php';
     <div class="card-body">
 
         <h2 class="mb-4">
-            Consultation Slots
+            Service Slots
         </h2>
 
         <form method="POST" class="row g-3 mb-4">

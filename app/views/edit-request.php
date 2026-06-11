@@ -26,22 +26,26 @@ if (!$request) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $stmt = $pdo->prepare("
-        UPDATE requests
-        SET
-            customer_id = ?,
-            service_id = ?,
-            description = ?,
-            status = ?
-        WHERE id = ?
-    ");
+    UPDATE requests
+    SET
+        customer_id = ?,
+        service_id = ?,
+        description = ?,
+        proposal = ?,
+        quoted_price = ?,
+        status = ?
+    WHERE id = ?
+");
 
-    $stmt->execute([
-        $_POST['customer_id'],
-        $_POST['service_id'],
-        $_POST['description'],
-        $_POST['status'],
-        $id
-    ]);
+$stmt->execute([
+    $_POST['customer_id'],
+    $_POST['service_id'],
+    $_POST['description'],
+    $_POST['proposal'],
+    $_POST['quoted_price'],
+    $_POST['status'],
+    $id
+]);
 
     header("Location: ?page=requests");
     exit;
@@ -141,6 +145,34 @@ $services = $pdo->query("
                             name="description"
                             class="form-control"
                             rows="5"><?= htmlspecialchars($request['description']) ?></textarea>
+
+                    </div>
+
+                    <div class="mb-3">
+
+                        <label class="form-label">
+                            Proposal
+                        </label>
+
+                        <textarea
+                            name="proposal"
+                            class="form-control"
+                            rows="6"><?= htmlspecialchars($request['proposal'] ?? '') ?></textarea>
+
+                    </div>
+
+                    <div class="mb-3">
+
+                        <label class="form-label">
+                            Proposed Price
+                        </label>
+
+                        <input
+                            type="number"
+                            step="0.01"
+                            name="quoted_price"
+                            class="form-control"
+                            value="<?= $request['quoted_price'] ?>">
 
                     </div>
 

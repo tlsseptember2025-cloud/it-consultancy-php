@@ -201,6 +201,14 @@ $requests = $stmt->fetchAll();
 
     </span>
 
+   <?php elseif ($request['workflow_stage'] === 'Proposal Rejected'): ?>
+
+    <span class="badge bg-warning">
+
+        Awaiting Revised Proposal
+
+    </span>
+
 <?php endif; ?>
 
 </td>

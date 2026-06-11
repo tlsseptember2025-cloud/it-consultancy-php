@@ -20,6 +20,28 @@ $stmt->execute([$id]);
 
 $requestId = $stmt->fetchColumn();
 
+$stmt = $pdo->prepare("
+    SELECT
+        r.quoted_price,
+        c.name,
+        c.email,
+        s.title AS service_title
+
+    FROM requests r
+
+    JOIN customers c
+        ON c.id = r.customer_id
+
+    JOIN services s
+        ON s.id = r.service_id
+
+    WHERE r.id = ?
+");
+
+$stmt->execute([$requestId]);
+
+$request = $stmt->fetch();
+
 header(
     'Location: ?page=add-payment&request_id=' . $requestId
 );

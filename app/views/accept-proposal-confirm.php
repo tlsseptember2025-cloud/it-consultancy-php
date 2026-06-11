@@ -9,22 +9,28 @@ if (!isset($_SESSION['customer'])) {
 $requestId = $_GET['request_id'] ?? 0;
 
 $stmt = $pdo->prepare("
-    SELECT *
-    FROM service_proposals
-    WHERE request_id = ?
-    ORDER BY id DESC
-    LIMIT 1
+    SELECT
+        proposal,
+        quoted_price
+    FROM requests
+    WHERE id = ?
 ");
 
 $stmt->execute([$requestId]);
 
 $proposal = $stmt->fetch();
 
+if (!$proposal) {
+
+    header('Location: ?page=customer-requests');
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $stmt = $pdo->prepare("
         UPDATE requests
-        SET workflow_stage = 'Proposal Accepted'
+        SET workflow_stage = 'Awaiting Payment'
         WHERE id = ?
     ");
 
@@ -48,7 +54,7 @@ require __DIR__ . '/layouts/header.php';
             <strong>Quoted Price:</strong>
 
             $<?= number_format(
-                $proposal['proposed_price'],
+                $proposal['quoted_price'],
                 2
             ) ?>
 
