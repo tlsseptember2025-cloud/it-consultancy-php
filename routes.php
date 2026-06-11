@@ -260,6 +260,10 @@ switch ($page) {
     require __DIR__ . '/app/views/view-slip.php';
     break;
 
+    case 'complete-service':
+    require __DIR__ . '/app/views/complete-service.php';
+    break;
+
     default:
         echo "404 - Page not found";
 }

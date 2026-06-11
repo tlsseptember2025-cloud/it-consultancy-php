@@ -289,6 +289,18 @@ $requests = $stmt->fetchAll();
 
                         <?php endif; ?>
 
+                        <?php if ($request['workflow_stage'] === 'Service Active'): ?>
+
+                            <a
+                                href="?page=complete-service&id=<?= $request['id'] ?>"
+                                class="btn btn-success btn-sm">
+
+                                Complete Service
+
+                            </a>
+
+                        <?php endif; ?>
+
                         <a
                             href="?page=delete-request&id=<?= $request['id'] ?>"
                             class="btn btn-danger btn-sm"
