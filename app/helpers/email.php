@@ -75,3 +75,48 @@ function sendConsultationApprovedEmail($email, $name)
 
     return sendEmail($email, $subject, $body);
 }
+
+function sendServiceCompletedEmail(
+    string $email,
+    string $name,
+    string $service,
+    string $invoicePath
+): bool {
+
+    $subject = 'Your IT Service Has Been Successfully Completed';
+
+    $body = "
+        <h2>Hello {$name},</h2>
+
+        <p>We are pleased to inform you that your requested IT service has now been completed successfully.</p>
+
+        <p>
+            <strong>Service:</strong> {$service}
+        </p>
+
+        <p>
+            Your official invoice is attached for your records.
+        </p>
+
+        <p>
+            Thank you for choosing IT Consultancy. We appreciate your trust and look forward to assisting you with any future IT needs.
+        </p>
+
+        <hr>
+
+        <small>
+            Need ongoing IT support? Ask us about our upcoming business support plans for regular clients.
+        </small>
+
+        <br><br>
+
+        <p>Kind regards,<br>IT Consultancy Team</p>
+    ";
+
+    return sendEmail(
+        $email,
+        $subject,
+        $body,
+        [$invoicePath]
+    );
+}
