@@ -70,7 +70,7 @@ CREATE TABLE `consultation_slots` (
 
 LOCK TABLES `consultation_slots` WRITE;
 /*!40000 ALTER TABLE `consultation_slots` DISABLE KEYS */;
-INSERT INTO `consultation_slots` VALUES (6,'2026-06-13','08:30:00','Zoom','https://us05web.zoom.us/j/87518436470?pwd=bLs95Xeh3RKl3fmphvywepV5x7Vbsb.1',1,'2026-06-10 11:19:05'),(7,'2026-06-13','21:45:00','Google Meet','https://us05web.zoom.us/j/87518436470?pwd=bLs95Xeh3RKl3fmphvywepV5x7Vbsb.1',0,'2026-06-10 11:23:41'),(8,'2026-06-14','20:50:00','Google Meet','https://us05web.zoom.us/j/87518436470?pwd=bLs95Xeh3RKl3fmphvywepV5x7Vbsb.1',1,'2026-06-10 11:46:02');
+INSERT INTO `consultation_slots` VALUES (6,'2026-06-13','08:30:00','Zoom','https://us05web.zoom.us/j/87518436470?pwd=bLs95Xeh3RKl3fmphvywepV5x7Vbsb.1',1,'2026-06-10 11:19:05'),(7,'2026-06-13','21:45:00','Google Meet','https://meet.google.com/cfk-siet-kqb?hs=122&authuser=0',0,'2026-06-10 11:23:41'),(8,'2026-06-14','20:50:00','Google Meet','https://meet.google.com/cfk-siet-kqb?hs=122&authuser=0',1,'2026-06-10 11:46:02');
 /*!40000 ALTER TABLE `consultation_slots` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -151,7 +151,7 @@ CREATE TABLE `payment_slips` (
   KEY `request_id` (`request_id`),
   CONSTRAINT `payment_slips_ibfk_1` FOREIGN KEY (`customer_id`) REFERENCES `customers` (`id`),
   CONSTRAINT `payment_slips_ibfk_2` FOREIGN KEY (`request_id`) REFERENCES `requests` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=15 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -160,6 +160,7 @@ CREATE TABLE `payment_slips` (
 
 LOCK TABLES `payment_slips` WRITE;
 /*!40000 ALTER TABLE `payment_slips` DISABLE KEYS */;
+INSERT INTO `payment_slips` VALUES (9,5,12,'1781165407_Screenshot 2026-04-20 161626.png','Rejected','2026-06-11 12:10:07'),(10,4,13,'1781165534_Screenshot 2026-05-19 130549.png','Rejected','2026-06-11 12:12:14'),(11,5,12,'1781168698_Screenshot 2026-04-20 161626.png','Rejected','2026-06-11 13:04:58'),(12,4,13,'1781169376_Screenshot 2026-05-19 130549.png','Rejected','2026-06-11 13:16:16'),(13,4,13,'1781170280_Screenshot 2026-04-20 161626.png','Approved','2026-06-11 13:31:20'),(14,5,12,'1781171002_Screenshot 2026-05-19 130549.png','Approved','2026-06-11 13:43:22');
 /*!40000 ALTER TABLE `payment_slips` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -181,7 +182,7 @@ CREATE TABLE `payments` (
   PRIMARY KEY (`id`),
   KEY `request_id` (`request_id`),
   CONSTRAINT `payments_ibfk_1` FOREIGN KEY (`request_id`) REFERENCES `requests` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -253,8 +254,38 @@ CREATE TABLE `requests` (
 
 LOCK TABLES `requests` WRITE;
 /*!40000 ALTER TABLE `requests` DISABLE KEYS */;
-INSERT INTO `requests` VALUES (12,5,10,600.00,'emails','Pending','2026-06-10 13:19:21','Proposal Sent','we will create 20 email accounts for your staff\r\n\r\n30 Dirhams each'),(13,4,10,250.00,'HDD issues','Pending','2026-06-11 05:07:17','Proposal Sent','we will need to replace it');
+INSERT INTO `requests` VALUES (12,5,10,500.00,'emails','Approved','2026-06-10 13:19:21','Awaiting Service Scheduling','we will create 20 email accounts for your staff\r\n\r\n30 Dirhams each'),(13,4,10,250.00,'HDD issues','Completed','2026-06-11 05:07:17','Service Completed','we will need to replace it');
 /*!40000 ALTER TABLE `requests` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `service_bookings`
+--
+
+DROP TABLE IF EXISTS `service_bookings`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `service_bookings` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `request_id` int(11) NOT NULL,
+  `slot_id` int(11) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `request_id` (`request_id`),
+  KEY `slot_id` (`slot_id`),
+  CONSTRAINT `service_bookings_ibfk_1` FOREIGN KEY (`request_id`) REFERENCES `requests` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `service_bookings_ibfk_2` FOREIGN KEY (`slot_id`) REFERENCES `service_slots` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `service_bookings`
+--
+
+LOCK TABLES `service_bookings` WRITE;
+/*!40000 ALTER TABLE `service_bookings` DISABLE KEYS */;
+INSERT INTO `service_bookings` VALUES (1,13,2,'2026-06-11 10:11:00');
+/*!40000 ALTER TABLE `service_bookings` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
@@ -345,4 +376,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-06-11 10:37:25
+-- Dump completed on 2026-06-14 11:39:44
