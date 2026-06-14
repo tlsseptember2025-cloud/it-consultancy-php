@@ -264,6 +264,10 @@ switch ($page) {
     require __DIR__ . '/app/views/complete-service.php';
     break;
 
+    case 'archived-requests':
+    require __DIR__ . '/app/views/archived-requests.php';
+    break;
+
     default:
         echo "404 - Page not found";
 }

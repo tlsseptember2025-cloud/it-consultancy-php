@@ -30,6 +30,7 @@ $stmt = $pdo->query("
             WHERE request_id = requests.id
         )
 
+    WHERE requests.status <> 'Completed'
     ORDER BY requests.created_at DESC
 ");
 

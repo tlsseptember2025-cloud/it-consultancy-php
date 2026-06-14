@@ -69,10 +69,10 @@
 
             <div class="card-body">
 
-                <h4>Cyber Security</h4>
+                <h4>Softare Installation</h4>
 
                 <p>
-                    Security solutions and best practices for businesses.
+                    Professional software installation service provided for quick and hassle-free setup.
                 </p>
 
             </div>

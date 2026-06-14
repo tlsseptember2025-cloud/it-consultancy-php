@@ -55,7 +55,7 @@ $services = $stmt->fetchAll();
 
                     <h5 class="mt-3 text-primary">
 
-                        $<?= number_format($service['price'], 2) ?>/Hr
+                        <p>Price will be determined after consultation sessions</p>
 
                     </h5>
 

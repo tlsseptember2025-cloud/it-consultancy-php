@@ -43,41 +43,183 @@
                         Dashboard
                     </a>
 
-                    <a class="nav-link" href="?page=messages">
-                        Messages
+                    <a class="nav-link" href="?page=services-admin">
+                        Services
                     </a>
 
                     <a class="nav-link" href="?page=customers">
                         Customers
                     </a>
 
-                    <a class="nav-link" href="?page=requests">
-                        Requests
-                    </a>
+                    <div class="nav-item dropdown">
 
-                     <a class="nav-link" href="?page=consultation-slots">
-                        Consultation Slots
-                    </a>
+                        <a
+                            class="nav-link dropdown-toggle"
+                            href="#"
+                            role="button"
+                            data-bs-toggle="dropdown">
 
-                    <a class="nav-link" href="?page=service-slots">
-                        Service Slots
-                    </a>
+                            Requests
 
-                    <a class="nav-link" href="?page=payments">
-                        Payments
-                    </a>
+                        </a>
 
-                    <a class="nav-link" href="?page=services-admin">
-                        Manage Services
-                    </a>
+                        <ul class="dropdown-menu">
 
-                    <a class="nav-link" href="?page=refunds">
-                        Refunds
-                    </a>
+                            <li>
 
-                    <a class="nav-link" href="?page=backup">
-                        Database Backup
-                    </a>
+                                <a
+                                    class="dropdown-item"
+                                    href="?page=requests">
+
+                                    Current Requests
+
+                                </a>
+
+                            </li>
+
+                            <li>
+
+                                <a
+                                    class="dropdown-item"
+                                    href="?page=archived-requests">
+
+                                    Archived Requests
+
+                                </a>
+
+                            </li>
+
+                        </ul>
+
+                    </div>
+
+                    <div class="nav-item dropdown">
+
+                        <a
+                            class="nav-link dropdown-toggle"
+                            href="#"
+                            role="button"
+                            data-bs-toggle="dropdown">
+
+                            Scheduling
+
+                        </a>
+
+                        <ul class="dropdown-menu">
+
+                            <li>
+
+                                <a
+                                    class="dropdown-item"
+                                    href="?page=consultation-slots">
+
+                                    Consultation Slots
+
+                                </a>
+
+                            </li>
+
+                            <li>
+
+                                <a
+                                    class="dropdown-item"
+                                    href="?page=service-slots">
+
+                                    Service Slots
+
+                                </a>
+
+                            </li>
+
+                        </ul>
+
+                    </div>
+
+                    <div class="nav-item dropdown">
+
+                        <a
+                            class="nav-link dropdown-toggle"
+                            href="#"
+                            role="button"
+                            data-bs-toggle="dropdown">
+
+                            Finance
+
+                        </a>
+
+                        <ul class="dropdown-menu">
+
+                            <li>
+
+                                <a
+                                    class="dropdown-item"
+                                    href="?page=payments">
+
+                                    Payments
+
+                                </a>
+
+                            </li>
+
+                            <li>
+
+                                <a
+                                    class="dropdown-item"
+                                    href="?page=refunds">
+
+                                    Refunds
+
+                                </a>
+
+                            </li>
+
+                        </ul>
+
+                    </div>
+
+
+                    <div class="nav-item dropdown">
+
+                        <a
+                            class="nav-link dropdown-toggle"
+                            href="#"
+                            role="button"
+                            data-bs-toggle="dropdown">
+
+                            System
+
+                        </a>
+
+                        <ul class="dropdown-menu">
+
+                            <li>
+
+                                <a
+                                    class="dropdown-item"
+                                    href="?page=messages">
+
+                                    Messages
+
+                                </a>
+
+                            </li>
+
+                            <li>
+
+                                <a
+                                    class="dropdown-item"
+                                    href="?page=backup">
+
+                                    Database Backup
+
+                                </a>
+
+                            </li>
+
+                        </ul>
+
+                    </div>
+                   
 
                     <a class="nav-link text-danger" href="?page=logout">
                         Logout

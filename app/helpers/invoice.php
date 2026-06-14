@@ -20,7 +20,7 @@ $logo = dirname(__DIR__, 2) . '/public/uploads/assets/logo.png';
 
 if (file_exists($logo)) {
 
-    $pdf->Image($logo, 10, 10, 25);
+    $pdf->Image($logo, 15, 15, 50);
 
 }
 
