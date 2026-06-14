@@ -16,7 +16,7 @@ function generateInvoicePdf(
 // ======================================
 
 // Optional logo
-$logo = dirname(__DIR__, 2) . '/public/assets/logo.png';
+$logo = dirname(__DIR__, 2) . '/public/uploads/assets/logo.png';
 
 if (file_exists($logo)) {
 
@@ -24,7 +24,7 @@ if (file_exists($logo)) {
 
 }
 
-$pdf->SetFont('Arial', 'B', 14);
+$pdf->SetFont('Arial', 'B', 20);
 
 $pdf->Cell(
     0,
@@ -70,7 +70,7 @@ $pdf->Ln(10);
 // Invoice Title
 // ======================================
 
-$pdf->SetFont('Arial', '', 11);
+$pdf->SetFont('Arial', 'B', 14);
 
 $pdf->Cell(
     0,
@@ -133,6 +133,18 @@ if (!empty($request['completed_at'])) {
 
 }
 
+// Separator before customer information
+$pdf->Ln(3);
+
+$pdf->Cell(
+    190,
+    0,
+    '',
+    'T'
+);
+
+$pdf->Ln(6);
+
     // ======================================
 // Customer Information
 // ======================================
@@ -156,14 +168,14 @@ if (!empty($request['email'])) {
     $pdf->Cell(
         0,
         8,
-        $request['email'],
+        'Email: ' . $request['email'],
         0,
         1
     );
 
 }
 
-$pdf->Ln(5);
+$pdf->Ln(6);
 
 // ======================================
 // Invoice Table
@@ -210,6 +222,8 @@ $pdf->Cell(
     1,
     'R'
 );
+
+$pdf->Ln(6);
 
 // ======================================
 // Payment Status
