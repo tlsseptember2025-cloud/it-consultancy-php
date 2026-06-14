@@ -86,32 +86,56 @@ function sendServiceCompletedEmail(
     $subject = 'Your IT Service Has Been Successfully Completed';
 
     $body = "
-        <h2>Hello {$name},</h2>
+    <h2>Hello {$name},</h2>
 
-        <p>We are pleased to inform you that your requested IT service has now been completed successfully.</p>
+    <p>
+        We are pleased to inform you that your requested IT service
+        has been completed successfully.
+    </p>
 
-        <p>
-            <strong>Service:</strong> {$service}
-        </p>
+    <p>
+        <strong>Service:</strong> {$service}
+    </p>
 
-        <p>
-            Your official invoice is attached for your records.
-        </p>
+    <p>
+        Your official invoice (PDF) is attached to this email
+        for your records and accounting purposes.
+    </p>
 
-        <p>
-            Thank you for choosing IT Consultancy. We appreciate your trust and look forward to assisting you with any future IT needs.
-        </p>
+    <p>
+        You can also log in to your customer portal at any time
+        to view your request history, invoices, and future services.
+    </p>
 
-        <hr>
+    <hr>
 
-        <small>
-            Need ongoing IT support? Ask us about our upcoming business support plans for regular clients.
-        </small>
+    <p>
+        <strong>Need additional IT assistance?</strong><br>
+        Visit <a href='https://ramiphp.com'>https://ramiphp.com</a>
+        to explore our services and learn about our upcoming
+        monthly and annual business support plans.
+    </p>
 
-        <br><br>
+    <p>
+        Thank you for choosing IT Consultancy.
+        We appreciate your trust and look forward to assisting
+        you again in the future.
+    </p>
 
-        <p>Kind regards,<br>IT Consultancy Team</p>
-    ";
+    <br>
+
+    <p>
+    📧 support@itconsultancy.com<br>
+    📞 +962 XX XXX XXXX<br>
+    🌐 https://ramiphp.com
+    </p>
+
+
+    <p>
+        Kind regards,<br>
+        <strong>IT Consultancy Team</strong>
+    </p>
+";
 
     return sendEmail(
         $email,
