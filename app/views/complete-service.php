@@ -1,6 +1,7 @@
 <?php
 
 require_once dirname(__DIR__) . '/helpers/invoice.php';
+require_once dirname(__DIR__) . '/helpers/email.php';
 
 if (!isset($_SESSION['user'])) {
 
@@ -73,6 +74,13 @@ $invoicePath =
 
 generateInvoicePdf(
     $request,
+    $invoicePath
+);
+
+sendServiceCompletedEmail(
+    $request['email'],
+    $request['customer_name'],
+    $request['service_title'],
     $invoicePath
 );
 
