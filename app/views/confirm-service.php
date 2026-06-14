@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/../helpers/email.php';
+
 if (!isset($_SESSION['customer'])) {
 
     header('Location: ?page=customer-login');
@@ -72,6 +74,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ");
 
         $stmt->execute([$requestId]);
+
+        $stmt = $pdo->prepare("
+        SELECT
+            c.name,
+            c.email,
+            s.title AS service_title
+
+        FROM requests r
+
+        JOIN customers c
+            ON c.id = r.customer_id
+
+        JOIN services s
+            ON s.id = r.service_id
+
+        WHERE r.id = ?
+        ");
+
+        $stmt->execute([$requestId]);
+
+        $request = $stmt->fetch();
+
+        sendEmail(
+            $request['email'],
+            'Service Scheduled',
+            "
+            <h2>Hello {$request['name']},</h2>
+
+            <p>Your service has been successfully scheduled.</p>
+
+            <p><strong>Service:</strong> {$request['service_title']}</p>
+
+            <p><strong>Date:</strong> " .
+                date('M d, Y', strtotime($slot['service_date'])) .
+            "</p>
+
+            <p><strong>Time:</strong> " .
+                date('h:i A', strtotime($slot['service_time'])) .
+            "</p>
+
+            <p>Your booking request has been received and is awaiting final confirmation 
+                from our team. We will notify you as soon as it is approved.</p>
+
+            <p>Thank you for choosing our IT Consultancy services.</p>
+
+            <p>Kind regards,<br>IT Consultancy Team</p>
+            "
+        );
 
         header('Location: ?page=customer-requests');
         exit;

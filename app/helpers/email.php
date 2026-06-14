@@ -8,8 +8,11 @@ require_once dirname(__DIR__, 2) . '/vendor/autoload.php';
 function sendEmail(
     string $to,
     string $subject,
-    string $body
+    string $body,
+    array $attachments = []
 ): bool {
+
+    $config = require dirname(__DIR__, 2) . '/config/mail_config.php';
 
     $mail = new PHPMailer(true);
 
@@ -17,23 +20,29 @@ function sendEmail(
 
         $mail->isSMTP();
 
-        $mail->Host = 'smtp.gmail.com';
+        $mail->Host = $config['host'];
         $mail->SMTPAuth = true;
 
-        $mail->Username = 'ramiwahdan2023@gmail.com';
-        $mail->Password = 'avvz tbsb mpld lglj';
+        $mail->Username = $config['username'];
+        $mail->Password = $config['password'];
 
-        $mail->SMTPSecure =
-            PHPMailer::ENCRYPTION_STARTTLS;
-
-        $mail->Port = 587;
+        $mail->Port = $config['port'];
 
         $mail->setFrom(
-            'ramiwahdan2023@gmail.com',
-            'IT Consultancy'
+            $config['username'],
+            $config['from_name']
         );
 
         $mail->addAddress($to);
+
+        foreach ($attachments as $attachment) {
+
+            if (file_exists($attachment)) {
+
+                $mail->addAttachment($attachment);
+
+            }
+        }
 
         $mail->isHTML(true);
 
