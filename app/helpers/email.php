@@ -110,13 +110,6 @@ function sendServiceCompletedEmail(
     <hr>
 
     <p>
-        <strong>Need additional IT assistance?</strong><br>
-        Visit <a href='https://ramiphp.com'>https://ramiphp.com</a>
-        to explore our services and learn about our upcoming
-        monthly and annual business support plans.
-    </p>
-
-    <p>
         Thank you for choosing IT Consultancy.
         We appreciate your trust and look forward to assisting
         you again in the future.
@@ -130,6 +123,12 @@ function sendServiceCompletedEmail(
     🌐 https://ramiphp.com
     </p>
 
+    <p>
+        <strong>Need additional IT assistance?</strong><br>
+        Visit <a href='https://ramiphp.com'>https://ramiphp.com</a>
+        to explore our services and learn about our upcoming
+        monthly and annual business support plans.
+    </p>
 
     <p>
         Kind regards,<br>
