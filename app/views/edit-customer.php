@@ -1,9 +1,8 @@
 <?php
 
-if (!isset($_SESSION['user'])) {
-    header("Location: ?page=login");
-    exit;
-}
+require_once __DIR__ . '/../helpers/auth.php';
+
+requireAdminLogin();
 
 require dirname(__DIR__, 2) . '/config/database.php';
 

@@ -1,5 +1,11 @@
 <?php
 
+require_once __DIR__ . '/../helpers/auth.php';
+
+requireCustomerLogin();
+
+$customerId = (int) $_SESSION['customer']['id'];
+
 require __DIR__ . '/layouts/header.php';
 
 if (!isset($_SESSION['customer'])) {

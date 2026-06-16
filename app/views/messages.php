@@ -1,14 +1,10 @@
 <?php
 
-if (!isset($_SESSION['user'])) {
-    header("Location: ?page=login");
-    exit;
-}
-?>
+require_once __DIR__ . '/../helpers/auth.php';
 
-<?php require __DIR__ . '/layouts/header.php'; ?>
+requireAdminLogin();
 
-<?php
+require __DIR__ . '/layouts/header.php';
 require dirname(__DIR__, 2) . '/config/database.php';
 
 // Total messages
@@ -18,6 +14,7 @@ $total = $totalStmt->fetch()['total'];
 // Today's messages
 $todayStmt = $pdo->query("SELECT COUNT(*) as today FROM messages WHERE DATE(created_at) = CURDATE()");
 $today = $todayStmt->fetch()['today'];
+
 ?>
 
 <h1 class="mb-4 pt-3">

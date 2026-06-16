@@ -1,5 +1,11 @@
 <?php
 
+require_once __DIR__ . '/../helpers/auth.php';
+
+requireCustomerLogin();
+
+$customerId = (int) $_SESSION['customer']['id'];
+
 if (!isset($_SESSION['customer'])) {
 
     header('Location: ?page=customer-login');

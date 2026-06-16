@@ -2,6 +2,12 @@
 
 <?php
 
+require_once __DIR__ . '/../helpers/auth.php';
+
+requireCustomerLogin();
+
+$customerId = (int) $_SESSION['customer']['id'];
+
 $customerId = $_SESSION['customer']['id'];
 
 $stmt = $pdo->prepare("

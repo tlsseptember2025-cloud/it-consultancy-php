@@ -1,10 +1,8 @@
 <?php
 
-if (!isset($_SESSION['user'])) {
+require_once __DIR__ . '/../helpers/auth.php';
 
-    header('Location: ?page=login');
-    exit;
-}
+requireAdminLogin();
 
 $stmt = $pdo->query("
     SELECT
