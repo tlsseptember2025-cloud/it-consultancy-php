@@ -2,6 +2,7 @@
 
 require_once dirname(__DIR__) . '/helpers/invoice.php';
 require_once dirname(__DIR__) . '/helpers/email.php';
+require_once dirname(__DIR__) . '/helpers/service_report.php';
 
 if (!isset($_SESSION['user'])) {
 
@@ -10,6 +11,8 @@ if (!isset($_SESSION['user'])) {
 }
 
 $id = $_GET['id'] ?? 0;
+
+$completionNotes = trim($_POST['completion_notes'] ?? '');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
@@ -20,6 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         SET
             workflow_stage = 'Service Completed',
             status = 'Completed',
+            completed_at = NOW(),
             completion_notes = ?
         WHERE id = ?
     ");
@@ -31,9 +35,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Keep the rest of your existing logic
     // (invoice generation, emails, redirects, etc.)
-}
 
-$stmt->execute([$id]);
+    $stmt->execute([
+    $completionNotes,
+    $id
+    ]);
+}
 
 $stmt = $pdo->prepare("
     SELECT
@@ -88,6 +95,17 @@ $invoicePath =
 generateInvoicePdf(
     $request,
     $invoicePath
+);
+
+$reportPath =
+    dirname(__DIR__, 2)
+    . '/storage/reports/SERVICE-REPORT-'
+    . str_pad($request['id'], 6, '0', STR_PAD_LEFT)
+    . '.pdf';
+
+generateServiceReportPdf(
+    $request,
+    $reportPath
 );
 
 sendServiceCompletedEmail(

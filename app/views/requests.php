@@ -292,7 +292,7 @@ $requests = $stmt->fetchAll();
                         <?php if ($request['workflow_stage'] === 'Service Active'): ?>
 
                             <a
-                                href="?page=complete-service&id=<?= $request['id'] ?>"
+                                href="?page=complete-service-form&id=<?= $request['id'] ?>"
                                 class="btn btn-success btn-sm">
 
                                 Complete Service
