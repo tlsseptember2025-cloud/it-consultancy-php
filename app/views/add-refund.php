@@ -224,16 +224,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             -- Select a reason --
         </option>
 
-        <option value="Cancellation">
-            Cancellation (48+ hours before service)
-        </option>
-
         <option value="Service Unsuccessful">
             Service was not successful
-        </option>
-
-        <option value="Duplicate Payment">
-            Duplicate payment
         </option>
 
         <option value="Other">
