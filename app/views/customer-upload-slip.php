@@ -191,6 +191,14 @@ $update->execute([$requestId]);
 
             </button>
 
+            <a
+    href="?page=customer-requests"
+    class="btn btn-secondary ms-2">
+
+    Cancel
+
+</a>
+
         </form>
 
     </div>

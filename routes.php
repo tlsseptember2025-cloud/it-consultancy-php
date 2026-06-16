@@ -268,6 +268,10 @@ switch ($page) {
     require __DIR__ . '/app/views/archived-requests.php';
     break;
 
+    case 'customer-request-refund':
+    require __DIR__ . '/app/views/customer-request-refund.php';
+    break;
+
     default:
         echo "404 - Page not found";
 }

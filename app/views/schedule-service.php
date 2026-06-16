@@ -73,6 +73,14 @@ require __DIR__ . '/layouts/header.php';
 
                             </a>
 
+                            <a
+                                href="?page=customer-requests"
+                                class="btn btn-secondary ms-2">
+
+                                Cancel
+
+                            </a>
+
                         </td>
 
                     </tr>

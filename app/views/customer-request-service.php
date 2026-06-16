@@ -111,10 +111,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             </button>
 
-        </form>
+            <a
+        href="?page=customer-requests"
+        class="btn btn-secondary ms-2">
 
-    </div>
+        Cancel
 
-</div>
+        </a>
+
+                </form>
+
+            </div>
+
+        </div>
 
 <?php require __DIR__ . '/layouts/footer.php'; ?>

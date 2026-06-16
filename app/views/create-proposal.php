@@ -94,6 +94,14 @@ require __DIR__ . '/layouts/header.php';
 
             </button>
 
+            <a
+                        href="?page=requests"
+                        class="btn btn-secondary ms-2">
+
+                        Cancel
+
+            </a>
+
         </form>
 
     </div>

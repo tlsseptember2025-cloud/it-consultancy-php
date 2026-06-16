@@ -48,6 +48,18 @@ $requests = $stmt->fetchAll();
 
 <h1 class="mb-4">My Requests</h1>
 
+<div class="mb-3">
+
+    <a
+        href="?page=customer-request-service"
+        class="btn btn-primary">
+
+        ➕ Request New Service
+
+    </a>
+
+</div>
+
 <div class="card">
 
     <div class="card-body">
@@ -252,7 +264,20 @@ $requests = $stmt->fetchAll();
 
 <?php endif; ?>
 
-    
+<?php if (
+    $request['status'] === 'Completed' ||
+    $request['workflow_stage'] === 'Service Completed'
+): ?>
+
+    <a
+        href="?page=customer-request-refund&request_id=<?= $request['id'] ?>"
+        class="btn btn-outline-danger btn-sm mt-1">
+
+        Request Refund
+
+    </a>
+
+<?php endif; ?>
 
 </td>
 

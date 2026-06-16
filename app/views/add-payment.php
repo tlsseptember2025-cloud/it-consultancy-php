@@ -295,6 +295,14 @@ $requests = $pdo->query("
 
                     </button>
 
+                    <a
+                        href="?page=payments"
+                        class="btn btn-secondary ms-2">
+
+                        Cancel
+
+                    </a>
+
                 </form>
 
             </div>
