@@ -12,6 +12,30 @@ require dirname(__DIR__, 2) . '/config/database.php';
 |--------------------------------------------------------------------------
 */
 
+$newLeads = $pdo->query("
+    SELECT COUNT(*)
+    FROM contract_leads
+    WHERE status = 'New'
+")->fetchColumn();
+
+$contactedLeads = $pdo->query("
+    SELECT COUNT(*)
+    FROM contract_leads
+    WHERE status = 'Contacted'
+")->fetchColumn();
+
+$convertedLeads = $pdo->query("
+    SELECT COUNT(*)
+    FROM contract_leads
+    WHERE status = 'Converted'
+")->fetchColumn();
+
+$closedLeads = $pdo->query("
+    SELECT COUNT(*)
+    FROM contract_leads
+    WHERE status = 'Closed'
+")->fetchColumn();
+
 $totalCustomers = $pdo->query("
     SELECT COUNT(*)
     FROM customers
@@ -522,7 +546,59 @@ $awaitingPayment = $pdo->query("
     </div>
 
 </div>
+</div>
+
+<div class="row mt-4">
+
+    <div class="col-md-6 mx-auto">
+
+        <div class="card shadow-sm border-success">
+
+            <div class="card-header bg-success text-white">
+
+                <h5 class="mb-0">
+                    🏢 Company Support Leads
+                </h5>
+
+            </div>
+
+            <div class="card-body text-center">
+
+                <p class="mb-2">
+                    🆕 New:
+                    <strong><?= $newLeads ?></strong>
+                </p>
+
+                <p class="mb-2">
+                    📞 Contacted:
+                    <strong><?= $contactedLeads ?></strong>
+                </p>
+
+                <p class="mb-2">
+                    🤝 Converted:
+                    <strong><?= $convertedLeads ?></strong>
+                </p>
+
+                <p class="mb-3">
+                    📁 Closed:
+                    <strong><?= $closedLeads ?></strong>
+                </p>
+
+                <a
+                    href="?page=contract-leads"
+                    class="btn btn-success">
+
+                    View Leads
+
+                </a>
+
+            </div>
+
+        </div>
 
     </div>
+
+</div>
+
 
 <?php require __DIR__ . '/layouts/footer.php'; ?>

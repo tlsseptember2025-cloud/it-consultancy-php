@@ -272,6 +272,14 @@ switch ($page) {
     require __DIR__ . '/app/views/customer-request-refund.php';
     break;
 
+    case 'contract-leads':
+    require __DIR__ . '/app/views/contract-leads.php';
+    break;
+
+    case 'edit-contract-lead':
+    require __DIR__ . '/app/views/edit-contract-lead.php';
+    break;
+
     default:
         echo "404 - Page not found";
 }

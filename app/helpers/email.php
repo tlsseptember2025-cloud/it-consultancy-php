@@ -143,3 +143,55 @@ function sendServiceCompletedEmail(
         [$invoicePath]
     );
 }
+
+function sendContractLeadNotification(
+    string $companyName,
+    string $contactPerson,
+    string $email,
+    string $phone,
+    ?int $employees,
+    string $comments
+): bool {
+
+    $subject = 'New Company Support Lead';
+
+    $body = "
+        <h2>🏢 New Company Support Lead</h2>
+
+        <p>
+            A new company has expressed interest in your IT support services.
+        </p>
+
+        <hr>
+
+        <p><strong>Company:</strong> {$companyName}</p>
+
+        <p><strong>Contact Person:</strong> {$contactPerson}</p>
+
+        <p><strong>Email:</strong> {$email}</p>
+
+        <p><strong>Phone:</strong> {$phone}</p>
+
+        <p><strong>Employees:</strong> " . ($employees ?? 'Not specified') . "</p>
+
+        <p><strong>Comments / Requirements:</strong></p>
+
+        <blockquote style='border-left:4px solid #28a745;padding-left:10px;'>
+            " . nl2br(htmlspecialchars($comments)) . "
+        </blockquote>
+
+        <hr>
+
+        <p>
+            Please log in to the Admin Dashboard and follow up with this lead.
+        </p>
+    ";
+
+    $config = require dirname(__DIR__, 2) . '/config/mail_config.php';
+
+    return sendEmail(
+        $config['admin_email'],
+        $subject,
+        $body
+    );
+}

@@ -10,6 +10,8 @@ return [
 
     'password' => 'iwgu vqwh njwe hake',
 
-    'from_name' => 'IT Consultancy'
+    'from_name' => 'IT Consultancy',
+
+    'admin_email' => 'ramiwahdan2023@gmail.com'
 
 ];
