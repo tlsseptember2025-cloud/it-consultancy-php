@@ -279,4 +279,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 </div>
 
+<script>
+
+const requestSelect = document.querySelector('select[name="request_id"]');
+
+requestSelect.addEventListener('change', function () {
+
+    const option = this.options[this.selectedIndex];
+
+    const paid = parseFloat(option.dataset.paid || 0);
+    const refunded = parseFloat(option.dataset.refunded || 0);
+    const available = paid - refunded;
+
+    document.getElementById('totalPaid').textContent =
+        '$' + paid.toFixed(2);
+
+    document.getElementById('totalRefunded').textContent =
+        '$' + refunded.toFixed(2);
+
+    document.getElementById('availableRefund').textContent =
+        '$' + available.toFixed(2);
+
+    // Reset refund amount to 0.00
+    const amountInput = document.getElementById('refundAmount');
+
+    amountInput.value = '0.00';
+
+    amountInput.max = available.toFixed(2);
+
+});
+
+</script>
+
 <?php require __DIR__ . '/layouts/footer.php'; ?>
