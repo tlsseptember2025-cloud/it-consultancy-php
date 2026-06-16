@@ -97,11 +97,15 @@ generateInvoicePdf(
     $invoicePath
 );
 
-$reportPath =
-    dirname(__DIR__, 2)
-    . '/storage/reports/SERVICE-REPORT-'
-    . str_pad($request['id'], 6, '0', STR_PAD_LEFT)
-    . '.pdf';
+$reportDir = dirname(__DIR__, 2) . '/storage/reports';
+
+if (!is_dir($reportDir)) {
+    mkdir($reportDir, 0777, true);
+}
+
+$reportPath = $reportDir . '/SERVICE-REPORT-' .
+    str_pad($request['id'], 6, '0', STR_PAD_LEFT) .
+    '.pdf';
 
 generateServiceReportPdf(
     $request,
@@ -112,7 +116,8 @@ sendServiceCompletedEmail(
     $request['email'],
     $request['customer_name'],
     $request['service_title'],
-    $invoicePath
+    $invoicePath,
+    $reportPath
 );
 
 header('Location: ?page=requests');

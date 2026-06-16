@@ -40,6 +40,9 @@ function sendEmail(
             if (file_exists($attachment)) {
 
                 $mail->addAttachment($attachment);
+                if ($reportPath && file_exists($reportPath)) {
+                    $mail->addAttachment($reportPath);
+                }
 
             }
         }
@@ -77,10 +80,11 @@ function sendConsultationApprovedEmail($email, $name)
 }
 
 function sendServiceCompletedEmail(
-    string $email,
+    string $to,
     string $name,
     string $service,
-    string $invoicePath
+    string $invoicePath,
+    ?string $reportPath = null
 ): bool {
 
     $subject = 'Your IT Service Has Been Successfully Completed';
@@ -136,12 +140,21 @@ function sendServiceCompletedEmail(
     </p>
 ";
 
-    return sendEmail(
-        $email,
-        $subject,
-        $body,
-        [$invoicePath]
-    );
+    $attachments = [$invoicePath];
+
+        if (
+            $reportPath !== null &&
+            file_exists($reportPath)
+        ) {
+            $attachments[] = $reportPath;
+        }
+
+        return sendEmail(
+            $to,
+            $subject,
+            $body,
+            $attachments
+        );
 }
 
 function sendContractLeadNotification(
