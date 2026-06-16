@@ -195,3 +195,57 @@ function sendContractLeadNotification(
         $body
     );
 }
+
+function sendPasswordResetEmail(
+    string $to,
+    string $customerName,
+    string $token
+): bool {
+
+    $subject = 'Reset Your Password';
+
+    $resetLink =
+        'http://localhost/it-consultancy-php/public/index.php?page=customer-reset-password&token='
+        . urlencode($token);
+
+    $body = "
+        <h2>Password Reset Request</h2>
+
+        <p>Hello {$customerName},</p>
+
+        <p>
+            We received a request to reset your password.
+        </p>
+
+        <p>
+            Click the link below to choose a new password:
+        </p>
+
+        <p>
+            <a href='{$resetLink}'>
+                Reset My Password
+            </a>
+        </p>
+
+        <p>
+            This link will expire in <strong>1 hour</strong>.
+        </p>
+
+        <p>
+            If you did not request a password reset, you can safely ignore this email.
+        </p>
+
+        <br>
+
+        <p>
+            Regards,<br>
+            IT Consultancy
+        </p>
+    ";
+
+    return sendEmail(
+        $to,
+        $subject,
+        $body
+    );
+}

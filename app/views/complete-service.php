@@ -11,14 +11,27 @@ if (!isset($_SESSION['user'])) {
 
 $id = $_GET['id'] ?? 0;
 
-$stmt = $pdo->prepare("
-    UPDATE requests
-    SET
-        workflow_stage = 'Service Completed',
-        status = 'Completed',
-        completed_at = NOW()
-    WHERE id = ?
-");
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+    $notes = trim($_POST['completion_notes']);
+
+    $stmt = $pdo->prepare("
+        UPDATE requests
+        SET
+            workflow_stage = 'Service Completed',
+            status = 'Completed',
+            completion_notes = ?
+        WHERE id = ?
+    ");
+
+    $stmt->execute([
+        $notes,
+        $id
+    ]);
+
+    // Keep the rest of your existing logic
+    // (invoice generation, emails, redirects, etc.)
+}
 
 $stmt->execute([$id]);
 

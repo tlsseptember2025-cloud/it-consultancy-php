@@ -61,6 +61,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 <?php endif; ?>
 
+                <?php if (isset($_GET['reset']) && $_GET['reset'] === 'success'): ?>
+
+                    <div class="alert alert-success">
+
+                        Your password has been reset successfully.
+                        You can now log in with your new password.
+
+                    </div>
+
+                <?php endif; ?>
+
                 <form method="POST" autocomplete="off">
 
                     <div class="mb-3">
@@ -94,6 +105,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         Login
 
                     </button>
+
+                    <p class="mt-3 text-center">
+                        <a href="?page=customer-forgot-password">
+                            Forgot your password?
+                        </a>
+                    </p>
 
                 </form>
 

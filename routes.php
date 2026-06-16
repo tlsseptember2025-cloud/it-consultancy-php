@@ -280,6 +280,14 @@ switch ($page) {
     require __DIR__ . '/app/views/edit-contract-lead.php';
     break;
 
+    case 'customer-forgot-password':
+    require __DIR__ . '/app/views/customer-forgot-password.php';
+    break;
+
+    case 'customer-reset-password':
+    require __DIR__ . '/app/views/customer-reset-password.php';
+    break;
+
     default:
         echo "404 - Page not found";
 }
