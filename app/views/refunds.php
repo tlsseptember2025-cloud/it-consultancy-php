@@ -88,7 +88,7 @@ $refunds = $pdo->query("
                         </td>
 
                         <td>
-                            $<?= number_format($refund['amount'], 2) ?>
+                            AED <?= number_format($refund['amount'], 2) ?>
                         </td>
 
                         <td>

@@ -94,7 +94,7 @@ $requests = $stmt->fetchAll();
 
                         <?php if ($request['quoted_price'] > 0): ?>
 
-                            $<?= number_format($request['quoted_price'], 2) ?>
+                            AED <?= number_format($request['quoted_price'], 2) ?>
 
                         <?php else: ?>
 

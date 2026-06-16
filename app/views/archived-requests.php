@@ -57,7 +57,7 @@ require __DIR__ . '/layouts/header.php';
 
                 <td><?= htmlspecialchars($request['service_title']) ?></td>
 
-                <td>$<?= number_format($request['quoted_price'], 2) ?></td>
+                <td>AED <?= number_format($request['quoted_price'], 2) ?></td>
 
                 <td><?= htmlspecialchars($request['status']) ?></td>
 

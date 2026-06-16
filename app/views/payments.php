@@ -75,7 +75,7 @@ $payments = $stmt->fetchAll();
                 </td>
 
                 <td>
-                    $<?= number_format($payment['amount'], 2) ?>
+                    AED <?= number_format($payment['amount'], 2) ?>
                 </td>
 
                 <td>

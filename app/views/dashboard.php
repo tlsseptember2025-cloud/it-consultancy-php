@@ -224,7 +224,7 @@ $awaitingPayment = $pdo->query("
         <div class="card bg-info text-white shadow-sm">
             <div class="card-body">
                 <h4>Total Payments</h4>
-                <h1>$<?= number_format($totalPayments, 2) ?></h1>
+                <h1>AED <?= number_format($totalPayments, 2) ?></h1>
             </div>
         </div>
     </div>
@@ -238,7 +238,7 @@ $awaitingPayment = $pdo->query("
                 <h4>Total Refunded</h4>
 
                 <h1>
-                    $<?= number_format($totalRefunded, 2) ?>
+                    AED <?= number_format($totalRefunded, 2) ?>
                 </h1>
 
             </div>
@@ -251,7 +251,7 @@ $awaitingPayment = $pdo->query("
         <div class="card bg-success text-white shadow-sm">
             <div class="card-body">
                 <h4>Net Revenue</h4>
-                <h1>$<?= number_format($netRevenue, 2) ?></h1>
+                <h1>AED <?= number_format($netRevenue, 2) ?></h1>
             </div>
         </div>
     </div>
@@ -260,7 +260,7 @@ $awaitingPayment = $pdo->query("
         <div class="card text-white shadow-sm" style="background-color: var(--bs-orange);">
             <div class="card-body">
                 <h4>Outstanding Balance</h4>
-                <h1>$<?= number_format($outstandingBalance, 2) ?></h1>
+                <h1>AED <?= number_format($outstandingBalance, 2) ?></h1>
             </div>
         </div>
     </div>
@@ -433,7 +433,7 @@ $awaitingPayment = $pdo->query("
                         <br>
 
                         <strong class="text-success">
-                            $<?= number_format($latestRequest['quoted_price'], 2) ?>
+                            AED <?= number_format($latestRequest['quoted_price'], 2) ?>
                         </strong>
 
                     <?php else: ?>
@@ -465,7 +465,7 @@ $awaitingPayment = $pdo->query("
 
                         <br>
 
-                        $<?= number_format($latestPayment['amount'], 2) ?>
+                        AED <?= number_format($latestPayment['amount'], 2) ?>
 
                         <br>
 
@@ -529,7 +529,7 @@ $awaitingPayment = $pdo->query("
 
                         <br>
 
-                        $<?= number_format($latestRefund['amount'], 2) ?>
+                        AED <?= number_format($latestRefund['amount'], 2) ?>
 
                     <?php else: ?>
 

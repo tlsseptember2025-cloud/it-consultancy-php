@@ -57,7 +57,7 @@ if (!$request) {
 
         <p><strong>Service:</strong> <?= htmlspecialchars($request['service_title']) ?></p>
 
-        <p><strong>Quoted Price:</strong> $<?= number_format($request['quoted_price'], 2) ?>/Hr</p>
+        <p><strong>Quoted Price:</strong> $<?= number_format($request['quoted_price'], 2) ?></p>
 
         <p><strong>Status:</strong> <?= htmlspecialchars($request['status']) ?></p>
 
