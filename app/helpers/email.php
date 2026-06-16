@@ -102,7 +102,7 @@ function sendServiceCompletedEmail(
     </p>
 
     <p>
-        Your official invoice (PDF) is attached to this email
+        Your official Invoice and Service Completion Report are attached to this email 
         for your records and accounting purposes.
     </p>
 
