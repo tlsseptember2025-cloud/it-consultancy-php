@@ -292,15 +292,6 @@ switch ($page) {
     require __DIR__ . '/app/views/complete-service-form.php';
     break;
 
-
-
-    #temp
-    case 'test-service-report':
-    require __DIR__ . '/app/views/test-service-report.php';
-    break;
-
-
-
     default:
         echo "404 - Page not found";
 }
