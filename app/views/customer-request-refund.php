@@ -14,8 +14,6 @@ if (!isset($_SESSION['customer'])) {
 
 $requestId = $_GET['request_id'] ?? 0;
 
-$customerId = $_SESSION['customer']['id'];
-
 $stmt = $pdo->prepare("
     SELECT id
     FROM requests
@@ -35,16 +33,33 @@ if (!$stmt->fetch()) {
 
 }
 
+// Load the scheduled service for this request
+$stmt = $pdo->prepare("
+    SELECT
+        ss.service_date,
+        ss.service_time
+    FROM service_bookings sb
+    JOIN service_slots ss
+        ON ss.id = sb.slot_id
+    WHERE sb.request_id = ?
+    LIMIT 1
+");
+
+$stmt->execute([$requestId]);
+
+$serviceSchedule = $stmt->fetch(PDO::FETCH_ASSOC);
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    $reason = trim($_POST['reason']);
+    $reasonType = trim($_POST['reason_type']);
+    $reasonDetails = trim($_POST['reason_details']);
 
     // Prevent duplicate refund requests
     $check = $pdo->prepare("
         SELECT COUNT(*)
-        FROM refunds
-        WHERE request_id = ?
-          AND status IN ('Pending', 'Approved', 'Processed')
+    FROM refund_requests
+    WHERE request_id = ?
+    AND status IN ('Pending', 'Approved')
     ");
 
     $check->execute([$requestId]);
@@ -55,32 +70,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     } else {
 
-        $stmt = $pdo->prepare("
-            INSERT INTO refunds
+        $reasonType = $_POST['reason_type'];
+
+    if (
+    $reasonType === 'Cancellation' &&
+    !empty($serviceSchedule['service_date']) &&
+    !empty($serviceSchedule['service_time'])
+    ) {
+
+    $serviceDateTime = strtotime(
+        $serviceSchedule['service_date'] . ' ' .
+        $serviceSchedule['service_time']
+    );
+
+    if (time() > ($serviceDateTime - (48 * 60 * 60))) {
+
+        $error = 'Cancellation refunds must be requested at least 48 hours before the scheduled service.';
+
+    }
+
+    }
+
+        if (empty($error)) {
+
+            $stmt = $pdo->prepare("
+            INSERT INTO refund_requests
             (
                 request_id,
-                amount,
-                refund_date,
-                reason,
+                reason_type,
+                reason_details,
                 status
             )
             VALUES
             (
                 ?,
-                NULL,
-                NULL,
+                ?,
                 ?,
                 'Pending'
             )
         ");
 
         $stmt->execute([
-            $requestId,
-            $reason
-        ]);
+    $requestId,
+    $reasonType,
+    $reasonDetails
+    ]);
 
-        header('Location: ?page=customer-refunds');
-        exit;
+                header('Location: ?page=customer-refunds');
+                exit;
+    }
     }
 }
 
@@ -96,21 +134,57 @@ require __DIR__ . '/layouts/header.php';
             Request Refund
         </h2>
 
+        <?php if (!empty($error)): ?>
+
+    <div class="alert alert-danger">
+        <?= htmlspecialchars($error) ?>
+    </div>
+
+<?php endif; ?>
+
         <form method="POST">
 
             <div class="mb-3">
 
-                <label class="form-label">
-                    Reason for Refund
-                </label>
+    <label class="form-label">
+        Refund Reason
+    </label>
 
-                <textarea
-                    name="reason"
-                    class="form-control"
-                    rows="5"
-                    required></textarea>
+    <select
+        name="reason_type"
+        class="form-select"
+        required>
 
-            </div>
+        <option value="">
+            -- Select a reason --
+        </option>
+
+        <option value="Cancellation">
+            Cancellation (48+ hours before scheduled service)
+        </option>
+
+        <option value="Duplicate Payment">
+            Duplicate Payment
+        </option>
+
+    </select>
+
+</div>
+
+<div class="mb-3">
+
+    <label class="form-label">
+        Additional Details
+    </label>
+
+    <textarea
+        name="reason_details"
+        class="form-control"
+        rows="5"
+        placeholder="Please provide any additional information..."
+        required></textarea>
+
+</div>
 
             <button
                 type="submit"
