@@ -32,7 +32,7 @@ CREATE TABLE `consultation_bookings` (
   KEY `slot_id` (`slot_id`),
   CONSTRAINT `consultation_bookings_ibfk_1` FOREIGN KEY (`request_id`) REFERENCES `requests` (`id`),
   CONSTRAINT `consultation_bookings_ibfk_2` FOREIGN KEY (`slot_id`) REFERENCES `consultation_slots` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -41,7 +41,7 @@ CREATE TABLE `consultation_bookings` (
 
 LOCK TABLES `consultation_bookings` WRITE;
 /*!40000 ALTER TABLE `consultation_bookings` DISABLE KEYS */;
-INSERT INTO `consultation_bookings` VALUES (6,14,7,'2026-06-14 11:46:11');
+INSERT INTO `consultation_bookings` VALUES (6,14,7,'2026-06-14 11:46:11'),(7,16,8,'2026-06-14 13:57:49');
 /*!40000 ALTER TABLE `consultation_bookings` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -70,8 +70,39 @@ CREATE TABLE `consultation_slots` (
 
 LOCK TABLES `consultation_slots` WRITE;
 /*!40000 ALTER TABLE `consultation_slots` DISABLE KEYS */;
-INSERT INTO `consultation_slots` VALUES (6,'2026-06-13','08:30:00','Zoom','https://us05web.zoom.us/j/87518436470?pwd=bLs95Xeh3RKl3fmphvywepV5x7Vbsb.1',0,'2026-06-10 11:19:05'),(7,'2026-06-13','21:45:00','Google Meet','https://meet.google.com/cfk-siet-kqb?hs=122&authuser=0',1,'2026-06-10 11:23:41'),(8,'2026-06-14','20:50:00','Google Meet','https://meet.google.com/cfk-siet-kqb?hs=122&authuser=0',0,'2026-06-10 11:46:02');
+INSERT INTO `consultation_slots` VALUES (6,'2026-06-13','08:30:00','Zoom','https://us05web.zoom.us/j/87518436470?pwd=bLs95Xeh3RKl3fmphvywepV5x7Vbsb.1',0,'2026-06-10 11:19:05'),(7,'2026-06-13','21:45:00','Google Meet','https://meet.google.com/cfk-siet-kqb?hs=122&authuser=0',1,'2026-06-10 11:23:41'),(8,'2026-06-14','20:50:00','Google Meet','https://meet.google.com/cfk-siet-kqb?hs=122&authuser=0',1,'2026-06-10 11:46:02');
 /*!40000 ALTER TABLE `consultation_slots` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `contract_leads`
+--
+
+DROP TABLE IF EXISTS `contract_leads`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `contract_leads` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `company_name` varchar(255) NOT NULL,
+  `contact_person` varchar(255) NOT NULL,
+  `email` varchar(255) NOT NULL,
+  `phone` varchar(50) DEFAULT NULL,
+  `employees` int(11) DEFAULT NULL,
+  `comments` text DEFAULT NULL,
+  `status` enum('New','Contacted','Converted','Closed') DEFAULT 'New',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `contract_leads`
+--
+
+LOCK TABLES `contract_leads` WRITE;
+/*!40000 ALTER TABLE `contract_leads` DISABLE KEYS */;
+INSERT INTO `contract_leads` VALUES (1,'Loops Automation LLC','Rami','rami.wahdan@loopsautomation.com','0501228293',40,'Techical','Closed','2026-06-16 06:46:42'),(5,'loops','rami','rami.wahdan@loopsautomation.com','0501228293',45,'test!','New','2026-06-16 07:55:49'),(6,'loops','rami','test@gmail.com','0501228293',45,'test!','New','2026-06-16 08:03:23'),(7,'loops','rami','test@gmail.com','0501228293',45,'test!','New','2026-06-16 08:07:25'),(8,'loops','rami','test@gmail.com','0501228293',45,'test!','New','2026-06-16 08:07:40'),(9,'loops','rami','test@gmail.com','0501228293',45,'test!','New','2026-06-16 08:11:13');
+/*!40000 ALTER TABLE `contract_leads` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
@@ -90,6 +121,8 @@ CREATE TABLE `customers` (
   `notes` text DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `password` varchar(255) DEFAULT NULL,
+  `reset_token` varchar(255) DEFAULT NULL,
+  `reset_token_expires` datetime DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -100,7 +133,7 @@ CREATE TABLE `customers` (
 
 LOCK TABLES `customers` WRITE;
 /*!40000 ALTER TABLE `customers` DISABLE KEYS */;
-INSERT INTO `customers` VALUES (4,'Fatima Habib','fatima.habib1980@gmail.com','0507626410','Loops LLC','New','2026-06-08 05:05:36','$2y$10$5zbb9gSqyqr5CtysWWR8kuHUjX2h0FQvmjul7NWWqagogTGCgBsP2'),(5,'Ahmad Rami','ramiwahdan1978@gmail.com','0501228293','ABC','','2026-06-08 05:16:32','$2y$10$pEpozl5NLhmcRE0f0Hv/DOEoxjhbh9qYtTWuChF0hRRcvOVN.QVlq');
+INSERT INTO `customers` VALUES (4,'Fatima Habib','fatima.habib1980@gmail.com','0507626410','Loops LLC','New','2026-06-08 05:05:36','$2y$10$zlnT7TWHBaO9yMFS.5F6e.fR.WI.jOj1QHJAMcHaCRqqHPtdt4nFa',NULL,NULL),(5,'Ahmad Rami','ramiwahdan1978@gmail.com','0501228293','ABC','','2026-06-08 05:16:32','$2y$10$UYuE591jq/PjY0eDpDbMve5TIlfIByUDJel65WgHXz55tz0E76v3a',NULL,NULL);
 /*!40000 ALTER TABLE `customers` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -151,7 +184,7 @@ CREATE TABLE `payment_slips` (
   KEY `request_id` (`request_id`),
   CONSTRAINT `payment_slips_ibfk_1` FOREIGN KEY (`customer_id`) REFERENCES `customers` (`id`),
   CONSTRAINT `payment_slips_ibfk_2` FOREIGN KEY (`request_id`) REFERENCES `requests` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=16 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=17 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -160,7 +193,7 @@ CREATE TABLE `payment_slips` (
 
 LOCK TABLES `payment_slips` WRITE;
 /*!40000 ALTER TABLE `payment_slips` DISABLE KEYS */;
-INSERT INTO `payment_slips` VALUES (15,5,14,'1781437650_Screenshot 2026-04-20 161626.png','Approved','2026-06-14 15:47:30');
+INSERT INTO `payment_slips` VALUES (15,5,14,'1781437650_Screenshot 2026-04-20 161626.png','Approved','2026-06-14 15:47:30'),(16,4,16,'1781445533_Screenshot 2026-05-19 130549.png','Approved','2026-06-14 17:58:53');
 /*!40000 ALTER TABLE `payment_slips` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -182,7 +215,7 @@ CREATE TABLE `payments` (
   PRIMARY KEY (`id`),
   KEY `request_id` (`request_id`),
   CONSTRAINT `payments_ibfk_1` FOREIGN KEY (`request_id`) REFERENCES `requests` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=15 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=16 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -191,8 +224,36 @@ CREATE TABLE `payments` (
 
 LOCK TABLES `payments` WRITE;
 /*!40000 ALTER TABLE `payments` DISABLE KEYS */;
-INSERT INTO `payments` VALUES (14,14,100.00,'Paid','2026-06-14 15:47:40','Payment approved from deposit slip review','2026-06-14 11:47:40');
+INSERT INTO `payments` VALUES (14,14,100.00,'Paid','2026-06-14 15:47:40','Payment approved from deposit slip review','2026-06-14 11:47:40'),(15,16,250.00,'Paid','2026-06-14 17:59:01','Payment approved from deposit slip review','2026-06-14 13:59:01');
 /*!40000 ALTER TABLE `payments` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `refund_requests`
+--
+
+DROP TABLE IF EXISTS `refund_requests`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `refund_requests` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `request_id` int(11) NOT NULL,
+  `reason_type` varchar(100) NOT NULL,
+  `reason_details` text DEFAULT NULL,
+  `status` enum('Pending','Approved','Rejected') DEFAULT 'Pending',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `refund_requests`
+--
+
+LOCK TABLES `refund_requests` WRITE;
+/*!40000 ALTER TABLE `refund_requests` DISABLE KEYS */;
+INSERT INTO `refund_requests` VALUES (10,16,'Cancellation','ok','Approved','2026-06-17 13:23:44');
+/*!40000 ALTER TABLE `refund_requests` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
@@ -205,14 +266,15 @@ DROP TABLE IF EXISTS `refunds`;
 CREATE TABLE `refunds` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `request_id` int(11) NOT NULL,
-  `amount` decimal(10,2) NOT NULL,
-  `refund_date` datetime NOT NULL,
+  `amount` decimal(10,2) DEFAULT NULL,
+  `refund_date` datetime DEFAULT NULL,
   `reason` text DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `status` enum('Processed','Completed') NOT NULL DEFAULT 'Processed',
   PRIMARY KEY (`id`),
   KEY `request_id` (`request_id`),
   CONSTRAINT `refunds_ibfk_1` FOREIGN KEY (`request_id`) REFERENCES `requests` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=20 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -221,6 +283,7 @@ CREATE TABLE `refunds` (
 
 LOCK TABLES `refunds` WRITE;
 /*!40000 ALTER TABLE `refunds` DISABLE KEYS */;
+INSERT INTO `refunds` VALUES (19,16,250.00,'2026-06-17 17:23:54','Cancellation','2026-06-17 13:23:54','Completed');
 /*!40000 ALTER TABLE `refunds` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -242,12 +305,13 @@ CREATE TABLE `requests` (
   `workflow_stage` varchar(50) DEFAULT 'Submitted',
   `proposal` text DEFAULT NULL,
   `completed_at` datetime DEFAULT NULL,
+  `completion_notes` text DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `customer_id` (`customer_id`),
   KEY `service_id` (`service_id`),
   CONSTRAINT `requests_ibfk_1` FOREIGN KEY (`customer_id`) REFERENCES `customers` (`id`) ON DELETE CASCADE,
   CONSTRAINT `requests_ibfk_2` FOREIGN KEY (`service_id`) REFERENCES `services` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=16 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=17 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -256,7 +320,7 @@ CREATE TABLE `requests` (
 
 LOCK TABLES `requests` WRITE;
 /*!40000 ALTER TABLE `requests` DISABLE KEYS */;
-INSERT INTO `requests` VALUES (14,5,10,100.00,'need help','Completed','2026-06-14 11:45:24','Service Completed','ok','2026-06-14 16:30:40');
+INSERT INTO `requests` VALUES (14,5,10,100.00,'need help','Completed','2026-06-14 11:45:24','Service Completed','ok','2026-06-14 16:30:40',NULL),(16,4,10,250.00,'i need help with 5 printers','','2026-06-14 13:57:21','Service Scheduled','each printer will be 50AED',NULL,NULL);
 /*!40000 ALTER TABLE `requests` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -277,7 +341,7 @@ CREATE TABLE `service_bookings` (
   KEY `slot_id` (`slot_id`),
   CONSTRAINT `service_bookings_ibfk_1` FOREIGN KEY (`request_id`) REFERENCES `requests` (`id`) ON DELETE CASCADE,
   CONSTRAINT `service_bookings_ibfk_2` FOREIGN KEY (`slot_id`) REFERENCES `service_slots` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -286,7 +350,7 @@ CREATE TABLE `service_bookings` (
 
 LOCK TABLES `service_bookings` WRITE;
 /*!40000 ALTER TABLE `service_bookings` DISABLE KEYS */;
-INSERT INTO `service_bookings` VALUES (3,14,3,'2026-06-14 11:47:55');
+INSERT INTO `service_bookings` VALUES (3,14,3,'2026-06-14 11:47:55'),(4,16,2,'2026-06-14 13:59:08');
 /*!40000 ALTER TABLE `service_bookings` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -312,7 +376,7 @@ CREATE TABLE `service_slots` (
 
 LOCK TABLES `service_slots` WRITE;
 /*!40000 ALTER TABLE `service_slots` DISABLE KEYS */;
-INSERT INTO `service_slots` VALUES (1,'2026-06-13','18:30:00',0),(2,'2026-06-13','19:45:00',0),(3,'2026-06-13','20:30:00',1);
+INSERT INTO `service_slots` VALUES (1,'2026-06-13','18:30:00',0),(2,'2026-06-20','19:45:00',1),(3,'2026-06-13','20:30:00',1);
 /*!40000 ALTER TABLE `service_slots` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -378,4 +442,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-06-14 17:54:01
+-- Dump completed on 2026-06-17 17:54:17
