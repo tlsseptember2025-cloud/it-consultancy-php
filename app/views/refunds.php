@@ -28,7 +28,7 @@ $refunds = $pdo->query("
 <div class="d-flex justify-content-between align-items-center mb-4">
 
     <h1>
-        Refunds
+        Approved Refunds
     </h1>
 
     <a

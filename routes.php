@@ -292,6 +292,18 @@ switch ($page) {
     require __DIR__ . '/app/views/complete-service-form.php';
     break;
 
+    case 'refund-requests':
+    require __DIR__ . '/app/views/refund-requests.php';
+    break;
+
+    case 'process-refund-request':
+    require __DIR__ . '/app/views/process-refund-request.php';
+    break;
+
+    case 'approve-refund-request':
+    require __DIR__ . '/app/views/approve-refund-request.php';
+    break;
+
     default:
         echo "404 - Page not found";
 }

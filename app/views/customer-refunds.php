@@ -18,15 +18,15 @@ $customerId = $_SESSION['customer']['id'];
 
 $stmt = $pdo->prepare("
     SELECT
-        rf.*,
+        rr.*,
         s.title AS service_title
-    FROM refunds rf
+    FROM refund_requests rr
     JOIN requests r
-        ON rf.request_id = r.id
+        ON rr.request_id = r.id
     JOIN services s
         ON r.service_id = s.id
     WHERE r.customer_id = ?
-    ORDER BY rf.id DESC
+    ORDER BY rr.created_at DESC
 ");
 
 $stmt->execute([$customerId]);
@@ -37,7 +37,7 @@ $refunds = $stmt->fetchAll();
 
 <h1 class="mb-4">
 
-    My Refunds
+    My Refund Requests
 
 </h1>
 
@@ -49,19 +49,19 @@ $refunds = $stmt->fetchAll();
 
             <thead>
 
-                <tr>
+    <tr>
 
-                    <th>Service</th>
+        <th>Service</th>
 
-                    <th>Amount</th>
+        <th>Reason</th>
 
-                    <th>Date</th>
+        <th>Status</th>
 
-                    <th>Reason</th>
+        <th>Requested On</th>
 
-                </tr>
+    </tr>
 
-            </thead>
+</thead>
 
             <tbody>
 
@@ -69,25 +69,45 @@ $refunds = $stmt->fetchAll();
 
                     <?php foreach ($refunds as $refund): ?>
 
-                        <tr>
+                       <tr>
 
-                            <td>
-                                <?= htmlspecialchars($refund['service_title']) ?>
-                            </td>
+    <td>
+        <?= htmlspecialchars($refund['service_title']) ?>
+    </td>
 
-                            <td>
-                                $<?= number_format($refund['amount'], 2) ?>
-                            </td>
+    <td>
+        <?= htmlspecialchars($refund['reason_type']) ?>
+    </td>
 
-                            <td>
-                                <?= date('M d, Y', strtotime($refund['refund_date'])) ?>
-                            </td>
+    <td>
 
-                            <td>
-                                <?= htmlspecialchars($refund['reason']) ?>
-                            </td>
+        <?php if ($refund['status'] === 'Pending'): ?>
 
-                        </tr>
+            <span class="badge bg-warning text-dark">
+                Pending
+            </span>
+
+        <?php elseif ($refund['status'] === 'Approved'): ?>
+
+            <span class="badge bg-success">
+                Approved
+            </span>
+
+        <?php else: ?>
+
+            <span class="badge bg-danger">
+                Rejected
+            </span>
+
+        <?php endif; ?>
+
+    </td>
+
+    <td>
+        <?= date('M d, Y', strtotime($refund['created_at'])) ?>
+    </td>
+
+</tr>
 
                     <?php endforeach; ?>
 
