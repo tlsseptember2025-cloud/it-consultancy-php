@@ -91,6 +91,27 @@ $requests = $stmt->fetchAll();
 
                 <?php foreach ($requests as $request): ?>
 
+                    <?php
+
+                        $refundEligible = false;
+
+                        if (
+                            !empty($request['service_date']) &&
+                            !empty($request['service_time'])
+                        ) {
+
+                            $serviceDateTime = strtotime(
+                                $request['service_date'] . ' ' .
+                                $request['service_time']
+                            );
+
+                            $refundEligible =
+                                time() <= ($serviceDateTime - (48 * 60 * 60));
+
+                        }
+
+                    ?>
+
                     <tr>
 
                         <td>
@@ -126,6 +147,7 @@ $requests = $stmt->fetchAll();
                         </td>
 
                         <td>
+
 
     <?php if ($request['workflow_stage'] === 'Consultation Approved'): ?>
 
@@ -247,43 +269,31 @@ $requests = $stmt->fetchAll();
 
     </a>
 
-    <?php elseif (
-    $request['workflow_stage'] === 'Service Scheduled'
-    || $request['workflow_stage'] === 'Service Active'
-): ?>
-
-    <small>
-
-        <?= date(
-            'M d, Y',
-            strtotime($request['service_date'])
-        ) ?>
-
-        <br>
-
-        <?= date(
-            'h:i A',
-            strtotime($request['service_time'])
-        ) ?>
-
-    </small>
-
 <?php endif; ?>
 
+
 <?php if (
-    $request['status'] === 'Completed' ||
+    $request['workflow_stage'] === 'Service Scheduled' ||
+    $request['workflow_stage'] === 'Service Active' ||
     $request['workflow_stage'] === 'Service Completed'
 ): ?>
 
+    <small>
+    <?= date('M d, Y', strtotime($request['service_date'])) ?>
+    <br>
+    <?= date('h:i A', strtotime($request['service_time'])) ?>
+</small>
+
+<div class="mt-2">
     <a
         href="?page=customer-request-refund&request_id=<?= $request['id'] ?>"
-        class="btn btn-outline-danger btn-sm mt-1">
-
+        class="btn btn-outline-danger btn-sm">
         Request Refund
-
     </a>
+</div>
 
 <?php endif; ?>
+
 
 </td>
 
