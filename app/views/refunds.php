@@ -28,7 +28,7 @@ $refunds = $pdo->query("
 <div class="d-flex justify-content-between align-items-center mb-4">
 
     <h1>
-        Approved Refunds
+        Refund Management
     </h1>
 
     <a
@@ -101,15 +101,52 @@ $refunds = $pdo->query("
 
                         <td>
 
-                            <a
-                                href="?page=delete-refund&id=<?= $refund['id'] ?>"
-                                class="btn btn-sm btn-danger"
-                                onclick="return confirm('Delete refund?')">
+                           <?php
+                            $status = trim((string)($refund['status'] ?? ''));
 
-                                Delete
+                            if ($status === 'Processed'):
+                            ?>
 
-                            </a>
+                                <span class="badge bg-warning text-dark">
+                                    Processing
+                                </span>
 
+                                <br>
+
+                                <small class="text-muted">
+                                    Awaiting completion by finance team.
+                                </small>
+
+                                <br><br>
+
+                                <a
+                                    href="?page=complete-refund&id=<?= $refund['id'] ?>"
+                                    class="btn btn-success btn-sm">
+
+                                    Complete Refund
+
+                                </a>
+
+                            <?php elseif ($status === 'Completed'): ?>
+
+                                <span class="badge bg-success">
+                                    Completed
+                                </span>
+
+                                <br>
+
+                                <small class="text-muted">
+                                    Refund successfully processed.
+                                </small>
+
+                            <?php else: ?>
+
+                                <span class="badge bg-secondary">
+                                    <?= htmlspecialchars($status ?: 'Unknown') ?>
+                                </span>
+
+                            <?php endif; ?>
+                           
                         </td>
 
                     </tr>

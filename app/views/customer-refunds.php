@@ -83,23 +83,30 @@ $refunds = $stmt->fetchAll();
 
         <?php if ($refund['status'] === 'Pending'): ?>
 
-            <span class="badge bg-warning text-dark">
-                Pending
-            </span>
+    <span class="badge bg-warning text-dark">
+        Pending Review
+    </span>
 
-        <?php elseif ($refund['status'] === 'Approved'): ?>
+<?php elseif ($refund['status'] === 'Approved'): ?>
 
-            <span class="badge bg-success">
-                Approved
-            </span>
+    <span class="badge bg-success">
+        Approved
+    </span>
 
-        <?php else: ?>
+    <br>
 
-            <span class="badge bg-danger">
-                Rejected
-            </span>
+    <small class="text-muted">
+        Under processing. Your refund is expected to be completed within
+        <strong>7 working days</strong>.
+    </small>
 
-        <?php endif; ?>
+<?php else: ?>
+
+    <span class="badge bg-danger">
+        Rejected
+    </span>
+
+<?php endif; ?>
 
     </td>
 

@@ -109,9 +109,25 @@ require __DIR__ . '/layouts/header.php';
 
                             <?php else: ?>
 
-                                <span class="text-muted">
-                                    Reviewed
-                                </span>
+                                <?php if ($request['status'] === 'Approved'): ?>
+
+                                    <span class="badge bg-success">
+                                        Approved
+                                    </span>
+
+                                <?php elseif ($request['status'] === 'Rejected'): ?>
+
+                                    <span class="badge bg-danger">
+                                        Rejected
+                                    </span>
+
+                                <?php else: ?>
+
+                                    <span class="badge bg-warning text-dark">
+                                        Pending
+                                    </span>
+
+                                <?php endif; ?>
 
                             <?php endif; ?>
 

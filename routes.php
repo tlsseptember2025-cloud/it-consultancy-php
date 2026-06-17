@@ -304,6 +304,10 @@ switch ($page) {
     require __DIR__ . '/app/views/approve-refund-request.php';
     break;
 
+    case 'complete-refund':
+    require __DIR__ . '/app/views/complete-refund.php';
+    break;
+
     default:
         echo "404 - Page not found";
 }

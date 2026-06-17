@@ -162,12 +162,18 @@
                             </li>
 
                             <li>
+                                <a class="dropdown-item" href="?page=refund-requests">
+                                    Refund Requests
+                                </a>
+                            </li>
+
+                            <li>
 
                                 <a
                                     class="dropdown-item"
                                     href="?page=refunds">
 
-                                    Refunds
+                                    Approved Refunds
 
                                 </a>
 
