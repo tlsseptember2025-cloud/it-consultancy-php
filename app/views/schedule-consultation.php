@@ -1,21 +1,55 @@
 <?php
 
 if (!isset($_SESSION['customer'])) {
-
     header('Location: ?page=customer-login');
     exit;
 }
 
-$requestId = $_GET['request_id'] ?? 0;
+$requestId = (int)($_GET['request_id'] ?? 0);
+$selectedDate = $_GET['date'] ?? '';
+
+/*
+|--------------------------------------------------------------------------
+| Get Available Dates (48+ hours only)
+|--------------------------------------------------------------------------
+*/
 
 $stmt = $pdo->query("
-    SELECT *
+    SELECT DISTINCT slot_date
     FROM consultation_slots
     WHERE is_booked = 0
-    ORDER BY slot_date, slot_time
+      AND TIMESTAMP(slot_date, slot_time) >= DATE_ADD(NOW(), INTERVAL 48 HOUR)
+    ORDER BY slot_date
 ");
 
-$slots = $stmt->fetchAll();
+$availableDates = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+/*
+|--------------------------------------------------------------------------
+| Get Available Times For Selected Date
+|--------------------------------------------------------------------------
+*/
+
+$slots = [];
+
+if (!empty($selectedDate)) {
+
+    $stmt = $pdo->prepare("
+        SELECT
+            MIN(id) AS id,
+            slot_date,
+            slot_time
+        FROM consultation_slots
+        WHERE slot_date = ?
+          AND is_booked = 0
+        GROUP BY slot_date, slot_time
+        ORDER BY slot_time
+    ");
+
+    $stmt->execute([$selectedDate]);
+
+    $slots = $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
 
 require __DIR__ . '/layouts/header.php';
 
@@ -29,67 +63,118 @@ require __DIR__ . '/layouts/header.php';
             Schedule Consultation
         </h2>
 
-        <table class="table table-bordered">
+        <form method="GET" class="mb-4">
 
-            <thead>
+            <input
+                type="hidden"
+                name="page"
+                value="schedule-consultation">
 
-                <tr>
+            <input
+                type="hidden"
+                name="request_id"
+                value="<?= $requestId ?>">
 
-                    <th>Date</th>
-                    <th>Time</th>
-                    <th>Action</th>
+            <label class="form-label">
+                Select Consultation Date
+            </label>
 
-                </tr>
+            <select
+                name="date"
+                class="form-select"
+                onchange="this.form.submit()">
 
-            </thead>
+                <option value="">
+                    -- Choose a Date --
+                </option>
 
-            <tbody>
+                <?php foreach ($availableDates as $date): ?>
 
-                <?php foreach ($slots as $slot): ?>
+                    <option
+                        value="<?= $date['slot_date'] ?>"
+                        <?= $selectedDate === $date['slot_date'] ? 'selected' : '' ?>>
 
-                    <tr>
+                        <?= date('M d, Y', strtotime($date['slot_date'])) ?>
 
-                        <td>
-                            <?= date(
-                                'M d, Y',
-                                strtotime($slot['slot_date'])
-                            ) ?>
-                        </td>
-
-                        <td>
-                            <?= date(
-                                'h:i A',
-                                strtotime($slot['slot_time'])
-                            ) ?>
-                        </td>
-
-                        <td>
-
-                            <a
-                                href="?page=confirm-consultation&request_id=<?= $requestId ?>&slot_id=<?= $slot['id'] ?>"
-                                class="btn btn-success btn-sm">
-
-                                Book
-
-                            </a>
-
-                            <a
-                                href="?page=customer-requests"
-                                class="btn btn-secondary ms-2">
-
-                                Cancel
-
-                            </a>
-
-                        </td>
-
-                    </tr>
+                    </option>
 
                 <?php endforeach; ?>
 
-            </tbody>
+            </select>
 
-        </table>
+        </form>
+
+        <?php if (!empty($selectedDate)): ?>
+
+            <?php if (count($slots) > 0): ?>
+
+                <table class="table table-bordered">
+
+                    <thead>
+
+                        <tr>
+
+                            <th>Time</th>
+                            <th width="180">Action</th>
+
+                        </tr>
+
+                    </thead>
+
+                    <tbody>
+
+                        <?php foreach ($slots as $slot): ?>
+
+                            <tr>
+
+                                <td>
+
+                                    <?= date(
+                                        'h:i A',
+                                        strtotime($slot['slot_time'])
+                                    ) ?>
+
+                                </td>
+
+                                <td>
+
+                                    <a
+                                        href="?page=confirm-consultation&request_id=<?= $requestId ?>&slot_id=<?= $slot['id'] ?>"
+                                        class="btn btn-success btn-sm">
+
+                                        Book
+
+                                    </a>
+
+                                    <a
+                                        href="?page=customer-requests"
+                                        class="btn btn-secondary btn-sm">
+
+                                        Cancel
+
+                                    </a>
+
+                                </td>
+
+                            </tr>
+
+                        <?php endforeach; ?>
+
+                    </tbody>
+
+                </table>
+
+            <?php else: ?>
+
+                <div class="alert alert-warning">
+
+                    No consultation slots are available for the selected date.
+
+                </div>
+
+            <?php endif; ?>
+
+        <?php endif; ?>
 
     </div>
 

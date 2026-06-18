@@ -308,6 +308,10 @@ switch ($page) {
     require __DIR__ . '/app/views/complete-refund.php';
     break;
 
+    case 'generate-consultation-slots':
+    require 'app/views/generate-consultation-slots.php';
+    break;
+
     default:
         echo "404 - Page not found";
 }

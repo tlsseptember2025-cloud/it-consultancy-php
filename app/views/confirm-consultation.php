@@ -12,6 +12,19 @@ $requestId = $_GET['request_id'] ?? 0;
 $slotId = $_GET['slot_id'] ?? 0;
 
 $stmt = $pdo->prepare("
+    SELECT
+        agent_id
+    FROM consultation_slots
+    WHERE id = ?
+");
+
+$stmt->execute([$slotId]);
+
+$selectedSlot = $stmt->fetch(PDO::FETCH_ASSOC);
+
+$agentId = $selectedSlot['agent_id'];
+
+$stmt = $pdo->prepare("
     SELECT *
     FROM consultation_slots
     WHERE id = ?
@@ -63,14 +76,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             INSERT INTO consultation_bookings
             (
                 request_id,
-                slot_id
+                slot_id,
+                agent_id
             )
-            VALUES (?, ?)
+            VALUES (?, ?, ?)
         ");
 
         $stmt->execute([
             $requestId,
-            $slotId
+            $slotId,
+            $agentId
         ]);
 
         $stmt = $pdo->prepare("
