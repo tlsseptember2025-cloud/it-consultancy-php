@@ -18,18 +18,19 @@ $customerId = $_SESSION['customer']['id'];
 
 $stmt = $pdo->prepare("
     SELECT
-    rr.*,
-    s.title AS service_title,
-    rf.amount AS refund_amount
-FROM refund_requests rr
-JOIN requests r
-    ON rr.request_id = r.id
-JOIN services s
-    ON r.service_id = s.id
-LEFT JOIN refunds rf
-    ON rf.request_id = r.id
-WHERE r.customer_id = ?
-ORDER BY rr.id DESC;
+        rr.*,
+        s.title AS service_title,
+        rf.amount AS refund_amount,
+        rf.status AS refund_status
+    FROM refund_requests rr
+    JOIN requests r
+        ON rr.request_id = r.id
+    JOIN services s
+        ON r.service_id = s.id
+    LEFT JOIN refunds rf
+        ON rf.request_id = r.id
+    WHERE r.customer_id = ?
+    ORDER BY rr.id DESC
 ");
 
 $stmt->execute([$customerId]);
@@ -98,21 +99,48 @@ $refunds = $stmt->fetchAll();
 
 <?php elseif ($refund['status'] === 'Approved'): ?>
 
-    <span class="badge bg-success">
-        Approved
-    </span>
+    <?php if (($refund['refund_status'] ?? '') === 'Completed'): ?>
 
-    <br>
+        <span class="badge bg-primary">
+            Completed
+        </span>
 
-    <small class="text-muted">
-        Refund amount approved:
-        <strong>
-            AED <?= number_format($refund['refund_amount'], 2) ?>
-        </strong>
         <br>
-        Your refund is currently being processed and is expected within
-        <strong>7 working days</strong>.
-    </small>
+
+        <small class="text-muted">
+            Refund Amount:
+            <strong>
+                AED <?= number_format($refund['refund_amount'], 2) ?>
+            </strong>
+
+            <br>
+
+            Your refund has been successfully processed.
+        </small>
+
+    <?php else: ?>
+
+        <span class="badge bg-success">
+            Approved
+        </span>
+
+        <br>
+
+        <small class="text-muted">
+            Refund Amount:
+            <strong>
+                AED <?= number_format($refund['refund_amount'], 2) ?>
+            </strong>
+
+            <br>
+
+            Under processing. Expected completion within
+            <strong>7 working days</strong>.
+        </small>
+
+    <?php endif; ?>
+
+<?php elseif ($refund['status'] === 'Rejected'): ?>
 
 <?php elseif ($refund['status'] === 'Rejected'): ?>
 
