@@ -18,15 +18,18 @@ $customerId = $_SESSION['customer']['id'];
 
 $stmt = $pdo->prepare("
     SELECT
-        rr.*,
-        s.title AS service_title
-    FROM refund_requests rr
-    JOIN requests r
-        ON rr.request_id = r.id
-    JOIN services s
-        ON r.service_id = s.id
-    WHERE r.customer_id = ?
-    ORDER BY rr.created_at DESC
+    rr.*,
+    s.title AS service_title,
+    rf.amount AS refund_amount
+FROM refund_requests rr
+JOIN requests r
+    ON rr.request_id = r.id
+JOIN services s
+    ON r.service_id = s.id
+LEFT JOIN refunds rf
+    ON rf.request_id = r.id
+WHERE r.customer_id = ?
+ORDER BY rr.id DESC;
 ");
 
 $stmt->execute([$customerId]);
@@ -81,11 +84,17 @@ $refunds = $stmt->fetchAll();
 
     <td>
 
-        <?php if ($refund['status'] === 'Pending'): ?>
+<?php if ($refund['status'] === 'Pending'): ?>
 
     <span class="badge bg-warning text-dark">
-        Pending Review
+        Pending
     </span>
+
+    <br>
+
+    <small class="text-muted">
+        Your refund request is under review.
+    </small>
 
 <?php elseif ($refund['status'] === 'Approved'): ?>
 
@@ -96,19 +105,30 @@ $refunds = $stmt->fetchAll();
     <br>
 
     <small class="text-muted">
-        Under processing. Your refund is expected to be completed within
+        Refund amount approved:
+        <strong>
+            AED <?= number_format($refund['refund_amount'], 2) ?>
+        </strong>
+        <br>
+        Your refund is currently being processed and is expected within
         <strong>7 working days</strong>.
     </small>
 
-<?php else: ?>
+<?php elseif ($refund['status'] === 'Rejected'): ?>
 
     <span class="badge bg-danger">
         Rejected
     </span>
 
+    <br>
+
+    <small class="text-muted">
+        Unfortunately, this refund request was not approved.
+    </small>
+
 <?php endif; ?>
 
-    </td>
+</td>
 
     <td>
         <?= date('M d, Y', strtotime($refund['created_at'])) ?>

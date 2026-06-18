@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/../helpers/email.php';
+
 if (!isset($_SESSION['user'])) {
     header("Location: ?page=login");
     exit;
@@ -113,6 +115,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute([
             $refundRequest['id']
         ]);
+
+        $stmt = $pdo->prepare("
+    SELECT
+        c.name,
+        c.email,
+        s.title AS service_title
+    FROM requests r
+    JOIN customers c
+        ON r.customer_id = c.id
+    JOIN services s
+        ON r.service_id = s.id
+    WHERE r.id = ?
+");
+
+$stmt->execute([
+    $refundRequest['request_id']
+]);
+
+$customer = $stmt->fetch(PDO::FETCH_ASSOC);
+
+if ($customer) {
+
+    $subject = "Your Refund Request Has Been Approved";
+
+    $formattedAmount = number_format($amount, 2);
+
+$body = "
+Dear {$customer['name']},
+
+Your refund request has been approved.
+
+Service:
+{$customer['service_title']}
+
+Approved Refund Amount:
+AED {$formattedAmount}
+
+Your refund is now being processed by our finance team.
+Please allow up to 7 working days for the funds to be processed.
+
+Thank you for your patience.
+
+Kind regards,
+IT Consultancy Team
+";
+
+    sendEmail(
+        $customer['email'],
+        $subject,
+        nl2br($body)
+    );
+}
 
         header('Location: ?page=refund-requests');
         exit;
