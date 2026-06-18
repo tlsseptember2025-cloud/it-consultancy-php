@@ -6,6 +6,29 @@ if (!isset($_SESSION['customer'])) {
 }
 
 $requestId = (int)($_GET['request_id'] ?? 0);
+
+$customerId = $_SESSION['customer']['id'];
+
+$stmt = $pdo->prepare("
+    SELECT id
+    FROM requests
+    WHERE id = ?
+      AND customer_id = ?
+");
+
+$stmt->execute([
+    $requestId,
+    $customerId
+]);
+
+if (!$stmt->fetch()) {
+
+    $_SESSION['error'] = 'You are not authorized to access this request.';
+header('Location: ?page=customer-requests');
+exit;
+
+}
+
 $selectedDate = $_GET['date'] ?? '';
 
 /*
@@ -52,6 +75,30 @@ if (!empty($selectedDate)) {
 }
 
 require __DIR__ . '/layouts/header.php';
+
+
+$stmt = $pdo->prepare("
+    SELECT COUNT(*)
+    FROM consultation_bookings
+    WHERE request_id = ?
+");
+
+$stmt->execute([$requestId]);
+
+$alreadyBooked = $stmt->fetchColumn() > 0;
+
+if ($alreadyBooked) {
+
+    echo '
+    <div class="alert alert-info">
+        You have already scheduled your consultation for this request.
+    </div>
+    ';
+
+    require __DIR__ . '/layouts/footer.php';
+    exit;
+}
+
 
 ?>
 
