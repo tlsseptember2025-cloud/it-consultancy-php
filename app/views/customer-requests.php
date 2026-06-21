@@ -19,8 +19,6 @@ $stmt = $pdo->prepare("
         cs.slot_date,
         cs.slot_time,
         cs.consultation_method,
-        cs.meeting_link,
-
         ss.service_date,
         ss.service_time
 
@@ -183,16 +181,32 @@ $requests = $stmt->fetchAll();
 
 </span>
 
-<?php if (!empty($request['meeting_link'])): ?>
+<?php if (
+    $request['workflow_stage'] === 'Consultation Scheduled'
+    && !empty($request['slot_time'])
+): ?>
+
+    <?php
+
+    $minute = date(
+        'i',
+        strtotime($request['slot_time'])
+    );
+
+    $meetingLink = ($minute === '00')
+        ? ZOOM_LINK_HOUR
+        : ZOOM_LINK_HALF;
+
+    ?>
 
     <a
-    href="<?= htmlspecialchars($request['meeting_link']) ?>"
-    target="_blank"
-    class="btn btn-success btn-sm ms-3">
+        href="<?= htmlspecialchars($meetingLink) ?>"
+        target="_blank"
+        class="btn btn-success btn-sm ms-2">
 
-    Join Meeting
+        Join Zoom Meeting
 
-</a>
+    </a>
 
 <?php endif; ?>
 

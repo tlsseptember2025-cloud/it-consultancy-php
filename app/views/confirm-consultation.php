@@ -1,5 +1,6 @@
 <?php
 
+require_once __DIR__ . '/../../config/settings.php';
 require_once __DIR__ . '/../helpers/email.php';
 require_once __DIR__ . '/../helpers/security.php';
 
@@ -149,23 +150,25 @@ $body = "
     </p>
 
     <p>
-        <strong>Method:</strong>
-        {$slot['consultation_method']}
+        <strong>Method:</strong> Online Consultation (Zoom)
     </p>
 ";
 
-if (!empty($slot['meeting_link'])) {
+$minute = date('i', strtotime($slot['slot_time']));
 
-    $body .= "
-        <p>
-            <strong>Meeting Link:</strong><br>
+$meetingLink = ($minute === '00')
+    ? ZOOM_LINK_HOUR
+    : ZOOM_LINK_HALF;
 
-            <a href='{$slot['meeting_link']}'>
-                Join Meeting
-            </a>
-        </p>
-    ";
-}
+$body .= "
+    <p>
+        <strong>Zoom Meeting:</strong><br>
+
+        <a href='{$meetingLink}'>
+            Join Consultation
+        </a>
+    </p>
+";
 
 $body .= "
     <p>
