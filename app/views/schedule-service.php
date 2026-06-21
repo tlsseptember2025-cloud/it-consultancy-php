@@ -1,3 +1,4 @@
+```php
 <?php
 
 require_once __DIR__ . '/../helpers/security.php';
@@ -9,16 +10,38 @@ if (!isset($_SESSION['customer'])) {
 }
 
 $requestId = $_GET['request_id'] ?? 0;
+
 verifyCustomerRequest($pdo, $requestId);
 
-$stmt = $pdo->query("
-    SELECT *
+$selectedDate = $_GET['date'] ?? '';
+
+$dateStmt = $pdo->query("
+    SELECT DISTINCT service_date
     FROM service_slots
     WHERE is_booked = 0
-    ORDER BY service_date, service_time
+      AND TIMESTAMP(service_date, service_time) >= DATE_ADD(NOW(), INTERVAL 48 HOUR)
+    ORDER BY service_date
 ");
 
-$slots = $stmt->fetchAll();
+$availableDates = $dateStmt->fetchAll(PDO::FETCH_ASSOC);
+
+$slots = [];
+
+if (!empty($selectedDate)) {
+
+    $stmt = $pdo->prepare("
+        SELECT *
+        FROM service_slots
+        WHERE is_booked = 0
+          AND service_date = ?
+          AND TIMESTAMP(service_date, service_time) >= DATE_ADD(NOW(), INTERVAL 48 HOUR)
+        ORDER BY service_time
+    ");
+
+    $stmt->execute([$selectedDate]);
+
+    $slots = $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
 
 require __DIR__ . '/layouts/header.php';
 
@@ -32,70 +55,124 @@ require __DIR__ . '/layouts/header.php';
             Schedule Service
         </h2>
 
-        <table class="table table-bordered">
+        <form method="GET" class="mb-3">
 
-            <thead>
+            <input
+                type="hidden"
+                name="page"
+                value="schedule-service">
 
-                <tr>
+            <input
+                type="hidden"
+                name="request_id"
+                value="<?= $requestId ?>">
 
-                    <th>Date</th>
-                    <th>Time</th>
-                    <th>Action</th>
+            <label class="form-label">
+                Select Service Date
+            </label>
 
-                </tr>
+            <select
+                name="date"
+                class="form-select"
+                onchange="this.form.submit()">
 
-            </thead>
+                <option value="">
+                    -- Choose a Date --
+                </option>
 
-            <tbody>
+                <?php foreach ($availableDates as $date): ?>
 
-                <?php foreach ($slots as $slot): ?>
+                    <option
+                        value="<?= $date['service_date'] ?>"
+                        <?= $selectedDate === $date['service_date'] ? 'selected' : '' ?>>
 
-                    <tr>
+                        <?= date('M d, Y', strtotime($date['service_date'])) ?>
 
-                        <td>
-                            <?= date(
-                                'M d, Y',
-                                strtotime($slot['service_date'])
-                            ) ?>
-                        </td>
-
-                        <td>
-                            <?= date(
-                                'h:i A',
-                                strtotime($slot['service_time'])
-                            ) ?>
-                        </td>
-
-                        <td>
-
-                            <a
-                                href="?page=confirm-service&request_id=<?= $requestId ?>&slot_id=<?= $slot['id'] ?>"
-                                class="btn btn-success btn-sm">
-
-                                Book
-
-                            </a>
-
-                            <a
-                                href="?page=customer-requests"
-                                class="btn btn-secondary ms-2">
-
-                                Cancel
-
-                            </a>
-
-                        </td>
-
-                    </tr>
+                    </option>
 
                 <?php endforeach; ?>
 
-            </tbody>
+            </select>
 
-        </table>
+        </form>
+
+        <?php if (!empty($selectedDate)): ?>
+
+            <table class="table table-bordered">
+
+                <thead>
+
+                    <tr>
+
+                        <th>Time</th>
+                        <th>Action</th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                    <?php $displayedSlots = []; ?>
+
+                    <?php foreach ($slots as $slot): ?>
+
+                        <?php
+
+                        $key = $slot['service_date'] . '_' . $slot['service_time'];
+
+                        if (isset($displayedSlots[$key])) {
+                            continue;
+                        }
+
+                        $displayedSlots[$key] = true;
+
+                        ?>
+
+                        <tr>
+
+                            <td>
+
+                                <?= date(
+                                    'h:i A',
+                                    strtotime($slot['service_time'])
+                                ) ?>
+
+                            </td>
+
+                            <td>
+
+                                <a
+                                    href="?page=confirm-service&request_id=<?= $requestId ?>&slot_id=<?= $slot['id'] ?>"
+                                    class="btn btn-success btn-sm">
+
+                                    Book
+
+                                </a>
+
+                                <a
+                                    href="?page=customer-requests"
+                                    class="btn btn-secondary ms-2">
+
+                                    Cancel
+
+                                </a>
+
+                            </td>
+
+                        </tr>
+
+                    <?php endforeach; ?>
+
+                </tbody>
+
+            </table>
+
+        <?php endif; ?>
 
     </div>
 
 </div>
 
 <?php require __DIR__ . '/layouts/footer.php'; ?>
+```

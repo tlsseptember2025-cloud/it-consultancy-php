@@ -14,33 +14,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $price = $_POST['proposed_price'];
 
     $stmt = $pdo->prepare("
-        INSERT INTO service_proposals
-        (
-            request_id,
-            proposal_text,
-            proposed_price
-        )
-        VALUES (?, ?, ?)
-    ");
+    UPDATE requests
+    SET
+        proposal = ?,
+        quoted_price = ?,
+        workflow_stage = 'Proposal Sent'
+    WHERE id = ?
+");
 
-    $stmt->execute([
-        $requestId,
-        $proposalText,
-        $price
-    ]);
-
-    $stmt = $pdo->prepare("
-        UPDATE requests
-        SET
-            quoted_price = ?,
-            workflow_stage = 'Proposal Sent'
-        WHERE id = ?
-    ");
-
-    $stmt->execute([
-        $price,
-        $requestId
-    ]);
+$stmt->execute([
+    $proposalText,
+    $price,
+    $requestId
+]);
 
     header('Location: ?page=requests');
     exit;

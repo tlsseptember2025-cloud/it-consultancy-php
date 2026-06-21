@@ -246,32 +246,10 @@ $requests = $stmt->fetchAll();
                             ): ?>
 
                             <a
-                                href="?page=edit-request&id=<?= $request['id'] ?>"
+                                href="?page=create-proposal&id=<?= $request['id'] ?>"
                                 class="btn btn-info btn-sm">
 
                                 Create Proposal
-
-                            </a>
-
-                        <?php endif; ?>
-
-                        <?php if (
-                            in_array(
-                            $request['workflow_stage'],
-                            [
-                                'Consultation Completed',
-                                'Proposal Rejected'
-                            ]
-                        )
-                            && !empty($request['proposal'])
-                            && !empty($request['quoted_price'])
-                            ): ?>
-
-                            <a
-                                href="?page=send-proposal&id=<?= $request['id'] ?>"
-                                class="btn btn-success btn-sm">
-
-                                Send Proposal
 
                             </a>
 

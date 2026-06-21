@@ -248,10 +248,6 @@ switch ($page) {
     require __DIR__ . '/app/views/complete-consultation.php';
     break;
 
-    case 'send-proposal':
-    require __DIR__ . '/app/views/send-proposal.php';
-    break;
-
     case 'reject-proposal':
     require __DIR__ . '/app/views/reject-proposal.php';
     break;
