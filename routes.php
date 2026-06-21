@@ -312,6 +312,10 @@ switch ($page) {
     require 'app/views/generate-consultation-slots.php';
     break;
 
+     case 'generate-service-slots':
+    require 'app/views/generate-service-slots.php';
+    break;
+
     default:
         echo "404 - Page not found";
 }
