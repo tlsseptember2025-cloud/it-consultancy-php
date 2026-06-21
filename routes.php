@@ -316,6 +316,10 @@ switch ($page) {
     require 'app/views/delete-contract-lead.php';
     break;
 
+    case 'rules':
+    require __DIR__ . '/app/views/rules.php';
+    break;
+
     default:
         echo "404 - Page not found";
 }

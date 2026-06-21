@@ -28,6 +28,12 @@ if (!$proposal) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
+    if (empty($_POST['agree_rules'])) {
+
+        die('You must agree to the Rules & Regulations before accepting the proposal.');
+
+    }
+
     $stmt = $pdo->prepare("
         UPDATE requests
         SET workflow_stage = 'Awaiting Payment'
@@ -66,7 +72,29 @@ require __DIR__ . '/layouts/header.php';
 
         </div>
 
-        <form method="POST">
+                <form method="POST">
+
+                    <div class="form-check mb-3">
+
+            <input
+                class="form-check-input"
+                type="checkbox"
+                name="agree_rules"
+                id="agree_rules"
+                required>
+
+            <label
+                class="form-check-label"
+                for="agree_rules">
+
+                I have read and agree to the
+                <a href="?page=rules" target="_blank">
+                    Rules & Regulations
+                </a>.
+
+            </label>
+
+        </div>
 
             <button
                 type="submit"
