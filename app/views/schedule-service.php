@@ -19,7 +19,7 @@ $dateStmt = $pdo->query("
     SELECT DISTINCT service_date
     FROM service_slots
     WHERE is_booked = 0
-      AND TIMESTAMP(service_date, service_time) >= DATE_ADD(NOW(), INTERVAL 48 HOUR)
+      AND TIMESTAMP(service_date, service_time) >= DATE_ADD(NOW(), INTERVAL 72 HOUR)
     ORDER BY service_date
 ");
 
@@ -34,7 +34,7 @@ if (!empty($selectedDate)) {
         FROM service_slots
         WHERE is_booked = 0
           AND service_date = ?
-          AND TIMESTAMP(service_date, service_time) >= DATE_ADD(NOW(), INTERVAL 48 HOUR)
+          AND TIMESTAMP(service_date, service_time) >= DATE_ADD(NOW(), INTERVAL 72 HOUR)
         ORDER BY service_time
     ");
 

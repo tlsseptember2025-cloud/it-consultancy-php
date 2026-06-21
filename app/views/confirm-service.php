@@ -26,7 +26,20 @@ $slot = $stmt->fetch();
 if (!$slot) {
 
     die('Service slot not found.');
+
 }
+
+$serviceDateTime = strtotime(
+    $slot['service_date'] . ' ' . $slot['service_time']
+);
+
+if ($serviceDateTime < strtotime('+72 hours')) {
+
+    header('Location: ?page=schedule-service&request_id=' . $requestId);
+    exit;
+
+}
+
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 

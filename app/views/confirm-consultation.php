@@ -36,6 +36,23 @@ $stmt->execute([$slotId]);
 
 $slot = $stmt->fetch();
 
+if (!$slot) {
+
+    die('Consultation slot not found.');
+
+}
+
+$consultationDateTime = strtotime(
+    $slot['slot_date'] . ' ' . $slot['slot_time']
+);
+
+if ($consultationDateTime < strtotime('+48 hours')) {
+
+    header('Location: ?page=schedule-consultation&request_id=' . $requestId);
+    exit;
+
+}
+
 $stmtCustomer = $pdo->prepare("
     SELECT
         customers.name,
