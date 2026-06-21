@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/../helpers/security.php';
+
 if (!isset($_SESSION['customer'])) {
 
     header('Location: ?page=customer-login');
@@ -7,6 +9,7 @@ if (!isset($_SESSION['customer'])) {
 }
 
 $requestId = $_GET['request_id'] ?? 0;
+verifyCustomerRequest($pdo, $requestId);
 
 $stmt = $pdo->query("
     SELECT *

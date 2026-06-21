@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/../helpers/auth.php';
+require_once __DIR__ . '/../helpers/security.php';
 
 requireCustomerLogin();
 
@@ -13,6 +14,7 @@ if (!isset($_SESSION['customer'])) {
 }
 
 $requestId = $_GET['request_id'] ?? 0;
+verifyCustomerRequest($pdo, $requestId);
 
 $stmt = $pdo->prepare("
     SELECT id

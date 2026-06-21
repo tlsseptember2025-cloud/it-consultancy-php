@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/../helpers/email.php';
+require_once __DIR__ . '/../helpers/security.php';
 
 if (!isset($_SESSION['customer'])) {
 
@@ -10,6 +11,7 @@ if (!isset($_SESSION['customer'])) {
 
 $requestId = $_GET['request_id'] ?? 0;
 $slotId = $_GET['slot_id'] ?? 0;
+verifyCustomerRequest($pdo, $requestId);
 
 $stmt = $pdo->prepare("
     SELECT
