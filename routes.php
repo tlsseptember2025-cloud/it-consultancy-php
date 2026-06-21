@@ -308,8 +308,12 @@ switch ($page) {
     require 'app/views/generate-consultation-slots.php';
     break;
 
-     case 'generate-service-slots':
+    case 'generate-service-slots':
     require 'app/views/generate-service-slots.php';
+    break;
+
+    case 'delete-contract-lead':
+    require 'app/views/delete-contract-lead.php';
     break;
 
     default:
