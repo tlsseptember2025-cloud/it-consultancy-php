@@ -32,12 +32,20 @@ $stmt->execute([$requestId, $customerId]);
 $request = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$request) {
-    die('Invalid request.');
+    $_SESSION['error'] =
+    'Invalid request!';
+
+header('Location: ?page=customer-requests');
+exit;
 }
 
 // Only one reschedule allowed
 if ((int)$request['consultation_reschedules'] >= 1) {
-    die('You have already used your consultation reschedule.');
+    $_SESSION['error'] =
+    'You have already used your one allowed consultation reschedule.';
+
+header('Location: ?page=customer-requests');
+exit;
 }
 
 // Must be more than 24 hours before
@@ -46,7 +54,11 @@ $currentConsultation = strtotime(
 );
 
 if (time() >= ($currentConsultation - (24 * 60 * 60))) {
-    die('Consultations can only be rescheduled more than 24 hours in advance.');
+    $_SESSION['error'] =
+    'Consultations can only be rescheduled more than 24 hours before the scheduled time.';
+
+header('Location: ?page=customer-requests');
+exit;
 }
 
 // Show available slots
@@ -82,6 +94,11 @@ require __DIR__ . '/layouts/header.php';
 $displayedSlots = [];
 
 foreach ($slots as $slot):
+
+    // Don't show the customer's current booking
+if ($slot['id'] == $request['slot_id']) {
+    continue;
+}
 
     $key = $slot['slot_date'] . '_' . $slot['slot_time'];
 

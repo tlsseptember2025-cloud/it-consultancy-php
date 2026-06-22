@@ -52,6 +52,18 @@ $requests = $stmt->fetchAll();
 
 <h1 class="mb-4">My Requests</h1>
 
+<?php if (!empty($_SESSION['error'])): ?>
+
+    <div class="alert alert-danger">
+
+        <?= htmlspecialchars($_SESSION['error']) ?>
+
+    </div>
+
+    <?php unset($_SESSION['error']); ?>
+
+<?php endif; ?>
+
 <div class="mb-3">
 
     <a
