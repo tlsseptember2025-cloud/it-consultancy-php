@@ -64,6 +64,18 @@ $requests = $stmt->fetchAll();
 
 <?php endif; ?>
 
+<?php if (!empty($_SESSION['success'])): ?>
+
+    <div class="alert alert-success">
+
+        <?= htmlspecialchars($_SESSION['success']) ?>
+
+    </div>
+
+    <?php unset($_SESSION['success']); ?>
+
+<?php endif; ?>
+
 <div class="mb-3">
 
     <a
@@ -307,9 +319,7 @@ $requests = $stmt->fetchAll();
 
 
 <?php if (
-    $request['workflow_stage'] === 'Service Scheduled' ||
-    $request['workflow_stage'] === 'Service Active' ||
-    $request['workflow_stage'] === 'Service Completed'
+    $request['workflow_stage'] === 'Service Scheduled'
 ): ?>
 
     <small>
@@ -319,12 +329,47 @@ $requests = $stmt->fetchAll();
 </small>
 
 <div class="mt-2">
+
     <a
         href="?page=customer-request-refund&request_id=<?= $request['id'] ?>"
         class="btn btn-outline-danger btn-sm">
+
         Request Refund
+
     </a>
+
+    <a
+        href="?page=reschedule-service&request_id=<?= $request['id'] ?>"
+        class="btn btn-warning btn-sm ms-2">
+
+        Reschedule Service
+
+    </a>
+
 </div>
+
+<?php elseif (
+    $request['workflow_stage'] === 'Service Active' ||
+    $request['workflow_stage'] === 'Service Completed'
+): ?>
+
+    <small>
+        <?= date('M d, Y', strtotime($request['service_date'])) ?>
+        <br>
+        <?= date('h:i A', strtotime($request['service_time'])) ?>
+    </small>
+
+    <div class="mt-2">
+
+        <a
+            href="?page=customer-request-refund&request_id=<?= $request['id'] ?>"
+            class="btn btn-outline-danger btn-sm">
+
+            Request Refund
+
+        </a>
+
+    </div>
 
 <?php endif; ?>
 

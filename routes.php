@@ -224,6 +224,14 @@ switch ($page) {
     require __DIR__ . '/app/views/confirm-reschedule-consultation.php';
     break;
 
+    case 'reschedule-service':
+    require __DIR__ . '/app/views/reschedule-service.php';
+    break;
+
+    case 'confirm-reschedule-service':
+    require __DIR__ . '/app/views/confirm-reschedule-service.php';
+    break;
+
     case 'create-proposal':
     require __DIR__ . '/app/views/create-proposal.php';
     break;

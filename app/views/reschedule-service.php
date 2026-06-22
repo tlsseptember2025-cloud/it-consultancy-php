@@ -50,16 +50,16 @@ require __DIR__ . '/layouts/header.php';
 
     <div class="card-body">
 
-        <h2 class="mb-4">
-            Schedule Service
-        </h2>
+      <h2 class="mb-4">
+    Reschedule Service
+</h2>
 
         <form method="GET" class="mb-3">
 
             <input
                 type="hidden"
                 name="page"
-                value="schedule-service">
+                value="reschedule-service">
 
             <input
                 type="hidden"
@@ -142,7 +142,7 @@ require __DIR__ . '/layouts/header.php';
                             <td>
 
                                 <a
-                                    href="?page=confirm-service&request_id=<?= $requestId ?>&slot_id=<?= $slot['id'] ?>"
+                                    href="?page=confirm-reschedule-service&request_id=<?= $requestId ?>&slot_id=<?= $slot['id'] ?>"
                                     class="btn btn-success btn-sm">
 
                                     Book
