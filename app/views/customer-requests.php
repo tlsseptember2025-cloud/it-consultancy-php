@@ -208,6 +208,14 @@ $requests = $stmt->fetchAll();
 
     </a>
 
+    <a
+    href="?page=reschedule-consultation&request_id=<?= $request['id'] ?>"
+    class="btn btn-warning btn-sm ms-2">
+
+    Reschedule
+
+</a>
+
 <?php endif; ?>
 
 

@@ -208,6 +208,10 @@ switch ($page) {
     require __DIR__ . '/app/views/schedule-consultation.php';
     break;
 
+    case 'reschedule-consultation':
+    require __DIR__ . '/app/views/reschedule-consultation.php';
+    break;
+
     case 'confirm-consultation':
     require __DIR__ . '/app/views/confirm-consultation.php';
     break;
