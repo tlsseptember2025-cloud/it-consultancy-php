@@ -142,8 +142,6 @@ $refunds = $stmt->fetchAll();
 
 <?php elseif ($refund['status'] === 'Rejected'): ?>
 
-<?php elseif ($refund['status'] === 'Rejected'): ?>
-
     <span class="badge bg-danger">
         Rejected
     </span>
@@ -153,6 +151,12 @@ $refunds = $stmt->fetchAll();
     <small class="text-muted">
         Unfortunately, this refund request was not approved.
     </small>
+
+<?php else: ?>
+
+    <span class="badge bg-secondary">
+        <?= htmlspecialchars($refund['status'] ?? 'Unknown') ?>
+    </span>
 
 <?php endif; ?>
 

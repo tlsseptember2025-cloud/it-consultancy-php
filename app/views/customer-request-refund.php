@@ -51,6 +51,17 @@ $stmt->execute([$requestId]);
 
 $serviceSchedule = $stmt->fetch(PDO::FETCH_ASSOC);
 
+// Load current workflow stage
+$stmt = $pdo->prepare("
+    SELECT workflow_stage
+    FROM requests
+    WHERE id = ?
+");
+
+$stmt->execute([$requestId]);
+
+$request = $stmt->fetch(PDO::FETCH_ASSOC);
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $reasonType = trim($_POST['reason_type']);
@@ -74,24 +85,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $reasonType = $_POST['reason_type'];
 
+   if ($reasonType === 'Cancellation') {
+
+    // Rule 1: Cannot cancel after completion
     if (
-    $reasonType === 'Cancellation' &&
-    !empty($serviceSchedule['service_date']) &&
-    !empty($serviceSchedule['service_time'])
+        isset($request['workflow_stage']) &&
+        $request['workflow_stage'] === 'Service Completed'
     ) {
 
-    $serviceDateTime = strtotime(
-        $serviceSchedule['service_date'] . ' ' .
-        $serviceSchedule['service_time']
-    );
-
-    if (time() > ($serviceDateTime - (48 * 60 * 60))) {
-
-        $error = 'Cancellation refunds must be requested at least 48 hours before the scheduled service.';
+        $error = 'Cancellation refunds are not available after the service has been completed.';
 
     }
+    // Rule 2: Must be MORE than 48 hours before the service
+    elseif (
+        !empty($serviceSchedule['service_date']) &&
+        !empty($serviceSchedule['service_time'])
+    ) {
 
+        $serviceDateTime = strtotime(
+            $serviceSchedule['service_date'] . ' ' .
+            $serviceSchedule['service_time']
+        );
+
+        if (time() >= ($serviceDateTime - (48 * 60 * 60))) {
+
+            $error = 'Cancellation refunds must be requested more than 48 hours before the scheduled service.';
+        }
     }
+}
 
         if (empty($error)) {
 
@@ -162,11 +183,19 @@ require __DIR__ . '/layouts/header.php';
         </option>
 
         <option value="Cancellation">
-            Cancellation (48+ hours before scheduled service)
+            Cancellation (more than 48 hours before scheduled service)
         </option>
 
         <option value="Duplicate Payment">
             Duplicate Payment
+        </option>
+
+        <option value="Not Satisfied">
+            Not Satisfied with Service
+        </option>
+
+        <option value="Other">
+            Other
         </option>
 
     </select>
