@@ -116,6 +116,7 @@ require __DIR__ . '/layouts/header.php';
 
                     <?php foreach ($slots as $slot): ?>
 
+
                         <?php
 
                         $key = $slot['service_date'] . '_' . $slot['service_time'];

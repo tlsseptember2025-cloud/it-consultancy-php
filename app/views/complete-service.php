@@ -33,13 +33,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $id
     ]);
 
-    // Keep the rest of your existing logic
-    // (invoice generation, emails, redirects, etc.)
-
-    $stmt->execute([
-    $completionNotes,
-    $id
-    ]);
 }
 
 $stmt = $pdo->prepare("
