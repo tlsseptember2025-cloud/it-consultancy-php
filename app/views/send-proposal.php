@@ -56,9 +56,21 @@ sendEmail(
         $" . number_format($request['quoted_price'], 2) . "
     </p>
 
-     <p>Please log in and schedule your consultation.</p>
-
     <p>
+
+        <p>
+    <strong>Important:</strong>
+    Before proceeding, please review our
+    <a 
+        href='https://ramiphp.com/rules-and-regulations' target='_blank'>
+        IT Consultancy Rules & Regulations
+    </a>.
+</p>
+
+<p>
+    By accepting the proposal and continuing with the service, you acknowledge that you have read and agreed to these terms.
+</p>
+
         <a
             href='http://localhost/it-consultancy-php/public/?page=customer-login'
             style='
@@ -72,6 +84,7 @@ sendEmail(
         >
             Login Now
         </a>
+
     </p>
 
     <p>

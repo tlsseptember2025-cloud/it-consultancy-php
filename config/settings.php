@@ -8,4 +8,4 @@ define('ZOOM_LINK_HALF', 'https://us05web.zoom.us/j/88580409983?pwd=fJZKnMgKCZwN
 define('GOOGLE_REVIEW_URL', 'https://g.page/r/YOUR_REVIEW_LINK/review');
 
 // Support Email
-define('SUPPORT_EMAIL', 'support@yourdomain.com');
+define('SUPPORT_EMAIL', 'ramiwahdan2023@gmail.com');
