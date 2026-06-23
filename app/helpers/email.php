@@ -218,7 +218,7 @@ function sendPasswordResetEmail(
     $subject = 'Reset Your Password';
 
     $resetLink =
-        'http://localhost/it-consultancy-php/public/index.php?page=customer-reset-password&token='
+        'http://ramiphp.com/it-consultancy-php/public/index.php?page=customer-reset-password&token='
         . urlencode($token);
 
     $body = "

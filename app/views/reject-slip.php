@@ -65,7 +65,7 @@ sendEmail(
 
     <p>
         <a
-            href='http://localhost/it-consultancy-php/public/?page=customer-login'
+            href='http://ramiphp.com/it-consultancy-php/public/?page=customer-login'
             style='
                 background:#0d6efd;
                 color:white;

@@ -168,17 +168,17 @@ $requests = $stmt->fetchAll();
 
                         <?php endif; ?>
 
-                        <?php if ($request['workflow_stage'] === 'Consultation Approved'): ?>
+                        <?php if ($request['workflow_stage'] === 'Consultation Scheduled'): ?>
 
-                            <a
-                                href="?page=confirm-consultation-admin&id=<?= $request['id'] ?>"
-                                class="btn btn-primary btn-sm">
+    <a
+        href="?page=confirm-consultation-admin&id=<?= $request['id'] ?>"
+        class="btn btn-primary btn-sm">
 
-                                Confirm Consultation
+        Confirm Consultation
 
-                            </a>
+    </a>
 
-                        <?php endif; ?>
+<?php endif; ?>
 
                         <?php if ($request['workflow_stage'] === 'Consultation Confirmed'): ?>
 
@@ -250,6 +250,21 @@ $requests = $stmt->fetchAll();
                                 class="btn btn-info btn-sm">
 
                                 Create Proposal
+
+                            </a>
+
+                        <?php endif; ?>
+
+                        <?php if (
+                            $request['workflow_stage'] === 'Consultation Completed'
+                            && !empty($request['proposal'])
+                        ): ?>
+
+                            <a
+                                href="?page=send-proposal&id=<?= $request['id'] ?>"
+                                class="btn btn-primary btn-sm">
+
+                                Send Proposal
 
                             </a>
 
