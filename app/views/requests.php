@@ -182,15 +182,15 @@ $requests = $stmt->fetchAll();
 
                         <?php if ($request['workflow_stage'] === 'Consultation Confirmed'): ?>
 
-                            <a
-                                href="?page=create-proposal&id=<?= $request['id'] ?>"
-                                class="btn btn-dark btn-sm">
+    <a
+        href="?page=complete-consultation&id=<?= $request['id'] ?>"
+        class="btn btn-success btn-sm">
 
-                                Create Proposal
+        Complete Consultation
 
-                            </a>
+    </a>
 
-                        <?php endif; ?>
+<?php endif; ?>
 
                         <?php if ($request['workflow_stage'] === 'Proposal Rejected'): ?>
 

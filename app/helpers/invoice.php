@@ -40,7 +40,7 @@ $pdf->SetFont('Arial', '', 10);
 $pdf->Cell(
     0,
     5,
-    'Amman, Jordan',
+    'Abu Dhabi, UAE',
     0,
     1,
     'R'
@@ -49,7 +49,7 @@ $pdf->Cell(
 $pdf->Cell(
     0,
     5,
-    'Email: support@itconsultancy.com',
+    'Email: ramiwahdan2023@gmail.com',
     0,
     1,
     'R'
@@ -58,7 +58,7 @@ $pdf->Cell(
 $pdf->Cell(
     0,
     5,
-    'Phone: +962 7X XXX XXXX',
+    'Phone: +971 50 122 8293',
     0,
     1,
     'R'

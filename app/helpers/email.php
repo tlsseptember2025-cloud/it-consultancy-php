@@ -122,14 +122,14 @@ function sendServiceCompletedEmail(
     <br>
 
     <p>
-    📧 support@itconsultancy.com<br>
-    📞 +962 XX XXX XXXX<br>
-    🌐 https://ramiphp.com
+        📧 <a href='mailto:<?= SUPPORT_EMAIL ?>'><?= SUPPORT_EMAIL ?></a><br>
+        📞 <?= SUPPORT_PHONE ?><br>
+        🌐 <a href='<?= COMPANY_WEBSITE ?>'><?= COMPANY_WEBSITE ?></a>
     </p>
 
     <p>
         <strong>Need additional IT assistance?</strong><br>
-        Visit <a href='https://ramiphp.com'>https://ramiphp.com</a>
+        Visit <a href='<?= COMPANY_WEBSITE ?>'>https://ramiphp.com</a>
         to explore our services and learn about our upcoming
         monthly and annual business support plans.
     </p>

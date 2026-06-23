@@ -181,47 +181,57 @@ $requests = $stmt->fetchAll();
 
         </a>
 
-    <?php elseif ($request['workflow_stage'] === 'Consultation Scheduled'): ?>
+   <?php elseif ($request['workflow_stage'] === 'Consultation Scheduled'): ?>
 
     <div>
 
-       <span class="badge bg-danger">
+        <span class="badge bg-warning text-dark">
 
-    <?= date(
-        'M d, Y',
-        strtotime($request['slot_date'])
-    ) ?>
+            <?= date('M d, Y', strtotime($request['slot_date'])) ?>
 
-    @
+            @
 
-    <?= date(
-        'h:i A',
-        strtotime($request['slot_time'])
-    ) ?>
+            <?= date('h:i A', strtotime($request['slot_time'])) ?>
 
-    @
+            @
 
-    <?= htmlspecialchars($request['consultation_method']) ?>
+            <?= htmlspecialchars($request['consultation_method']) ?>
 
-</span>
+        </span>
 
-<?php if (
-    $request['workflow_stage'] === 'Consultation Scheduled'
-    && !empty($request['slot_time'])
-): ?>
+        <br>
+
+        <small class="text-muted">
+            Waiting for admin confirmation.
+        </small>
+
+    </div>
+
+<?php elseif ($request['workflow_stage'] === 'Consultation Confirmed'): ?>
 
     <?php
 
-    $minute = date(
-        'i',
-        strtotime($request['slot_time'])
-    );
+    $minute = date('i', strtotime($request['slot_time']));
 
     $meetingLink = ($minute === '00')
         ? ZOOM_LINK_HOUR
         : ZOOM_LINK_HALF;
 
     ?>
+
+    <span class="badge bg-danger">
+
+        <?= date('M d, Y', strtotime($request['slot_date'])) ?>
+
+        @
+
+        <?= date('h:i A', strtotime($request['slot_time'])) ?>
+
+        @
+
+        <?= htmlspecialchars($request['consultation_method']) ?>
+
+    </span>
 
     <a
         href="<?= htmlspecialchars($meetingLink) ?>"
@@ -233,17 +243,12 @@ $requests = $stmt->fetchAll();
     </a>
 
     <a
-    href="?page=reschedule-consultation&request_id=<?= $request['id'] ?>"
-    class="btn btn-warning btn-sm ms-2">
+        href="?page=reschedule-consultation&request_id=<?= $request['id'] ?>"
+        class="btn btn-warning btn-sm ms-2">
 
-    Reschedule
+        Reschedule
 
-</a>
-
-<?php endif; ?>
-
-
-    </div>
+    </a>
 
 <?php endif; ?>
 
