@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/../helpers/email.php';
+require_once __DIR__ . '/../helpers/notifications.php';
 
 if (!isset($_SESSION['user'])) {
 
@@ -13,6 +14,7 @@ $id = $_GET['id'] ?? 0;
 $stmt = $pdo->prepare("
     SELECT
         r.*,
+        c.id AS customer_id,
         c.name,
         c.email,
         s.title AS service_title
@@ -91,6 +93,15 @@ sendEmail(
         IT Consultancy Team
     </p>
     "
+);
+
+createNotification(
+    $pdo,
+    'customer',
+    $request['customer_id'],
+    '📄 Proposal Ready',
+    'Your proposal is ready for review.',
+    '?page=customer-proposals'
 );
 
 $update = $pdo->prepare("

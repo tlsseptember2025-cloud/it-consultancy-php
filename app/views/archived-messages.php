@@ -10,20 +10,20 @@ require dirname(__DIR__, 2) . '/config/database.php';
 // Total messages
 $totalStmt = $pdo->query("SELECT COUNT(*) as total
 FROM messages
-WHERE is_closed = 0");
+WHERE is_closed = 1");
 $total = $totalStmt->fetch()['total'];
 
 // Today's messages
 $todayStmt = $pdo->query("SELECT COUNT(*) as today
 FROM messages
-WHERE is_closed = 0
+WHERE is_closed = 1
   AND DATE(created_at) = CURDATE()");
 $today = $todayStmt->fetch()['today'];
 
 ?>
 
 <h1 class="mb-4 pt-3">
-    Admin - Current Messages
+    Admin - Archived Messages
 </h1>
 
 <div class="row mb-4">
@@ -64,7 +64,7 @@ if ($pageNumber < 1) {
 
 $offset = ($pageNumber - 1) * $limit;
 
-$sql = "SELECT * FROM messages WHERE is_closed = 0";
+$sql = "SELECT * FROM messages WHERE is_closed = 1";
 
 $params = [];
 
@@ -107,7 +107,7 @@ $messages = $stmt->fetchAll();
 
     <form method="GET" class="row g-3 align-items-center">
 
-        <input type="hidden" name="page" value="messages">
+        <input type="hidden" name="page" value="admin">
 
         <div class="col-md-4">
             <input

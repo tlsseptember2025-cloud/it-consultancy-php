@@ -6,26 +6,70 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $name = trim($_POST['name']);
     $email = trim($_POST['email']);
+    $phone = trim($_POST['phone']);
+    $preferredContact = trim($_POST['preferred_contact']);
     $service = trim($_POST['service']);
     $message = trim($_POST['message']);
+
+    // Generate secure reply token
+    $replyToken = bin2hex(random_bytes(32));
 
     $stmt = $pdo->prepare("
         INSERT INTO messages (
             name,
             email,
+            phone,
+            preferred_contact,
             service,
             message,
+            reply_token,
             status
         )
-        VALUES (?, ?, ?, ?, 'unread')
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'unread')
     ");
 
     $stmt->execute([
         $name,
         $email,
+        $phone,
+        $preferredContact,
         $service,
-        $message
+        $message,
+        $replyToken
     ]);
+
+    $messageId = $pdo->lastInsertId();
+
+    require_once __DIR__ . '/../helpers/notifications.php';
+
+createNotification(
+    $pdo,
+    'admin',
+    null,
+    'New Contact Message',
+    $name . ' submitted a new contact inquiry.',
+    '?page=view&id=' . $messageId
+);
+
+$stmt = $pdo->prepare("
+    INSERT INTO message_replies
+    (
+        message_id,
+        sender,
+        reply_text
+    )
+    VALUES
+    (
+        ?,
+        'visitor',
+        ?
+    )
+");
+
+$stmt->execute([
+    $messageId,
+    $message
+]);
 
     $success = true;
 }
@@ -92,6 +136,43 @@ $services = $stmt->fetchAll();
                             required>
 
                     </div>
+
+                    <div class="mb-3">
+
+    <label class="form-label">
+        Phone Number
+    </label>
+
+    <input
+        type="text"
+        name="phone"
+        class="form-control"
+        placeholder="+971 50 123 4567">
+
+</div>
+
+<div class="mb-3">
+
+    <label class="form-label">
+        Preferred Contact Method
+    </label>
+
+    <select
+        name="preferred_contact"
+        class="form-select"
+        required>
+
+        <option value="Email" selected>
+            Email
+        </option>
+
+        <option value="Phone">
+            Phone
+        </option>
+
+    </select>
+
+</div>
 
                     <div class="mb-3">
 
