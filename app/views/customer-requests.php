@@ -355,7 +355,7 @@ $requests = $stmt->fetchAll();
 
 <?php elseif (
     $request['workflow_stage'] === 'Service Active' ||
-    $request['workflow_stage'] === 'Service Completed'
+    $request['workflow_stage'] === 'Completed'
 ): ?>
 
     <small>

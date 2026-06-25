@@ -21,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt = $pdo->prepare("
         UPDATE requests
         SET
-            workflow_stage = 'Service Completed',
+            workflow_stage = 'Completed',
             status = 'Completed',
             completed_at = NOW(),
             completion_notes = ?
