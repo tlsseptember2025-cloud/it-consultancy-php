@@ -93,7 +93,7 @@ sendEmail(
 
 $stmt = $pdo->prepare("
     UPDATE requests
-    SET workflow_stage = 'Awaiting Payment'
+    SET workflow_stage = 'Proposal Accepted'
     WHERE id = ?
 ");
 
