@@ -360,6 +360,10 @@ switch ($page) {
     require __DIR__ . '/app/views/rules.php';
     break;
 
+    case 'customer-notifications':
+    require __DIR__ . '/../app/views/customer-notifications.php';
+    break;
+
     default:
         echo "404 - Page not found";
 }
