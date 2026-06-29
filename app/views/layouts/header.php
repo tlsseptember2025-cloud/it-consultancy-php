@@ -117,50 +117,6 @@ try {
                         </ul>
 
                     </div>
-
-                    <!--
-                    <div class="nav-item dropdown">
-
-                        <a
-                            class="nav-link dropdown-toggle"
-                            href="#"
-                            role="button"
-                            data-bs-toggle="dropdown">
-
-                            Scheduling
-
-                        </a>
-
-                        <ul class="dropdown-menu">
-
-                            <li>
-
-                                <a
-                                    class="dropdown-item"
-                                    href="?page=consultation-slots">
-
-                                    Consultation Slots
-
-                                </a>
-
-                            </li>
-
-                            <li>
-
-                                <a
-                                    class="dropdown-item"
-                                    href="?page=service-slots">
-
-                                    Service Slots
-
-                                </a>
-
-                            </li>
-
-                        </ul>
-
-                    </div>
-                    -->
                     
                     <div class="nav-item dropdown">
 
