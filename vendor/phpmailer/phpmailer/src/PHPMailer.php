@@ -240,7 +240,7 @@ class PHPMailer
      * The hostname to use in the Message-ID header and as default HELO string.
      * If empty, PHPMailer attempts to find one with, in order,
      * $_SERVER['SERVER_NAME'], gethostname(), php_uname('n'), or the value
-     * 'localhost.localdomain'.
+     * 'ramiphp.com.localdomain'.
      *
      * @see PHPMailer::$Helo
      *
@@ -280,7 +280,7 @@ class PHPMailer
      *
      * @var string
      */
-    public $Host = 'localhost';
+    public $Host = 'ramiphp.com';
 
     /**
      * The default SMTP server port.
@@ -2343,7 +2343,7 @@ class PHPMailer
         $this->smtp->setVerp($this->do_verp);
         $this->smtp->setSMTPUTF8($this->UseSMTPUTF8);
         if ($this->Host === null) {
-            $this->Host = 'localhost';
+            $this->Host = 'ramiphp.com';
         }
         $hosts = explode(';', $this->Host);
         $lastexception = null;
@@ -2412,13 +2412,13 @@ class PHPMailer
                     $this->smtp->hello($hello);
                     //Automatically enable TLS encryption if:
                     //* it's not disabled
-                    //* we are not connecting to localhost
+                    //* we are not connecting to ramiphp.com
                     //* we have openssl extension
                     //* we are not already using SSL
                     //* the server offers STARTTLS
                     if (
                         $this->SMTPAutoTLS &&
-                        $this->Host !== 'localhost' &&
+                        $this->Host !== 'ramiphp.com' &&
                         $sslext &&
                         $secure !== 'ssl' &&
                         $this->smtp->getServerExt('STARTTLS')
@@ -4502,7 +4502,7 @@ class PHPMailer
 
     /**
      * Get the server hostname.
-     * Returns 'localhost.localdomain' if unknown.
+     * Returns 'ramiphp.com.localdomain' if unknown.
      *
      * @return string
      */
@@ -4519,7 +4519,7 @@ class PHPMailer
             $result = php_uname('n');
         }
         if (!static::isValidHost($result)) {
-            return 'localhost.localdomain';
+            return 'ramiphp.com.localdomain';
         }
 
         return $result;

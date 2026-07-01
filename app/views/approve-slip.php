@@ -1,6 +1,15 @@
 <?php
 
+require_once __DIR__ . '/../helpers/email.php';
+require_once __DIR__ . '/../helpers/notifications.php';
+
 $id = $_GET['id'];
+
+/*
+|--------------------------------------------------------------------------
+| Approve Payment Slip
+|--------------------------------------------------------------------------
+*/
 
 $stmt = $pdo->prepare("
     UPDATE payment_slips
@@ -9,6 +18,12 @@ $stmt = $pdo->prepare("
 ");
 
 $stmt->execute([$id]);
+
+/*
+|--------------------------------------------------------------------------
+| Get Request ID
+|--------------------------------------------------------------------------
+*/
 
 $stmt = $pdo->prepare("
     SELECT request_id
@@ -20,9 +35,16 @@ $stmt->execute([$id]);
 
 $requestId = $stmt->fetchColumn();
 
+/*
+|--------------------------------------------------------------------------
+| Load Customer & Request Details
+|--------------------------------------------------------------------------
+*/
+
 $stmt = $pdo->prepare("
     SELECT
         r.quoted_price,
+        c.id AS customer_id,
         c.name,
         c.email,
         s.title AS service_title
@@ -42,6 +64,12 @@ $stmt->execute([$requestId]);
 
 $request = $stmt->fetch();
 
+/*
+|--------------------------------------------------------------------------
+| Record Payment
+|--------------------------------------------------------------------------
+*/
+
 $stmt = $pdo->prepare("
     INSERT INTO payments
     (
@@ -60,17 +88,95 @@ $stmt->execute([
     'Payment approved from deposit slip review'
 ]);
 
+/*
+|--------------------------------------------------------------------------
+| Update Request Workflow
+|--------------------------------------------------------------------------
+*/
+
 $stmt = $pdo->prepare("
-UPDATE requests
-SET
-    workflow_stage = 'Awaiting Service Scheduling',
-    status = 'Approved'
-WHERE id = ?
+    UPDATE requests
+    SET
+        workflow_stage = 'Awaiting Service Scheduling',
+        status = 'Approved'
+    WHERE id = ?
 ");
 
 $stmt->execute([
     $requestId
 ]);
+
+/*
+|--------------------------------------------------------------------------
+| Send Email
+|--------------------------------------------------------------------------
+*/
+
+sendEmail(
+    $request['email'],
+    'Payment Approved - Schedule Your Service',
+    "
+    <h2>Hello {$request['name']},</h2>
+
+    <p>
+        We are pleased to inform you that your payment has been approved.
+    </p>
+
+    <p>
+        <strong>Service:</strong>
+        {$request['service_title']}
+    </p>
+
+    <p>
+        You can now log in to your account and schedule your service at a convenient date and time.
+    </p>
+
+    <p>
+        <a
+            href='https://ramiphp.com/?page=customer-login'
+            style='
+                background:#198754;
+                color:white;
+                padding:10px 20px;
+                text-decoration:none;
+                border-radius:5px;
+                display:inline-block;
+            '
+        >
+            Schedule Service
+        </a>
+    </p>
+
+    <p>
+        Thank you for choosing our IT Consultancy services.
+    </p>
+
+    <p>
+        IT Consultancy Team
+    </p>
+    "
+);
+
+/*
+|--------------------------------------------------------------------------
+| Create Customer Notification
+|--------------------------------------------------------------------------
+*/
+
+createNotification(
+    $pdo,
+    'customer',
+    $request['customer_id'],
+    'Payment Approved',
+    'Your payment has been approved. You may now schedule your service.',
+    '?page=customer-requests'
+);
+
+/*
+|--------------------------------------------------------------------------
+| Redirect
+|--------------------------------------------------------------------------
+*/
 
 header('Location: ?page=requests');
 exit;

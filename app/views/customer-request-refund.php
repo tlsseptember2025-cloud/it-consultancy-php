@@ -90,7 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Rule 1: Cannot cancel after completion
     if (
         isset($request['workflow_stage']) &&
-        $request['workflow_stage'] === 'Service Completed'
+        $request['workflow_stage'] === 'Completed'
     ) {
 
         $error = 'Cancellation refunds are not available after the service has been completed.';

@@ -3,6 +3,7 @@
 require_once dirname(__DIR__) . '/helpers/invoice.php';
 require_once dirname(__DIR__) . '/helpers/email.php';
 require_once dirname(__DIR__) . '/helpers/service_report.php';
+require_once dirname(__DIR__) . '/helpers/notifications.php';
 
 if (!isset($_SESSION['user'])) {
 
@@ -21,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt = $pdo->prepare("
         UPDATE requests
         SET
-            workflow_stage = 'Service Completed',
+            workflow_stage = 'Completed',
             status = 'Completed',
             completed_at = NOW(),
             completion_notes = ?
@@ -37,10 +38,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $stmt = $pdo->prepare("
     SELECT
-        r.id,
-        r.quoted_price,
-        r.completed_at,
-        c.name AS customer_name,
+        r.id, r.quoted_price, 
+        r.completed_at, 
+        c.id AS customer_id, 
+        c.name AS customer_name, 
         c.email,
         s.title AS service_title,
         p.payment_date
@@ -111,6 +112,15 @@ sendServiceCompletedEmail(
     $request['service_title'],
     $invoicePath,
     $reportPath
+);
+
+createNotification(
+    $pdo,
+    'customer',
+    $request['customer_id'],
+    'Service Completed',
+    'Your service has been completed successfully. Your invoice and service report are now available.',
+    '?page=customer-requests'
 );
 
 header('Location: ?page=requests');

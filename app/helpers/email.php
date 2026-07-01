@@ -4,6 +4,7 @@ use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
 require_once dirname(__DIR__, 2) . '/vendor/autoload.php';
+require_once __DIR__ . '/../../config/settings.php';
 
 function sendEmail(
     string $to,
@@ -122,17 +123,17 @@ function sendServiceCompletedEmail(
     <br>
 
     <p>
-    📧 support@itconsultancy.com<br>
-    📞 +962 XX XXX XXXX<br>
-    🌐 https://ramiphp.com
-    </p>
+    📧 <a href='mailto:" . SUPPORT_EMAIL . "'>" . SUPPORT_EMAIL . "</a><br>
+    📞 " . SUPPORT_PHONE . "<br>
+    🌐 <a href='" . COMPANY_WEBSITE . "'>" . COMPANY_WEBSITE . "</a>
+</p>
 
-    <p>
-        <strong>Need additional IT assistance?</strong><br>
-        Visit <a href='https://ramiphp.com'>https://ramiphp.com</a>
-        to explore our services and learn about our upcoming
-        monthly and annual business support plans.
-    </p>
+<p>
+    <strong>Need additional IT assistance?</strong><br>
+    Visit <a href='" . COMPANY_WEBSITE . "'>" . COMPANY_WEBSITE . "</a>
+    to explore our services and learn about our upcoming
+    monthly and annual business support plans.
+</p>
 
     <p>
         Kind regards,<br>
@@ -218,7 +219,7 @@ function sendPasswordResetEmail(
     $subject = 'Reset Your Password';
 
     $resetLink =
-        'http://localhost/it-consultancy-php/public/index.php?page=customer-reset-password&token='
+        'http://ramiphp.com/it-consultancy-php/public/index.php?page=customer-reset-password&token='
         . urlencode($token);
 
     $body = "

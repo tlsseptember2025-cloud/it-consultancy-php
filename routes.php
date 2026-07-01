@@ -21,6 +21,22 @@ switch ($page) {
     require 'app/views/messages.php';
     break;
 
+    case 'archived-messages':
+    require 'app/views/archived-messages.php';
+    break;
+
+    case 'open-notification':
+    require 'app/views/open-notification.php';
+    break;
+
+    case 'notifications':
+    require 'app/views/notifications.php';
+    break;
+
+    case 'mark-all-notifications-read':
+    require 'app/views/mark-all-notifications-read.php';
+    break;
+
     case 'login':
     require 'app/views/login.php';
     break;
@@ -232,6 +248,14 @@ switch ($page) {
     require __DIR__ . '/app/views/confirm-reschedule-service.php';
     break;
 
+    case 'visitor-message':
+    require __DIR__ . '/app/views/visitor-message.php';
+    break;
+
+    case 'close-conversation':
+    require __DIR__ . '/app/views/close-conversation.php';
+    break;
+
     case 'create-proposal':
     require __DIR__ . '/app/views/create-proposal.php';
     break;
@@ -334,6 +358,10 @@ switch ($page) {
 
     case 'rules':
     require __DIR__ . '/app/views/rules.php';
+    break;
+    
+    case 'customer-notifications':
+    require __DIR__ . '/app/views/customer-notifications.php';
     break;
 
     default:

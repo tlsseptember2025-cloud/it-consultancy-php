@@ -1,5 +1,8 @@
 <?php
 
+require_once __DIR__ . '/../helpers/email.php';
+require_once __DIR__ . '/../helpers/notifications.php';
+
 if (!isset($_SESSION['user'])) {
 
     header('Location: ?page=login');
@@ -28,8 +31,83 @@ $stmt->execute([
     $requestId
 ]);
 
-    header('Location: ?page=requests');
-    exit;
+// Load customer details
+$customerStmt = $pdo->prepare("
+    SELECT
+        r.*,
+        c.id AS customer_id,
+        c.name,
+        c.email,
+        s.title AS service_title
+    FROM requests r
+    JOIN customers c
+        ON c.id = r.customer_id
+    JOIN services s
+        ON s.id = r.service_id
+    WHERE r.id = ?
+");
+
+$customerStmt->execute([$requestId]);
+
+$request = $customerStmt->fetch();
+
+sendEmail(
+    $request['email'],
+    'Proposal Ready',
+    "
+    <h2>Hello {$request['name']},</h2>
+
+    <p>
+        Your proposal is now ready for review.
+    </p>
+
+    <p>
+        <strong>Service:</strong>
+        {$request['service_title']}
+    </p>
+
+    <p>
+        <strong>Proposed Price:</strong>
+        AED " . number_format($price, 2) . "
+    </p>
+
+    <p>
+        Please log in to review your proposal and continue with the next steps.
+    </p>
+
+    <p>
+        <a
+            href='https://ramiphp.com/?page=customer-login'
+            style='
+                background:#0d6efd;
+                color:white;
+                padding:10px 20px;
+                text-decoration:none;
+                border-radius:5px;
+                display:inline-block;
+            '
+        >
+            View Proposal
+        </a>
+    </p>
+
+    <p>
+        IT Consultancy Team
+    </p>
+    "
+);
+
+createNotification(
+    $pdo,
+    'customer',
+    $request['customer_id'],
+    'Proposal Ready',
+    'Your proposal is ready for review.',
+    '?page=view-proposal&request_id=' . $requestId
+);
+  
+header('Location: ?page=requests');
+exit;
 }
 
 require __DIR__ . '/layouts/header.php';

@@ -33,14 +33,6 @@ $payments = $stmt->fetchAll();
         Payments
     </h2>
 
-    <a
-        href="?page=add-payment"
-        class="btn btn-primary">
-
-        Add Payment
-
-    </a>
-
 </div>
 
 <table class="table table-bordered table-hover">

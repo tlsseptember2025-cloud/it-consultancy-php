@@ -8,17 +8,22 @@ require __DIR__ . '/layouts/header.php';
 require dirname(__DIR__, 2) . '/config/database.php';
 
 // Total messages
-$totalStmt = $pdo->query("SELECT COUNT(*) as total FROM messages");
+$totalStmt = $pdo->query("SELECT COUNT(*) as total
+FROM messages
+WHERE is_closed = 0");
 $total = $totalStmt->fetch()['total'];
 
 // Today's messages
-$todayStmt = $pdo->query("SELECT COUNT(*) as today FROM messages WHERE DATE(created_at) = CURDATE()");
+$todayStmt = $pdo->query("SELECT COUNT(*) as today
+FROM messages
+WHERE is_closed = 0
+  AND DATE(created_at) = CURDATE()");
 $today = $todayStmt->fetch()['today'];
 
 ?>
 
 <h1 class="mb-4 pt-3">
-    Admin - Messages
+    Admin - Current Messages
 </h1>
 
 <div class="row mb-4">
@@ -59,7 +64,7 @@ if ($pageNumber < 1) {
 
 $offset = ($pageNumber - 1) * $limit;
 
-$sql = "SELECT * FROM messages WHERE 1";
+$sql = "SELECT * FROM messages WHERE is_closed = 0";
 
 $params = [];
 
@@ -98,21 +103,11 @@ $messages = $stmt->fetchAll();
 
 ?>
 
-<?php
-// Total messages
-$totalStmt = $pdo->query("SELECT COUNT(*) as total FROM messages");
-$total = $totalStmt->fetch()['total'];
-
-// Today's messages
-$todayStmt = $pdo->query("SELECT COUNT(*) as today FROM messages WHERE DATE(created_at) = CURDATE()");
-$today = $todayStmt->fetch()['today'];
-?>
-
 <div class="card p-3 mb-4">
 
     <form method="GET" class="row g-3 align-items-center">
 
-        <input type="hidden" name="page" value="admin">
+        <input type="hidden" name="page" value="messages">
 
         <div class="col-md-4">
             <input
@@ -157,23 +152,32 @@ $today = $todayStmt->fetch()['today'];
 
     <table class="table table-hover table-bordered align-middle">
 
-        <tr>
             <th>Name</th>
             <th>Email</th>
+            <th>Phone</th>
+            <th>Preferred</th>
             <th>Service</th>
             <th>Message</th>
-            <th>Date</th>
-            <th>Status</th>
-            <th>Action</th>
-        </tr>
         
         <?php foreach ($messages as $msg): ?>
         <tr>
             <td><?= htmlspecialchars($msg['name']) ?></td>
             <td><?= htmlspecialchars($msg['email']) ?></td>
+
+            <td>
+                <?= htmlspecialchars($msg['phone'] ?? '-') ?>
+            </td>
+
+            <td>
+                <?= htmlspecialchars($msg['preferred_contact'] ?? 'Email') ?>
+            </td>
+
             <td><?= htmlspecialchars($msg['service']) ?></td>
+
             <td><?= htmlspecialchars($msg['message']) ?></td>
+            
             <td><?= $msg['created_at'] ?></td>
+            
             <td>
                 <?php if ($msg['status'] === 'unread'): ?>
                     <span style="color:red;">Unread</span>
@@ -181,10 +185,18 @@ $today = $todayStmt->fetch()['today'];
                     <span style="color:green;">Read</span>
                 <?php endif; ?>
             </td>
+            
             <td>
                 <a class="btn btn-sm btn-info" href="?page=view&id=<?= $msg['id'] ?>">View</a>
-                <a class="btn btn-sm btn-warning" href="?page=edit&id=<?= $msg['id'] ?>">Edit</a>
-                <a class="btn btn-sm btn-danger" href="?page=delete&id=<?= $msg['id'] ?>" onclick="return confirm('Delete this message?')">Delete</a>
+                <?php if (!$msg['is_closed']): ?>
+                    <span class="badge bg-success">
+                        Active
+                    </span>
+                <?php else: ?>
+                    <span class="badge bg-secondary">
+                        Archived
+                    </span>
+                <?php endif; ?>
             </td>
         </tr>
         <?php endforeach; ?>

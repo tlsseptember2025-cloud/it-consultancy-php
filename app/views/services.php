@@ -30,7 +30,7 @@ $services = $stmt->fetchAll();
                     <?php if (!empty($service['image'])): ?>
 
                         <img
-                            src="../uploads/<?= htmlspecialchars($service['image']) ?>"
+                            src="../public/uploads/<?= htmlspecialchars($service['image']) ?>"
                             alt="<?= htmlspecialchars($service['title']) ?>"
                             class="img-fluid rounded mb-3"
                             style="

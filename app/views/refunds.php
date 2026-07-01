@@ -31,14 +31,6 @@ $refunds = $pdo->query("
         Refund Management
     </h1>
 
-    <a
-        href="?page=add-refund"
-        class="btn btn-danger">
-
-        Add Refund
-
-    </a>
-
 </div>
 
 <div class="card shadow-sm">
@@ -104,7 +96,7 @@ $refunds = $pdo->query("
                            <?php
                             $status = trim((string)($refund['status'] ?? ''));
 
-                            if ($status === 'Processed'):
+                            if ($status === 'Processing'):
                             ?>
 
                                 <span class="badge bg-warning text-dark">

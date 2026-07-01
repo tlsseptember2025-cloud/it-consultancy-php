@@ -35,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         move_uploaded_file(
             $_FILES['image']['tmp_name'],
-            dirname(__DIR__, 2) . '/uploads/' . $image
+            dirname(__DIR__, 2) . '/public/uploads/' . $image
         );
     }
 

@@ -18,8 +18,7 @@ $stmt = $pdo->query("
     JOIN services
         ON services.id = requests.service_id
 
-    WHERE requests.status = 'Completed'
-
+   WHERE requests.workflow_stage = 'Completed'
     ORDER BY requests.completed_at DESC
 ");
 

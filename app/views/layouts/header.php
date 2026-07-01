@@ -1,3 +1,43 @@
+<?php
+
+$customerNotificationCount = 0;
+$customerNotifications = [];
+
+if (isset($_SESSION['customer'])) {
+
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM notifications
+        WHERE recipient_type = 'customer'
+          AND recipient_id = ?
+          AND is_read = 0
+    ");
+
+    $stmt->execute([
+        (int) $_SESSION['customer']['id']
+    ]);
+
+    $customerNotificationCount = (int) $stmt->fetchColumn();
+  
+  	$stmt = $pdo->prepare("
+    SELECT *
+    FROM notifications
+    WHERE recipient_type = 'customer'
+      AND recipient_id = ?
+      AND is_read = 0
+    ORDER BY created_at DESC
+    LIMIT 5
+");
+
+$stmt->execute([
+    (int) $_SESSION['customer']['id']
+]);
+
+$customerNotifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
+  
+}
+?>
+
 <!DOCTYPE html>
 <html>
 
@@ -36,6 +76,31 @@
             <div class="navbar-nav ms-auto">
 
                 <?php if (isset($_SESSION['user'])): ?>
+
+                    <?php
+
+$notificationCount = 0;
+
+try {
+
+    require dirname(__DIR__, 3) . '/config/database.php';
+
+    $stmt = $pdo->query("
+    SELECT COUNT(*)
+    FROM notifications
+    WHERE recipient_type = 'admin'
+      AND is_read = 0
+");
+
+    $notificationCount = (int) $stmt->fetchColumn();
+
+} catch (Exception $e) {
+
+    $notificationCount = 0;
+
+}
+
+?>
 
                     <!-- ADMIN MENU -->
 
@@ -200,17 +265,25 @@
 
                         <ul class="dropdown-menu">
 
-                            <li>
+                           <li>
+    <a
+        class="dropdown-item"
+        href="?page=messages">
 
-                                <a
-                                    class="dropdown-item"
-                                    href="?page=messages">
+        Active Messages
 
-                                    Messages
+    </a>
+</li>
 
-                                </a>
+<li>
+    <a
+        class="dropdown-item"
+        href="?page=archived-messages">
 
-                            </li>
+        Archived Messages
+
+    </a>
+</li>
 
                             <li>
 
@@ -227,6 +300,115 @@
                         </ul>
 
                     </div>
+
+                    <li class="nav-item dropdown">
+
+    <a
+        class="nav-link position-relative"
+        href="#"
+        id="notificationsDropdown"
+        role="button"
+        data-bs-toggle="dropdown"
+        aria-expanded="false">
+
+        🔔
+
+        <?php if ($notificationCount > 0): ?>
+
+    <span
+        id="notification-count"
+        class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+
+        <?= $notificationCount ?>
+
+    </span>
+
+<?php endif; ?>
+
+    </a>
+
+    <ul
+    class="dropdown-menu dropdown-menu-end"
+    style="width: 380px;"
+    id="notification-list">
+
+<?php
+
+$stmt = $pdo->query("
+    SELECT *
+    FROM notifications
+    WHERE recipient_type = 'admin'
+            AND is_read = 0
+    ORDER BY created_at DESC
+    LIMIT 10
+");
+
+$notifications = $stmt->fetchAll();
+
+if (empty($notifications)):
+
+?>
+
+    <li class="dropdown-item text-muted">
+        No notifications
+    </li>
+
+<?php else: ?>
+
+    <?php foreach ($notifications as $notification): ?>
+
+        <li>
+
+            <a
+                class="dropdown-item"
+                href="?page=open-notification&id=<?= $notification['id'] ?>">
+
+                <strong>
+                    <?= htmlspecialchars($notification['title']) ?>
+                </strong>
+
+                <br>
+
+                <small>
+                    <?= htmlspecialchars($notification['message']) ?>
+                </small>
+
+                <br>
+
+                <small class="text-muted">
+                    <?= $notification['created_at'] ?>
+                </small>
+
+            </a>
+
+        </li>
+
+        <li><hr class="dropdown-divider"></li>
+
+    <?php endforeach; ?>
+    
+
+<?php endif; ?>
+
+<li>
+    <hr class="dropdown-divider">
+</li>
+
+<li>
+
+    <a
+        class="dropdown-item text-center"
+        href="?page=notifications">
+
+        View All Notifications
+
+    </a>
+
+</li>
+
+</ul>
+
+</li>
                    
 
                     <a class="nav-link text-danger" href="?page=logout">
@@ -252,6 +434,94 @@
                     <a class="nav-link" href="?page=customer-refunds">
                         My Refunds
                     </a>
+  
+  					<li class="nav-item dropdown">
+
+    <a
+        class="nav-link position-relative"
+        href="#"
+        data-bs-toggle="dropdown">
+
+        🔔
+
+        <?php if ($customerNotificationCount > 0): ?>
+
+            <span
+                class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+
+                <?= $customerNotificationCount ?>
+
+            </span>
+
+        <?php endif; ?>
+
+    </a>
+
+    <ul class="dropdown-menu dropdown-menu-end" style="min-width:350px;">
+
+    <?php if (empty($customerNotifications)): ?>
+
+        <li>
+
+            <span class="dropdown-item-text text-muted">
+
+                No new notifications
+
+            </span>
+
+        </li>
+
+    <?php else: ?>
+
+        <?php foreach ($customerNotifications as $notification): ?>
+
+            <li>
+
+                <a
+                    class="dropdown-item"
+                    href="?page=customer-notifications">
+
+                    <strong>
+
+                        <?= htmlspecialchars($notification['title']) ?>
+
+                    </strong>
+
+                    <br>
+
+                    <small class="text-muted">
+
+                        <?= htmlspecialchars($notification['message']) ?>
+
+                    </small>
+
+                </a>
+
+            </li>
+
+        <?php endforeach; ?>
+
+    <?php endif; ?>
+
+    <li>
+        <hr class="dropdown-divider">
+    </li>
+
+    <li>
+
+        <a
+            class="dropdown-item text-center fw-bold"
+            href="?page=customer-notifications">
+
+            View All Notifications
+
+        </a>
+
+    </li>
+
+</ul>
+
+</li>
 
                     <a class="nav-link text-danger"
                        href="?page=customer-logout">

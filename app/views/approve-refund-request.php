@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/../helpers/email.php';
+require_once __DIR__ . '/../helpers/notifications.php';
 
 if (!isset($_SESSION['user'])) {
     header("Location: ?page=login");
@@ -95,7 +96,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ?,
         NOW(),
         ?,
-        'Processed'
+        'Processing'
     )
 ");
 
@@ -118,9 +119,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $stmt = $pdo->prepare("
     SELECT
-        c.name,
-        c.email,
-        s.title AS service_title
+	    c.id AS customer_id,
+    	c.name,
+    	c.email,
+    	s.title AS service_title
     FROM requests r
     JOIN customers c
         ON r.customer_id = c.id
@@ -167,6 +169,15 @@ IT Consultancy Team
         nl2br($body)
     );
 }
+      
+createNotification(
+    $pdo,
+    'customer',
+    $customer['customer_id'],
+    'Refund Approved',
+    'Your refund request has been approved and is now being processed.',
+    '?page=customer-refunds'
+);
 
         header('Location: ?page=refund-requests');
         exit;

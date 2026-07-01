@@ -1,9 +1,7 @@
 <?php
 
 require_once __DIR__ . '/../helpers/auth.php';
-
 requireAdminLogin();
-
 require dirname(__DIR__, 2) . '/config/database.php';
 
 $stmt = $pdo->query("
@@ -29,8 +27,8 @@ $stmt = $pdo->query("
             WHERE request_id = requests.id
         )
 
-    WHERE requests.status <> 'Completed'
-    ORDER BY requests.created_at DESC
+     WHERE requests.workflow_stage <> 'Completed'
+     ORDER BY requests.created_at DESC
 ");
 
 $requests = $stmt->fetchAll();
@@ -39,21 +37,7 @@ $requests = $stmt->fetchAll();
 
 <?php require __DIR__ . '/layouts/header.php'; ?>
 
-<div class="d-flex justify-content-between align-items-center mb-4">
 
-    <h2 class="mb-0">
-        Requests
-    </h2>
-
-    <a
-        href="?page=add-request"
-        class="btn btn-primary">
-
-        Add Request
-
-    </a>
-
-</div>
 
 <div class="table-responsive">
 
@@ -144,152 +128,138 @@ $requests = $stmt->fetchAll();
                         <?= $request['created_at'] ?>
                     </td>
 
+                   
+<td>
+
+    <a
+        href="?page=view-request&id=<?= $request['id'] ?>"
+        class="btn btn-info btn-sm">
+        View
+    </a>
+
+    <?php if ($request['workflow_stage'] === 'Submitted'): ?>
+
+        <a
+            href="?page=approve-consultation&id=<?= $request['id'] ?>"
+            class="btn btn-success btn-sm">
+            Approve Consultation
+        </a>
+
+    <?php endif; ?>
+
+
+    <?php if ($request['workflow_stage'] === 'Consultation Scheduled'): ?>
+
+        <a
+            href="?page=confirm-consultation-admin&id=<?= $request['id'] ?>"
+            class="btn btn-primary btn-sm">
+            Confirm Consultation
+        </a>
+
+    <?php endif; ?>
+
+
+    <?php if ($request['workflow_stage'] === 'Consultation Confirmed'): ?>
+
+        <a
+            href="?page=complete-consultation&id=<?= $request['id'] ?>"
+            class="btn btn-success btn-sm">
+            Complete Consultation
+        </a>
+
+    <?php endif; ?>
+
+
+    <?php if ($request['workflow_stage'] === 'Consultation Completed'): ?>
+
+        <?php if (empty($request['proposal'])): ?>
+
+            <a
+                href="?page=create-proposal&id=<?= $request['id'] ?>"
+                class="btn btn-dark btn-sm">
+                Create Proposal
+            </a>
+
+        <?php endif; ?>
+
+    <?php endif; ?>
+
+
+    <?php if ($request['workflow_stage'] === 'Proposal Rejected'): ?>
+
+        <a
+            href="?page=edit-request&id=<?= $request['id'] ?>"
+            class="btn btn-danger btn-sm">
+            Revise Proposal
+        </a>
+
+    <?php endif; ?>
+
+
+    <?php if ($request['workflow_stage'] === 'Payment Submitted'): ?>
+
+        <a
+            href="?page=view-slip&id=<?= $request['slip_id'] ?>"
+            class="btn btn-success btn-sm">
+            Review Payment
+        </a>
+
+    <?php endif; ?>
+
+
+    <?php if ($request['workflow_stage'] === 'Service Scheduled'): ?>
+
+        <a
+            href="?page=approve-service-schedule&id=<?= $request['id'] ?>"
+            class="btn btn-success btn-sm">
+            Approve Service
+        </a>
+
+    <?php endif; ?>
+
+
+    <?php if ($request['workflow_stage'] === 'Service Active'): ?>
+
+        <a
+            href="?page=complete-service-form&id=<?= $request['id'] ?>"
+            class="btn btn-success btn-sm">
+            Complete Service
+        </a>
+
+    <?php endif; ?>
+
+
+    <?php if (
+        !in_array(
+            $request['workflow_stage'],
+            [
+                'Proposal Sent',
+                'Service Active',
+                'Completed'
+            ]
+        )
+    ): ?>
+
+        <a
+            href="?page=edit-request&id=<?= $request['id'] ?>"
+            class="btn btn-warning btn-sm">
+            Edit
+        </a>
+
+    <?php endif; ?>
+
+
+    <a
+        href="?page=delete-request&id=<?= $request['id'] ?>"
+        class="btn btn-danger btn-sm"
+        onclick="return confirm('Delete request?')">
+        Delete
+    </a>
+
+</td>
+
+
                     
-
-                    <td>
-
-                        <a
-                            href="?page=view-request&id=<?= $request['id'] ?>"
-                            class="btn btn-info btn-sm">
-
-                            View
-
-                        </a>
-
-                       <?php if ($request['workflow_stage'] === 'Submitted'): ?>
-
-                            <a
-                                href="?page=approve-consultation&id=<?= $request['id'] ?>"
-                                class="btn btn-success btn-sm">
-
-                                Approve Consultation
-
-                            </a>
-
-                        <?php endif; ?>
-
-                        <?php if ($request['workflow_stage'] === 'Consultation Approved'): ?>
-
-                            <a
-                                href="?page=confirm-consultation-admin&id=<?= $request['id'] ?>"
-                                class="btn btn-primary btn-sm">
-
-                                Confirm Consultation
-
-                            </a>
-
-                        <?php endif; ?>
-
-                        <?php if ($request['workflow_stage'] === 'Consultation Confirmed'): ?>
-
-                            <a
-                                href="?page=create-proposal&id=<?= $request['id'] ?>"
-                                class="btn btn-dark btn-sm">
-
-                                Create Proposal
-
-                            </a>
-
-                        <?php endif; ?>
-
-                        <?php if ($request['workflow_stage'] === 'Proposal Rejected'): ?>
-
-                            <a
-                                href="?page=edit-request&id=<?= $request['id'] ?>"
-                                class="btn btn-danger btn-sm">
-
-                                Revise Proposal
-
-                            </a>
-
-                        <?php endif; ?>
-
-                        <?php if ($request['workflow_stage'] === 'Consultation Scheduled'): ?>
-
-                            <a
-                                href="?page=complete-consultation&id=<?= $request['id'] ?>"
-                                class="btn btn-success btn-sm">
-
-                                Complete Consultation
-
-                            </a>
-
-                        <?php endif; ?>
-
-                        <?php if ($request['workflow_stage'] === 'Service Scheduled'): ?>
-
-                            <a
-                                href="?page=approve-service-schedule&id=<?= $request['id'] ?>"
-                                class="btn btn-success btn-sm">
-
-                                Approve Service
-
-                            </a>
-
-                        <?php endif; ?>
-
-                        <?php if ($request['workflow_stage'] !== 'Consultation Completed'): ?>
-
-                            <a
-                                href="?page=edit-request&id=<?= $request['id'] ?>"
-                                class="btn btn-warning btn-sm">
-
-                                Edit
-
-                            </a>
-
-                        <?php endif; ?>
-
-                        <?php if (
-                            $request['workflow_stage'] === 'Consultation Completed'
-                            && empty($request['proposal'])
-                            ): ?>
-
-                            <a
-                                href="?page=create-proposal&id=<?= $request['id'] ?>"
-                                class="btn btn-info btn-sm">
-
-                                Create Proposal
-
-                            </a>
-
-                        <?php endif; ?>
-
-                        <?php if ($request['workflow_stage'] === 'Payment Submitted'): ?>
-
-                            <a
-                                href="?page=view-slip&id=<?= $request['slip_id'] ?>"
-                                class="btn btn-success btn-sm">
-
-                                Review Payment
-
-                            </a>
-
-                        <?php endif; ?>
-
-                        <?php if ($request['workflow_stage'] === 'Service Active'): ?>
-
-                            <a
-                                href="?page=complete-service-form&id=<?= $request['id'] ?>"
-                                class="btn btn-success btn-sm">
-
-                                Complete Service
-
-                            </a>
-
-                        <?php endif; ?>
-
-                        <a
-                            href="?page=delete-request&id=<?= $request['id'] ?>"
-                            class="btn btn-danger btn-sm"
-                            onclick="return confirm('Delete request?')">
-
-                            Delete
-
-                        </a>
-
-                    </td>
-
                 </tr>
 
             <?php endforeach; ?>

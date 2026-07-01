@@ -171,7 +171,7 @@ $servicesScheduled = [];
 $awaitingPayment = $pdo->query("
     SELECT COUNT(*)
     FROM requests
-    WHERE workflow_stage = 'Awaiting Payment'
+    WHERE workflow_stage = 'Proposal Accepted'
 ")->fetchColumn();
 
 ?>

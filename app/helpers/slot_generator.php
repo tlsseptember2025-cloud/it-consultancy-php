@@ -2,7 +2,14 @@
 
 function ensureConsultationSlots(PDO $pdo): void
 {
-    $targetDate = new DateTime('+90 days');
+  	
+  	$pdo->exec("
+    DELETE FROM consultation_slots
+    WHERE slot_date < CURDATE()
+      AND is_booked = 0
+	");
+  
+    $targetDate = new DateTime('+14 days');
 
     $stmt = $pdo->query("
         SELECT MAX(slot_date)
@@ -79,7 +86,14 @@ function ensureConsultationSlots(PDO $pdo): void
 
 function ensureServiceSlots(PDO $pdo): void
 {
-    $targetDate = new DateTime('+90 days');
+  
+  	$pdo->exec("
+    DELETE FROM service_slots
+    WHERE service_date < CURDATE()
+      AND is_booked = 0
+	");
+  
+    $targetDate = new DateTime('+14 days');
 
     $stmt = $pdo->query("
         SELECT MAX(service_date)

@@ -1,3 +1,5 @@
+
+
 <?php require __DIR__ . '/layouts/header.php'; ?>
 
 <?php
@@ -144,7 +146,7 @@ $requests = $stmt->fetchAll();
 
                             <?php if ($request['quoted_price'] > 0): ?>
 
-                                $<?= number_format($request['quoted_price'], 2) ?>
+                                AED <?= number_format($request['quoted_price'], 2) ?>
 
                             <?php else: ?>
 
@@ -181,47 +183,57 @@ $requests = $stmt->fetchAll();
 
         </a>
 
-    <?php elseif ($request['workflow_stage'] === 'Consultation Scheduled'): ?>
+   <?php elseif ($request['workflow_stage'] === 'Consultation Scheduled'): ?>
 
     <div>
 
-       <span class="badge bg-danger">
+        <span class="badge bg-warning text-dark">
 
-    <?= date(
-        'M d, Y',
-        strtotime($request['slot_date'])
-    ) ?>
+            <?= date('M d, Y', strtotime($request['slot_date'])) ?>
 
-    @
+            @
 
-    <?= date(
-        'h:i A',
-        strtotime($request['slot_time'])
-    ) ?>
+            <?= date('h:i A', strtotime($request['slot_time'])) ?>
 
-    @
+            @
 
-    <?= htmlspecialchars($request['consultation_method']) ?>
+            <?= htmlspecialchars($request['consultation_method']) ?>
 
-</span>
+        </span>
 
-<?php if (
-    $request['workflow_stage'] === 'Consultation Scheduled'
-    && !empty($request['slot_time'])
-): ?>
+        <br>
+
+        <small class="text-muted">
+            Waiting for admin confirmation.
+        </small>
+
+    </div>
+
+<?php elseif ($request['workflow_stage'] === 'Consultation Confirmed'): ?>
 
     <?php
 
-    $minute = date(
-        'i',
-        strtotime($request['slot_time'])
-    );
+    $minute = date('i', strtotime($request['slot_time']));
 
     $meetingLink = ($minute === '00')
         ? ZOOM_LINK_HOUR
         : ZOOM_LINK_HALF;
 
     ?>
+
+    <span class="badge bg-danger">
+
+        <?= date('M d, Y', strtotime($request['slot_date'])) ?>
+
+        @
+
+        <?= date('h:i A', strtotime($request['slot_time'])) ?>
+
+        @
+
+        <?= htmlspecialchars($request['consultation_method']) ?>
+
+    </span>
 
     <a
         href="<?= htmlspecialchars($meetingLink) ?>"
@@ -233,17 +245,12 @@ $requests = $stmt->fetchAll();
     </a>
 
     <a
-    href="?page=reschedule-consultation&request_id=<?= $request['id'] ?>"
-    class="btn btn-warning btn-sm ms-2">
+        href="?page=reschedule-consultation&request_id=<?= $request['id'] ?>"
+        class="btn btn-warning btn-sm ms-2">
 
-    Reschedule
+        Reschedule
 
-</a>
-
-<?php endif; ?>
-
-
-    </div>
+    </a>
 
 <?php endif; ?>
 
@@ -262,19 +269,6 @@ $requests = $stmt->fetchAll();
     <?php if ($request['workflow_stage'] === 'Proposal Accepted'): ?>
 
     <a
-        href="?page=schedule-service&request_id=<?= $request['id'] ?>"
-        class="btn btn-success btn-sm">
-
-        Schedule Service
-
-    </a>
-
-    <?php endif; ?>
-
-    <?php if ($request['workflow_stage'] === WF_AWAITING_PAYMENT): ?>
-        
-
-    <a
         href="?page=customer-upload-slip&request_id=<?= $request['id'] ?>"
         class="btn btn-warning btn-sm">
 
@@ -282,14 +276,18 @@ $requests = $stmt->fetchAll();
 
     </a>
 
-    <?php elseif ($request['workflow_stage'] === WF_PAYMENT_SUBMITTED): ?>
+    <?php endif; ?>
+
+    <?php if ($request['workflow_stage'] === 'Payment Submitted'): ?>
 
     <span class="badge bg-info">
         Payment Under Review
     </span>
 
+    <?php endif; ?>
 
-    <?php elseif ($request['workflow_stage'] === 'Consultation Completed'): ?>
+
+    <?php if ($request['workflow_stage'] === 'Consultation Completed'): ?>
 
     <span class="badge bg-secondary">
 
@@ -350,7 +348,7 @@ $requests = $stmt->fetchAll();
 
 <?php elseif (
     $request['workflow_stage'] === 'Service Active' ||
-    $request['workflow_stage'] === 'Service Completed'
+    $request['workflow_stage'] === 'Completed'
 ): ?>
 
     <small>
