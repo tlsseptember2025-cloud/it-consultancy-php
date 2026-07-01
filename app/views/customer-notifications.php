@@ -62,7 +62,10 @@ require __DIR__ . '/layouts/header.php';
                         <th>Title</th>
                         <th>Message</th>
                         <th>Date</th>
+<<<<<<< HEAD
                         <th>Action</th>
+=======
+>>>>>>> fd63020bd82f2bea8d519b8c432465f188af48b4
                     </tr>
                 </thead>
 
@@ -73,6 +76,7 @@ require __DIR__ . '/layouts/header.php';
                         <tr>
 
                             <td>
+<<<<<<< HEAD
 
     <?php
 
@@ -111,12 +115,17 @@ require __DIR__ . '/layouts/header.php';
     <?= $icon ?> <?= htmlspecialchars($notification['title']) ?>
 
 </td>
+=======
+                                <?= htmlspecialchars($notification['title']) ?>
+                            </td>
+>>>>>>> fd63020bd82f2bea8d519b8c432465f188af48b4
 
                             <td>
                                 <?= htmlspecialchars($notification['message']) ?>
                             </td>
 
                             <td>
+<<<<<<< HEAD
                                 <?= date('d M Y, h:i A', strtotime($notification['created_at'])) ?>
                             </td>
                           
@@ -139,6 +148,10 @@ require __DIR__ . '/layouts/header.php';
     <?php endif; ?>
 
 </td>
+=======
+                                <?= htmlspecialchars($notification['created_at']) ?>
+                            </td>
+>>>>>>> fd63020bd82f2bea8d519b8c432465f188af48b4
 
                         </tr>
 

@@ -46,7 +46,11 @@ if ($customer && !empty($customer['email'])) {
 
     <p>
         <a
+<<<<<<< HEAD
             href='http://ramiphp.com/?page=customer-login'
+=======
+            href='http://ramiphp.com/it-consultancy-php/public/?page=customer-login'
+>>>>>>> fd63020bd82f2bea8d519b8c432465f188af48b4
             style='
                 background:#0d6efd;
                 color:white;

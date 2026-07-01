@@ -157,50 +157,6 @@ try {
                         </ul>
 
                     </div>
-
-                    <!--
-                    <div class="nav-item dropdown">
-
-                        <a
-                            class="nav-link dropdown-toggle"
-                            href="#"
-                            role="button"
-                            data-bs-toggle="dropdown">
-
-                            Scheduling
-
-                        </a>
-
-                        <ul class="dropdown-menu">
-
-                            <li>
-
-                                <a
-                                    class="dropdown-item"
-                                    href="?page=consultation-slots">
-
-                                    Consultation Slots
-
-                                </a>
-
-                            </li>
-
-                            <li>
-
-                                <a
-                                    class="dropdown-item"
-                                    href="?page=service-slots">
-
-                                    Service Slots
-
-                                </a>
-
-                            </li>
-
-                        </ul>
-
-                    </div>
-                    -->
                     
                     <div class="nav-item dropdown">
 
@@ -361,7 +317,11 @@ if (empty($notifications)):
 
             <a
                 class="dropdown-item"
+<<<<<<< HEAD
                 href="?page=open-notification&id=<?= $notification['id'] ?>">
+=======
+                href="?page=open-notification&id=<?= $notification['id'] ?>"
+>>>>>>> fd63020bd82f2bea8d519b8c432465f188af48b4
 
                 <strong>
                     <?= htmlspecialchars($notification['title']) ?>

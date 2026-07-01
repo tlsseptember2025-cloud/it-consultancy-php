@@ -46,9 +46,47 @@ $stmt->execute([$id]);
 
 $data = $stmt->fetch(PDO::FETCH_ASSOC);
 
+<<<<<<< HEAD
 if (!$data) {
     die('Payment slip not found.');
 }
+=======
+sendEmail(
+    $slip['email'],
+    'Payment Rejected',
+    "
+    <h2>Hello {$slip['name']},</h2>
+
+    <p>We reviewed the payment slip you submitted for:</p>
+
+    <p><strong>Service:</strong> {$slip['service_title']}</p>
+
+    <p>Unfortunately, we could not verify the payment.</p>
+
+    <p>Please log in to your account and upload a new deposit slip.</p>
+
+    <p>
+        <a
+            href='http://ramiphp.com/it-consultancy-php/public/?page=customer-login'
+            style='
+                background:#0d6efd;
+                color:white;
+                padding:10px 20px;
+                text-decoration:none;
+                border-radius:5px;
+                display:inline-block;
+            '
+        >
+            Login Now
+        </a>
+    </p>
+
+    <p>If you believe this is an error, please contact us.</p>
+
+    <p>IT Consultancy Team</p>
+    "
+);
+>>>>>>> fd63020bd82f2bea8d519b8c432465f188af48b4
 
 /*
 |--------------------------------------------------------------------------
@@ -58,7 +96,11 @@ if (!$data) {
 
 $stmt = $pdo->prepare("
     UPDATE requests
+<<<<<<< HEAD
     SET workflow_stage = WF_PROPOSAL_ACCEPTED
+=======
+    SET workflow_stage = 'Proposal Accepted'
+>>>>>>> fd63020bd82f2bea8d519b8c432465f188af48b4
     WHERE id = ?
 ");
 

@@ -34,11 +34,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     }
 
+<<<<<<< HEAD
    $stmt = $pdo->prepare("
     UPDATE requests
     SET workflow_stage = 'Proposal Accepted'
     WHERE id = ?
 ");
+=======
+    $stmt = $pdo->prepare("
+        UPDATE requests
+        SET workflow_stage = 'Proposal Accepted'
+        WHERE id = ?
+    ");
+>>>>>>> fd63020bd82f2bea8d519b8c432465f188af48b4
 
 $stmt->execute([$requestId]);
 

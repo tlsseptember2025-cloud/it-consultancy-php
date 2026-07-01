@@ -5,6 +5,10 @@ use PHPMailer\PHPMailer\Exception;
 
 require_once dirname(__DIR__, 2) . '/vendor/autoload.php';
 require_once __DIR__ . '/../../config/settings.php';
+<<<<<<< HEAD
+=======
+
+>>>>>>> fd63020bd82f2bea8d519b8c432465f188af48b4
 
 function sendEmail(
     string $to,
@@ -123,6 +127,7 @@ function sendServiceCompletedEmail(
     <br>
 
     <p>
+<<<<<<< HEAD
     📧 <a href='mailto:" . SUPPORT_EMAIL . "'>" . SUPPORT_EMAIL . "</a><br>
     📞 " . SUPPORT_PHONE . "<br>
     🌐 <a href='" . COMPANY_WEBSITE . "'>" . COMPANY_WEBSITE . "</a>
@@ -134,6 +139,19 @@ function sendServiceCompletedEmail(
     to explore our services and learn about our upcoming
     monthly and annual business support plans.
 </p>
+=======
+        📧 <a href='mailto:<?= SUPPORT_EMAIL ?>'><?= SUPPORT_EMAIL ?></a><br>
+        📞 <?= SUPPORT_PHONE ?><br>
+        🌐 <a href='<?= COMPANY_WEBSITE ?>'><?= COMPANY_WEBSITE ?></a>
+    </p>
+
+    <p>
+        <strong>Need additional IT assistance?</strong><br>
+        Visit <a href='<?= COMPANY_WEBSITE ?>'>https://ramiphp.com</a>
+        to explore our services and learn about our upcoming
+        monthly and annual business support plans.
+    </p>
+>>>>>>> fd63020bd82f2bea8d519b8c432465f188af48b4
 
     <p>
         Kind regards,<br>
