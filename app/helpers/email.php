@@ -5,10 +5,7 @@ use PHPMailer\PHPMailer\Exception;
 
 require_once dirname(__DIR__, 2) . '/vendor/autoload.php';
 require_once __DIR__ . '/../../config/settings.php';
-<<<<<<< HEAD
-=======
 
->>>>>>> fd63020bd82f2bea8d519b8c432465f188af48b4
 
 function sendEmail(
     string $to,
