@@ -57,11 +57,9 @@ function generateServiceReportPdf(
     $pdf->Cell(
         0,
         5,
-<<<<<<< HEAD
+
         'Phone: +971 50 122 8293',
-=======
         'Phone: +971 50 122 9293',
->>>>>>> fd63020bd82f2bea8d519b8c432465f188af48b4
         0,
         1,
         'R'

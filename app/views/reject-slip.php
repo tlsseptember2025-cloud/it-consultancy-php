@@ -46,20 +46,19 @@ $stmt->execute([$id]);
 
 $data = $stmt->fetch(PDO::FETCH_ASSOC);
 
-<<<<<<< HEAD
 if (!$data) {
     die('Payment slip not found.');
 }
-=======
+
 sendEmail(
-    $slip['email'],
+    $data['email'],
     'Payment Rejected',
     "
-    <h2>Hello {$slip['name']},</h2>
+    <h2>Hello {$data['name']},</h2>
 
     <p>We reviewed the payment slip you submitted for:</p>
 
-    <p><strong>Service:</strong> {$slip['service_title']}</p>
+    <p><strong>Service:</strong> {$data['service_title']}</p>
 
     <p>Unfortunately, we could not verify the payment.</p>
 
@@ -86,7 +85,6 @@ sendEmail(
     <p>IT Consultancy Team</p>
     "
 );
->>>>>>> fd63020bd82f2bea8d519b8c432465f188af48b4
 
 /*
 |--------------------------------------------------------------------------

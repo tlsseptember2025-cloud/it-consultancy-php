@@ -1,5 +1,8 @@
 <?php
 
+require_once __DIR__ . '/../helpers/payment_request.php';
+require_once __DIR__ . '/../helpers/email.php';
+
 if (!isset($_SESSION['customer'])) {
 
     header('Location: ?page=customer-login');
@@ -18,6 +21,45 @@ $stmt = $pdo->prepare("
 
 $stmt->execute([$requestId]);
 
+$stmt = $pdo->prepare("
+    SELECT
+        r.id,
+        r.quoted_price,
+        c.name AS customer_name,
+        c.email,
+        s.title AS service_title
+    FROM requests r
+    JOIN customers c
+        ON c.id = r.customer_id
+    JOIN services s
+        ON s.id = r.service_id
+    WHERE r.id = ?
+");
+
+$stmt->execute([$requestId]);
+
+$request = $stmt->fetch();
+
+$paymentDir = dirname(__DIR__, 2) . '/storage/payment_requests';
+
+if (!is_dir($paymentDir)) {
+    mkdir($paymentDir, 0777, true);
+}
+
+$paymentRequestPath =
+    $paymentDir .
+    '/PAY-' .
+    str_pad($request['id'], 6, '0', STR_PAD_LEFT) .
+    '.pdf';
+
+generatePaymentRequestPdf(
+    $request,
+    $paymentRequestPath
+);
+
+echo $paymentRequestPath;
+exit;
+
 $proposal = $stmt->fetch();
 
 if (!$proposal) {
@@ -34,19 +76,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     }
 
-<<<<<<< HEAD
    $stmt = $pdo->prepare("
     UPDATE requests
     SET workflow_stage = 'Proposal Accepted'
     WHERE id = ?
 ");
-=======
-    $stmt = $pdo->prepare("
-        UPDATE requests
-        SET workflow_stage = 'Proposal Accepted'
-        WHERE id = ?
-    ");
->>>>>>> fd63020bd82f2bea8d519b8c432465f188af48b4
 
 $stmt->execute([$requestId]);
 

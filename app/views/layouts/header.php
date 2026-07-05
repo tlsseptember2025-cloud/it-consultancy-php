@@ -317,11 +317,8 @@ if (empty($notifications)):
 
             <a
                 class="dropdown-item"
-<<<<<<< HEAD
                 href="?page=open-notification&id=<?= $notification['id'] ?>">
-=======
                 href="?page=open-notification&id=<?= $notification['id'] ?>"
->>>>>>> fd63020bd82f2bea8d519b8c432465f188af48b4
 
                 <strong>
                     <?= htmlspecialchars($notification['title']) ?>
