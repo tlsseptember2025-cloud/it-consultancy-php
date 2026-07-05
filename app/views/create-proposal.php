@@ -11,6 +11,18 @@ if (!isset($_SESSION['user'])) {
 
 $requestId = $_GET['id'] ?? 0;
 
+$stmt = $pdo->prepare("
+    SELECT
+        proposal,
+        quoted_price
+    FROM requests
+    WHERE id = ?
+");
+
+$stmt->execute([$requestId]);
+
+$request = $stmt->fetch();
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $proposalText = trim($_POST['proposal_text']);
@@ -131,6 +143,7 @@ require __DIR__ . '/layouts/header.php';
                     type="number"
                     step="0.01"
                     name="proposed_price"
+                    value="<?= htmlspecialchars($request['quoted_price'] ?? '') ?>"
                     class="form-control"
                     required>
 
@@ -146,7 +159,9 @@ require __DIR__ . '/layouts/header.php';
                     name="proposal_text"
                     class="form-control"
                     rows="8"
-                    required></textarea>
+                    required><?=
+                    htmlspecialchars($request['proposal'] ?? '')?>
+                </textarea>
 
             </div>
 

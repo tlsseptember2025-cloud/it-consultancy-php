@@ -188,7 +188,7 @@ $requests = $stmt->fetchAll();
     <?php if ($request['workflow_stage'] === 'Proposal Rejected'): ?>
 
         <a
-            href="?page=edit-request&id=<?= $request['id'] ?>"
+            href="?page=create-proposal&id=<?= $request['id'] ?>"
             class="btn btn-danger btn-sm">
             Revise Proposal
         </a>
