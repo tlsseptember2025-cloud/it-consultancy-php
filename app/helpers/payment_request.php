@@ -2,6 +2,7 @@
 
 require_once dirname(__DIR__, 2) . '/vendor/autoload.php';
 require_once dirname(__DIR__, 2) . '/config/company.php';
+require_once __DIR__ . '/pdf_layout.php';
 
 function generatePaymentRequestPdf(
     array $request,
@@ -10,19 +11,12 @@ function generatePaymentRequestPdf(
 
     $pdf = new \FPDF();
     $pdf->AddPage();
-    if (file_exists(COMPANY_LOGO)) {
 
-    $pdf->Image(COMPANY_LOGO, 15, 15, 50);
-
-    }
-
-    $pdf->SetFont('Arial', 'B', 20);
-    $pdf->Cell(0, 10, COMPANY_NAME, 0, 1, 'R');
-
-    $pdf->SetFont('Arial', 'B', 16);
-    $pdf->Cell(0, 10, 'PAYMENT REQUEST', 0, 1, 'R');
-
-    $pdf->Ln(15);
+    drawHeader(
+    $pdf,
+    'Payment Request',
+    'PAY-' . str_pad($request['id'], 6, '0', STR_PAD_LEFT)
+);
 
     $pdf->SetFont('Arial', '', 11);
 
@@ -37,8 +31,10 @@ function generatePaymentRequestPdf(
 
     $pdf->Ln(5);
 
-    $pdf->SetFont('Arial', 'B', 12);
-    $pdf->Cell(0, 8, 'Customer Information', 0, 1);
+    drawSectionTitle(
+    $pdf,
+    'Customer Information'
+    );
 
     $pdf->SetFont('Arial', '', 11);
 
