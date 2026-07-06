@@ -85,7 +85,7 @@ $pdf->Cell(
     195,
     46
 );
-    $pdf->Ln(12);
+    $pdf->Ln(2);
 
     // Document Title
     $pdf->SetFont('Arial', 'B', 20);
@@ -126,7 +126,7 @@ function drawSection(
     // Back to black text
     $pdf->SetTextColor(0, 0, 0);
 
-    $pdf->Ln(2);
+    $pdf->Ln(1);
 }
 
 function drawInfoTable(
@@ -143,7 +143,7 @@ function drawInfoTable(
 
         $pdf->Cell(
             55,
-            8,
+            7,
             $label,
             1,
             0,
@@ -155,7 +155,7 @@ function drawInfoTable(
 
         $pdf->Cell(
             125,
-            8,
+            7,
             $value,
             1,
             1,
@@ -164,7 +164,7 @@ function drawInfoTable(
 
     }
 
-    $pdf->Ln(4);
+    $pdf->Ln(2);
 }
 
 function drawAmountBox(
@@ -182,7 +182,7 @@ function drawAmountBox(
     // Outer box
     $pdf->Cell(
         180,
-        30,
+        24,
         '',
         1,
         1,
@@ -191,7 +191,7 @@ function drawAmountBox(
     );
 
     // Go back inside the box
-    $pdf->SetY($pdf->GetY() - 26);
+    $pdf->SetY($pdf->GetY() - 21);
 
     // Title
     $pdf->SetFont('Arial', 'B', 12);
@@ -212,7 +212,7 @@ function drawAmountBox(
 
     $pdf->Cell(
         180,
-        12,
+        10,
         $amount,
         0,
         1,
@@ -222,7 +222,7 @@ function drawAmountBox(
     // Back to normal
     $pdf->SetTextColor(0, 0, 0);
 
-    $pdf->Ln(4);
+    $pdf->Ln(2);
 }
 
 function drawInfoRow(
@@ -253,7 +253,7 @@ function drawReferenceBox(
 
     $pdf->Cell(
         180,
-        24,
+        18,
         '',
         1,
         1
@@ -261,7 +261,7 @@ function drawReferenceBox(
 
     
 $pdf->SetY(
-    $pdf->GetY()-20
+    $pdf->GetY()-16
     );
     
 
@@ -288,7 +288,7 @@ $pdf->SetY(
         9
     );
 
-    $pdf->Ln(4);
+    $pdf->Ln(2);
 }
 
 function checkPageBreak(
@@ -305,7 +305,7 @@ function drawFooter(
     FPDF $pdf
 ): void
 {
-    $pdf->Ln(5);
+    $pdf->Ln(2);
 
     $pdf->SetDrawColor(180,180,180);
 
@@ -316,7 +316,7 @@ function drawFooter(
         $pdf->GetY()
     );
 
-    $pdf->Ln(4);
+    $pdf->Ln(2);
 
     $pdf->SetFont(
         'Arial',
