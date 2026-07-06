@@ -2,7 +2,7 @@
 
 require_once dirname(__DIR__, 2) . '/vendor/autoload.php';
 require_once dirname(__DIR__, 2) . '/config/company.php';
-require_once __DIR__ . '/pdf_layout.php';
+require_once __DIR__ . '/pdf_ui.php';
 
 function generatePaymentRequestPdf(
     array $request,
@@ -31,34 +31,34 @@ function generatePaymentRequestPdf(
 
     $pdf->Ln(5);
 
-    drawSectionTitle(
+    drawSection(
     $pdf,
     'Customer Information'
     );
 
-    $pdf->SetFont('Arial', '', 11);
-
-    $pdf->Cell(50, 8, 'Customer:');
-    $pdf->Cell(0, 8, $request['customer_name'], 0, 1);
-
-    $pdf->Cell(50, 8, 'Service:');
-    $pdf->Cell(0, 8, $request['service_title'], 0, 1);
-
-    $pdf->Ln(5);
+    drawInfoTable(
+    $pdf,
+    [
+        'Customer'       => $request['customer_name'],
+        'Service'        => $request['service_title'],
+        'Issue Date'     => date('d M Y'),
+        'Request Number' => 'REQ-' . str_pad($request['id'], 6, '0', STR_PAD_LEFT)
+    ]
+);
     
-    $pdf->SetFont('Arial', 'B', 12);
-    $pdf->Cell(0, 8, 'Payment Summary', 0, 1);
+    drawSection(
+    $pdf,
+    'Payment Summary'
+);
 
-    $pdf->SetFont('Arial', '', 11);
+drawAmountBox(
+    $pdf,
+    'Total Amount Due',
+    'AED ' . number_format($request['quoted_price'], 2)
+);
 
-    $pdf->Cell(50, 8, 'Total Amount Due:');
-    $pdf->Cell(
-        0,
-        8,
-        'AED ' . number_format($request['quoted_price'], 2),
-        0,
-        1
-    );
+
+
 
     $pdf->Ln(5);
 

@@ -98,19 +98,131 @@ $pdf->Cell(
     $pdf->Ln(6);
 }
 
-function drawSectionTitle(
+function drawSection(
     FPDF $pdf,
     string $title
 ): void
 {
-    $pdf->SetFillColor(235, 235, 235);
-    $pdf->SetDrawColor(200, 200, 200);
+    // Section background
+    $pdf->SetFillColor(25, 55, 109);
 
+    // White text
+    $pdf->SetTextColor(255, 255, 255);
+
+    // Font
     $pdf->SetFont('Arial', 'B', 11);
 
-    $pdf->Cell(180, 8, strtoupper($title), 1, 1, 'L', true);
+    // Blue bar
+    $pdf->Cell(
+        180,
+        8,
+        strtoupper($title),
+        0,
+        1,
+        'L',
+        true
+    );
+
+    // Back to black text
+    $pdf->SetTextColor(0, 0, 0);
 
     $pdf->Ln(2);
+}
+
+function drawInfoTable(
+    FPDF $pdf,
+    array $rows
+): void
+{
+    $pdf->SetFont('Arial', '', 10);
+
+    foreach ($rows as $label => $value) {
+
+        // Left column
+        $pdf->SetFont('Arial', 'B', 10);
+
+        $pdf->Cell(
+            55,
+            8,
+            $label,
+            1,
+            0,
+            'L'
+        );
+
+        // Right column
+        $pdf->SetFont('Arial', '', 10);
+
+        $pdf->Cell(
+            125,
+            8,
+            $value,
+            1,
+            1,
+            'L'
+        );
+
+    }
+
+    $pdf->Ln(4);
+}
+
+function drawAmountBox(
+    FPDF $pdf,
+    string $title,
+    string $amount
+): void
+{
+    // Blue border
+    $pdf->SetDrawColor(25, 55, 109);
+
+    // White background
+    $pdf->SetFillColor(255, 255, 255);
+
+    // Outer box
+    $pdf->Cell(
+        180,
+        30,
+        '',
+        1,
+        1,
+        'C',
+        true
+    );
+
+    // Go back inside the box
+    $pdf->SetY($pdf->GetY() - 26);
+
+    // Title
+    $pdf->SetFont('Arial', 'B', 12);
+
+    $pdf->Cell(
+        180,
+        8,
+        strtoupper($title),
+        0,
+        1,
+        'C'
+    );
+
+    // Amount
+    $pdf->SetFont('Arial', 'B', 22);
+
+    $pdf->SetTextColor(25, 55, 109);
+
+    $pdf->Cell(
+        180,
+        12,
+        $amount,
+        0,
+        1,
+        'C'
+    );
+
+    // Back to normal
+    $pdf->SetTextColor(0, 0, 0);
+
+    $pdf->Ln(4);
 }
 
 function drawInfoRow(
