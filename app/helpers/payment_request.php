@@ -118,7 +118,7 @@ drawInfoTable(
     ]
 );
 
-    $pdf->Ln(3);
+    $pdf->Ln(1);
 
    drawFooter($pdf);
 

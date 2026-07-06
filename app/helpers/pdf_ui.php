@@ -22,7 +22,7 @@ function drawHeader(
 {
     // Logo
     if (file_exists(COMPANY_LOGO)) {
-        $pdf->Image(COMPANY_LOGO, 15, 15, 28);
+        $pdf->Image(COMPANY_LOGO, 15, 15, 35);
     }
 
     // Company Name
@@ -126,7 +126,6 @@ function drawSection(
     // Back to black text
     $pdf->SetTextColor(0, 0, 0);
 
-    $pdf->Ln(1);
 }
 
 function drawInfoTable(
@@ -164,7 +163,7 @@ function drawInfoTable(
 
     }
 
-    $pdf->Ln(2);
+    $pdf->Ln(1);
 }
 
 function drawAmountBox(
@@ -288,7 +287,7 @@ $pdf->SetY(
         9
     );
 
-    $pdf->Ln(2);
+    $pdf->Ln(1);
 }
 
 function checkPageBreak(
@@ -305,18 +304,18 @@ function drawFooter(
     FPDF $pdf
 ): void
 {
-    $pdf->Ln(2);
+    $pdf->Ln(1);
 
-    $pdf->SetDrawColor(180,180,180);
+$pdf->SetDrawColor(180,180,180);
 
-    $pdf->Line(
-        15,
-        $pdf->GetY(),
-        195,
-        $pdf->GetY()
-    );
+$pdf->Line(
+    15,
+    $pdf->GetY(),
+    195,
+    $pdf->GetY()
+);
 
-    $pdf->Ln(2);
+$pdf->Ln(2);
 
     $pdf->SetFont(
         'Arial',
@@ -326,17 +325,8 @@ function drawFooter(
 
     $pdf->Cell(
         180,
-        5,
-        'Thank you for choosing ' . COMPANY_NAME,
-        0,
-        1,
-        'C'
-    );
-
-    $pdf->Cell(
-        180,
-        5,
-        COMPANY_TAGLINE,
+        4,
+        'Thank you for choosing ' . COMPANY_NAME . '  |  ' . COMPANY_TAGLINE,
         0,
         1,
         'C'
