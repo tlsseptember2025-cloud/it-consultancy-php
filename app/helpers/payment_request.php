@@ -20,16 +20,16 @@ function generatePaymentRequestPdf(
 
     $pdf->SetFont('Arial', '', 11);
 
-    $pdf->Cell(50, 8, 'Payment Request No.:');
-    $pdf->Cell(0, 8, 'PAY-' . str_pad($request['id'], 6, '0', STR_PAD_LEFT), 0, 1);
+    $pdf->Cell(50, 6, 'Payment Request No.:');
+    $pdf->Cell(0, 6, 'PAY-' . str_pad($request['id'], 6, '0', STR_PAD_LEFT), 0, 1);
 
-    $pdf->Cell(50, 8, 'Request No.:');
-    $pdf->Cell(0, 8, 'REQ-' . str_pad($request['id'], 6, '0', STR_PAD_LEFT), 0, 1);
+    $pdf->Cell(50, 6, 'Request No.:');
+    $pdf->Cell(0, 6, 'REQ-' . str_pad($request['id'], 6, '0', STR_PAD_LEFT), 0, 1);
 
-    $pdf->Cell(50, 8, 'Issue Date:');
-    $pdf->Cell(0, 8, date('d M Y'), 0, 1);
+    $pdf->Cell(50, 6, 'Issue Date:');
+    $pdf->Cell(0, 6, date('d M Y'), 0, 1);
 
-    $pdf->Ln(5);
+    $pdf->Ln(2);
 
     drawSection(
     $pdf,
@@ -57,11 +57,6 @@ drawAmountBox(
     'AED ' . number_format($request['quoted_price'], 2)
 );
 
-
-
-
-    $pdf->Ln(5);
-
     drawSection(
     $pdf,
     'Bank Details'
@@ -78,14 +73,12 @@ drawInfoTable(
     ]
 );
 
-    $pdf->Ln(5);
-
     drawReferenceBox(
     $pdf,
     'REQ-' . str_pad($request['id'],6,'0',STR_PAD_LEFT)
 );
 
-    $pdf->Ln(8);
+    $pdf->Ln(2);
 
     drawSection(
     $pdf,
@@ -118,10 +111,6 @@ $pdf->MultiCell(
     "4. Your payment will be verified before your service is scheduled."
 );
 
-$pdf->Ln(4);
-
-    $pdf->Ln(5);
-
     drawSection(
     $pdf,
     'Company Contact'
@@ -142,7 +131,7 @@ drawInfoTable(
     ]
 );
 
-    $pdf->Ln(10);
+    $pdf->Ln(3);
 
    drawFooter($pdf);
 
