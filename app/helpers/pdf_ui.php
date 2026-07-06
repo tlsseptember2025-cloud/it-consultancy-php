@@ -237,3 +237,61 @@ function drawInfoRow(
     $pdf->SetFont('Arial', '', 9);
     $pdf->Cell(130, 8, $value, 1, 1);
 }
+
+function drawReferenceBox(
+    FPDF $pdf,
+    string $reference
+): void
+{
+    drawSection(
+        $pdf,
+        'Payment Reference'
+    );
+
+    $pdf->SetDrawColor(25,55,109);
+
+    $pdf->Cell(
+        180,
+        18,
+        '',
+        1,
+        1
+    );
+
+    $pdf->SetY(
+        $pdf->GetY()-15
+    );
+
+    $pdf->SetFont(
+        'Arial',
+        'B',
+        18
+    );
+
+    $pdf->Cell(
+        180,
+        10,
+        $reference,
+        0,
+        1,
+        'C'
+    );
+
+    $pdf->Ln(2);
+
+    $pdf->SetFont(
+        'Arial',
+        '',
+        9
+    );
+
+    $pdf->MultiCell(
+        180,
+        5,
+        'Please use this reference when making your bank transfer.',
+        0,
+        'C'
+    );
+
+    $pdf->Ln(4);
+}

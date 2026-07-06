@@ -80,18 +80,10 @@ drawInfoTable(
 
     $pdf->Ln(5);
 
-    $pdf->SetFont('Arial', 'B', 12);
-    $pdf->Cell(0, 8, 'Payment Reference', 0, 1);
-
-    $pdf->SetFont('Arial', '', 11);
-
-    $pdf->MultiCell(
-        0,
-        7,
-        'Please use Request No. REQ-' .
-        str_pad($request['id'], 6, '0', STR_PAD_LEFT) .
-        ' as your payment reference when making the bank transfer.'
-    );
+    drawReferenceBox(
+    $pdf,
+    'REQ-' . str_pad($request['id'],6,'0',STR_PAD_LEFT)
+);
 
     $pdf->Ln(5);
 
