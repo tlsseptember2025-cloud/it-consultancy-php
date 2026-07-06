@@ -30,19 +30,36 @@ function drawHeader(
     $pdf->SetXY(60, 15);
     $pdf->Cell(135, 8, COMPANY_NAME, 0, 1, 'R');
 
-    // Tagline
-    $pdf->Cell(
+    $pdf->SetFont('Arial', '', 9);
+
+$pdf->SetX(60);
+
+$pdf->Cell(
     135,
-    6,
-    COMPANY_TAGLINE,
+    5,
+    'Simplifying Technology',
     0,
     1,
     'R'
 );
 
+$pdf->SetX(60);
+
+$pdf->Cell(
+    135,
+    5,
+    'Empowering Business',
+    0,
+    1,
+    'R'
+);
+
+    // Tagline
+    
+
     // Website
     $pdf->SetX(60);
-    $pdf->Cell(135, 6, str_replace(
+    $pdf->Cell(135, 5, str_replace(
     ['https://', 'http://'],
     '',
     COMPANY_WEBSITE
@@ -52,7 +69,7 @@ function drawHeader(
 
     $pdf->Cell(
         135,
-        6,
+        5,
         COMPANY_CITY . ', ' . COMPANY_COUNTRY,
         0,
         1,
@@ -62,8 +79,13 @@ function drawHeader(
     // Divider
     $pdf->Ln(5);
     $pdf->SetDrawColor(40, 40, 40);
-    $pdf->Line(15, 40, 195, 40);
-    $pdf->Ln(8);
+    $pdf->Line(
+    15,
+    46,
+    195,
+    46
+);
+    $pdf->Ln(12);
 
     // Document Title
     $pdf->SetFont('Arial', 'B', 20);
