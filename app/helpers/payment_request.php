@@ -18,19 +18,6 @@ function generatePaymentRequestPdf(
     'PAY-' . str_pad($request['id'], 6, '0', STR_PAD_LEFT)
 );
 
-    $pdf->SetFont('Arial', '', 11);
-
-    $pdf->Cell(50, 6, 'Payment Request No.:');
-    $pdf->Cell(0, 6, 'PAY-' . str_pad($request['id'], 6, '0', STR_PAD_LEFT), 0, 1);
-
-    $pdf->Cell(50, 6, 'Request No.:');
-    $pdf->Cell(0, 6, 'REQ-' . str_pad($request['id'], 6, '0', STR_PAD_LEFT), 0, 1);
-
-    $pdf->Cell(50, 6, 'Issue Date:');
-    $pdf->Cell(0, 6, date('d M Y'), 0, 1);
-
-    $pdf->Ln(2);
-
     drawSection(
     $pdf,
     'Customer Information'

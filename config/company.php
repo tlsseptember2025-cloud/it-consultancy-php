@@ -24,7 +24,7 @@ define('BANK_ACCOUNT_NUMBER', '019010513871');
 
 define('BANK_IBAN', 'AE890330000019010513871');
 
-define('BANK_SWIFT', '');
+define('BANK_SWIFT', 'BOMLAEAD');
 
 define('COMPANY_LOGO', dirname(__DIR__) . '/public/uploads/assets/logo.png');
 

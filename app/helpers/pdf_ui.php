@@ -95,7 +95,7 @@ $pdf->Cell(
     $pdf->SetFont('Arial', '', 11);
     $pdf->Cell(0, 7, 'Document No. ' . $documentNumber, 0, 1, 'C');
 
-    $pdf->Ln(6);
+    $pdf->Ln(1);
 }
 
 function drawSection(
