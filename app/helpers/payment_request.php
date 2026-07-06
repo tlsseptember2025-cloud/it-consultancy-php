@@ -85,48 +85,66 @@ drawInfoTable(
     'REQ-' . str_pad($request['id'],6,'0',STR_PAD_LEFT)
 );
 
+    $pdf->Ln(8);
+
+    drawSection(
+    $pdf,
+    'Important Information'
+);
+
+$pdf->SetFont('Arial', '', 10);
+
+$pdf->MultiCell(
+    180,
+    6,
+    "1. Transfer the full payment amount shown above."
+);
+
+$pdf->MultiCell(
+    180,
+    6,
+    "2. Use the payment reference when making the transfer."
+);
+
+$pdf->MultiCell(
+    180,
+    6,
+    "3. Upload your payment slip through the Customer Portal after payment."
+);
+
+$pdf->MultiCell(
+    180,
+    6,
+    "4. Your payment will be verified before your service is scheduled."
+);
+
+$pdf->Ln(4);
+
     $pdf->Ln(5);
 
-    $pdf->SetFont('Arial', 'B', 12);
-    $pdf->Cell(0, 8, 'Important Information', 0, 1);
+    drawSection(
+    $pdf,
+    'Company Contact'
+);
 
-    $pdf->SetFont('Arial', '', 11);
+drawInfoTable(
+    $pdf,
+    [
+        'Website' => str_replace(
+            ['https://','http://'],
+            '',
+            COMPANY_WEBSITE
+        ),
 
-    $pdf->MultiCell(
-        0,
-        7,
-        "• Please transfer the full payment amount shown above.\n"
-        . "• Use the payment reference when making the transfer.\n"
-        . "• Upload your payment slip through the Customer Portal after payment.\n"
-        . "• Your payment will be verified before your service is scheduled."
-    );
+        'Email' => COMPANY_EMAIL,
 
-    $pdf->Ln(5);
-
-    $pdf->SetFont('Arial', 'B', 12);
-    $pdf->Cell(0, 8, 'Company Contact Details', 0, 1);
-
-    $pdf->SetFont('Arial', '', 11);
-
-    $pdf->Cell(50, 8, 'Website:');
-    $pdf->Cell(0, 8, COMPANY_WEBSITE, 0, 1);
-
-    $pdf->Cell(50, 8, 'Email:');
-    $pdf->Cell(0, 8, COMPANY_EMAIL, 0, 1);
-
-    $pdf->Cell(50, 8, 'Phone:');
-    $pdf->Cell(0, 8, COMPANY_PHONE, 0, 1);
+        'Phone' => COMPANY_PHONE
+    ]
+);
 
     $pdf->Ln(10);
 
-    $pdf->SetFont('Arial', 'I', 10);
-
-    $pdf->MultiCell(
-        0,
-        6,
-        "Thank you for choosing " . COMPANY_NAME . ".\n"
-        . "We appreciate your business and look forward to serving you."
-    );
+   drawFooter($pdf);
 
     $pdf->Output('F', $outputPath);
 

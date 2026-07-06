@@ -300,3 +300,45 @@ function checkPageBreak(
         $pdf->AddPage();
     }
 }
+
+function drawFooter(
+    FPDF $pdf
+): void
+{
+    $pdf->Ln(5);
+
+    $pdf->SetDrawColor(180,180,180);
+
+    $pdf->Line(
+        15,
+        $pdf->GetY(),
+        195,
+        $pdf->GetY()
+    );
+
+    $pdf->Ln(4);
+
+    $pdf->SetFont(
+        'Arial',
+        'I',
+        9
+    );
+
+    $pdf->Cell(
+        180,
+        5,
+        'Thank you for choosing ' . COMPANY_NAME,
+        0,
+        1,
+        'C'
+    );
+
+    $pdf->Cell(
+        180,
+        5,
+        COMPANY_TAGLINE,
+        0,
+        1,
+        'C'
+    );
+}
