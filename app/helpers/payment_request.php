@@ -62,25 +62,21 @@ drawAmountBox(
 
     $pdf->Ln(5);
 
-    $pdf->SetFont('Arial', 'B', 12);
-    $pdf->Cell(0, 8, 'Bank Details', 0, 1);
+    drawSection(
+    $pdf,
+    'Bank Details'
+);
 
-    $pdf->SetFont('Arial', '', 11);
-
-    $pdf->Cell(50, 8, 'Bank Name:');
-    $pdf->Cell(0, 8, BANK_NAME, 0, 1);
-
-    $pdf->Cell(50, 8, 'Account Name:');
-    $pdf->Cell(0, 8, BANK_ACCOUNT_NAME, 0, 1);
-
-    $pdf->Cell(50, 8, 'Account Number:');
-    $pdf->Cell(0, 8, BANK_ACCOUNT_NUMBER, 0, 1);
-
-    $pdf->Cell(50, 8, 'IBAN:');
-    $pdf->Cell(0, 8, BANK_IBAN, 0, 1);
-
-    $pdf->Cell(50, 8, 'SWIFT:');
-    $pdf->Cell(0, 8, BANK_SWIFT, 0, 1);
+drawInfoTable(
+    $pdf,
+    [
+        'Bank Name'      => BANK_NAME,
+        'Account Name'   => BANK_ACCOUNT_NAME,
+        'Account Number' => BANK_ACCOUNT_NUMBER,
+        'IBAN'           => BANK_IBAN,
+        'SWIFT'          => BANK_SWIFT
+    ]
+);
 
     $pdf->Ln(5);
 
