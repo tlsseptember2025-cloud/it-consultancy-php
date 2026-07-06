@@ -22,22 +22,42 @@ function drawHeader(
 {
     // Logo
     if (file_exists(COMPANY_LOGO)) {
-        $pdf->Image(COMPANY_LOGO, 15, 12, 35);
+        $pdf->Image(COMPANY_LOGO, 15, 15, 28);
     }
 
     // Company Name
-    $pdf->SetFont('Arial', 'B', 18);
+    $pdf->SetFont('Arial', 'B', 16);
     $pdf->SetXY(60, 15);
     $pdf->Cell(135, 8, COMPANY_NAME, 0, 1, 'R');
 
     // Tagline
-    $pdf->SetFont('Arial', '', 10);
-    $pdf->SetX(60);
-    $pdf->Cell(135, 6, 'Professional IT Consultancy', 0, 1, 'R');
+    $pdf->Cell(
+    135,
+    6,
+    COMPANY_TAGLINE,
+    0,
+    1,
+    'R'
+);
 
     // Website
     $pdf->SetX(60);
-    $pdf->Cell(135, 6, COMPANY_WEBSITE, 0, 1, 'R');
+    $pdf->Cell(135, 6, str_replace(
+    ['https://', 'http://'],
+    '',
+    COMPANY_WEBSITE
+), 0, 1, 'R');
+
+    $pdf->SetX(60);
+
+    $pdf->Cell(
+        135,
+        6,
+        COMPANY_CITY . ', ' . COMPANY_COUNTRY,
+        0,
+        1,
+        'R'
+    );
 
     // Divider
     $pdf->Ln(5);
@@ -80,6 +100,6 @@ function drawInfoRow(
     $pdf->SetFont('Arial', 'B', 10);
     $pdf->Cell(50, 8, $label, 1, 0);
 
-    $pdf->SetFont('Arial', '', 10);
+    $pdf->SetFont('Arial', '', 9);
     $pdf->Cell(130, 8, $value, 1, 1);
 }

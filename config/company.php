@@ -1,14 +1,14 @@
 <?php
 
-define('COMPANY_NAME', 'Loops Automation LLC');
+define('COMPANY_NAME', 'Rami Wadan LLC');
 
-define('COMPANY_ADDRESS', 'Dubai Industrial City');
+define('COMPANY_ADDRESS', 'Manaseer Area');
 
 define('COMPANY_PHONE', '04 876 9094');
 
 define('COMPANY_EMAIL', 'saif@loopsautomation.com');
 
-define('COMPANY_WEBSITE', 'https://loopsautomation.com');
+define('COMPANY_WEBSITE', 'https://ramiphp.com');
 
 define('SUPPORT_EMAIL', 'ramiwahdan2023@gmail.com');
 
@@ -27,3 +27,9 @@ define('BANK_IBAN', 'AE890330000019010513871');
 define('BANK_SWIFT', '');
 
 define('COMPANY_LOGO', dirname(__DIR__) . '/public/uploads/assets/logo.png');
+
+define('COMPANY_TAGLINE', 'Simplifying Technology. Empowering Business.');
+
+define('COMPANY_CITY', 'Abu Dhabi');
+
+define('COMPANY_COUNTRY', 'UAE');
