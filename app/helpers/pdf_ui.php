@@ -243,6 +243,7 @@ function drawReferenceBox(
     string $reference
 ): void
 {
+    checkPageBreak($pdf, 35);
     drawSection(
         $pdf,
         'Payment Reference'
@@ -252,15 +253,17 @@ function drawReferenceBox(
 
     $pdf->Cell(
         180,
-        18,
+        24,
         '',
         1,
         1
     );
 
-    $pdf->SetY(
-        $pdf->GetY()-15
+    
+$pdf->SetY(
+    $pdf->GetY()-20
     );
+    
 
     $pdf->SetFont(
         'Arial',
@@ -285,13 +288,15 @@ function drawReferenceBox(
         9
     );
 
-    $pdf->MultiCell(
-        180,
-        5,
-        'Please use this reference when making your bank transfer.',
-        0,
-        'C'
-    );
-
     $pdf->Ln(4);
+}
+
+function checkPageBreak(
+    FPDF $pdf,
+    float $requiredHeight
+): void
+{
+    if ($pdf->GetY() + $requiredHeight > 270) {
+        $pdf->AddPage();
+    }
 }
