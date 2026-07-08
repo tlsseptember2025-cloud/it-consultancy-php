@@ -1,5 +1,6 @@
 <?php
 
+define('APP_MODE', 'demo');
 require_once __DIR__ . '/company.php';
 
 // Zoom links
