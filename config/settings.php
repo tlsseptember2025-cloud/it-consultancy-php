@@ -1,6 +1,21 @@
 <?php
 
 define('APP_MODE', 'demo');
+
+/*
+|--------------------------------------------------------------------------
+| Product Information
+|--------------------------------------------------------------------------
+*/
+
+define('PRODUCT_NAME', 'IT Consultancy Management System');
+
+define('PRODUCT_VERSION', '1.0.0');
+
+define('PRODUCT_WEBSITE', 'https://ramiphp.com');
+
+define('PRODUCT_SUPPORT_EMAIL', 'support@ramiphp.com');
+
 require_once __DIR__ . '/company.php';
 
 // Zoom links

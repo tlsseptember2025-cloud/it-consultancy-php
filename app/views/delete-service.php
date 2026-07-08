@@ -6,9 +6,18 @@ if (!isset($_SESSION['user'])) {
     exit;
 }
 
+// Block deleting in Demo Mode
+blockDemoAction('Deleting services is disabled in the online demo.');
+
+if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
+
+    header("Location: ?page=services-admin");
+    exit;
+}
+
 require dirname(__DIR__, 2) . '/config/database.php';
 
-$id = $_GET['id'];
+$id = (int) $_GET['id'];
 
 $stmt = $pdo->prepare("
     DELETE FROM services

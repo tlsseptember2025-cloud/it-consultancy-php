@@ -31,3 +31,19 @@ function isProduction()
 {
     return appMode() === 'production';
 }
+
+/**
+ * Stop actions that are not allowed in Demo Mode.
+ */
+function blockDemoAction($message = null)
+{
+    if (!isDemo()) {
+        return;
+    }
+
+    $_SESSION['error'] = $message ??
+        'This action is disabled in the online demo.';
+
+    header('Location: ' . ($_SERVER['HTTP_REFERER'] ?? '?page=home'));
+    exit;
+}

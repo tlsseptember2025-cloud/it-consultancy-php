@@ -53,7 +53,7 @@ if (
     <div class="container-fluid py-5">
 
         <h1 class="display-5 fw-bold">
-            IT Consultancy Management System
+            <?= PRODUCT_NAME ?>
         </h1>
 
         <p class="col-md-8 fs-4">
@@ -218,6 +218,190 @@ if (
 
 <?php endif; ?>
 
+<div class="mt-5 mb-5">
+
+    <div class="text-center mb-5">
+
+        <h2 class="fw-bold">
+            Powerful Features
+        </h2>
+
+        <p class="text-muted">
+            Everything you need to manage your IT consultancy business from one place.
+        </p>
+
+    </div>
+
+    <div class="row g-4">
+
+        <div class="col-md-3">
+
+            <div class="card h-100 shadow-sm text-center">
+
+                <div class="card-body">
+
+                    <div class="display-4 mb-3">👥</div>
+
+                    <h5>Customer Management</h5>
+
+                    <p class="text-muted">
+                        Manage customers, profiles and communication.
+                    </p>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="col-md-3">
+
+            <div class="card h-100 shadow-sm text-center">
+
+                <div class="card-body">
+
+                    <div class="display-4 mb-3">📋</div>
+
+                    <h5>Request Management</h5>
+
+                    <p class="text-muted">
+                        Track customer requests from start to completion.
+                    </p>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="col-md-3">
+
+            <div class="card h-100 shadow-sm text-center">
+
+                <div class="card-body">
+
+                    <div class="display-4 mb-3">💳</div>
+
+                    <h5>Payments</h5>
+
+                    <p class="text-muted">
+                        Record payments and process refund requests.
+                    </p>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="col-md-3">
+
+            <div class="card h-100 shadow-sm text-center">
+
+                <div class="card-body">
+
+                    <div class="display-4 mb-3">📅</div>
+
+                    <h5>Consultations</h5>
+
+                    <p class="text-muted">
+                        Schedule and manage customer consultations.
+                    </p>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="row g-4 mt-1">
+
+        <div class="col-md-3">
+
+            <div class="card h-100 shadow-sm text-center">
+
+                <div class="card-body">
+
+                    <div class="display-4 mb-3">📊</div>
+
+                    <h5>Dashboard</h5>
+
+                    <p class="text-muted">
+                        View business statistics and important activities.
+                    </p>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="col-md-3">
+
+            <div class="card h-100 shadow-sm text-center">
+
+                <div class="card-body">
+
+                    <div class="display-4 mb-3">🔔</div>
+
+                    <h5>Notifications</h5>
+
+                    <p class="text-muted">
+                        Stay updated with customer and system notifications.
+                    </p>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="col-md-3">
+
+            <div class="card h-100 shadow-sm text-center">
+
+                <div class="card-body">
+
+                    <div class="display-4 mb-3">📄</div>
+
+                    <h5>Reports</h5>
+
+                    <p class="text-muted">
+                        Generate reports for business insights.
+                    </p>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="col-md-3">
+
+            <div class="card h-100 shadow-sm text-center">
+
+                <div class="card-body">
+
+                    <div class="display-4 mb-3">⚙️</div>
+
+                    <h5>Administration</h5>
+
+                    <p class="text-muted">
+                        Manage users, settings and system configuration.
+                    </p>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
 <div class="row">
 
     <div class="col-md-4">
@@ -226,10 +410,10 @@ if (
 
             <div class="card-body">
 
-                <h4>Web Development</h4>
+                <h4>Easy Installation</h4>
 
                 <p>
-                    Modern responsive websites and web applications.
+                    Install the software in minutes using the built-in installation wizard.
                 </p>
 
             </div>
@@ -244,10 +428,10 @@ if (
 
             <div class="card-body">
 
-                <h4>IT Support</h4>
+                <h4>Email Notifications</h4>
 
                 <p>
-                    Reliable support and infrastructure management.
+                    Automatically notify administrators and customers about important activities.
                 </p>
 
             </div>
@@ -262,10 +446,10 @@ if (
 
             <div class="card-body">
 
-                <h4>Softare Installation</h4>
+                <h4>Multi-User Access</h4>
 
                 <p>
-                    Professional software installation service provided for quick and hassle-free setup.
+                    Separate administrator and customer portals with secure authentication.
                 </p>
 
             </div>

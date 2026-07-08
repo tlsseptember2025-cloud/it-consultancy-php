@@ -43,7 +43,7 @@ $customerNotifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 <head>
 
-    <title>IT Consultancy</title>
+    <title><?= PRODUCT_NAME ?></title>
 
     <link
         href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
@@ -71,8 +71,8 @@ $customerNotifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     <div class="container-fluid">
 
-        <a class="navbar-brand" href="?page=home">
-            IT Consultancy
+        <a class="navbar-brand fw-bold" href="?page=home">
+            <?= PRODUCT_NAME ?>
         </a>
 
         <button
@@ -538,3 +538,35 @@ if (empty($notifications)):
 </nav>
 
 <div class="container py-4">
+
+<?php if (!empty($_SESSION['error'])): ?>
+
+    <div class="alert alert-danger alert-dismissible fade show">
+
+        <?= htmlspecialchars($_SESSION['error']) ?>
+
+        <button type="button"
+                class="btn-close"
+                data-bs-dismiss="alert"></button>
+
+    </div>
+
+    <?php unset($_SESSION['error']); ?>
+
+<?php endif; ?>
+
+<?php if (!empty($_SESSION['success'])): ?>
+
+    <div class="alert alert-success alert-dismissible fade show">
+
+        <?= htmlspecialchars($_SESSION['success']) ?>
+
+        <button type="button"
+                class="btn-close"
+                data-bs-dismiss="alert"></button>
+
+    </div>
+
+    <?php unset($_SESSION['success']); ?>
+
+<?php endif; ?>

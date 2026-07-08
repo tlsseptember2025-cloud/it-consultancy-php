@@ -116,7 +116,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <?php if (!empty($service['image'])): ?>
 
                                     <img
-                                        src="../uploads/<?= htmlspecialchars($service['image']) ?>"
+                                        src="../public/uploads/<?= htmlspecialchars($service['image']) ?>"
                                         width="120"
                                         class="img-thumbnail mb-3">
 
