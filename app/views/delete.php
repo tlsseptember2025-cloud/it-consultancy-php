@@ -1,10 +1,14 @@
 <?php
-session_start();
 
 if (!isset($_SESSION['user'])) {
     header("Location: ?page=login");
     exit;
 }
+
+blockDemoAction(
+    'Deleting messages is disabled in the online demo.',
+    '?page=messages'
+);
 
 require dirname(__DIR__, 2) . '/config/database.php';
 

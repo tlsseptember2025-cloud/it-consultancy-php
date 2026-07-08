@@ -5,6 +5,11 @@ if (!isset($_SESSION['user'])) {
     exit;
 }
 
+blockDemoAction(
+    'Deleting contract leads is disabled in the online demo.',
+    '?page=customers'
+);
+
 $id = $_GET['id'] ?? 0;
 
 $stmt = $pdo->prepare("

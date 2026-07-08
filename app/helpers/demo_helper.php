@@ -32,18 +32,29 @@ function isProduction()
     return appMode() === 'production';
 }
 
+
 /**
  * Stop actions that are not allowed in Demo Mode.
  */
-function blockDemoAction($message = null)
+function blockDemoAction($message = null, $redirect = null)
 {
     if (!isDemo()) {
         return;
     }
 
-    $_SESSION['error'] = $message ??
-        'This action is disabled in the online demo.';
+    $_SESSION['error'] = $message
+        ?? 'This action is disabled in the online demo.';
 
-    header('Location: ' . ($_SERVER['HTTP_REFERER'] ?? '?page=home'));
+    if ($redirect) {
+        header("Location: $redirect");
+        exit;
+    }
+
+    if (!empty($_SERVER['HTTP_REFERER'])) {
+        header('Location: ' . $_SERVER['HTTP_REFERER']);
+        exit;
+    }
+
+    header('Location: ?page=dashboard');
     exit;
 }

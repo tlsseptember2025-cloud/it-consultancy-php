@@ -5,6 +5,11 @@ if (!isset($_SESSION['user'])) {
     exit;
 }
 
+blockDemoAction(
+    'Deleting a payment is disabled in the online demo.',
+    '?page=requests'
+);
+
 require dirname(__DIR__, 2) . '/config/database.php';
 
 $id = $_GET['id'] ?? 0;

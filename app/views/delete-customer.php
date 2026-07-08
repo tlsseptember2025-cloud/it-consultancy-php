@@ -5,6 +5,11 @@ if (!isset($_SESSION['user'])) {
     exit;
 }
 
+blockDemoAction(
+    'Deleting customers is disabled in the online demo.',
+    '?page=customers'
+);
+
 require dirname(__DIR__, 2) . '/config/database.php';
 
 $id = $_GET['id'] ?? 0;
@@ -18,3 +23,4 @@ $stmt->execute([$id]);
 
 header("Location: ?page=customers");
 exit;
+
