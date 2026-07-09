@@ -23,6 +23,8 @@ $stmt->execute([$requestId]);
 
 $request = $stmt->fetch();
 
+$isRevision = !empty($request['proposal']);
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $proposalText = trim($_POST['proposal_text']);
@@ -129,7 +131,9 @@ require __DIR__ . '/layouts/header.php';
 
     <div class="card-body">
 
-        <h2>Create Proposal</h2>
+        <h2>
+            <?= $isRevision ? 'Revise Proposal' : 'Create Proposal' ?>
+        </h2>
 
         <form method="POST">
 
@@ -169,7 +173,7 @@ require __DIR__ . '/layouts/header.php';
                 type="submit"
                 class="btn btn-primary">
 
-                Save Proposal
+                <?= $isRevision ? 'Update Proposal' : 'Save Proposal' ?>
 
             </button>
 

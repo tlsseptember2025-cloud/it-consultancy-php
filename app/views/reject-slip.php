@@ -94,11 +94,9 @@ sendEmail(
 
 $stmt = $pdo->prepare("
     UPDATE requests
-<<<<<<< HEAD
-    SET workflow_stage = WF_PROPOSAL_ACCEPTED
-=======
-    SET workflow_stage = 'Proposal Accepted'
->>>>>>> fd63020bd82f2bea8d519b8c432465f188af48b4
+    SET
+        workflow_stage = 'Proposal Accepted',
+        status = 'Pending'
     WHERE id = ?
 ");
 
@@ -106,37 +104,6 @@ $stmt->execute([
     $data['request_id']
 ]);
 
-/*
-|--------------------------------------------------------------------------
-| Email customer
-|--------------------------------------------------------------------------
-*/
-
-sendEmail(
-    $data['email'],
-    'Payment Slip Rejected',
-    "
-    <h2>Hello {$data['name']},</h2>
-
-    <p>
-        Unfortunately, the payment slip you submitted could not be approved.
-    </p>
-
-    <p>
-        Please log in to your customer portal and upload a new payment slip so we can continue processing your request.
-    </p>
-
-    <p>
-        <a href='https://ramiphp.com/?page=customer-login'>
-            Customer Portal
-        </a>
-    </p>
-
-    <p>
-        IT Consultancy Team
-    </p>
-    "
-);
 
 /*
 |--------------------------------------------------------------------------

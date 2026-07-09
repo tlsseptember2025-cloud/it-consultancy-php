@@ -40,12 +40,7 @@ function sendEmail(
         foreach ($attachments as $attachment) {
 
             if (file_exists($attachment)) {
-
                 $mail->addAttachment($attachment);
-                if ($reportPath && file_exists($reportPath)) {
-                    $mail->addAttachment($reportPath);
-                }
-
             }
         }
 
@@ -79,6 +74,55 @@ function sendConsultationApprovedEmail($email, $name)
     ";
 
     return sendEmail($email, $subject, $body);
+}
+
+function sendPaymentRequestEmail(
+    string $to,
+    string $customerName,
+    string $service,
+    string $paymentRequestPath
+): bool {
+
+    $subject = 'Payment Request';
+
+    $body = "
+        <h2>Hello {$customerName},</h2>
+
+        <p>
+            Thank you for accepting our proposal.
+        </p>
+
+        <p>
+            Attached is your official Payment Request for:
+        </p>
+
+        <p>
+            <strong>{$service}</strong>
+        </p>
+
+        <p>
+            Please review the attached document and proceed with the payment.
+        </p>
+
+        <p>
+            Once payment has been made, log in to your customer portal
+            and upload your payment slip.
+        </p>
+
+        <br>
+
+        <p>
+            Thank you,<br>
+            <strong>" . COMPANY_NAME . "</strong>
+        </p>
+    ";
+
+    return sendEmail(
+        $to,
+        $subject,
+        $body,
+        [$paymentRequestPath]
+    );
 }
 
 function sendServiceCompletedEmail(

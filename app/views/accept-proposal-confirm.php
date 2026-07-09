@@ -50,23 +50,8 @@ $paymentRequestPath =
     $paymentDir .
     '/PAY-' .
     str_pad($request['id'], 6, '0', STR_PAD_LEFT) .
-    '.pdf';
+    '.pdf';    
 
-generatePaymentRequestPdf(
-    $request,
-    $paymentRequestPath
-);
-
-echo $paymentRequestPath;
-exit;
-
-$proposal = $stmt->fetch();
-
-if (!$proposal) {
-
-    header('Location: ?page=customer-requests');
-    exit;
-}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
@@ -83,6 +68,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 ");
 
 $stmt->execute([$requestId]);
+
+generatePaymentRequestPdf(
+    $request,
+    $paymentRequestPath
+);
+
+    sendPaymentRequestEmail(
+        $request['email'],
+        $request['customer_name'],
+        $request['service_title'],
+        $paymentRequestPath
+    );
 
     header('Location: ?page=customer-requests');
     exit;
@@ -101,8 +98,8 @@ require __DIR__ . '/layouts/header.php';
 
             <strong>Quoted Price:</strong>
 
-            $<?= number_format(
-                $proposal['quoted_price'],
+            <?= number_format(
+                $request['quoted_price'],
                 2
             ) ?>
 
