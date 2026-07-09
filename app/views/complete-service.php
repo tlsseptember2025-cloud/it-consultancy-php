@@ -39,7 +39,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $stmt = $pdo->prepare("
     SELECT
         r.id, r.quoted_price, 
-        r.completed_at, 
+        r.completed_at,
+        r.completion_notes, 
         c.id AS customer_id, 
         c.name AS customer_name, 
         c.email,
