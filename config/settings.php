@@ -6,6 +6,13 @@
 |--------------------------------------------------------------------------
 */
 
+/**
+ * Application mode
+ *
+ * demo
+ * development
+ * production
+ */
 define('APP_MODE', 'demo');
 
 /*
