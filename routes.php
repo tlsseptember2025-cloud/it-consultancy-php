@@ -236,6 +236,10 @@ switch ($page) {
         require __DIR__ . '/app/views/add-agent.php';
         break;
 
+    case 'edit-agent':
+        require __DIR__ . '/app/views/edit-agent.php';
+        break;
+
     /*
     |--------------------------------------------------------------------------
     | Requests
