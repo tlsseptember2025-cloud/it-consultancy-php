@@ -1,229 +1,231 @@
 <?php
 
-require_once __DIR__ . '/../../config/settings.php';
-require_once __DIR__ . '/../controllers/AgentController.php';
+require_once __DIR__ . '/../helpers/auth.php';
 
-if (!isset($_SESSION['admin'])) {
+requireAdminLogin();
 
-    header('Location: ?page=login');
-    exit;
+require dirname(__DIR__, 2) . '/config/database.php';
 
-}
-
-$controller = new AgentController($pdo);
-
-$error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($_POST['password'] !== $_POST['confirm_password']) {
 
-        $error = 'Passwords do not match.';
+        $error = "Passwords do not match.";
 
     } else {
 
-        $result = $controller->store([
+        $stmt = $pdo->prepare("
+            SELECT id
+            FROM agents
+            WHERE email = ?
+        ");
 
-            'name'     => trim($_POST['name']),
-            'email'    => trim($_POST['email']),
-            'password' => $_POST['password'],
-            'phone'    => trim($_POST['phone']),
-            'position' => trim($_POST['position']),
-            'status'   => $_POST['status']
-
+        $stmt->execute([
+            trim($_POST['email'])
         ]);
 
-        if ($result['success']) {
+        if ($stmt->fetch()) {
 
-            $_SESSION['success'] = $result['message'];
+            $error = "An agent with this email already exists.";
 
-            header('Location: ?page=agents');
+        } else {
+
+            $stmt = $pdo->prepare("
+                INSERT INTO agents
+                (
+                    name,
+                    email,
+                    password,
+                    phone,
+                    position,
+                    status
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
+            ");
+
+            $stmt->execute([
+                trim($_POST['name']),
+                trim($_POST['email']),
+                password_hash($_POST['password'], PASSWORD_DEFAULT),
+                trim($_POST['phone']),
+                trim($_POST['position']),
+                $_POST['status']
+            ]);
+
+            header("Location: ?page=agents");
             exit;
 
         }
-
-        $error = $result['message'];
-
     }
-
 }
-
-require __DIR__ . '/layouts/header.php';
 
 ?>
 
-<div class="card shadow-sm">
+<?php require __DIR__ . '/layouts/header.php'; ?>
 
-    <div class="card-body">
+<div class="row justify-content-center">
 
-        <h2 class="mb-4">
+    <div class="col-md-8">
 
-            Add Agent
+        <div class="card shadow-sm">
 
-        </h2>
+            <div class="card-body p-4">
 
-        <?php if ($error): ?>
+                <h2 class="mb-4">
+                    Add Agent
+                </h2>
 
-            <div class="alert alert-danger">
+                <?php if (!empty($error)): ?>
 
-                <?= htmlspecialchars($error) ?>
+<div class="alert alert-danger">
+
+    <?= htmlspecialchars($error) ?>
+
+</div>
+
+<?php endif; ?>
+
+                <form method="POST" autocomplete="off">
+
+                    <div class="mb-3">
+
+                        <label class="form-label">
+                            Name
+                        </label>
+
+                        <input
+                            type="text"
+                            name="name"
+                            class="form-control"
+                            required>
+
+                    </div>
+
+                    <div class="mb-3">
+
+                        <label class="form-label">
+                            Email
+                        </label>
+
+                        <input
+                            type="email"
+                            name="email"
+                            class="form-control"
+                            autocomplete="off">
+
+                    </div>
+
+                    <div class="mb-3">
+
+                        <label class="form-label">
+
+                            Password
+
+                        </label>
+
+                        <input
+                            type="password"
+                            name="password"
+                            class="form-control"
+                            autocomplete="new-password"
+                            required>
+
+                    </div>
+
+                    <div class="mb-3">
+
+                        <label class="form-label">
+
+                            Confirm Password
+
+                        </label>
+
+                        <input
+                            type="password"
+                            name="confirm_password"
+                            class="form-control"
+                            autocomplete="new-password"
+                            required>
+
+                    </div>
+
+                    <div class="mb-3">
+
+                        <label class="form-label">
+                            Phone
+                        </label>
+
+                        <input
+                            type="text"
+                            name="phone"
+                            class="form-control">
+
+                    </div>
+
+                    <div class="mb-3">
+
+                        <label class="form-label">
+
+                            Position
+
+                        </label>
+
+                        <input
+                            type="text"
+                            name="position"
+                            class="form-control">
+
+                    </div>
+
+                    <div class="mb-4">
+
+                        <label class="form-label">
+
+                            Status
+
+                        </label>
+
+                        <select
+                            name="status"
+                            class="form-select">
+
+                            <option value="Active">
+
+                                Active
+
+                            </option>
+
+                            <option value="Inactive">
+
+                                Inactive
+
+                            </option>
+
+                        </select>
+
+                    </div>
+
+                    <button
+                        class="btn btn-primary">
+
+                        Save Agent
+
+                    </button>
+
+                    <a
+                        href="?page=customers"
+                        class="btn btn-secondary ms-2">
+
+                        Cancel
+
+                    </a>
+
+                </form>
 
             </div>
 
-        <?php endif; ?>
-
-        <form method="POST">
-
-            <div class="row">
-
-                <div class="col-md-6 mb-3">
-
-                    <label class="form-label">
-
-                        Agent Name
-
-                    </label>
-
-                    <input
-                        type="text"
-                        name="name"
-                        class="form-control"
-                        required>
-
-                </div>
-
-                <div class="col-md-6 mb-3">
-
-                    <label class="form-label">
-
-                        Email
-
-                    </label>
-
-                    <input
-                        type="email"
-                        name="email"
-                        class="form-control"
-                        required>
-
-                </div>
-
-            </div>
-
-            <div class="row">
-
-                <div class="col-md-6 mb-3">
-
-                    <label class="form-label">
-
-                        Phone
-
-                    </label>
-
-                    <input
-                        type="text"
-                        name="phone"
-                        class="form-control">
-
-                </div>
-
-                <div class="col-md-6 mb-3">
-
-                    <label class="form-label">
-
-                        Position
-
-                    </label>
-
-                    <input
-                        type="text"
-                        name="position"
-                        class="form-control">
-
-                </div>
-
-            </div>
-
-            <div class="row">
-
-                <div class="col-md-6 mb-3">
-
-                    <label class="form-label">
-
-                        Password
-
-                    </label>
-
-                    <input
-                        type="password"
-                        name="password"
-                        class="form-control"
-                        required>
-
-                </div>
-
-                <div class="col-md-6 mb-3">
-
-                    <label class="form-label">
-
-                        Confirm Password
-
-                    </label>
-
-                    <input
-                        type="password"
-                        name="confirm_password"
-                        class="form-control"
-                        required>
-
-                </div>
-
-            </div>
-
-            <div class="mb-4">
-
-                <label class="form-label">
-
-                    Status
-
-                </label>
-
-                <select
-                    name="status"
-                    class="form-select">
-
-                    <option value="Active">
-
-                        Active
-
-                    </option>
-
-                    <option value="Inactive">
-
-                        Inactive
-
-                    </option>
-
-                </select>
-
-            </div>
-
-            <button
-                class="btn btn-success">
-
-                Save Agent
-
-            </button>
-
-            <a
-                href="?page=agents"
-                class="btn btn-secondary">
-
-                Cancel
-
-            </a>
-
-        </form>
+        </div>
 
     </div>
 
