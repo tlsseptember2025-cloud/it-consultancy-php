@@ -562,11 +562,7 @@ if (empty($notifications)):
                     </a>
 
                     <a class="nav-link" href="?page=customer-login">
-                        Customer Login
-                    </a>
-
-                    <a class="nav-link" href="?page=login">
-                        Admin Login
+                        Login
                     </a>
 
                 <?php endif; ?>

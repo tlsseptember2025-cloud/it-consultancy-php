@@ -9,47 +9,85 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = trim($_POST['email']);
     $password = trim($_POST['password']);
 
-    $stmt = $pdo->prepare("
-        SELECT *
-        FROM customers
-        WHERE email = ?
-    ");
+    // ---------------------------
+// Check Customer
+// ---------------------------
 
-    $stmt->execute([$email]);
+$stmt = $pdo->prepare("
+    SELECT *
+    FROM customers
+    WHERE email = ?
+");
 
-    $customer = $stmt->fetch();
+$stmt->execute([$email]);
 
-    if (
-        $customer &&
-        password_verify($password, $customer['password'])
-    ) {
+$customer = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        $_SESSION['customer'] = $customer;
+if (
+    $customer &&
+    password_verify($password, $customer['password'])
+) {
 
-        header('Location: ?page=customer-dashboard');
-        exit;
+    $_SESSION['customer'] = $customer;
 
-    } else {
+    header('Location: ?page=customer-dashboard');
+    exit;
 
-        $error = 'Invalid email or password.';
-    }
+}
+
+// ---------------------------
+// Check Agent
+// ---------------------------
+
+$stmt = $pdo->prepare("
+    SELECT *
+    FROM agents
+    WHERE email = ?
+    AND status = 'Active'
+");
+
+$stmt->execute([$email]);
+
+$agent = $stmt->fetch(PDO::FETCH_ASSOC);
+
+if (
+    $agent &&
+    password_verify($password, $agent['password'])
+) {
+
+    $_SESSION['agent'] = $agent;
+
+    header('Location: ?page=agent-dashboard');
+    exit;
+
+}
+
+// ---------------------------
+// Invalid Login
+// ---------------------------
+
+$error = 'Invalid email or password.';
 }
 
 ?>
 
 <?php require __DIR__ . '/layouts/header.php'; ?>
 
-<div class="row justify-content-center">
+<div class="row justify-content-center mt-5">
 
-    <div class="col-md-5">
+    <div class="col-lg-5 col-md-6">
 
         <div class="card shadow-sm">
 
             <div class="card-body">
 
-                <h2 class="mb-4">
-                    Customer Login
+               <h2 class="mb-2 text-center">
+                    Welcome Back
                 </h2>
+
+                <p class="text-muted text-center mb-4">
+                    Sign in with your email address and password.
+                </p>
 
                 <?php if ($error): ?>
 
@@ -100,9 +138,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     </div>
 
-                    <button class="btn btn-primary">
+                    <button class="btn btn-primary w-100">
 
-                        Login
+                        Sign In
 
                     </button>
 
@@ -110,6 +148,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <a href="?page=customer-forgot-password">
                             Forgot your password?
                         </a>
+
+                    </p>
+
+                    <hr>
+
+                    <p class="text-center mb-0">
+
+                       <a
+                            href="?page=login"
+                            class="small text-secondary text-decoration-none">
+
+                            Administrator Login
+
+                        </a>
+
                     </p>
 
                 </form>
