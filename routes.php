@@ -221,6 +221,21 @@ switch ($page) {
         require __DIR__ . '/app/views/delete-customer.php';
         break;
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | Agents
+    |--------------------------------------------------------------------------
+    */
+
+    case 'agents':
+        require __DIR__ . '/app/views/agents.php';
+        break;
+
+    case 'add-agent':
+        require __DIR__ . '/app/views/add-agent.php';
+        break;
+
     /*
     |--------------------------------------------------------------------------
     | Requests

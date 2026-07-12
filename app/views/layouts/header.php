@@ -132,6 +132,48 @@ try {
 
                     <div class="nav-item dropdown">
 
+    <a
+        class="nav-link dropdown-toggle"
+        href="#"
+        role="button"
+        data-bs-toggle="dropdown">
+
+        Agents
+
+    </a>
+
+    <ul class="dropdown-menu">
+
+        <li>
+
+            <a
+                class="dropdown-item"
+                href="?page=agents">
+
+                View Agents
+
+            </a>
+
+        </li>
+
+        <li>
+
+            <a
+                class="dropdown-item"
+                href="?page=add-agent">
+
+                Add Agent
+
+            </a>
+
+        </li>
+
+    </ul>
+
+</div>
+
+                    <div class="nav-item dropdown">
+
                         <a
                             class="nav-link dropdown-toggle"
                             href="#"
