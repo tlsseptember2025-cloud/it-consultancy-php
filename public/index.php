@@ -1,10 +1,17 @@
 <?php
 session_start();
 
-require_once __DIR__ . '/../config/settings.php';
-require_once __DIR__ . '/../app/helpers/demo_helper.php';
-require_once __DIR__ . '/../routes.php';
-require_once __DIR__ . '/../app/helpers/slot_generator.php';
+define('ROOT_PATH', dirname(__DIR__));
+define('APP_PATH', ROOT_PATH . '/app');
+define('CONFIG_PATH', ROOT_PATH . '/config');
+define('PUBLIC_PATH', ROOT_PATH . '/public');
+define('VIEW_PATH', APP_PATH . '/views');
+define('HELPER_PATH', APP_PATH . '/helpers');
+
+require_once CONFIG_PATH . '/settings.php';
+require_once HELPER_PATH . '/demo_helper.php';
+require_once ROOT_PATH . '/routes.php';
+require_once HELPER_PATH . '/slot_generator.php';
 
 if (isDevelopment()) {
     ini_set('display_errors', 1);

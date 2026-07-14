@@ -1,6 +1,6 @@
 <?php
 
-require_once __DIR__ . '/config/database.php';
+require_once CONFIG_PATH . '/database.php';
 
 $page = $_GET['page'] ?? 'home';
 
@@ -13,15 +13,15 @@ switch ($page) {
     */
 
     case 'home':
-        require __DIR__ . '/app/views/home.php';
+        require VIEW_PATH . '/public/home.php';
         break;
 
     case 'services':
-        require __DIR__ . '/app/views/services.php';
+        require VIEW_PATH . '/public/services.php';
         break;
 
     case 'contact':
-        require __DIR__ . '/app/views/contact.php';
+        require VIEW_PATH . '/public/contact.php';
         break;
 
     /*
@@ -31,23 +31,23 @@ switch ($page) {
     */
 
     case 'messages':
-        require __DIR__ . '/app/views/messages.php';
+        require VIEW_PATH . '/admin/messages.php';
         break;
 
     case 'archived-messages':
-        require __DIR__ . '/app/views/archived-messages.php';
+        require VIEW_PATH . '/admin/archived-messages.php';
         break;
 
     case 'notifications':
-        require __DIR__ . '/app/views/notifications.php';
+        require VIEW_PATH . '/admin/notifications.php';
         break;
 
     case 'open-notification':
-        require __DIR__ . '/app/views/open-notification.php';
+        require VIEW_PATH . '/admin/open-notification.php';
         break;
 
     case 'mark-all-notifications-read':
-        require __DIR__ . '/app/views/mark-all-notifications-read.php';
+        require VIEW_PATH . '/admin/mark-all-notifications-read.php';
         break;
 
     /*
@@ -57,19 +57,19 @@ switch ($page) {
     */
 
     case 'login':
-        require __DIR__ . '/app/views/login.php';
+        require VIEW_PATH . '/admin/login.php';
         break;
 
     case 'logout':
-        require __DIR__ . '/app/views/logout.php';
+        require VIEW_PATH . '/admin/logout.php';
         break;
 
     case 'customer-login':
-        require __DIR__ . '/app/views/customer-login.php';
+        require VIEW_PATH . '/public/customer-login.php';
         break;
 
     case 'customer-register':
-        require __DIR__ . '/app/views/customer-register.php';
+        require VIEW_PATH . '/public/customer-register.php';
         break;
 
     case 'customer-logout':
@@ -78,11 +78,11 @@ switch ($page) {
         exit;
 
     case 'customer-forgot-password':
-        require __DIR__ . '/app/views/customer-forgot-password.php';
+        require VIEW_PATH . '/public/customer-forgot-password.php';
         break;
 
     case 'customer-reset-password':
-        require __DIR__ . '/app/views/customer-reset-password.php';
+        require VIEW_PATH . '/public/customer-reset-password.php';
         break;
 
     /*
@@ -92,35 +92,35 @@ switch ($page) {
     */
 
     case 'customer-dashboard':
-        require __DIR__ . '/app/views/customer-dashboard.php';
+        require VIEW_PATH . '/customer/customer-dashboard.php';
         break;
 
     case 'customer-requests':
-        require __DIR__ . '/app/views/customer-requests.php';
+        require VIEW_PATH . '/customer/customer-requests.php';
         break;
 
     case 'customer-request-service':
-        require __DIR__ . '/app/views/customer-request-service.php';
+        require VIEW_PATH . '/customer/customer-request-service.php';
         break;
 
     case 'customer-request-refund':
-        require __DIR__ . '/app/views/customer-request-refund.php';
+        require VIEW_PATH . '/customer/customer-request-refund.php';
         break;
 
     case 'customer-payments':
-        require __DIR__ . '/app/views/customer-payments.php';
+        require VIEW_PATH . '/customer/customer-payments.php';
         break;
 
     case 'customer-refunds':
-        require __DIR__ . '/app/views/customer-refunds.php';
+        require VIEW_PATH . '/customer/customer-refunds.php';
         break;
 
     case 'customer-upload-slip':
-        require __DIR__ . '/app/views/customer-upload-slip.php';
+        require VIEW_PATH . '/customer/customer-upload-slip.php';
         break;
 
     case 'customer-notifications':
-        require __DIR__ . '/app/views/customer-notifications.php';
+        require VIEW_PATH . '/customer/customer-notifications.php';
         break;
 
     /*
@@ -130,19 +130,19 @@ switch ($page) {
     */
 
     case 'deposit-slips':
-        require __DIR__ . '/app/views/deposit-slips.php';
+        require VIEW_PATH . '/admin/deposit-slips.php';
         break;
 
     case 'approve-slip':
-        require __DIR__ . '/app/views/approve-slip.php';
+        require VIEW_PATH . '/admin/approve-slip.php';
         break;
 
     case 'reject-slip':
-        require __DIR__ . '/app/views/reject-slip.php';
+        require VIEW_PATH . '/admin/reject-slip.php';
         break;
 
     case 'view-slip':
-        require __DIR__ . '/app/views/view-slip.php';
+        require VIEW_PATH . '/admin/view-slip.php';
         break;
 
     /*
@@ -152,15 +152,15 @@ switch ($page) {
     */
 
     case 'edit':
-        require __DIR__ . '/app/views/edit.php';
+        require VIEW_PATH . '/admin/edit.php';
         break;
 
     case 'delete':
-        require __DIR__ . '/app/views/delete.php';
+        require VIEW_PATH . '/admin/delete.php';
         break;
 
     case 'view':
-        require __DIR__ . '/app/views/view.php';
+        require VIEW_PATH . '/admin/view.php';
         break;
 
     /*
@@ -170,7 +170,7 @@ switch ($page) {
     */
 
         case 'dashboard':
-        require __DIR__ . '/app/views/dashboard.php';
+        require VIEW_PATH . '/admin/dashboard.php';
         break;
 
     /*
@@ -180,19 +180,19 @@ switch ($page) {
     */
 
     case 'services-admin':
-        require __DIR__ . '/app/views/services-admin.php';
+        require VIEW_PATH . '/admin/services-admin.php';
         break;
 
     case 'add-service':
-        require __DIR__ . '/app/views/add-service.php';
+        require VIEW_PATH . '/admin/add-service.php';
         break;
 
     case 'edit-service':
-        require __DIR__ . '/app/views/edit-service.php';
+        require VIEW_PATH . '/admin/edit-service.php';
         break;
 
     case 'delete-service':
-        require __DIR__ . '/app/views/delete-service.php';
+        require VIEW_PATH . '/admin/delete-service.php';
         break;
 
     /*
@@ -202,23 +202,23 @@ switch ($page) {
     */
 
     case 'customers':
-        require __DIR__ . '/app/views/customers.php';
+        require VIEW_PATH . '/admin/customers.php';
         break;
 
     case 'add-customer':
-        require __DIR__ . '/app/views/add-customer.php';
+        require VIEW_PATH . '/admin/add-customer.php';
         break;
 
     case 'edit-customer':
-        require __DIR__ . '/app/views/edit-customer.php';
+        require VIEW_PATH . '/admin/edit-customer.php';
         break;
 
     case 'view-customer':
-        require __DIR__ . '/app/views/view-customer.php';
+        require VIEW_PATH . '/admin/view-customer.php';
         break;
 
     case 'delete-customer':
-        require __DIR__ . '/app/views/delete-customer.php';
+        require VIEW_PATH . '/admin/delete-customer.php';
         break;
 
 
@@ -229,15 +229,15 @@ switch ($page) {
     */
 
     case 'agents':
-        require __DIR__ . '/app/views/agents.php';
+        require VIEW_PATH . '/admin/agents.php';
         break;
 
     case 'add-agent':
-        require __DIR__ . '/app/views/add-agent.php';
+        require VIEW_PATH . '/admin/add-agent.php';
         break;
 
     case 'edit-agent':
-        require __DIR__ . '/app/views/edit-agent.php';
+        require VIEW_PATH . '/admin/edit-agent.php';
         break;
 
     /*
@@ -247,27 +247,27 @@ switch ($page) {
     */
 
     case 'requests':
-        require __DIR__ . '/app/views/requests.php';
+        require VIEW_PATH . '/admin/requests.php';
         break;
 
     case 'add-request':
-        require __DIR__ . '/app/views/add-request.php';
+        require VIEW_PATH . '/admin/add-request.php';
         break;
 
     case 'view-request':
-        require __DIR__ . '/app/views/view-request.php';
+        require VIEW_PATH . '/admin/view-request.php';
         break;
 
     case 'edit-request':
-        require __DIR__ . '/app/views/edit-request.php';
+        require VIEW_PATH . '/admin/edit-request.php';
         break;
 
     case 'delete-request':
-        require __DIR__ . '/app/views/delete-request.php';
+        require VIEW_PATH . '/admin/delete-request.php';
         break;
 
     case 'archived-requests':
-        require __DIR__ . '/app/views/archived-requests.php';
+        require VIEW_PATH . '/admin/archived-requests.php';
         break;
 
     /*
@@ -277,7 +277,7 @@ switch ($page) {
     */
 
     case 'backup':
-        require __DIR__ . '/app/views/backup.php';
+        require VIEW_PATH . '/admin/backup.php';
         break;
 
     
@@ -288,27 +288,27 @@ switch ($page) {
     */
 
     case 'refunds':
-        require __DIR__ . '/app/views/refunds.php';
+        require VIEW_PATH . '/admin/refunds.php';
         break;
 
     case 'add-refund':
-        require __DIR__ . '/app/views/add-refund.php';
+        require VIEW_PATH . '/admin/add-refund.php';
         break;
 
     case 'refund-requests':
-        require __DIR__ . '/app/views/refund-requests.php';
+        require VIEW_PATH . '/admin/refund-requests.php';
         break;
 
     case 'process-refund-request':
-        require __DIR__ . '/app/views/process-refund-request.php';
+        require VIEW_PATH . '/admin/process-refund-request.php';
         break;
 
     case 'approve-refund-request':
-        require __DIR__ . '/app/views/approve-refund-request.php';
+        require VIEW_PATH . '/admin/approve-refund-request.php';
         break;
 
     case 'complete-refund':
-        require __DIR__ . '/app/views/complete-refund.php';
+        require VIEW_PATH . '/admin/complete-refund.php';
         break;
 
     case 'delete-refund':
@@ -332,23 +332,23 @@ switch ($page) {
     */
 
     case 'payments':
-        require __DIR__ . '/app/views/payments.php';
+        require VIEW_PATH . '/admin/payments.php';
         break;
 
     case 'add-payment':
-        require __DIR__ . '/app/views/add-payment.php';
+        require VIEW_PATH . '/admin/add-payment.php';
         break;
 
     case 'view-payment':
-        require __DIR__ . '/app/views/view-payment.php';
+        require VIEW_PATH . '/admin/view-payment.php';
         break;
 
     case 'edit-payment':
-        require __DIR__ . '/app/views/edit-payment.php';
+        require VIEW_PATH . '/admin/edit-payment.php';
         break;
 
     case 'delete-payment':
-        require __DIR__ . '/app/views/delete-payment.php';
+        require VIEW_PATH . '/admin/delete-payment.php';
         break;
 
     /*
@@ -358,39 +358,35 @@ switch ($page) {
     */
 
     case 'consultation-slots':
-        require __DIR__ . '/app/views/consultation-slots.php';
+        require VIEW_PATH . '/admin/consultation-slots.php';
         break;
 
     case 'schedule-consultation':
-        require __DIR__ . '/app/views/schedule-consultation.php';
+        require VIEW_PATH . '/customer/schedule-consultation.php';
         break;
 
     case 'approve-consultation':
-        require __DIR__ . '/app/views/approve-consultation.php';
+        require VIEW_PATH . '/admin/approve-consultation.php';
         break;
 
     case 'confirm-consultation':
-        require __DIR__ . '/app/views/confirm-consultation.php';
+        require VIEW_PATH . '/customer/confirm-consultation.php';
         break;
 
     case 'confirm-consultation-admin':
-        require __DIR__ . '/app/views/confirm-consultation-admin.php';
+        require VIEW_PATH . '/admin/confirm-consultation-admin.php';
         break;
 
     case 'reschedule-consultation':
-        require __DIR__ . '/app/views/reschedule-consultation.php';
+        require VIEW_PATH . '/customer/reschedule-consultation.php';
         break;
 
     case 'confirm-reschedule-consultation':
-        require __DIR__ . '/app/views/confirm-reschedule-consultation.php';
+        require VIEW_PATH . '/customer/confirm-reschedule-consultation.php';
         break;
 
     case 'complete-consultation':
-        require __DIR__ . '/app/views/complete-consultation.php';
-        break;
-
-    case 'generate-consultation-slots':
-        require __DIR__ . '/app/views/generate-consultation-slots.php';
+        require VIEW_PATH . '/admin/complete-consultation.php';
         break;
 
     /*
@@ -400,35 +396,31 @@ switch ($page) {
     */
 
     case 'service-slots':
-        require __DIR__ . '/app/views/service-slots.php';
+        require VIEW_PATH . '/admin/service-slots.php';
         break;
 
     case 'schedule-service':
-        require __DIR__ . '/app/views/schedule-service.php';
+        require VIEW_PATH . '/admin/schedule-service.php';
         break;
 
     case 'approve-service-schedule':
-        require __DIR__ . '/app/views/approve-service-schedule.php';
+        require VIEW_PATH . '/admin/approve-service-schedule.php';
         break;
 
     case 'confirm-service':
-        require __DIR__ . '/app/views/confirm-service.php';
+        require VIEW_PATH . '/admin/confirm-service.php';
         break;
 
     case 'reschedule-service':
-        require __DIR__ . '/app/views/reschedule-service.php';
+        require VIEW_PATH . '/admin/reschedule-service.php';
         break;
 
     case 'confirm-reschedule-service':
-        require __DIR__ . '/app/views/confirm-reschedule-service.php';
+        require VIEW_PATH . '/admin/confirm-reschedule-service.php';
         break;
 
     case 'complete-service':
-        require __DIR__ . '/app/views/complete-service.php';
-        break;
-
-    case 'generate-service-slots':
-        require __DIR__ . '/app/views/generate-service-slots.php';
+        require VIEW_PATH . '/admin/complete-service.php';
         break;
 
         /*
@@ -438,27 +430,27 @@ switch ($page) {
     */
 
     case 'visitor-message':
-        require __DIR__ . '/app/views/visitor-message.php';
+        require VIEW_PATH . '/admin/visitor-message.php';
         break;
 
     case 'close-conversation':
-        require __DIR__ . '/app/views/close-conversation.php';
+        require VIEW_PATH . '/admin/close-conversation.php';
         break;
 
     case 'create-proposal':
-        require __DIR__ . '/app/views/create-proposal.php';
+        require VIEW_PATH . '/admin/create-proposal.php';
         break;
 
     case 'view-proposal':
-        require __DIR__ . '/app/views/view-proposal.php';
+        require VIEW_PATH . '/customer/view-proposal.php';
         break;
 
     case 'accept-proposal-confirm':
-        require __DIR__ . '/app/views/accept-proposal-confirm.php';
+        require VIEW_PATH . '/customer/accept-proposal-confirm.php';
         break;
 
     case 'reject-proposal':
-        require __DIR__ . '/app/views/reject-proposal.php';
+        require VIEW_PATH . '/customer/reject-proposal.php';
         break;
 
     /*
@@ -468,15 +460,15 @@ switch ($page) {
     */
 
     case 'contract-leads':
-        require __DIR__ . '/app/views/contract-leads.php';
+        require VIEW_PATH . '/admin/contract-leads.php';
         break;
 
     case 'edit-contract-lead':
-        require __DIR__ . '/app/views/edit-contract-lead.php';
+        require VIEW_PATH . '/admin/edit-contract-lead.php';
         break;
 
     case 'delete-contract-lead':
-        require __DIR__ . '/app/views/delete-contract-lead.php';
+        require VIEW_PATH . '/admin/delete-contract-lead.php';
         break;
 
     /*
@@ -486,7 +478,7 @@ switch ($page) {
     */
 
     case 'complete-service-form':
-        require __DIR__ . '/app/views/complete-service-form.php';
+        require VIEW_PATH . '/admin/complete-service-form.php';
         break;
 
     /*
@@ -496,7 +488,7 @@ switch ($page) {
     */
 
     case 'rules':
-        require __DIR__ . '/app/views/rules.php';
+        require VIEW_PATH . '/public/rules.php';
         break;
 
     /*
