@@ -287,13 +287,17 @@ $requests = $stmt->fetchAll();
     <?php endif; ?>
 
 
-    <?php if ($request['workflow_stage'] === 'Consultation Completed'): ?>
+   <?php if (
+    $request['workflow_stage'] === 'Consultation Completed' ||
+    $request['workflow_stage'] === 'Proposal Draft'
+): ?>
 
     <span class="badge bg-secondary">
 
         Awaiting Proposal
 
     </span>
+
 
    <?php elseif ($request['workflow_stage'] === 'Proposal Rejected'): ?>
 

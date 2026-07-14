@@ -171,17 +171,40 @@ $requests = $stmt->fetchAll();
 
     <?php if ($request['workflow_stage'] === 'Consultation Completed'): ?>
 
-        <?php if (empty($request['proposal'])): ?>
+    <?php if (empty($request['proposal'])): ?>
 
-            <a
-                href="?page=create-proposal&id=<?= $request['id'] ?>"
-                class="btn btn-dark btn-sm">
-                Create Proposal
-            </a>
-
-        <?php endif; ?>
+        <a
+            href="?page=create-proposal&id=<?= $request['id'] ?>"
+            class="btn btn-dark btn-sm">
+            Create Proposal
+        </a>
 
     <?php endif; ?>
+
+<?php endif; ?>
+
+
+<?php if ($request['workflow_stage'] === 'Proposal Draft'): ?>
+
+    <a
+        href="?page=create-proposal&id=<?= $request['id'] ?>"
+        class="btn btn-warning btn-sm">
+        Edit Proposal
+    </a>
+
+    <a
+        href="?page=view-proposal&request_id=<?= $request['id'] ?>"
+        class="btn btn-info btn-sm">
+        View Proposal
+    </a>
+
+    <a
+        href="?page=send-proposal&id=<?= $request['id'] ?>"
+        class="btn btn-success btn-sm">
+        Send Proposal
+    </a>
+
+<?php endif; ?>
 
 
     <?php if ($request['workflow_stage'] === 'Proposal Rejected'): ?>

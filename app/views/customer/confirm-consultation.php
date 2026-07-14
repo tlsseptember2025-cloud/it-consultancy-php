@@ -1,6 +1,5 @@
 <?php
 
-require CONFIG_PATH . '/settings.php';
 require_once HELPER_PATH . '/email.php';
 require_once HELPER_PATH . '/security.php';
 
