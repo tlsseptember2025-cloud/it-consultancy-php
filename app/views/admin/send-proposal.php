@@ -30,6 +30,32 @@ $stmt->execute([$id]);
 
 $request = $stmt->fetch();
 
+if (!$request) {
+
+    $_SESSION['error'] = 'Request not found.';
+
+    header('Location: ?page=requests');
+    exit;
+}
+
+if (empty(trim($request['proposal']))) {
+
+    $_SESSION['error'] = 'Please create the proposal before sending it.';
+
+    header('Location: ?page=create-proposal&id=' . $id);
+    exit;
+}
+
+if (empty($request['quoted_price'])) {
+
+    $_SESSION['error'] = 'Please enter the quoted price before sending the proposal.';
+
+    header('Location: ?page=create-proposal&id=' . $id);
+    exit;
+}
+
+
+
 sendEmail(
     $request['email'],
     'Proposal Ready',
@@ -106,11 +132,15 @@ createNotification(
 
 $update = $pdo->prepare("
     UPDATE requests
-    SET workflow_stage = 'Proposal Sent'
+    SET
+        workflow_stage = 'Proposal Sent',
+        proposal_sent = 1
     WHERE id = ?
 ");
 
 $update->execute([$id]);
 
-header('Location: ?page=requests');
+$_SESSION['success'] = 'Proposal sent successfully.';
+
+header('Location: ?page=admin-view-proposal&id=' . $id);
 exit;

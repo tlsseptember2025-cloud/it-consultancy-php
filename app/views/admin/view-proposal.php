@@ -187,6 +187,12 @@ style="white-space:pre-wrap;line-height:1.9;font-size:15px;min-height:260px;">
 <i class="bi bi-pencil-square"></i> Edit Proposal
 </a>
 
+<a href="?page=send-proposal&id=<?= $request['id']; ?>"
+       class="btn btn-success me-2">
+        <i class="bi bi-send"></i>
+        Send Proposal
+    </a>
+
 <button onclick="window.print();" class="btn btn-primary">
 <i class="bi bi-printer"></i> Print
 </button>

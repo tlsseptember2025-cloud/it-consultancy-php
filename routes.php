@@ -449,6 +449,10 @@ switch ($page) {
         require APP_PATH . '/views/admin/view-proposal.php';
         break;
 
+    case 'send-proposal':
+        require APP_PATH . '/views/admin/send-proposal.php';
+        break;
+
     case 'accept-proposal-confirm':
         require VIEW_PATH . '/customer/accept-proposal-confirm.php';
         break;
