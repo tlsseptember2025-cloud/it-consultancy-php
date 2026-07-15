@@ -133,16 +133,16 @@ function drawInfoTable(
     array $rows
 ): void
 {
-    $pdf->SetFont('Arial', '', 10);
+    $pdf->SetFont('Arial', '', 9);
 
     foreach ($rows as $label => $value) {
 
         // Left column
-        $pdf->SetFont('Arial', 'B', 10);
+        $pdf->SetFont('Arial', 'B', 9);
 
         $pdf->Cell(
             55,
-            7,
+            6,
             $label,
             1,
             0,
@@ -154,7 +154,7 @@ function drawInfoTable(
 
         $pdf->Cell(
             125,
-            7,
+            6,
             $value,
             1,
             1,
@@ -181,7 +181,7 @@ function drawAmountBox(
     // Outer box
     $pdf->Cell(
         180,
-        24,
+        18,
         '',
         1,
         1,
@@ -190,7 +190,7 @@ function drawAmountBox(
     );
 
     // Go back inside the box
-    $pdf->SetY($pdf->GetY() - 21);
+    $pdf->SetY($pdf->GetY() - 16);
 
     // Title
     $pdf->SetFont('Arial', 'B', 12);
@@ -221,7 +221,7 @@ function drawAmountBox(
     // Back to normal
     $pdf->SetTextColor(0, 0, 0);
 
-    $pdf->Ln(2);
+    $pdf->Ln(1);
 }
 
 function drawInfoRow(

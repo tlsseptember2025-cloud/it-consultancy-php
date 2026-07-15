@@ -2,6 +2,7 @@
 
 require_once HELPER_PATH . '/email.php';
 require_once HELPER_PATH . '/notifications.php';
+require_once HELPER_PATH . '/proposal.php';
 
 if (!isset($_SESSION['user'])) {
 
@@ -55,8 +56,20 @@ if (empty($request['quoted_price'])) {
 }
 
 
+// =======================================
+// Generate Proposal PDF
+// =======================================
 
-sendEmail(
+$pdfPath = dirname(__DIR__, 2)
+    . '/storage/proposals/proposal_' . $id . '.pdf';
+
+generateProposalPdf(
+    $request,
+    $pdfPath
+);
+
+
+$emailSent = sendEmail(
     $request['email'],
     'Proposal Ready',
     "
@@ -81,24 +94,23 @@ sendEmail(
 
     <p>
         <strong>Proposed Price:</strong>
-        $" . number_format($request['quoted_price'], 2) . "
+        AED " . number_format($request['quoted_price'], 2) . "
     </p>
 
     <p>
+        <strong>Important:</strong>
+        Before proceeding, please review our
+        <a href='https://ramiphp.com/rules-and-regulations' target='_blank'>
+            IT Consultancy Rules & Regulations
+        </a>.
+    </p>
 
-        <p>
-    <strong>Important:</strong>
-    Before proceeding, please review our
-    <a 
-        href='https://ramiphp.com/rules-and-regulations' target='_blank'>
-        IT Consultancy Rules & Regulations
-    </a>.
-</p>
+    <p>
+        By accepting the proposal and continuing with the service,
+        you acknowledge that you have read and agreed to these terms.
+    </p>
 
-<p>
-    By accepting the proposal and continuing with the service, you acknowledge that you have read and agreed to these terms.
-</p>
-
+    <p>
         <a
             href='http://ramiphp.com/?page=customer-login'
             style='
@@ -112,14 +124,22 @@ sendEmail(
         >
             Login Now
         </a>
-
     </p>
 
     <p>
         IT Consultancy Team
     </p>
-    "
+    ",
+    [$pdfPath]
 );
+
+if (!$emailSent) {
+
+    $_SESSION['error'] = 'Failed to send the proposal email.';
+
+    header('Location: ?page=admin-view-proposal&id=' . $id);
+    exit;
+}
 
 createNotification(
     $pdo,
