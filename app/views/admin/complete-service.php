@@ -1,16 +1,14 @@
 <?php
 
+if (!isset($_SESSION['user'])) {
+    header("Location: ?page=login");
+    exit;
+}
+
 require_once HELPER_PATH . '/invoice.php';
 require_once HELPER_PATH . '/email.php';
 require_once HELPER_PATH . '/service_report.php';
 require_once HELPER_PATH . '/notifications.php';
-
-
-if (!isset($_SESSION['user'])) {
-
-    header('Location: ?page=login');
-    exit;
-}
 
 $id = $_GET['id'] ?? 0;
 

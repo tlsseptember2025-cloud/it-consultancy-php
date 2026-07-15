@@ -1,12 +1,14 @@
 <?php
 
-require_once HELPER_PATH . '/auth.php';
+if (!isset($_SESSION['user'])) {
+    header("Location: ?page=login");
+    exit;
+}
 
-requireAdminLogin();
+require_once HELPER_PATH . '/auth.php';
+require dirname(__DIR__) . '/layouts/header-admin.php';
 
 $id = $_GET['id'] ?? 0;
-
-require dirname(__DIR__) . '/layouts/header-admin.php';
 
 ?>
 

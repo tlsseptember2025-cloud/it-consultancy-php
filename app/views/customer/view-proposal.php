@@ -6,7 +6,8 @@ if (!isset($_SESSION['customer'])) {
     exit;
 }
 
-$requestId = $_GET['request_id'] ?? 0;
+$requestId = (int)($_GET['request_id'] ?? $_GET['id'] ?? 0);
+
 
 $stmt = $pdo->prepare("
     SELECT

@@ -1,13 +1,13 @@
 <?php
 
-require_once HELPER_PATH . '/email.php';
-require_once HELPER_PATH . '/security.php';
-
 if (!isset($_SESSION['customer'])) {
 
     header('Location: ?page=customer-login');
     exit;
 }
+
+require_once HELPER_PATH . '/email.php';
+require_once HELPER_PATH . '/security.php';
 
 $requestId = $_GET['request_id'] ?? 0;
 $slotId = $_GET['slot_id'] ?? 0;

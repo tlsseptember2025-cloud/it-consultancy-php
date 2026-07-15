@@ -1,7 +1,11 @@
 <?php
 
+if (!isset($_SESSION['user'])) {
+    header("Location: ?page=login");
+    exit;
+}
+
 require_once HELPER_PATH . '/auth.php';
-requireAdminLogin();
 require_once CONFIG_PATH . '/database.php';
 
 $stmt = $pdo->query("

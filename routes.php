@@ -85,6 +85,18 @@ switch ($page) {
         require VIEW_PATH . '/public/customer-reset-password.php';
         break;
 
+    case 'agent-login':
+    require VIEW_PATH . '/agent/login.php';
+    break;
+
+    case 'agent-dashboard':
+        require VIEW_PATH . '/agent/dashboard.php';
+        break;
+
+    case 'agent-logout':
+        require VIEW_PATH . '/agent/logout.php';
+        break;
+
     /*
     |--------------------------------------------------------------------------
     | Customer Portal

@@ -1,9 +1,12 @@
 <?php
 
+if (!isset($_SESSION['user'])) {
+
+    header('Location: ?page=login');
+    exit;
+}
+
 require_once HELPER_PATH . '/auth.php';
-
-requireAdminLogin();
-
 require dirname(__DIR__) . '/layouts/header-admin.php';
 require CONFIG_PATH . '/database.php';
 

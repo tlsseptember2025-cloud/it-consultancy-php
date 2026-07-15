@@ -1,10 +1,12 @@
 <?php
 
+if (!isset($_SESSION['user'])) {
+
+    header('Location: ?page=login');
+    exit;
+}
+
 require CONFIG_PATH . '/database.php';
-
-requireAdminLogin();
-
-require dirname(__DIR__, 2) . '/config/database.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 

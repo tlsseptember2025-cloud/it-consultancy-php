@@ -1,7 +1,11 @@
 <?php
 
+if (!isset($_SESSION['user'])) {
+    header("Location: ?page=login");
+    exit;
+}
+
 require_once HELPER_PATH . '/auth.php';
-requireAdminLogin();
 
 $id = $_GET['id'] ?? 0;
 

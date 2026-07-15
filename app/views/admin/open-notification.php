@@ -1,5 +1,10 @@
 <?php
 
+if (!isset($_SESSION['user'])) {
+    header("Location: ?page=login");
+    exit;
+}
+
 require CONFIG_PATH . '/database.php';
 
 $id = $_GET['id'] ?? 0;

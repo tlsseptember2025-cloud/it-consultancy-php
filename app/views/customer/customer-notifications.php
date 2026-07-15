@@ -1,5 +1,11 @@
 <?php
 
+if (!isset($_SESSION['customer'])) {
+
+    header('Location: ?page=customer-login');
+    exit;
+}
+
 require_once HELPER_PATH . '/auth.php';
 requireCustomerLogin();
 

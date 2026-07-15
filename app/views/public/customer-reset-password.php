@@ -1,7 +1,6 @@
 <?php
 
 require_once HELPER_PATH . '/email.php';
-require dirname(__DIR__) . '/layouts/header-public.php';
 
 $token = $_GET['token'] ?? '';
 
@@ -69,7 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-require __DIR__ . '/layouts/header.php';
+require VIEW_PATH . '/layouts/header-public.php';
 ?>
 
 <h2>Reset Password</h2>
@@ -128,4 +127,4 @@ require __DIR__ . '/layouts/header.php';
 
 </form>
 
-<?php require dirname(__DIR__) . '/layouts/footer.php'; ?>
+<?php require VIEW_PATH . '/layouts/footer.php'; ?>

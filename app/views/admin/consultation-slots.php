@@ -1,8 +1,12 @@
 <?php
 
-require_once HELPER_PATH . '/auth.php';
+if (!isset($_SESSION['customer'])) {
 
-requireAdminLogin();
+    header('Location: ?page=customer-login');
+    exit;
+}
+
+require_once HELPER_PATH . '/auth.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 

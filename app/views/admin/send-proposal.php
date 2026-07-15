@@ -1,14 +1,14 @@
 <?php
 
-require_once HELPER_PATH . '/email.php';
-require_once HELPER_PATH . '/notifications.php';
-require_once HELPER_PATH . '/proposal.php';
-
 if (!isset($_SESSION['user'])) {
 
     header('Location: ?page=login');
     exit;
 }
+
+require_once HELPER_PATH . '/email.php';
+require_once HELPER_PATH . '/notifications.php';
+require_once HELPER_PATH . '/proposal.php';
 
 $id = $_GET['id'] ?? 0;
 
@@ -147,7 +147,7 @@ createNotification(
     $request['customer_id'],
     '📄 Proposal Ready',
     'Your proposal is ready for review.',
-    '?page=customer-proposals'
+    '?page=view-proposal&id=' . $id
 );
 
 $update = $pdo->prepare("

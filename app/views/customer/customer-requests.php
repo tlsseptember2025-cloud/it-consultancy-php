@@ -1,12 +1,13 @@
-
-
-<?php require dirname(__DIR__) . '/layouts/header-customer.php'; ?>
-
 <?php
 
-require_once HELPER_PATH . '/auth.php';
+if (!isset($_SESSION['customer'])) {
 
-requireCustomerLogin();
+    header('Location: ?page=customer-login');
+    exit;
+}
+
+require dirname(__DIR__) . '/layouts/header-customer.php';
+require_once HELPER_PATH . '/auth.php';
 
 $customerId = (int) $_SESSION['customer']['id'];
 

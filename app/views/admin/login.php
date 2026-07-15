@@ -1,5 +1,11 @@
 <?php
 
+if (isset($_SESSION['user'])) {
+
+    header('Location: ?page=dashboard');
+    exit;
+}
+
 require_once CONFIG_PATH . '/database.php';
 
 $totalCustomers = $pdo->query("
@@ -75,12 +81,6 @@ $latestMessage = $pdo->query("
     LIMIT 1
 ")->fetch();
 
-if (isset($_SESSION['user'])) {
-
-    header('Location: ?page=dashboard');
-    exit;
-}
-
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -111,7 +111,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 ?>
 
-<?php require dirname(__DIR__) . '/layouts/header-admin.php'; ?>
+<?php require dirname(__DIR__) . '/layouts/header-public.php'; ?>
 
 <div class="row justify-content-center mt-5">
 

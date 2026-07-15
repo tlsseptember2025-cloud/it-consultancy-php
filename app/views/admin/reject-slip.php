@@ -1,5 +1,10 @@
 <?php
 
+if (!isset($_SESSION['user'])) {
+    header("Location: ?page=login");
+    exit;
+}
+
 require_once HELPER_PATH . '/email.php';
 require_once HELPER_PATH . '/notifications.php';
 

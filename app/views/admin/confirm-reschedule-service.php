@@ -1,9 +1,14 @@
 <?php
 
+if (!isset($_SESSION['user'])) {
+
+    header('Location: ?page=login');
+    exit;
+}
+
 require_once HELPER_PATH . '/auth.php';
 require_once HELPER_PATH . '/security.php';
 
-requireCustomerLogin();
 
 $customerId = (int) $_SESSION['customer']['id'];
 

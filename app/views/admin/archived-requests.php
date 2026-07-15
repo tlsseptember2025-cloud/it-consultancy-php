@@ -1,8 +1,12 @@
 <?php
 
-require_once HELPER_PATH . '/auth.php';
+if (!isset($_SESSION['user'])) {
 
-requireAdminLogin();
+    header('Location: ?page=login');
+    exit;
+}
+
+require_once HELPER_PATH . '/auth.php';
 
 $stmt = $pdo->query("
     SELECT

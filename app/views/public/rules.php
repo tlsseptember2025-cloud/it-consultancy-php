@@ -1,4 +1,25 @@
-<?php require dirname(__DIR__) . '/layouts/header-public.php'; ?>
+<?php 
+
+if (isset($_SESSION['user'])) {
+
+    require VIEW_PATH . '/layouts/header-admin.php';
+
+} elseif (isset($_SESSION['customer'])) {
+
+    require VIEW_PATH . '/layouts/header-customer.php';
+
+} elseif (isset($_SESSION['agent'])) {
+
+    require VIEW_PATH . '/layouts/header-agent.php';
+
+} else {
+
+    require VIEW_PATH . '/layouts/header-public.php';
+
+}
+
+
+?>
 
 <div class="card shadow-sm">
 
@@ -77,4 +98,4 @@
 
 </div>
 
-<?php require dirname(__DIR__) . '/layouts/footer.php';?>
+<?php require VIEW_PATH . '/layouts/footer.php'; ?>

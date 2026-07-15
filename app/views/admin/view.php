@@ -1,12 +1,11 @@
 <?php
 
-require_once HELPER_PATH . '/email.php';
-
 if (!isset($_SESSION['user'])) {
     header("Location: ?page=login");
     exit;
 }
 
+require_once HELPER_PATH . '/email.php';
 require CONFIG_PATH . '/database.php';
 
 $id = $_GET['id'] ?? null;
