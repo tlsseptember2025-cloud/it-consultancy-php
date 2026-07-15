@@ -1,5 +1,30 @@
 <?php
 
+/*
+==============================================================================
+ROUTES ORGANIZATION
+------------------------------------------------------------------------------
+1. Public Website
+2. Authentication
+3. Customer Portal
+4. Admin Portal
+   - Dashboard
+   - Customers
+   - Agents
+   - Services
+   - Requests
+   - Payments
+   - Refunds
+   - Consultation Scheduling
+   - Service Scheduling
+   - Messages & Notifications
+   - Reports / Backup
+5. Agent Portal
+6. Default (404)
+==============================================================================
+
+*/
+
 require_once CONFIG_PATH . '/database.php';
 
 $page = $_GET['page'] ?? 'home';
@@ -523,4 +548,5 @@ switch ($page) {
         break;
 
 }
-    
+
+?>
