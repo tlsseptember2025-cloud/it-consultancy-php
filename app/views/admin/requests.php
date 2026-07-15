@@ -193,7 +193,7 @@ $requests = $stmt->fetchAll();
     </a>
 
     <a
-        href="?page=view-proposal&request_id=<?= $request['id'] ?>"
+        href="?page=admin-view-proposal&id=<?= $request['id'] ?>"
         class="btn btn-info btn-sm">
         View Proposal
     </a>
