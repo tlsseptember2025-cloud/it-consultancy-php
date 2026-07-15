@@ -426,6 +426,10 @@ switch ($page) {
         require VIEW_PATH . '/admin/complete-consultation.php';
         break;
 
+    case 'agent-consultations':
+        require VIEW_PATH . '/agent/my-consultations.php';
+        break;
+
     /*
     |--------------------------------------------------------------------------
     | Service Scheduling
