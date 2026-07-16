@@ -53,6 +53,31 @@ define('BANK_SWIFT', 'BOMLAEAD');
 
 /*
 |--------------------------------------------------------------------------
+| Meeting Links
+|--------------------------------------------------------------------------
+|
+| Hour Links:
+| Used for appointments at 5:00, 6:00, 7:00, etc.
+|
+| Half-Hour Links:
+| Used for appointments at 5:30, 6:30, 7:30, etc.
+|
+*/
+
+define('GOOGLE_MEET_HOUR_LINK', '1111');
+
+define('GOOGLE_MEET_HALF_HOUR_LINK', '2222');
+
+define('TEAMS_HOUR_LINK', '3333');
+
+define('TEAMS_HALF_HOUR_LINK', '4444');
+
+define('ZOOM_HOUR_LINK', '5555');
+
+define('ZOOM_HALF_HOUR_LINK', '6666');
+
+/*
+|--------------------------------------------------------------------------
 | Support
 |--------------------------------------------------------------------------
 */

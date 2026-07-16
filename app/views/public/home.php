@@ -2,7 +2,6 @@
 require dirname(__DIR__) . '/layouts/header-public.php';
 require_once HELPER_PATH . '/email.php';
 
-
 if (
     $_SERVER['REQUEST_METHOD'] === 'POST'
     && isset($_POST['submit_contract_lead'])
