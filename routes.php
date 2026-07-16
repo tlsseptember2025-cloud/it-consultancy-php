@@ -210,6 +210,30 @@ switch ($page) {
         require VIEW_PATH . '/admin/dashboard.php';
         break;
 
+        case 'needs-admin-review':
+        require VIEW_PATH . '/admin/needs-admin-review.php';
+        break;
+
+        case 'admin-review-consultation':
+        require VIEW_PATH . '/admin/admin-review-consultation.php';
+        break;
+
+        case 'admin-reschedule-consultation':
+        require VIEW_PATH . '/admin/admin-reschedule-consultation.php';
+        break;
+
+        case 'admin-assign-agent':
+        require VIEW_PATH . '/admin/admin-assign-agent.php';
+        break;
+
+        case 'admin-contact-customer':
+        require VIEW_PATH . '/admin/admin-contact-customer.php';
+        break;
+
+        case 'admin-close-request':
+        require VIEW_PATH . '/admin/admin-close-request.php';
+        break;
+
     /*
     |--------------------------------------------------------------------------
     | Services
@@ -428,6 +452,14 @@ switch ($page) {
 
     case 'agent-consultations':
         require VIEW_PATH . '/agent/my-consultations.php';
+        break;
+
+    case 'view-consultation':
+        require VIEW_PATH . '/agent/view-consultation.php';
+        break;
+
+    case 'cannot-complete-consultation':
+        require VIEW_PATH . '/agent/cannot-complete-consultation.php';
         break;
 
     /*
