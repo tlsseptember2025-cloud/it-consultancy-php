@@ -25,336 +25,413 @@ try {
 
     <div class="container-fluid">
 
-        <a class="navbar-brand fw-bold" href="?page=dashboard">
-            <?= PRODUCT_NAME ?>
+        <a
+            class="navbar-brand fw-bold"
+            href="?page=dashboard"
+            title="<?= COMPANY_TAGLINE ?>">
+
+            <?= COMPANY_NAME ?>
+
         </a>
 
         <button
             class="navbar-toggler"
             type="button"
             data-bs-toggle="collapse"
-            data-bs-target="#navbarNav">
+            data-bs-target="#navbarNav"
+            aria-controls="navbarNav"
+            aria-expanded="false"
+            aria-label="Toggle navigation">
 
             <span class="navbar-toggler-icon"></span>
 
         </button>
 
-        <div class="collapse navbar-collapse" id="navbarNav">
+        <div
+            class="collapse navbar-collapse"
+            id="navbarNav">
 
-            <div class="navbar-nav ms-auto">
+            <ul class="navbar-nav ms-auto align-items-lg-center">
 
-<!-- ADMIN MENU -->
+                <!-- Dashboard -->
 
-                    <a class="nav-link" href="?page=dashboard">
+                <li class="nav-item">
+
+                    <a
+                        class="nav-link"
+                        href="?page=dashboard">
+
                         Dashboard
+
                     </a>
 
-                    <a class="nav-link" href="?page=services-admin">
+                </li>
+
+                <!-- Services -->
+
+                <li class="nav-item">
+
+                    <a
+                        class="nav-link"
+                        href="?page=services-admin">
+
                         Services
+
                     </a>
 
-                    <a class="nav-link" href="?page=customers">
+                </li>
+
+                <!-- Customers -->
+
+                <li class="nav-item">
+
+                    <a
+                        class="nav-link"
+                        href="?page=customers">
+
                         Customers
+
                     </a>
 
-                    <div class="nav-item dropdown">
+                </li>
 
-    <a
-        class="nav-link dropdown-toggle"
-        href="#"
-        role="button"
-        data-bs-toggle="dropdown">
+                <!-- Agents -->
 
-        Agents
+                <li class="nav-item dropdown">
 
-    </a>
+                    <a
+                        class="nav-link dropdown-toggle"
+                        href="#"
+                        role="button"
+                        data-bs-toggle="dropdown"
+                        aria-expanded="false">
 
-    <ul class="dropdown-menu">
+                        Agents
 
-        <li>
+                    </a>
 
-            <a
-                class="dropdown-item"
-                href="?page=agents">
+                    <ul class="dropdown-menu">
 
-                View Agents
+                        <li>
 
-            </a>
+                            <a
+                                class="dropdown-item"
+                                href="?page=agents">
 
-        </li>
+                                View Agents
 
-        <li>
+                            </a>
 
-            <a
-                class="dropdown-item"
-                href="?page=add-agent">
+                        </li>
 
-                Add Agent
+                        <li>
 
-            </a>
+                            <a
+                                class="dropdown-item"
+                                href="?page=add-agent">
 
-        </li>
+                                Add Agent
 
-    </ul>
+                            </a>
 
-</div>
+                        </li>
 
-                    <div class="nav-item dropdown">
+                    </ul>
 
-                        <a
-                            class="nav-link dropdown-toggle"
-                            href="#"
-                            role="button"
-                            data-bs-toggle="dropdown">
+                </li>
 
-                            Requests
+                <!-- Requests -->
 
-                        </a>
+                <li class="nav-item dropdown">
 
-                        <ul class="dropdown-menu">
+                    <a
+                        class="nav-link dropdown-toggle"
+                        href="#"
+                        role="button"
+                        data-bs-toggle="dropdown"
+                        aria-expanded="false">
 
-                            <li>
+                        Requests
 
-                                <a
-                                    class="dropdown-item"
-                                    href="?page=requests">
+                    </a>
 
-                                    Current Requests
+                    <ul class="dropdown-menu">
 
-                                </a>
+                        <li>
+
+                            <a
+                                class="dropdown-item"
+                                href="?page=requests">
+
+                                Current Requests
+
+                            </a>
+
+                        </li>
+
+                        <li>
+
+                            <a
+                                class="dropdown-item"
+                                href="?page=archived-requests">
+
+                                Archived Requests
+
+                            </a>
+
+                        </li>
+
+                    </ul>
+
+                </li>
+
+                <!-- Finance -->
+
+                <li class="nav-item dropdown">
+
+                    <a
+                        class="nav-link dropdown-toggle"
+                        href="#"
+                        role="button"
+                        data-bs-toggle="dropdown"
+                        aria-expanded="false">
+
+                        Finance
+
+                    </a>
+
+                    <ul class="dropdown-menu">
+
+                        <li>
+
+                            <a
+                                class="dropdown-item"
+                                href="?page=payments">
+
+                                Payments
+
+                            </a>
+
+                        </li>
+
+                        <li>
+
+                            <a
+                                class="dropdown-item"
+                                href="?page=refund-requests">
+
+                                Refund Requests
+
+                            </a>
+
+                        </li>
+
+                        <li>
+
+                            <a
+                                class="dropdown-item"
+                                href="?page=refunds">
+
+                                Approved Refunds
+
+                            </a>
+
+                        </li>
+
+                    </ul>
+
+                </li>
+
+                                <!-- System -->
+
+                <li class="nav-item dropdown">
+
+                    <a
+                        class="nav-link dropdown-toggle"
+                        href="#"
+                        role="button"
+                        data-bs-toggle="dropdown"
+                        aria-expanded="false">
+
+                        System
+
+                    </a>
+
+                    <ul class="dropdown-menu">
+
+                        <li>
+
+                            <a
+                                class="dropdown-item"
+                                href="?page=messages">
+
+                                Active Messages
+
+                            </a>
+
+                        </li>
+
+                        <li>
+
+                            <a
+                                class="dropdown-item"
+                                href="?page=archived-messages">
+
+                                Archived Messages
+
+                            </a>
+
+                        </li>
+
+                        <li>
+
+                            <a
+                                class="dropdown-item"
+                                href="?page=backup">
+
+                                Database Backup
+
+                            </a>
+
+                        </li>
+
+                    </ul>
+
+                </li>
+
+                <!-- Notifications -->
+
+                <li class="nav-item dropdown">
+
+                    <a
+                        class="nav-link position-relative"
+                        href="#"
+                        id="notificationsDropdown"
+                        role="button"
+                        data-bs-toggle="dropdown"
+                        aria-expanded="false">
+
+                        <i class="bi bi-bell-fill"></i>
+
+                        <?php if ($notificationCount > 0): ?>
+
+                            <span
+                                id="notification-count"
+                                class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+
+                                <?= $notificationCount ?>
+
+                            </span>
+
+                        <?php endif; ?>
+
+                    </a>
+
+                    <ul
+                        class="dropdown-menu dropdown-menu-end"
+                        style="width: 380px;"
+                        id="notification-list">
+
+                        <?php
+
+                        $stmt = $pdo->query("
+                            SELECT *
+                            FROM notifications
+                            WHERE recipient_type = 'admin'
+                              AND is_read = 0
+                            ORDER BY created_at DESC
+                            LIMIT 10
+                        ");
+
+                        $notifications = $stmt->fetchAll();
+
+                        ?>
+
+                        <?php if (empty($notifications)): ?>
+
+                            <li class="dropdown-item text-muted">
+
+                                No notifications
 
                             </li>
 
-                            <li>
+                        <?php else: ?>
 
-                                <a
-                                    class="dropdown-item"
-                                    href="?page=archived-requests">
+                            <?php foreach ($notifications as $notification): ?>
 
-                                    Archived Requests
+                                <li>
 
-                                </a>
+                                    <a
+                                        class="dropdown-item"
+                                        href="?page=open-notification&id=<?= $notification['id'] ?>">
 
-                            </li>
+                                        <strong>
 
-                        </ul>
+                                            <?= htmlspecialchars($notification['title']) ?>
 
-                    </div>
-                    
-                    <div class="nav-item dropdown">
+                                        </strong>
 
-                        <a
-                            class="nav-link dropdown-toggle"
-                            href="#"
-                            role="button"
-                            data-bs-toggle="dropdown">
+                                        <br>
 
-                            Finance
+                                        <small>
 
-                        </a>
+                                            <?= htmlspecialchars($notification['message']) ?>
 
-                        <ul class="dropdown-menu">
+                                        </small>
 
-                            <li>
+                                        <br>
 
-                                <a
-                                    class="dropdown-item"
-                                    href="?page=payments">
+                                        <small class="text-muted">
 
-                                    Payments
+                                            <?= $notification['created_at'] ?>
 
-                                </a>
+                                        </small>
 
-                            </li>
+                                    </a>
 
-                            <li>
-                                <a class="dropdown-item" href="?page=refund-requests">
-                                    Refund Requests
-                                </a>
-                            </li>
+                                </li>
 
-                            <li>
+                                <li>
 
-                                <a
-                                    class="dropdown-item"
-                                    href="?page=refunds">
+                                    <hr class="dropdown-divider">
 
-                                    Approved Refunds
+                                </li>
 
-                                </a>
+                            <?php endforeach; ?>
 
-                            </li>
+                        <?php endif; ?>
 
-                        </ul>
+                        <li>
 
-                    </div>
+                            <a
+                                class="dropdown-item text-center"
+                                href="?page=notifications">
 
+                                View All Notifications
 
-                    <div class="nav-item dropdown">
+                            </a>
 
-                        <a
-                            class="nav-link dropdown-toggle"
-                            href="#"
-                            role="button"
-                            data-bs-toggle="dropdown">
+                        </li>
 
-                            System
+                    </ul>
 
-                        </a>
+                </li>
 
-                        <ul class="dropdown-menu">
+                <!-- Logout -->
 
-                           <li>
-    <a
-        class="dropdown-item"
-        href="?page=messages">
+                <li class="nav-item">
 
-        Active Messages
+                    <a
+                        class="nav-link text-danger"
+                        href="?page=logout">
 
-    </a>
-</li>
-
-<li>
-    <a
-        class="dropdown-item"
-        href="?page=archived-messages">
-
-        Archived Messages
-
-    </a>
-</li>
-
-                            <li>
-
-                                <a
-                                    class="dropdown-item"
-                                    href="?page=backup">
-
-                                    Database Backup
-
-                                </a>
-
-                            </li>
-
-                        </ul>
-
-                    </div>
-
-                    <li class="nav-item dropdown">
-
-    <a
-        class="nav-link position-relative"
-        href="#"
-        id="notificationsDropdown"
-        role="button"
-        data-bs-toggle="dropdown"
-        aria-expanded="false">
-
-        🔔
-
-        <?php if ($notificationCount > 0): ?>
-
-    <span
-        id="notification-count"
-        class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-
-        <?= $notificationCount ?>
-
-    </span>
-
-<?php endif; ?>
-
-    </a>
-
-    <ul
-    class="dropdown-menu dropdown-menu-end"
-    style="width: 380px;"
-    id="notification-list">
-
-<?php
-
-$stmt = $pdo->query("
-    SELECT *
-    FROM notifications
-    WHERE recipient_type = 'admin'
-            AND is_read = 0
-    ORDER BY created_at DESC
-    LIMIT 10
-");
-
-$notifications = $stmt->fetchAll();
-
-if (empty($notifications)):
-
-?>
-
-    <li class="dropdown-item text-muted">
-        No notifications
-    </li>
-
-<?php else: ?>
-
-    <?php foreach ($notifications as $notification): ?>
-
-        <li>
-
-            <a
-                class="dropdown-item"
-                href="?page=open-notification&id=<?= $notification['id'] ?>">
-
-                <strong>
-                    <?= htmlspecialchars($notification['title']) ?>
-                </strong>
-
-                <br>
-
-                <small>
-                    <?= htmlspecialchars($notification['message']) ?>
-                </small>
-
-                <br>
-
-                <small class="text-muted">
-                    <?= $notification['created_at'] ?>
-                </small>
-
-            </a>
-
-        </li>
-
-        <li><hr class="dropdown-divider"></li>
-
-    <?php endforeach; ?>
-    
-
-<?php endif; ?>
-
-<li>
-    <hr class="dropdown-divider">
-</li>
-
-<li>
-
-    <a
-        class="dropdown-item text-center"
-        href="?page=notifications">
-
-        View All Notifications
-
-    </a>
-
-</li>
-
-</ul>
-
-</li>
-                   
-
-                    <a class="nav-link text-danger" href="?page=logout">
                         Logout
+
                     </a>
 
-            </div>
+                </li>
+
+            </ul>
 
         </div>
 

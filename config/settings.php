@@ -54,3 +54,11 @@ define('UPLOAD_URL', '/uploads/');
 */
 
 require_once __DIR__ . '/workflow.php';
+
+/*
+|--------------------------------------------------------------------------
+| Authentication Helpers
+|--------------------------------------------------------------------------
+*/
+
+require_once __DIR__ . '/../app/helpers/auth.php';

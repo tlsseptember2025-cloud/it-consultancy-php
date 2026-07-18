@@ -19,3 +19,10 @@ function requireAdminLogin(): void
 
     }
 }
+
+function clearRoleSessions(): void
+{
+    unset($_SESSION['user']);
+    unset($_SESSION['customer']);
+    unset($_SESSION['agent']);
+}

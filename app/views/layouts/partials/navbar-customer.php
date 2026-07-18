@@ -36,142 +36,209 @@ if (isset($_SESSION['customer'])) {
     $customerNotifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 }
+
 ?>
- 
- <nav class="navbar navbar-expand-lg navbar-dark bg-dark py-3">
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark py-3">
 
     <div class="container-fluid">
 
-        <a class="navbar-brand fw-bold" href="?page=customer-dashboard">
-            <?= PRODUCT_NAME ?>
+        <a
+            class="navbar-brand fw-bold"
+            href="?page=customer-dashboard"
+            title="<?= COMPANY_TAGLINE ?>">
+
+            <?= COMPANY_NAME ?>
+
         </a>
 
         <button
             class="navbar-toggler"
             type="button"
             data-bs-toggle="collapse"
-            data-bs-target="#navbarNav">
+            data-bs-target="#navbarNav"
+            aria-controls="navbarNav"
+            aria-expanded="false"
+            aria-label="Toggle navigation">
 
             <span class="navbar-toggler-icon"></span>
 
         </button>
 
-        <div class="collapse navbar-collapse" id="navbarNav">
+        <div
+            class="collapse navbar-collapse"
+            id="navbarNav">
 
-            <div class="navbar-nav ms-auto">
+            <ul class="navbar-nav ms-auto align-items-lg-center">
 
- <!-- CUSTOMER MENU -->
+                <!-- Dashboard -->
 
-                    <a class="nav-link" href="?page=customer-dashboard">
+                <li class="nav-item">
+
+                    <a
+                        class="nav-link"
+                        href="?page=customer-dashboard">
+
                         Dashboard
+
                     </a>
 
-                    <a class="nav-link" href="?page=customer-requests">
+                </li>
+
+                <!-- Requests -->
+
+                <li class="nav-item">
+
+                    <a
+                        class="nav-link"
+                        href="?page=customer-requests">
+
                         My Requests
+
                     </a>
 
-                    <a class="nav-link" href="?page=customer-payments">
+                </li>
+
+                <!-- Payments -->
+
+                <li class="nav-item">
+
+                    <a
+                        class="nav-link"
+                        href="?page=customer-payments">
+
                         My Payments
+
                     </a>
 
-                    <a class="nav-link" href="?page=customer-refunds">
+                </li>
+
+                <!-- Refunds -->
+
+                <li class="nav-item">
+
+                    <a
+                        class="nav-link"
+                        href="?page=customer-refunds">
+
                         My Refunds
+
                     </a>
-  
-  					<li class="nav-item dropdown">
 
-    <a
-        class="nav-link position-relative"
-        href="#"
-        data-bs-toggle="dropdown">
+                </li>
 
-        🔔
+                                <!-- Notifications -->
 
-        <?php if ($customerNotificationCount > 0): ?>
+                <li class="nav-item dropdown">
 
-            <span
-                class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                    <a
+                        class="nav-link position-relative"
+                        href="#"
+                        id="customerNotificationsDropdown"
+                        role="button"
+                        data-bs-toggle="dropdown"
+                        aria-expanded="false">
 
-                <?= $customerNotificationCount ?>
+                        <i class="bi bi-bell-fill"></i>
 
-            </span>
+                        <?php if ($customerNotificationCount > 0): ?>
 
-        <?php endif; ?>
+                            <span
+                                class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
 
-    </a>
+                                <?= $customerNotificationCount ?>
 
-    <ul class="dropdown-menu dropdown-menu-end" style="min-width:350px;">
+                            </span>
 
-    <?php if (empty($customerNotifications)): ?>
+                        <?php endif; ?>
 
-        <li>
+                    </a>
 
-            <span class="dropdown-item-text text-muted">
+                    <ul
+                        class="dropdown-menu dropdown-menu-end"
+                        style="min-width:350px;">
 
-                No new notifications
+                        <?php if (empty($customerNotifications)): ?>
 
-            </span>
+                            <li>
 
-        </li>
+                                <span class="dropdown-item-text text-muted">
 
-    <?php else: ?>
+                                    No new notifications
 
-        <?php foreach ($customerNotifications as $notification): ?>
+                                </span>
 
-            <li>
+                            </li>
 
-                <a
-                    class="dropdown-item"
-                    href="?page=customer-notifications">
+                        <?php else: ?>
 
-                    <strong>
+                            <?php foreach ($customerNotifications as $notification): ?>
 
-                        <?= htmlspecialchars($notification['title']) ?>
+                                <li>
 
-                    </strong>
+                                    <a
+                                        class="dropdown-item"
+                                        href="?page=customer-notifications">
 
-                    <br>
+                                        <strong>
 
-                    <small class="text-muted">
+                                            <?= htmlspecialchars($notification['title']) ?>
 
-                        <?= htmlspecialchars($notification['message']) ?>
+                                        </strong>
 
-                    </small>
+                                        <br>
 
-                </a>
+                                        <small class="text-muted">
 
-            </li>
+                                            <?= htmlspecialchars($notification['message']) ?>
 
-        <?php endforeach; ?>
+                                        </small>
 
-    <?php endif; ?>
+                                    </a>
 
-    <li>
-        <hr class="dropdown-divider">
-    </li>
+                                </li>
 
-    <li>
+                                <li>
 
-        <a
-            class="dropdown-item text-center fw-bold"
-            href="?page=customer-notifications">
+                                    <hr class="dropdown-divider">
 
-            View All Notifications
+                                </li>
 
-        </a>
+                            <?php endforeach; ?>
 
-    </li>
+                        <?php endif; ?>
 
-</ul>
+                        <li>
 
-</li>
+                            <a
+                                class="dropdown-item text-center fw-bold"
+                                href="?page=customer-notifications">
 
-                    <a class="nav-link text-danger"
-                       href="?page=customer-logout">
+                                View All Notifications
+
+                            </a>
+
+                        </li>
+
+                    </ul>
+
+                </li>
+
+                <!-- Logout -->
+
+                <li class="nav-item">
+
+                    <a
+                        class="nav-link text-danger"
+                        href="?page=customer-logout">
+
                         Logout
+
                     </a>
 
-                                </div>
+                </li>
+
+            </ul>
 
         </div>
 

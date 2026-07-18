@@ -98,6 +98,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($user && password_verify($password, $user['password'])) {
 
+        clearRoleSessions();
+
         $_SESSION['user'] = $user['email'];
 
         header('Location: ?page=dashboard');

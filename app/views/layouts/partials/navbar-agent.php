@@ -2,44 +2,105 @@
 
     <div class="container-fluid">
 
-        <a class="navbar-brand fw-bold" href="?page=agent-dashboard">
-            <?= PRODUCT_NAME ?>
+        <a
+            class="navbar-brand fw-bold"
+            href="?page=agent-dashboard"
+            title="<?= COMPANY_TAGLINE ?>">
+
+            <?= COMPANY_NAME ?>
+
         </a>
 
         <button
             class="navbar-toggler"
             type="button"
             data-bs-toggle="collapse"
-            data-bs-target="#navbarNav">
+            data-bs-target="#navbarNav"
+            aria-controls="navbarNav"
+            aria-expanded="false"
+            aria-label="Toggle navigation">
 
             <span class="navbar-toggler-icon"></span>
 
         </button>
 
-        <div class="collapse navbar-collapse" id="navbarNav">
+        <div
+            class="collapse navbar-collapse"
+            id="navbarNav">
 
-            <div class="navbar-nav ms-auto">
+            <ul class="navbar-nav ms-auto align-items-lg-center">
 
-                <a class="nav-link" href="?page=agent-dashboard">
-    Dashboard
-                </a>
+                <!-- Dashboard -->
 
-                <a class="nav-link" href="?page=agent-consultations">
-                    My Consultations
-                </a>
+                <li class="nav-item">
 
-                <a class="nav-link" href="?page=agent-jobs">
-                    My Service Jobs
-                </a>
+                    <a
+                        class="nav-link"
+                        href="?page=agent-dashboard">
 
-                <a class="nav-link" href="?page=agent-profile">
-                    Profile
-                </a>
+                        Dashboard
 
-                <a class="nav-link text-danger" href="?page=agent-logout">
-                    Logout
-                </a>
-            </div>
+                    </a>
+
+                </li>
+
+                <!-- Consultations -->
+
+                <li class="nav-item">
+
+                    <a
+                        class="nav-link"
+                        href="?page=agent-consultations">
+
+                        My Consultations
+
+                    </a>
+
+                </li>
+
+                <!-- Service Jobs -->
+
+                <li class="nav-item">
+
+                    <a
+                        class="nav-link"
+                        href="?page=agent-jobs">
+
+                        My Service Jobs
+
+                    </a>
+
+                </li>
+
+                <!-- Profile -->
+
+                <li class="nav-item">
+
+                    <a
+                        class="nav-link"
+                        href="?page=agent-profile">
+
+                        Profile
+
+                    </a>
+
+                </li>
+
+                <!-- Logout -->
+
+                <li class="nav-item">
+
+                    <a
+                        class="nav-link text-danger"
+                        href="?page=agent-logout">
+
+                        Logout
+
+                    </a>
+
+                </li>
+
+            </ul>
 
         </div>
 
