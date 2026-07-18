@@ -2,45 +2,71 @@
 
     <div class="container-fluid">
 
-        <a class="navbar-brand fw-bold" href="?page=home">
-            <?= PRODUCT_NAME ?>
+        <a
+            class="navbar-brand d-flex align-items-center fw-bold"
+            href="?page=home"
+            title="<?= COMPANY_TAGLINE ?>">
+
+            <img
+                src="/uploads/assets/logo.png"
+                alt="<?= COMPANY_NAME ?>"
+                height="40"
+                class="me-2">
+
+            <span><?= COMPANY_NAME ?></span>
+
         </a>
 
         <button
             class="navbar-toggler"
             type="button"
             data-bs-toggle="collapse"
-            data-bs-target="#navbarNav">
+            data-bs-target="#navbarNav"
+            aria-controls="navbarNav"
+            aria-expanded="false"
+            aria-label="Toggle navigation">
 
             <span class="navbar-toggler-icon"></span>
 
         </button>
 
-        <div class="collapse navbar-collapse" id="navbarNav">
+        <div
+            class="collapse navbar-collapse"
+            id="navbarNav">
 
-            <div class="navbar-nav ms-auto">
+            <ul class="navbar-nav ms-auto align-items-lg-center">
 
-                <a class="nav-link" href="?page=home">
-                    Home
-                </a>
+                <li class="nav-item">
+                    <a class="nav-link" href="?page=home">
+                        Home
+                    </a>
+                </li>
 
-                <a class="nav-link" href="?page=services">
-                    Services
-                </a>
+                <li class="nav-item">
+                    <a class="nav-link" href="?page=services">
+                        Services
+                    </a>
+                </li>
 
-                <a class="nav-link" href="?page=contact">
-                    Contact
-                </a>
+                <li class="nav-item">
+                    <a class="nav-link" href="?page=contact">
+                        Contact
+                    </a>
+                </li>
 
-                <a class="nav-link" href="?page=customer-register">
-                    Register
-                </a>
+                <li class="nav-item">
+                    <a class="nav-link" href="?page=customer-register">
+                        Register
+                    </a>
+                </li>
 
-                <a class="nav-link" href="?page=customer-login">
-                    Login
-                </a>
+                <li class="nav-item">
+                    <a class="nav-link" href="?page=customer-login">
+                        Login
+                    </a>
+                </li>
 
-            </div>
+            </ul>
 
         </div>
 

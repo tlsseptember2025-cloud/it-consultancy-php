@@ -5,18 +5,48 @@
     <div class="container">
 
         <p class="mb-1">
-            © 2026 IT Consultancy
+            <?= PRODUCT_COPYRIGHT ?>
+        </p>
+
+        <p class="mb-1">
+            <?= COMPANY_TAGLINE ?>
         </p>
 
         <small>
-            Professional IT Solutions & Web Development
+
+            <a
+                href="<?= COMPANY_WEBSITE ?>"
+                target="_blank"
+                class="text-white text-decoration-none">
+                <?= COMPANY_WEBSITE ?>
+            </a>
+
+            |
+
+            <a
+                href="mailto:<?= COMPANY_EMAIL ?>"
+                class="text-white text-decoration-none">
+                <?= COMPANY_EMAIL ?>
+            </a>
+
+            |
+
+            Version <?= PRODUCT_VERSION ?>
+
         </small>
 
-    </div>
+        <div class="mt-2">
 
-        <a href="?page=rules" target="_blank">
-            Rules & Regulations
-        </a>
+            <a
+                href="?page=rules"
+                target="_blank"
+                class="text-white text-decoration-none">
+                Rules &amp; Regulations
+            </a>
+
+        </div>
+
+    </div>
 
 </footer>
 
@@ -30,7 +60,7 @@ if (searchInput) {
 
     searchInput.addEventListener('keyup', function () {
 
-        let search = this.value;
+        const search = this.value;
 
         fetch('?page=messages&search=' + encodeURIComponent(search))
 
@@ -38,19 +68,27 @@ if (searchInput) {
 
             .then(data => {
 
-                let parser = new DOMParser();
+                const parser = new DOMParser();
 
-                let doc = parser.parseFromString(data, 'text/html');
+                const doc = parser.parseFromString(data, 'text/html');
 
-                let newResults = doc.getElementById('results');
+                const newResults = doc.getElementById('results');
 
-                document.getElementById('results').innerHTML =
-                    newResults.innerHTML;
+                if (newResults && document.getElementById('results')) {
+
+                    document.getElementById('results').innerHTML =
+                        newResults.innerHTML;
+
+                }
+
             });
+
     });
+
 }
 
 </script>
 
 </body>
+
 </html>

@@ -17,21 +17,7 @@ define('APP_MODE', 'demo');
 
 /*
 |--------------------------------------------------------------------------
-| Product
-|--------------------------------------------------------------------------
-*/
-
-define('PRODUCT_NAME', 'IT Consultancy Management System');
-
-define('PRODUCT_VERSION', '1.0.0');
-
-define('PRODUCT_WEBSITE', 'https://ramiphp.com');
-
-define('PRODUCT_SUPPORT_EMAIL', 'support@ramiphp.com');
-
-/*
-|--------------------------------------------------------------------------
-| Company
+| Company Configuration
 |--------------------------------------------------------------------------
 */
 
