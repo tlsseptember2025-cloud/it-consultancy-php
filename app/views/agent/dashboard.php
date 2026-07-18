@@ -13,7 +13,7 @@ $agentId = $_SESSION['agent']['id'];
 
 $totalConsultations = $pdo->prepare("
     SELECT COUNT(*)
-    FROM consultation_slots
+    FROM consultation_bookings
     WHERE agent_id = ?
 ");
 

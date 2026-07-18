@@ -35,7 +35,7 @@ $stmt = $pdo->prepare("
     INNER JOIN customers c
         ON c.id = r.customer_id
 
-    INNER JOIN agents a
+    LEFT JOIN agents a
         ON a.id = r.agent_id
 
     INNER JOIN services s

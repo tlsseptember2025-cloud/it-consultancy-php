@@ -383,7 +383,7 @@ require VIEW_PATH . '/layouts/header-agent.php';
                     class="form-control"
                     rows="8"
                     name="agent_notes"
-                    readonly>
+                    >
 
                 <?= htmlspecialchars($consultation['completion_notes']) ?>
 
