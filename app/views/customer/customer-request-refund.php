@@ -11,12 +11,6 @@ require_once HELPER_PATH . '/security.php';
 
 $customerId = (int) $_SESSION['customer']['id'];
 
-if (!isset($_SESSION['customer'])) {
-
-    header('Location: ?page=public-login');
-    exit;
-}
-
 $requestId = $_GET['request_id'] ?? 0;
 verifyCustomerRequest($pdo, $requestId);
 

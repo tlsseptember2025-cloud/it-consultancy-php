@@ -10,12 +10,6 @@ require_once HELPER_PATH . '/auth.php';
 
 $customerId = (int) $_SESSION['customer']['id'];
 
-if (!isset($_SESSION['customer'])) {
-
-    header('Location: ?page=public-login');
-    exit;
-}
-
 require dirname(__DIR__) . '/layouts/header-customer.php';
 
 $customerId = $_SESSION['customer']['id'];

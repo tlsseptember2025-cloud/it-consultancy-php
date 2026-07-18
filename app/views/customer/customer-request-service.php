@@ -12,12 +12,6 @@ $customerId = (int) $_SESSION['customer']['id'];
 
 require dirname(__DIR__) . '/layouts/header-customer.php';
 
-if (!isset($_SESSION['customer'])) {
-
-    header('Location: ?page=public-login');
-    exit;
-}
-
 $services = $pdo->query("
     SELECT *
     FROM services
