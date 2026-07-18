@@ -79,6 +79,13 @@ try {
 
                     </a>
 
+
+                </li>
+
+                <li class="nav-item">
+                    <a href="?page=pricing" class="nav-link">
+                        Price List
+                    </a> 
                 </li>
 
                 <!-- Customers -->

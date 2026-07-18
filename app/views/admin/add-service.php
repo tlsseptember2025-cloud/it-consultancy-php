@@ -13,7 +13,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $title = trim($_POST['title']);
     $description = trim($_POST['description']);
-    $price = trim($_POST['price']);
 
     $image = null;
 

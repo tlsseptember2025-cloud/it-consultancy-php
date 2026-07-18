@@ -118,6 +118,22 @@ switch ($page) {
         require VIEW_PATH . '/agent/logout.php';
         break;
 
+    case 'pricing':
+    require VIEW_PATH . '/admin/pricing.php';
+    break;
+
+    case 'add-pricing':
+    require VIEW_PATH . '/admin/add-pricing.php';
+    break;
+
+    case 'edit-pricing':
+    require VIEW_PATH . '/admin/edit-pricing.php';
+    break;
+
+    case 'delete-pricing':
+    require VIEW_PATH . '/admin/delete-pricing.php';
+    break;
+
     /*
     |--------------------------------------------------------------------------
     | Customer Portal
