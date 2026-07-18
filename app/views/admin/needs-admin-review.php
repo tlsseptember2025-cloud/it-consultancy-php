@@ -9,58 +9,121 @@ if (!isset($_SESSION['user'])) {
 require_once CONFIG_PATH . '/database.php';
 
 $stmt = $pdo->prepare("
-    SELECT
+   SELECT
 
-        r.id,
+    r.id,
 
-        r.job_status,
-        r.incomplete_reason,
-        r.completed_at,
+    r.job_status,
+    r.incomplete_reason,
 
-        c.name AS customer_name,
+    c.name AS customer_name,
 
-        a.name AS agent_name,
+    a.name AS agent_name,
 
-        s.title AS service_name
+    s.title AS service_name,
 
-    FROM requests r
+    cs.slot_date,
+    cs.slot_time
 
-    INNER JOIN customers c
-        ON c.id = r.customer_id
+FROM requests r
 
-    INNER JOIN agents a
-        ON a.id = r.agent_id
+INNER JOIN customers c
+    ON c.id = r.customer_id
 
-    INNER JOIN services s
-        ON s.id = r.service_id
+INNER JOIN agents a
+    ON a.id = r.agent_id
 
-    WHERE r.job_status = 'Needs Admin Review'
+INNER JOIN services s
+    ON s.id = r.service_id
 
-    ORDER BY r.completed_at DESC
+LEFT JOIN consultation_bookings cb
+    ON cb.request_id = r.id
+
+LEFT JOIN consultation_slots cs
+    ON cs.id = cb.slot_id
+
+WHERE r.job_status = 'Needs Admin Review'
+
+ORDER BY cs.slot_date DESC,
+         cs.slot_time DESC
 ");
 
 $stmt->execute();
 
 $consultations = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-
 require VIEW_PATH . '/layouts/header-admin.php';
-
 ?>
 
 <div class="container py-4">
 
+    <?php if (isset($_GET['success']) && $_GET['success'] === 'rescheduled'): ?>
+
+    <div
+        id="successAlert"
+        class="alert alert-success alert-dismissible fade show"
+        role="alert">
+
+        <strong>Success!</strong>
+
+        The consultation has been successfully rescheduled.
+
+        <button
+            type="button"
+            class="btn-close"
+            data-bs-dismiss="alert"
+            aria-label="Close">
+        </button>
+
+    </div>
+
+    <script>
+
+        // Remove the success parameter from the URL
+        if (window.history.replaceState) {
+
+            const url = new URL(window.location);
+
+            url.searchParams.delete('success');
+
+            window.history.replaceState({}, document.title, url.pathname + url.search);
+
+        }
+
+        // Automatically hide the alert after 5 seconds
+        setTimeout(function () {
+
+            const alert = document.getElementById('successAlert');
+
+            if (alert) {
+
+                alert.classList.remove('show');
+
+                setTimeout(function () {
+
+                    alert.remove();
+
+                }, 300);
+
+            }
+
+        }, 5000);
+
+    </script>
+
+<?php endif; ?>
+
     <h2 class="mb-1">
 
-    Needs Admin Review
+        Needs Admin Review
 
-</h2>
+    </h2>
 
-<p class="text-muted mb-4">
+    <p class="text-muted mb-4">
 
-    Consultations that require an administrator's decision.
+        Consultations that require an administrator's decision.
 
-</p>
+    </p>
 
    <?php if (empty($consultations)): ?>
 
@@ -137,13 +200,13 @@ if ($consultation['job_status'] == 'Completed') {
 
 <td>
 
-    <?= date('d M Y', strtotime($consultation['completed_at'])) ?>
+    <?= date('d M Y', strtotime($consultation['slot_date'])) ?>
 
     <br>
 
     <small class="text-muted">
 
-        <?= date('h:i A', strtotime($consultation['completed_at'])) ?>
+        <?= date('h:i A', strtotime($consultation['slot_time'])) ?>
 
     </small>
 

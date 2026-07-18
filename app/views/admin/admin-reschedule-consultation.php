@@ -16,9 +16,10 @@ $requestId = (int)($_GET['id'] ?? 0);
 
 if (isset($_POST['confirm_reschedule'])) {
 
-    $slotStmt = $pdo->prepare("
+   $slotStmt = $pdo->prepare("
     SELECT
-        slot_time
+        slot_time,
+        is_booked
     FROM consultation_slots
     WHERE id = ?
 ");
@@ -35,17 +36,159 @@ if (!$slot) {
 
 }
 
+/*
+|--------------------------------------------------------------------------
+| Verify Slot Availability
+|--------------------------------------------------------------------------
+*/
+
+if ((int)$slot['is_booked'] === 1) {
+
+    die('The selected consultation slot has already been booked. Please choose another available slot.');
+
+}
+
+/*
+|--------------------------------------------------------------------------
+| Generate Meeting Link
+|--------------------------------------------------------------------------
+*/
+
 $meetingLink = getMeetingLink(
-
     $_POST['consultation_method'],
-
     $slot['slot_time']
-
 );
 
-echo $meetingLink;
+/*
+|--------------------------------------------------------------------------
+| Begin Transaction
+|--------------------------------------------------------------------------
+*/
 
-exit;
+$pdo->beginTransaction();
+
+try {
+
+    /*
+    |--------------------------------------------------------------------------
+    | Find Current Booking
+    |--------------------------------------------------------------------------
+    */
+
+    $stmt = $pdo->prepare("
+        SELECT
+            id,
+            slot_id
+        FROM consultation_bookings
+        WHERE request_id = ?
+        LIMIT 1
+    ");
+
+    $stmt->execute([$requestId]);
+
+    $booking = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$booking) {
+        throw new Exception('Consultation booking not found.');
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Free Previous Slot
+    |--------------------------------------------------------------------------
+    */
+
+    $stmt = $pdo->prepare("
+        UPDATE consultation_slots
+        SET is_booked = 0
+        WHERE id = ?
+    ");
+
+    $stmt->execute([
+        $booking['slot_id']
+    ]);
+
+    /*
+    |--------------------------------------------------------------------------
+    | Reserve New Slot
+    |--------------------------------------------------------------------------
+    */
+
+    $stmt = $pdo->prepare("
+        UPDATE consultation_slots
+        SET
+            is_booked = 1,
+            consultation_method = ?,
+            meeting_link = ?
+        WHERE id = ?
+    ");
+
+    $stmt->execute([
+        $_POST['consultation_method'],
+        $meetingLink,
+        $_POST['slot_id']
+    ]);
+
+    /*
+    |--------------------------------------------------------------------------
+    | Update Consultation Booking
+    |--------------------------------------------------------------------------
+    */
+
+    $stmt = $pdo->prepare("
+        UPDATE consultation_bookings
+        SET
+            slot_id = ?,
+            agent_id = ?
+        WHERE id = ?
+    ");
+
+    $stmt->execute([
+        $_POST['slot_id'],
+        $_POST['agent_id'],
+        $booking['id']
+    ]);
+
+    /*
+    |--------------------------------------------------------------------------
+    | Update Request Status
+    |--------------------------------------------------------------------------
+    */
+
+   $stmt = $pdo->prepare("
+    UPDATE requests
+    SET
+        job_status = 'Pending',
+        workflow_stage = 'Consultation Scheduled',
+        consultation_reschedules = consultation_reschedules + 1,
+        completion_notes = NULL,
+        incomplete_reason = NULL
+    WHERE id = ?
+");
+
+    $stmt->execute([
+        $requestId
+    ]);
+
+    /*
+    |--------------------------------------------------------------------------
+    | Commit
+    |--------------------------------------------------------------------------
+    */
+
+    $pdo->commit();
+
+    header('Location: ?page=needs-admin-review&success=rescheduled');
+
+    exit;
+
+} catch (Exception $e) {
+
+    $pdo->rollBack();
+
+    die($e->getMessage());
+
+}
 
 }
 
@@ -521,281 +664,210 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
 <form method="POST">
 
-    <input
-        type="hidden"
-        name="request_id"
-        value="<?= $consultation['id'] ?>">
+    <input type="hidden" name="request_id" value="<?= $consultation['id'] ?>">
 
+    <div class="card shadow-sm mb-4">
 
-<!-- New Appointment -->
-
-<div class="card shadow-sm mb-4">
-
-
-    <div class="card-header bg-success text-white">
-
-        Reschedule Consultation
-
-    </div>
-
-
-    <div class="card-body">
-
-
-        <p class="text-muted">
-
-            Choose a new consultation schedule.
-
-        </p>
-
-
-
-        <div class="row">
-
-
-            <div class="col-md-6 mb-3">
-
-
-                <label class="form-label fw-bold">
-
-                    Step 1 – Select Consultation Date
-
-                </label>
-
-
-                <form method="GET">
-
-    <input
-        type="hidden"
-        name="page"
-        value="admin-reschedule-consultation">
-
-    <input
-        type="hidden"
-        name="id"
-        value="<?= $consultation['id'] ?>">
-
-    <select
-        name="date"
-        class="form-select"
-        onchange="this.form.submit()">
-
-        <option value="">
-
-            -- Choose a Date --
-
-        </option>
-
-        <?php foreach ($availableDates as $date): ?>
-
-            <option
-                value="<?= $date['slot_date'] ?>"
-                <?= $selectedDate == $date['slot_date'] ? 'selected' : '' ?>>
-
-                <?= date('d M Y', strtotime($date['slot_date'])) ?>
-
-            </option>
-
-        <?php endforeach; ?>
-
-    </select>
-
-
-            </div>
-
-
-
-
-           <div class="col-md-6 mb-3">
-
-    <label class="form-label fw-bold">
-
-        Step 2 – Select Available Time Slot
-
-    </label>
-
-    <?php if (empty($selectedDate)): ?>
-
-        <div class="alert alert-light border mb-0">
-
-            Select a consultation date first.
-
+        <div class="card-header bg-success text-white">
+            Reschedule Consultation
         </div>
 
-    <?php elseif (empty($slots)): ?>
+        <div class="card-body">
 
-        <div class="alert alert-warning mb-0">
+            <p class="text-muted">
+                Choose a new consultation schedule.
+            </p>
 
-            No available consultation slots for this date.
+            <div class="row">
 
-        </div>
+                <!-- STEP 1 -->
 
-    <?php else: ?>
+                <div class="col-md-6 mb-3">
 
-        <select
-            class="form-select"
-            name="slot_id">
+                    <label class="form-label fw-bold">
+                        Step 1 – Select Consultation Date
+                    </label>
 
-            <option value="">
+                    <select
+                        class="form-select"
+                        id="consultation_date">
 
-                -- Select Available Time --
-
-            </option>
-
-            <?php foreach ($slots as $slot): ?>
-
-                <option value="<?= $slot['id'] ?>">
-
-                    <?= date('h:i A', strtotime($slot['slot_time'])) ?>
-
-                </option>
-
-            <?php endforeach; ?>
-
-        </select>
-
-    <?php endif; ?>
-
-</div>
-
-
-        </div>
-
-
-
-
-        <div class="row">
-
-
-            <div class="col-md-6 mb-3">
-
-
-                <label class="form-label">
-
-                    Step 3 – Assign Agent
-
-                </label>
-
-
-                <select
-
-                    class="form-select"
-
-                    name="agent_id">
-
-
-                    <?php foreach ($agents as $agent): ?>
-
-
-                        <option
-
-                            value="<?= $agent['id'] ?>"
-
-                            <?= $agent['id'] == $consultation['agent_id'] ? 'selected' : '' ?>>
-
-
-                            <?= htmlspecialchars($agent['name']) ?>
-
-
+                        <option value="">
+                            -- Choose a Date --
                         </option>
 
+                        <?php foreach ($availableDates as $date): ?>
 
-                    <?php endforeach; ?>
+                            <option
+                                value="<?= $date['slot_date'] ?>"
+                                <?= $selectedDate == $date['slot_date'] ? 'selected' : '' ?>>
 
+                                <?= date('d M Y', strtotime($date['slot_date'])) ?>
 
-                </select>
+                            </option>
 
+                        <?php endforeach; ?>
+
+                    </select>
+
+                </div>
+
+                <!-- STEP 2 -->
+
+                <div class="col-md-6 mb-3">
+
+                    <label class="form-label fw-bold">
+                        Step 2 – Select Available Time Slot
+                    </label>
+
+                    <?php if (empty($selectedDate)): ?>
+
+                        <div class="alert alert-light border mb-0">
+                            Select a consultation date first.
+                        </div>
+
+                    <?php elseif (empty($slots)): ?>
+
+                        <div class="alert alert-warning mb-0">
+                            No available consultation slots for this date.
+                        </div>
+
+                    <?php else: ?>
+
+                        <select
+                            class="form-select"
+                            name="slot_id">
+
+                            <option value="">
+                                -- Select Available Time --
+                            </option>
+
+                            <?php foreach ($slots as $slot): ?>
+
+                                <option value="<?= $slot['id'] ?>">
+
+                                    <?= date('h:i A', strtotime($slot['slot_time'])) ?>
+
+                                </option>
+
+                            <?php endforeach; ?>
+
+                        </select>
+
+                    <?php endif; ?>
+
+                </div>
 
             </div>
 
+            <div class="row">
 
+                <div class="col-md-6 mb-3">
 
+                    <label class="form-label">
+                        Step 3 – Assign Agent
+                    </label>
 
-            <div class="col-md-6 mb-3">
+                    <select
+                        class="form-select"
+                        name="agent_id">
 
+                        <?php foreach ($agents as $agent): ?>
 
-                <label class="form-label">
+                            <option
+                                value="<?= $agent['id'] ?>"
+                                <?= $agent['id'] == $consultation['agent_id'] ? 'selected' : '' ?>>
 
-                    Step 4 – Meeting Method
+                                <?= htmlspecialchars($agent['name']) ?>
 
-                </label>
+                            </option>
 
+                        <?php endforeach; ?>
 
-                <select
+                    </select>
 
-                    class="form-select"
+                </div>
 
-                    name="consultation_method">
+                <div class="col-md-6 mb-3">
 
+                    <label class="form-label">
+                        Step 4 – Meeting Method
+                    </label>
 
-                    <option value="">
+                    <select
+                        class="form-select"
+                        name="consultation_method">
 
-                        Select Meeting Method
+                        <option value="">Select Meeting Method</option>
 
-                    </option>
+                        <option value="Google Meet">Google Meet</option>
 
+                        <option value="Microsoft Teams">Microsoft Teams</option>
 
-                    <option value="Google Meet">
+                        <option value="Zoom">Zoom</option>
 
-                        Google Meet
+                    </select>
 
-                    </option>
-
-
-                    <option value="Microsoft Teams">
-
-                        Microsoft Teams
-
-                    </option>
-
-
-                    <option value="Zoom">
-
-                        Zoom
-
-                    </option>
-
-
-                </select>
-
+                </div>
 
             </div>
 
             <div class="mb-3">
 
-    <label class="form-label">
+                <label class="form-label">
+                    Step 5 – Reschedule Notes
+                </label>
 
-        Step 5 – Reschedule Notes
+                <textarea
+                    class="form-control"
+                    name="admin_notes"
+                    rows="4"></textarea>
 
-    </label>
+            </div>
 
-    <textarea
-        class="form-control"
-        name="admin_notes"
-        rows="4"
-        placeholder="Internal notes about this reschedule..."></textarea>
+            <div class="text-end">
 
-</div>
+                <a
+                    href="?page=needs-admin-review"
+                    class="btn btn-secondary">
 
-<div class="text-end">
+                    Cancel
 
-    <a href="?page=needs-admin-review"
-       class="btn btn-secondary">
+                </a>
 
-        Cancel
+                <button
+                    type="submit"
+                    name="confirm_reschedule"
+                    class="btn btn-success">
 
-    </a>
+                    Confirm Reschedule
 
-    <button
-    type="submit"
-    name="confirm_reschedule"
-    class="btn btn-success">
+                </button>
 
-    Confirm Reschedule
+            </div>
 
-</button>
+        </div>
+
+    </div>
 
 </form>
+
+<script>
+
+document
+.getElementById('consultation_date')
+.addEventListener('change', function () {
+
+    if(this.value === '')
+        return;
+
+    window.location =
+        '?page=admin-reschedule-consultation&id=<?= $consultation['id'] ?>&date='
+        + this.value;
+
+});
+
+</script>
 
 </div>
 
