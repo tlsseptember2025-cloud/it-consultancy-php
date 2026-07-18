@@ -2,7 +2,7 @@
 
 if (!isset($_SESSION['customer'])) {
 
-    header('Location: ?page=customer-login');
+    header('Location: ?page=public-login');
     exit;
 }
 
@@ -14,7 +14,7 @@ require dirname(__DIR__) . '/layouts/header-customer.php';
 
 if (!isset($_SESSION['customer'])) {
 
-    header('Location: ?page=customer-login');
+    header('Location: ?page=public-login');
     exit;
 }
 

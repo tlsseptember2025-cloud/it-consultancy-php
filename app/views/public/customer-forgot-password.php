@@ -100,7 +100,7 @@ require VIEW_PATH . '/layouts/header-public.php';
     </button>
 
     <a
-        href="?page=customer-login"
+        href="?page=public-login"
         class="btn btn-secondary">
 
         Cancel

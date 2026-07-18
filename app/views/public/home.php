@@ -107,7 +107,7 @@ if (
                     </p>
 
                     <a
-                        href="?page=login"
+                        href="?page=public-login"
                         class="btn btn-primary">
 
                         Admin Login
@@ -138,7 +138,7 @@ if (
                     </p>
 
                     <a
-                        href="?page=customer-login"
+                        href="?page=public-login"
                         class="btn btn-success">
 
                         Customer Login

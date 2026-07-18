@@ -71,7 +71,7 @@ sendEmail(
 
     <p>
         <a
-            href='http://ramiphp.com/it-consultancy-php/public/?page=customer-login'
+            href='http://ramiphp.com/it-consultancy-php/public/?page=public-login'
             style='
                 background:#0d6efd;
                 color:white;

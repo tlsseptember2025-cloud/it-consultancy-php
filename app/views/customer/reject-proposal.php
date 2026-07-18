@@ -2,7 +2,7 @@
 
 if (!isset($_SESSION['customer'])) {
 
-    header('Location: ?page=customer-login');
+    header('Location: ?page=public-login');
     exit;
 }
 

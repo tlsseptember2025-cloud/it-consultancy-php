@@ -2,7 +2,7 @@
 
 if (!isset($_SESSION['user'])) {
 
-    header('Location: ?page=login');
+    header('Location: ?page=public-login');
     exit;
 }
 
@@ -112,7 +112,7 @@ $emailSent = sendEmail(
 
     <p>
         <a
-            href='http://ramiphp.com/?page=customer-login'
+            href='http://ramiphp.com/?page=public-login'
             style='
                 background:#0d6efd;
                 color:white;

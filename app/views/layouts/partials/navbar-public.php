@@ -61,7 +61,7 @@
                 </li>
 
                 <li class="nav-item">
-                    <a class="nav-link" href="?page=customer-login">
+                    <a class="nav-link" href="?page=public-login">
                         Login
                     </a>
                 </li>

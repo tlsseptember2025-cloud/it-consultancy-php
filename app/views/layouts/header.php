@@ -560,7 +560,7 @@ if (empty($notifications)):
                         Register
                     </a>
 
-                    <a class="nav-link" href="?page=customer-login">
+                    <a class="nav-link" href="?page=public-login">
                         Login
                     </a>
 

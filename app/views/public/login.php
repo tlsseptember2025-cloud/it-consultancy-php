@@ -70,6 +70,10 @@ if (
 $error = 'Invalid email or password.';
 }
 
+$isAgentLogin =
+    isset($_SESSION['login_role']) &&
+    $_SESSION['login_role'] === 'agent';
+
 ?>
 
 <div class="row justify-content-center mt-5">

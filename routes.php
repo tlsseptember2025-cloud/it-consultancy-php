@@ -89,8 +89,8 @@ switch ($page) {
         require VIEW_PATH . '/admin/logout.php';
         break;
 
-    case 'customer-login':
-        require VIEW_PATH . '/public/customer-login.php';
+    case 'public-login':
+        require VIEW_PATH . '/public/login.php';
         break;
 
     case 'customer-register':
@@ -99,7 +99,7 @@ switch ($page) {
 
     case 'customer-logout':
         unset($_SESSION['customer']);
-        header('Location: ?page=home');
+        header('Location: ?page=public-login');
         exit;
 
     case 'customer-forgot-password':
@@ -109,10 +109,6 @@ switch ($page) {
     case 'customer-reset-password':
         require VIEW_PATH . '/public/customer-reset-password.php';
         break;
-
-    case 'agent-login':
-    require VIEW_PATH . '/agent/login.php';
-    break;
 
     case 'agent-dashboard':
         require VIEW_PATH . '/agent/dashboard.php';

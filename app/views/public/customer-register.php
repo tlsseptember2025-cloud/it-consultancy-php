@@ -56,7 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $hashedPassword
             ]);
 
-            header('Location: ?page=customer-login');
+            header('Location: ?page=public-login');
             exit;
         }
     }

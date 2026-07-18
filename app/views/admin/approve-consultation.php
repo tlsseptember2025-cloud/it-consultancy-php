@@ -2,7 +2,7 @@
 
 if (!isset($_SESSION['user'])) {
 
-    header('Location: ?page=login');
+    header('Location: ?page=public-login');
     exit;
 }
 
@@ -47,8 +47,8 @@ if ($customer && !empty($customer['email'])) {
     <p>
         <a
 
-            href='http://ramiphp.com/?page=customer-login'
-            href='http://ramiphp.com/it-consultancy-php/public/?page=customer-login'
+            href='http://ramiphp.com/?page=public-login'
+            href='http://ramiphp.com/it-consultancy-php/public/?page=public-login'
             style='
                 background:#0d6efd;
                 color:white;

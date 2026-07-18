@@ -63,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $customer['id']
         ]);
 
-        header('Location: ?page=customer-login&reset=success');
+        header('Location: ?page=public-login&reset=success');
         exit;
     }
 }
@@ -118,7 +118,7 @@ require VIEW_PATH . '/layouts/header-public.php';
     </button>
 
     <a
-        href="?page=customer-login"
+        href="?page=public-login"
         class="btn btn-secondary">
 
         Cancel
