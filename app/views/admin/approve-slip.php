@@ -139,7 +139,7 @@ sendEmail(
 
     <p>
         <a
-            href='https://ramiphp.com/?page=public-login'
+            href='localhost/?page=public-login'
             style='
                 background:#198754;
                 color:white;

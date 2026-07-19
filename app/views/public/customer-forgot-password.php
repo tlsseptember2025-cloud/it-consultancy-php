@@ -41,11 +41,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $customer['id']
         ]);
 
-        sendPasswordResetEmail(
-            $email,
-            $customer['name'],
-            $token
-        );
+       $result = sendPasswordResetEmail(
+    $email,
+    $customer['name'],
+    $token
+);
+
+var_dump($result);
+exit;
     }
 
     // Generic message for security

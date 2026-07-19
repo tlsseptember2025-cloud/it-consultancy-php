@@ -100,7 +100,7 @@ sendEmail(
 
     <p>
         <a
-            href='https://ramiphp.com/?page=public-login'
+            href='localhost/?page=public-login'
             style='
                 background:#0d6efd;
                 color:white;

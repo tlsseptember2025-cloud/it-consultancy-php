@@ -47,8 +47,8 @@ if ($customer && !empty($customer['email'])) {
     <p>
         <a
 
-            href='http://ramiphp.com/?page=public-login'
-            href='http://ramiphp.com/it-consultancy-php/public/?page=public-login'
+            href='localhost/?page=public-login'
+            href='localhost/it-consultancy-php/public/?page=public-login'
             style='
                 background:#0d6efd;
                 color:white;

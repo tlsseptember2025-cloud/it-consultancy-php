@@ -55,8 +55,12 @@ function sendEmail(
 
     } catch (Exception $e) {
 
-        return false;
-    }
+    die(
+        'Mailer Error: ' .
+        $mail->ErrorInfo
+    );
+
+}
 }
 
 function sendConsultationApprovedEmail($email, $name)
@@ -277,7 +281,7 @@ function sendPasswordResetEmail(
     $subject = 'Reset Your Password';
 
     $resetLink =
-        'http://ramiphp.com/it-consultancy-php/public/index.php?page=customer-reset-password&token='
+        'localhost/it-consultancy-php/public/index.php?page=customer-reset-password&token='
         . urlencode($token);
 
     $body = "

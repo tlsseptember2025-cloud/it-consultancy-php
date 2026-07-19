@@ -100,7 +100,7 @@ $emailSent = sendEmail(
     <p>
         <strong>Important:</strong>
         Before proceeding, please review our
-        <a href='https://ramiphp.com/rules-and-regulations' target='_blank'>
+        <a href='localhost/rules-and-regulations' target='_blank'>
             IT Consultancy Rules & Regulations
         </a>.
     </p>
@@ -112,7 +112,7 @@ $emailSent = sendEmail(
 
     <p>
         <a
-            href='http://ramiphp.com/?page=public-login'
+            href='localhost/?page=public-login'
             style='
                 background:#0d6efd;
                 color:white;

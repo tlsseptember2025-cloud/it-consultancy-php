@@ -9,8 +9,14 @@ $requestId = (int)($_GET['request_id'] ?? 0);
 
 $customerId = $_SESSION['customer']['id'];
 
+echo 'Request ID: ' . $requestId . '<br>';
+echo 'Customer ID: ' . $customerId . '<br>';
+exit;
+
 $stmt = $pdo->prepare("
-    SELECT id
+    SELECT
+        id,
+        agent_id
     FROM requests
     WHERE id = ?
       AND customer_id = ?
@@ -21,13 +27,24 @@ $stmt->execute([
     $customerId
 ]);
 
-if (!$stmt->fetch()) {
+$request = $stmt->fetch(PDO::FETCH_ASSOC);
+
+$request = $stmt->fetch(PDO::FETCH_ASSOC);
+
+if (!$request) {
 
     $_SESSION['error'] = 'You are not authorized to access this request.';
-header('Location: ?page=customer-requests');
-exit;
+    header('Location: ?page=customer-requests');
+    exit;
 
 }
+
+$assignedAgentId = $request['agent_id'];
+
+echo 'Assigned Agent ID: ' . $assignedAgentId;
+exit;
+
+$assignedAgentId = $request['agent_id'];
 
 $selectedDate = $_GET['date'] ?? '';
 

@@ -138,14 +138,12 @@ try {
     $stmt = $pdo->prepare("
         UPDATE consultation_bookings
         SET
-            slot_id = ?,
-            agent_id = ?
+            slot_id = ?
         WHERE id = ?
     ");
 
     $stmt->execute([
         $_POST['slot_id'],
-        $_POST['agent_id'],
         $booking['id']
     ]);
 
@@ -206,7 +204,7 @@ $stmt = $pdo->prepare("
         c.phone,
 
         a.name AS agent_name,
-
+        cb.agent_id AS assigned_agent_id,
         s.title AS service_name,
 
         cs.id AS slot_id,
@@ -215,26 +213,26 @@ $stmt = $pdo->prepare("
         cs.consultation_method,
         cs.meeting_link
 
-    FROM requests r
+   FROM requests r
 
-    INNER JOIN customers c
-        ON c.id = r.customer_id
+INNER JOIN customers c
+    ON c.id = r.customer_id
 
-    INNER JOIN agents a
-        ON a.id = r.agent_id
+INNER JOIN services s
+    ON s.id = r.service_id
 
-    INNER JOIN services s
-        ON s.id = r.service_id
+LEFT JOIN consultation_bookings cb
+    ON cb.request_id = r.id
 
-    LEFT JOIN consultation_bookings cb
-        ON cb.request_id = r.id
+LEFT JOIN agents a
+    ON a.id = cb.agent_id
 
-    LEFT JOIN consultation_slots cs
-        ON cs.id = cb.slot_id
+LEFT JOIN consultation_slots cs
+    ON cs.id = cb.slot_id
 
-    WHERE r.id = ?
+WHERE r.id = ?
 
-    LIMIT 1
+LIMIT 1
 
 ");
 
@@ -299,20 +297,28 @@ $slots = [];
 if (!empty($selectedDate)) {
 
     $stmt = $pdo->prepare("
-        SELECT
-            MIN(id) AS id,
-            slot_date,
-            slot_time
-        FROM consultation_slots
-        WHERE slot_date = ?
-          AND is_booked = 0
-        GROUP BY slot_date, slot_time
-        ORDER BY slot_time
-    ");
+    SELECT
+        id,
+        slot_date,
+        slot_time
+    FROM consultation_slots
+    WHERE slot_date = ?
+      AND agent_id = ?
+      AND is_booked = 0
+    ORDER BY slot_time
+");
 
-    $stmt->execute([$selectedDate]);
+    $stmt->execute([
+    $selectedDate,
+    $consultation['assigned_agent_id']
+]);
 
     $slots = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    echo '<pre>';
+print_r($slots);
+echo '</pre>';
+exit;
 
 }
 
@@ -764,27 +770,21 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
                 <div class="col-md-6 mb-3">
 
-                    <label class="form-label">
-                        Step 3 – Assign Agent
+                    <label class="form-label fw-bold">
+                        Step 3 – Assigned Agent
                     </label>
 
-                    <select
-                        class="form-select"
-                        name="agent_id">
+                    <div class="form-control bg-light">
 
-                        <?php foreach ($agents as $agent): ?>
+                        <strong>
+                            <?= htmlspecialchars($consultation['agent_name']) ?>
+                        </strong>
 
-                            <option
-                                value="<?= $agent['id'] ?>"
-                                <?= $agent['id'] == $consultation['agent_id'] ? 'selected' : '' ?>>
+                        <div class="small text-muted mt-1">
+                            To change the assigned agent, return to the Review Consultation page.
+                        </div>
 
-                                <?= htmlspecialchars($agent['name']) ?>
-
-                            </option>
-
-                        <?php endforeach; ?>
-
-                    </select>
+                    </div>
 
                 </div>
 
