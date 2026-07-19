@@ -10,26 +10,31 @@ require_once CONFIG_PATH . '/database.php';
 
 $stmt = $pdo->query("
     SELECT
-        requests.*,
-        customers.name AS customer_name,
-        services.title AS service_title,
-        requests.workflow_stage,
-        ps.id AS slip_id
+    requests.*,
+    customers.name AS customer_name,
+    services.title AS service_title,
+    requests.workflow_stage,
+    requests.agent_id,
+    agents.name AS agent_name,
+    ps.id AS slip_id
 
-    FROM requests
+FROM requests
 
-    JOIN customers
-        ON customers.id = requests.customer_id
+JOIN customers
+    ON customers.id = requests.customer_id
 
-    JOIN services
-        ON services.id = requests.service_id
+JOIN services
+    ON services.id = requests.service_id
 
-    LEFT JOIN payment_slips ps
-        ON ps.id = (
-            SELECT MAX(id)
-            FROM payment_slips
-            WHERE request_id = requests.id
-        )
+LEFT JOIN agents
+    ON agents.id = requests.agent_id
+
+LEFT JOIN payment_slips ps
+    ON ps.id = (
+        SELECT MAX(id)
+        FROM payment_slips
+        WHERE request_id = requests.id
+    )
 
      WHERE requests.workflow_stage <> 'Completed'
      ORDER BY requests.created_at DESC
@@ -141,15 +146,37 @@ $requests = $stmt->fetchAll();
         View
     </a>
 
-    <?php if ($request['workflow_stage'] === 'Submitted'): ?>
+    <?php if (
+    $request['workflow_stage'] === 'Submitted'
+    && empty($request['agent_id'])
+): ?>
 
-        <a
-            href="?page=approve-consultation&id=<?= $request['id'] ?>"
-            class="btn btn-success btn-sm">
-            Approve Consultation
-        </a>
+    <a
+        href="?page=admin-assign-agent&id=<?= $request['id'] ?>"
+        class="btn btn-success btn-sm">
+        Assign Agent
+    </a>
 
-    <?php endif; ?>
+<?php endif; ?>
+
+
+<?php if (
+    $request['workflow_stage'] === 'Submitted'
+    && !empty($request['agent_id'])
+): ?>
+
+    <span class="badge bg-info">
+        Waiting for Customer
+    </span>
+
+    <br>
+
+    <small class="text-muted">
+        Agent:
+        <?= htmlspecialchars($request['agent_name']) ?>
+    </small>
+
+<?php endif; ?>
 
 
     <?php if ($request['workflow_stage'] === 'Consultation Scheduled'): ?>

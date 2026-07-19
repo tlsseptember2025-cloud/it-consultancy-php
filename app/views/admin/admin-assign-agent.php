@@ -11,7 +11,7 @@ $requestId = (int)($_GET['id'] ?? 0);
 
 /*
 |--------------------------------------------------------------------------
-| Load Consultation
+| Load Request
 |--------------------------------------------------------------------------
 */
 
@@ -25,17 +25,7 @@ $stmt = $pdo->prepare("
         c.email,
         c.phone,
 
-        s.title AS service_name,
-
-        a.name AS agent_name,
-
-        cb.id AS booking_id,
-        cb.agent_id,
-
-        cs.slot_date,
-        cs.slot_time,
-        cs.consultation_method,
-        cs.meeting_link
+        s.title AS service_name
 
     FROM requests r
 
@@ -44,15 +34,6 @@ $stmt = $pdo->prepare("
 
     INNER JOIN services s
         ON s.id = r.service_id
-
-    INNER JOIN consultation_bookings cb
-        ON cb.request_id = r.id
-
-    INNER JOIN agents a
-        ON a.id = cb.agent_id
-
-    LEFT JOIN consultation_slots cs
-        ON cs.id = cb.slot_id
 
     WHERE r.id = ?
 
@@ -65,7 +46,69 @@ $stmt->execute([$requestId]);
 $consultation = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$consultation) {
-    die('Consultation not found.');
+    die('Request not found.');
+}
+
+/*
+|--------------------------------------------------------------------------
+| Check Consultation Booking
+|--------------------------------------------------------------------------
+*/
+
+$stmt = $pdo->prepare("
+
+    SELECT
+
+        cb.id AS booking_id,
+        cb.agent_id,
+
+        a.name AS agent_name,
+
+        cs.slot_date,
+        cs.slot_time,
+        cs.consultation_method,
+        cs.meeting_link
+
+    FROM consultation_bookings cb
+
+    INNER JOIN agents a
+        ON a.id = cb.agent_id
+
+    LEFT JOIN consultation_slots cs
+        ON cs.id = cb.slot_id
+
+    WHERE cb.request_id = ?
+
+    LIMIT 1
+
+");
+
+$stmt->execute([$requestId]);
+
+$booking = $stmt->fetch(PDO::FETCH_ASSOC);
+
+$isReassignment = $booking ? true : false;
+
+if ($isReassignment) {
+
+    $consultation = array_merge($consultation, $booking);
+
+}
+
+/*
+|--------------------------------------------------------------------------
+| Prevent Duplicate Initial Assignment
+|--------------------------------------------------------------------------
+*/
+
+if (
+    !$isReassignment &&
+    !empty($consultation['agent_id'])
+) {
+
+    header('Location: ?page=requests&success=agent-already-assigned');
+    exit;
+
 }
 
 /*
@@ -209,6 +252,35 @@ $stmt->execute([
 
 }
 
+/*
+|--------------------------------------------------------------------------
+| Handle Initial Agent Assignment
+|--------------------------------------------------------------------------
+*/
+
+if (isset($_POST['assign_agent'])) {
+
+    $agentId = (int)($_POST['agent_id'] ?? 0);
+
+    if ($agentId <= 0) {
+        die('Please select an agent.');
+    }
+
+    $stmt = $pdo->prepare("
+        UPDATE requests
+        SET agent_id = ?
+        WHERE id = ?
+    ");
+
+    $stmt->execute([
+        $agentId,
+        $consultation['id']
+    ]);
+
+    header('Location: ?page=requests&success=agent-assigned');
+    exit;
+}
+
 require VIEW_PATH . '/layouts/header-admin.php';
 
 ?>
@@ -219,11 +291,13 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
         <div class="col-md-8">
 
-            <h2>
+            <div class="card-header bg-primary text-white">
 
-                Reassign Consultation Agent
+                <?= $isReassignment
+                    ? 'Reassign Consultation Agent'
+                    : 'Assign Consultation Agent'; ?>
 
-            </h2>
+            </div>
 
             <p class="text-muted">
 
@@ -326,7 +400,7 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
 
 
-
+<?php if ($isReassignment): ?>
 
 <!-- Current Appointment -->
 
@@ -521,6 +595,10 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
 </div>
 
+<?php endif; ?>
+
+<?php if ($isReassignment): ?>
+
 <div class="alert alert-info shadow-sm mb-4">
 
     <h6 class="mb-2">
@@ -545,6 +623,8 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
 </div>
 
+<?php endif; ?>
+
 <form method="POST">
 
     <div class="card shadow-sm mb-4">
@@ -561,7 +641,9 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
                 <label class="form-label">
 
-                    Select New Agent
+                    <?= $isReassignment
+                        ? 'Select New Agent'
+                        : 'Select Agent'; ?>
 
                 </label>
 
@@ -594,43 +676,48 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
             </div>
 
-            <div class="mb-4">
+            <?php if ($isReassignment): ?>
 
-                <label class="form-label">
+                <div class="mb-4">
 
-                    Reason for Reassignment
+                    <label class="form-label">
 
-                </label>
+                        Reason for Reassignment
 
-                <textarea
-                    class="form-control"
-                    name="reason"
-                    rows="4"
-                    placeholder="Enter the reason for assigning another agent..."
-                    required></textarea>
+                    </label>
 
-            </div>
+                    <textarea
+                        class="form-control"
+                        name="reason"
+                        rows="4"
+                        placeholder="Enter the reason for assigning another agent..."
+                        required></textarea>
 
-            <div class="text-end">
+                </div>
 
-                <a
-                    href="?page=needs-admin-review"
-                    class="btn btn-secondary">
+            <?php endif; ?>
+
+            <?php if ($isReassignment): ?>
+
+                <a href="?page=needs-admin-review"
+                class="btn btn-secondary">
 
                     Cancel
 
                 </a>
 
-                <button
-                    type="submit"
-                    name="reassign_agent"
-                    class="btn btn-primary">
+            <?php endif; ?>
 
-                    Reassign Agent
+            <button
+                type="submit"
+                name="<?= $isReassignment ? 'reassign_agent' : 'assign_agent'; ?>"
+                class="btn btn-primary">
 
-                </button>
+                <?= $isReassignment
+                    ? 'Reassign Agent'
+                    : 'Assign Agent'; ?>
 
-            </div>
+            </button>
 
         </div>
 
