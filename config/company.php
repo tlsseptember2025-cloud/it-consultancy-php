@@ -18,9 +18,25 @@ define('COMPANY_CITY', 'Dubai');
 
 define('COMPANY_COUNTRY', 'United Arab Emirates');
 
-define('COMPANY_PHONE', '+971 XX XXX XXXX');
+define('COMPANY_PHONE', '+971 50 122 8293');
 
-define('COMPANY_EMAIL', 'support@wahbibconsultancy.com');
+/*
+|--------------------------------------------------------------------------
+| Company Email Addresses
+|--------------------------------------------------------------------------
+*/
+
+define('COMPANY_EMAIL', 'info@wahbibconsultancy.com');
+
+define('ADMIN_EMAIL', 'admin@wahbibconsultancy.com');
+
+define('SALES_EMAIL', 'sales@wahbibconsultancy.com');
+
+define('SUPPORT_EMAIL', 'support@wahbibconsultancy.com');
+
+define('BILLING_EMAIL', 'billing@wahbibconsultancy.com');
+
+define('NOREPLY_EMAIL', 'noreply@wahbibconsultancy.com');
 
 define('COMPANY_WEBSITE', 'https://wahbibconsultancy.com');
 
@@ -74,10 +90,10 @@ define('BANK_SWIFT', 'BOMLAEAD');
 |--------------------------------------------------------------------------
 |
 | Hour Links:
-| Used for appointments at 5:00, 6:00, 7:00, etc.
+| Used for appointments at :00
 |
 | Half-Hour Links:
-| Used for appointments at 5:30, 6:30, 7:30, etc.
+| Used for appointments at :30
 |
 */
 
@@ -95,6 +111,4 @@ define('ZOOM_HALF_HOUR_LINK', 'https://us05web.zoom.us/j/88580409983?pwd=fJZKnMg
 |--------------------------------------------------------------------------
 */
 
-define('SUPPORT_EMAIL', 'support@wahbibconsultancy.com');
-
-define('SUPPORT_PHONE', '+971 XX XXX XXXX');
+define('SUPPORT_PHONE', '+971 50 122 8293');
