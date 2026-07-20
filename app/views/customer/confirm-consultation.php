@@ -14,6 +14,18 @@ $slotId = $_GET['slot_id'] ?? 0;
 verifyCustomerRequest($pdo, $requestId);
 
 $stmt = $pdo->prepare("
+    SELECT agent_id
+    FROM requests
+    WHERE id = ?
+");
+
+$stmt->execute([$requestId]);
+
+$request = $stmt->fetch(PDO::FETCH_ASSOC);
+
+$assignedAgentId = $request['agent_id'];
+
+$stmt = $pdo->prepare("
     SELECT
         agent_id
     FROM consultation_slots
@@ -24,7 +36,17 @@ $stmt->execute([$slotId]);
 
 $selectedSlot = $stmt->fetch(PDO::FETCH_ASSOC);
 
+if (!$selectedSlot || $selectedSlot['agent_id'] != $assignedAgentId) {
+
+    die('Invalid consultation slot.');
+
+}
+
 $agentId = $selectedSlot['agent_id'];
+
+$stmt->execute([$slotId]);
+
+$selectedSlot = $stmt->fetch(PDO::FETCH_ASSOC);
 
 $stmt = $pdo->prepare("
     SELECT *

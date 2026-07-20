@@ -9,9 +9,6 @@ $requestId = (int)($_GET['request_id'] ?? 0);
 
 $customerId = $_SESSION['customer']['id'];
 
-echo 'Request ID: ' . $requestId . '<br>';
-echo 'Customer ID: ' . $customerId . '<br>';
-exit;
 
 $stmt = $pdo->prepare("
     SELECT
@@ -22,6 +19,7 @@ $stmt = $pdo->prepare("
       AND customer_id = ?
 ");
 
+
 $stmt->execute([
     $requestId,
     $customerId
@@ -29,7 +27,6 @@ $stmt->execute([
 
 $request = $stmt->fetch(PDO::FETCH_ASSOC);
 
-$request = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$request) {
 
@@ -40,12 +37,6 @@ if (!$request) {
 }
 
 $assignedAgentId = $request['agent_id'];
-
-echo 'Assigned Agent ID: ' . $assignedAgentId;
-exit;
-
-$assignedAgentId = $request['agent_id'];
-
 $selectedDate = $_GET['date'] ?? '';
 
 /*
@@ -54,13 +45,18 @@ $selectedDate = $_GET['date'] ?? '';
 |--------------------------------------------------------------------------
 */
 
-$stmt = $pdo->query("
+$stmt = $pdo->prepare("
     SELECT DISTINCT slot_date
     FROM consultation_slots
-    WHERE is_booked = 0
+    WHERE agent_id = ?
+      AND is_booked = 0
       AND TIMESTAMP(slot_date, slot_time) >= DATE_ADD(NOW(), INTERVAL 48 HOUR)
     ORDER BY slot_date
 ");
+
+$stmt->execute([
+    $assignedAgentId
+]);
 
 $availableDates = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -75,20 +71,24 @@ $slots = [];
 if (!empty($selectedDate)) {
 
     $stmt = $pdo->prepare("
-        SELECT
-            MIN(id) AS id,
-            slot_date,
-            slot_time
-        FROM consultation_slots
-        WHERE slot_date = ?
-          AND is_booked = 0
-        GROUP BY slot_date, slot_time
-        ORDER BY slot_time
-    ");
+    SELECT
+        id,
+        slot_date,
+        slot_time
+    FROM consultation_slots
+    WHERE agent_id = ?
+      AND slot_date = ?
+      AND is_booked = 0
+    ORDER BY slot_time
+");
 
-    $stmt->execute([$selectedDate]);
+$stmt->execute([
+    $assignedAgentId,
+    $selectedDate
+]);
 
-    $slots = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$slots = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
 }
 
 require dirname(__DIR__) . '/layouts/header-customer.php';

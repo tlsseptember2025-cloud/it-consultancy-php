@@ -174,7 +174,10 @@ $requests = $stmt->fetchAll();
                         <td>
 
 
-    <?php if ($request['workflow_stage'] === 'Consultation Approved'): ?>
+    <?php if (
+            $request['workflow_stage'] === 'Submitted'
+            && !empty($request['agent_id'])
+        ): ?>
 
         <a
             href="?page=schedule-consultation&request_id=<?= $request['id'] ?>"
