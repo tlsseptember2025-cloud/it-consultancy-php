@@ -15,20 +15,28 @@ require CONFIG_PATH . '/database.php';
 
 $customerId = $_SESSION['customer']['id'];
 
+$requestId = (int)($_GET['request_id'] ?? 0);
+
 $stmt = $pdo->prepare("
     SELECT
         requests.id,
-        services.title
+        services.title,
+        requests.quoted_price,
+        requests.workflow_stage
     FROM requests
     JOIN services
         ON services.id = requests.service_id
     WHERE requests.customer_id = ?
-    ORDER BY requests.id DESC
+    AND requests.id = ?
+    LIMIT 1
 ");
 
-$stmt->execute([$customerId]);
+$stmt->execute([
+    $customerId,
+    $requestId
+]);
 
-$requests = $stmt->fetchAll();
+$requests = $stmt->fetch();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
@@ -65,10 +73,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         )
     );
 
+    $fileSize = $_FILES['slip']['size'];
+    $maxFileSize = 5 * 1024 * 1024; // 5 MB
+
     if (!in_array($fileExtension, $allowedExtensions)) {
 
         $error =
             'Only JPG, JPEG, PNG and PDF files are allowed.';
+
+    } else {
+        
+        if ($fileSize > $maxFileSize) {
+
+        $error =
+            'The payment receipt must not exceed 5 MB.';
 
     } else {
 
@@ -111,6 +129,7 @@ $update->execute([$requestId]);
         $success =
             'Deposit slip uploaded successfully.';
     }
+    }
 }
 
         
@@ -123,7 +142,7 @@ $update->execute([$requestId]);
     <div class="card-body">
 
         <h2 class="mb-4">
-            Upload Deposit Slip
+            Upload Payment Receipt
         </h2>
 
         <?php if (!empty($error)): ?>
@@ -151,31 +170,41 @@ $update->execute([$requestId]);
             <div class="mb-3">
 
                 <label class="form-label">
-                    Select Request
+                    Service
                 </label>
 
-                <select
-                    name="request_id"
-                    class="form-select">
+                <input
+    type="text"
+    class="form-control"
+    value="<?= htmlspecialchars($requests['title']) ?>"
+    readonly>
 
-                    <?php foreach ($requests as $request): ?>
 
-                        <option value="<?= $request['id'] ?>">
+    <div class="mb-3">
 
-                            <?= htmlspecialchars($request['title']) ?>
+    <label class="form-label">
+        Amount Due
+    </label>
 
-                        </option>
+    <input
+        type="text"
+        class="form-control"
+        value="AED <?= number_format($requests['quoted_price'], 2) ?>"
+        readonly>
 
-                    <?php endforeach; ?>
+</div>
 
-                </select>
+<input
+    type="hidden"
+    name="request_id"
+    value="<?= $requests['id'] ?>">
 
             </div>
 
             <div class="mb-3">
 
                 <label class="form-label">
-                    Deposit Slip
+                    Payment Receipt
                 </label>
 
                 <input
@@ -190,7 +219,7 @@ $update->execute([$requestId]);
                 type="submit"
                 class="btn btn-primary">
 
-                Upload Slip
+                Submit Payment
 
             </button>
 

@@ -59,12 +59,43 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
 
         <hr>
 
-        <img
-            src="uploads/slips/<?= htmlspecialchars($slip['file_name']) ?>"
-            class="img-fluid border"
-            style="max-width: 100%;">
+        <?php
+
+        $fileExtension = strtolower(
+            pathinfo($slip['file_name'], PATHINFO_EXTENSION)
+        );
+
+        ?>
+
+       <?php if ($fileExtension === 'pdf'): ?>
+
+    <iframe
+        src="uploads/slips/<?= htmlspecialchars($slip['file_name']) ?>"
+        width="100%"
+        height="600"
+        class="border">
+
+    </iframe>
+
+<?php else: ?>
+
+    <img
+        src="uploads/slips/<?= htmlspecialchars($slip['file_name']) ?>"
+        class="img-fluid border"
+        style="max-width: 100%;">
+
+<?php endif; ?>
 
        <hr>
+
+            <a
+                href="uploads/slips/<?= htmlspecialchars($slip['file_name']) ?>"
+                target="_blank"
+                class="btn btn-primary me-2">
+
+                Download Receipt
+
+            </a>
 
             <a
                 href="?page=approve-slip&id=<?= $slip['id'] ?>"

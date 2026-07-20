@@ -21,21 +21,22 @@ $services = $pdo->query("
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $stmt = $pdo->prepare("
-        INSERT INTO requests
-        (
-            customer_id,
-            service_id,
-            description,
-            status
-        )
-        VALUES (?, ?, ?, 'Pending')
-    ");
+    INSERT INTO requests
+    (
+        customer_id,
+        service_id,
+        description,
+        status,
+        workflow_stage
+    )
+    VALUES (?, ?, ?, 'Pending', 'Submitted')
+");
 
-    $stmt->execute([
-        $_SESSION['customer']['id'],
-        $_POST['service_id'],
-        $_POST['description']
-    ]);
+$stmt->execute([
+    $_SESSION['customer']['id'],
+    $_POST['service_id'],
+    $_POST['description']
+]);
 
     $success =
         'Service request submitted successfully.';

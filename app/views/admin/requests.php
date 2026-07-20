@@ -36,7 +36,7 @@ LEFT JOIN payment_slips ps
         WHERE request_id = requests.id
     )
 
-     WHERE requests.workflow_stage <> 'Completed'
+     WHERE COALESCE(requests.workflow_stage, '') <> 'Completed'
      ORDER BY requests.created_at DESC
 ");
 

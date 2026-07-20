@@ -76,34 +76,199 @@ $stmt = $pdo->query("
 
 $slots = $stmt->fetchAll();
 
+$availableDates = [];
+
+foreach ($slots as $slot) {
+
+    if ($slot['id'] == $request['slot_id']) {
+        continue;
+    }
+
+    if (!isset($availableDates[$slot['slot_date']])) {
+
+        $availableDates[$slot['slot_date']] = true;
+
+    }
+}
+
+$selectedDate = $_GET['date'] ?? null;
+
+if (!$selectedDate && !empty($availableDates)) {
+
+    $selectedDate = array_key_first($availableDates);
+
+}
+
+#$selectedDate = $_GET['date'] ?? array_key_first($availableDates);
+
 require dirname(__DIR__) . '/layouts/header-customer.php';
 
 ?>
 
-<h2 class="mb-4">Reschedule Consultation</h2>
+<div class="d-flex justify-content-between align-items-center mb-4">
 
-<table class="table table-bordered">
+    <div>
 
-    <thead>
-        <tr>
-            <th>Date</th>
-            <th>Time</th>
-            <th>Action</th>
-        </tr>
-    </thead>
+        <h2 class="mb-1">
 
-    <tbody>
+            Reschedule Consultation
 
-    <?php
+        </h2>
+
+        <p class="text-muted mb-0">
+
+            Choose a new consultation appointment.
+
+        </p>
+
+    </div>
+
+    <a
+        href="?page=customer-requests"
+        class="btn btn-outline-secondary">
+
+        ← Back
+
+    </a>
+
+</div>
+
+<div class="card shadow-sm mb-4">
+
+    <div class="card-header">
+
+        <strong>Current Consultation</strong>
+
+    </div>
+
+    <div class="card-body">
+
+        <div class="row">
+
+            <div class="col-md-6">
+
+                <p>
+
+                    <strong>Date</strong><br>
+
+                    <?= date('M d, Y', strtotime($request['slot_date'])) ?>
+
+                </p>
+
+            </div>
+
+            <div class="col-md-6">
+
+                <p>
+
+                    <strong>Time</strong><br>
+
+                    <?= date('h:i A', strtotime($request['slot_time'])) ?>
+
+                </p>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<div class="card shadow-sm mb-4">
+
+    <div class="card-header">
+
+        <strong>Reason for Rescheduling</strong>
+
+    </div>
+
+    <div class="card-body">
+
+        <div class="alert alert-info mb-3">
+
+            Please tell us why you would like to reschedule your consultation.
+
+        </div>
+
+        <textarea
+            id="rescheduleReason"
+            class="form-control"
+            rows="4"
+            maxlength="500"
+            placeholder="Enter your reason (optional)..."></textarea>
+
+        <small class="text-muted">
+
+            Maximum 500 characters.
+
+        </small>
+
+    </div>
+
+</div>
+
+<div class="card shadow-sm mb-4">
+
+    <div class="card-header">
+
+        <strong>
+
+            Step 1 - Choose a Date
+
+        </strong>
+
+    </div>
+
+    <div class="card-body">
+
+        <div class="row">
+
+            <?php foreach ($availableDates as $date => $dummy): ?>
+
+                <div class="col-md-3 mb-3">
+
+                    <a
+    href="?page=reschedule-consultation&request_id=<?= $requestId ?>&date=<?= $date ?>"
+    class="btn <?= $selectedDate == $date ? 'btn-primary' : 'btn-outline-primary' ?> w-100">
+
+    <?= date('M d, Y', strtotime($date)) ?>
+
+</a>
+
+                </div>
+
+            <?php endforeach; ?>
+
+        </div>
+
+    </div>
+
+</div>
+
+<div class="card shadow-sm">
+
+    <div class="card-header">
+
+        <strong>Step 2 - Choose a Time</strong>
+
+    </div>
+
+    <div class="card-body">
+
+        <?php
 
 $displayedSlots = [];
 
 foreach ($slots as $slot):
 
-    // Don't show the customer's current booking
-if ($slot['id'] == $request['slot_id']) {
-    continue;
-}
+    if ($slot['slot_date'] != $selectedDate) {
+        continue;
+    }
+
+    if ($slot['id'] == $request['slot_id']) {
+        continue;
+    }
 
     $key = $slot['slot_date'] . '_' . $slot['slot_time'];
 
@@ -115,30 +280,63 @@ if ($slot['id'] == $request['slot_id']) {
 
 ?>
 
-        <tr>
+<div class="border rounded p-3 mb-3">
 
-            <td><?= date('M d, Y', strtotime($slot['slot_date'])) ?></td>
+    <div class="row align-items-center">
 
-            <td><?= date('h:i A', strtotime($slot['slot_time'])) ?></td>
+        <div class="col-md-9">
 
-            <td>
+    <h5 class="mb-0">
 
-                <a
-                    href="?page=confirm-reschedule-consultation&request_id=<?= $requestId ?>&slot_id=<?= $slot['id'] ?>"
-                    class="btn btn-success btn-sm">
+        <?= date('h:i A', strtotime($slot['slot_time'])) ?>
 
-                    Select
+    </h5>
 
-                </a>
+</div>
 
-            </td>
+        <div class="col-md-3 text-end">
 
-        </tr>
+    <button
+        type="button"
+        class="btn btn-success select-slot"
+        data-slot="<?= $slot['id'] ?>">
 
-    <?php endforeach; ?>
+        Select Slot
 
-    </tbody>
+    </button>
 
-</table>
+</div>
+
+    </div>
+
+</div>
+
+<?php endforeach; ?>
+
+    </div>
+
+</div>
+
+<script>
+
+document.querySelectorAll('.select-slot').forEach(button => {
+
+    button.addEventListener('click', function () {
+
+        const reason = document.getElementById('rescheduleReason').value;
+
+        const slotId = this.dataset.slot;
+
+        window.location =
+            '?page=confirm-reschedule-consultation'
+            + '&request_id=<?= $requestId ?>'
+            + '&slot_id=' + slotId
+            + '&reason=' + encodeURIComponent(reason);
+
+    });
+
+});
+
+</script>
 
 <?php require dirname(__DIR__) . '/layouts/footer.php'; ?>

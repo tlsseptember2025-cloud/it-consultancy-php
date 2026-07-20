@@ -171,13 +171,12 @@ $requests = $stmt->fetchAll();
                             <?= date('M d, Y', strtotime($request['created_at'])) ?>
                         </td>
 
-                        <td>
+    <td>
 
 
-    <?php if (
-            $request['workflow_stage'] === 'Submitted'
-            && !empty($request['agent_id'])
-        ): ?>
+    <?php if ($request['workflow_stage'] === 'Submitted'): ?>
+
+    <?php if (!empty($request['agent_id'])): ?>
 
         <a
             href="?page=schedule-consultation&request_id=<?= $request['id'] ?>"
@@ -186,6 +185,16 @@ $requests = $stmt->fetchAll();
             Schedule Consultation
 
         </a>
+
+    <?php else: ?>
+
+        <span class="badge bg-secondary">
+
+            Waiting for Agent Assignment
+
+        </span>
+
+    <?php endif; ?>
 
    <?php elseif ($request['workflow_stage'] === 'Consultation Scheduled'): ?>
 
@@ -220,8 +229,8 @@ $requests = $stmt->fetchAll();
     $minute = date('i', strtotime($request['slot_time']));
 
     $meetingLink = ($minute === '00')
-        ? ZOOM_LINK_HOUR
-        : ZOOM_LINK_HALF;
+        ? ZOOM_HOUR_LINK
+        : ZOOM_HALF_HOUR_LINK;
 
     ?>
 
@@ -258,29 +267,32 @@ $requests = $stmt->fetchAll();
 
 <?php endif; ?>
 
-    <?php if ($request['workflow_stage'] === 'Proposal Sent'): ?>
+    <?php if (
+    $request['workflow_stage'] === 'Proposal Sent' ||
+    $request['workflow_stage'] === 'Proposal Viewed'
+): ?>
 
-        <a
-            href="?page=view-proposal&request_id=<?= $request['id'] ?>"
-            class="btn btn-primary btn-sm">
+    <a
+        href="?page=view-proposal&request_id=<?= $request['id'] ?>"
+        class="btn btn-primary btn-sm">
 
-            View Proposal
+        View Proposal
 
-        </a>
+    </a>
 
-    <?php endif; ?>
+<?php endif; ?>
 
-    <?php if ($request['workflow_stage'] === 'Proposal Accepted'): ?>
+    <?php if ($request['workflow_stage'] === 'Awaiting Payment'): ?>
 
     <a
         href="?page=customer-upload-slip&request_id=<?= $request['id'] ?>"
         class="btn btn-warning btn-sm">
 
-        Upload Deposit Slip
+        Upload Payment Receipt
 
     </a>
 
-    <?php endif; ?>
+<?php endif; ?>
 
     <?php if ($request['workflow_stage'] === 'Payment Submitted'): ?>
 

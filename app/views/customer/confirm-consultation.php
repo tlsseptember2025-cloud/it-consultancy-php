@@ -178,8 +178,8 @@ $body = "
 $minute = date('i', strtotime($slot['slot_time']));
 
 $meetingLink = ($minute === '00')
-    ? ZOOM_LINK_HOUR
-    : ZOOM_LINK_HALF;
+    ? ZOOM_HOUR_LINK
+    : ZOOM_HALF_HOUR_LINK;
 
 $body .= "
     <p>
