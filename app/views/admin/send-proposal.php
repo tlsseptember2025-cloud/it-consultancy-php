@@ -153,8 +153,7 @@ createNotification(
 $update = $pdo->prepare("
     UPDATE requests
     SET
-        workflow_stage = 'Proposal Sent',
-        proposal_sent = 1
+        workflow_stage = 'Proposal Sent'
     WHERE id = ?
 ");
 

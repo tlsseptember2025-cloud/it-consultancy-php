@@ -12,7 +12,8 @@ $requestId = (int)($_GET['request_id'] ?? $_GET['id'] ?? 0);
 $stmt = $pdo->prepare("
     SELECT
         proposal,
-        quoted_price
+        quoted_price,
+        workflow_stage
     FROM requests
     WHERE id = ?
 ");
@@ -21,8 +22,37 @@ $stmt->execute([$requestId]);
 
 $proposal = $stmt->fetch();
 
+if (
+    $proposal &&
+    $proposal['workflow_stage'] === 'Proposal Sent'
+) {
+
+    $update = $pdo->prepare("
+        UPDATE requests
+        SET workflow_stage = 'Proposal Viewed'
+        WHERE id = ?
+    ");
+
+    $update->execute([$requestId]);
+
+    // Keep the page in sync without refreshing
+    $proposal['workflow_stage'] = 'Proposal Viewed';
+}
+
 require dirname(__DIR__) . '/layouts/header-customer.php';
 ?>
+
+<p class="mb-3">
+
+    <strong>Status:</strong>
+
+    <span class="badge bg-primary">
+
+        <?= htmlspecialchars($proposal['workflow_stage']) ?>
+
+    </span>
+
+</p>
 
 <div class="card shadow-sm">
 
@@ -44,21 +74,28 @@ require dirname(__DIR__) . '/layouts/header-customer.php';
 
         <pre><?= nl2br(htmlspecialchars($proposal['proposal'])) ?></pre>
 
-        <a
-            href="?page=accept-proposal-confirm&request_id=<?= $requestId ?>"
-            class="btn btn-success">
+        <?php if (
+    $proposal['workflow_stage'] === 'Proposal Viewed' ||
+    $proposal['workflow_stage'] === 'Proposal Sent'
+): ?>
 
-            Accept Proposal
+    <a
+        href="?page=accept-proposal-confirm&request_id=<?= $requestId ?>"
+        class="btn btn-success">
 
-        </a>
+        Accept Proposal
 
-        <a
-            href="?page=reject-proposal&request_id=<?= $requestId ?>"
-            class="btn btn-danger">
+    </a>
 
-            Reject Proposal
+    <a
+        href="?page=reject-proposal&request_id=<?= $requestId ?>"
+        class="btn btn-danger">
 
-        </a>
+        Reject Proposal
+
+    </a>
+
+<?php endif; ?>
 
     </div>
 

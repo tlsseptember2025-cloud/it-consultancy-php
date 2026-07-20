@@ -8,6 +8,7 @@ if (!isset($_SESSION['customer'])) {
 
 require_once HELPER_PATH . '/payment_request.php';
 require_once HELPER_PATH . '/email.php';
+require_once HELPER_PATH . '/notifications.php';
 
 $requestId = $_GET['request_id'] ?? 0;
 
@@ -80,6 +81,23 @@ generatePaymentRequestPdf(
         $request['service_title'],
         $paymentRequestPath
     );
+
+    createNotification(
+    $pdo,
+    'admin',
+    null,
+    '✅ Proposal Accepted',
+    $request['customer_name'] . ' has accepted the proposal.',
+    '?page=view-request&id=' . $requestId
+);
+
+$stmt = $pdo->prepare("
+    UPDATE requests
+    SET workflow_stage = 'Awaiting Payment'
+    WHERE id = ?
+");
+
+$stmt->execute([$requestId]);
 
     header('Location: ?page=customer-requests');
     exit;
