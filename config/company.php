@@ -81,17 +81,13 @@ define('BANK_SWIFT', 'BOMLAEAD');
 |
 */
 
-define('GOOGLE_MEET_HOUR_LINK', '1111');
+define('GOOGLE_MEET_HOUR_LINK', 'https://meet.google.com/dwt-cdoz-zhx');
 
-define('GOOGLE_MEET_HALF_HOUR_LINK', '2222');
+define('GOOGLE_MEET_HALF_HOUR_LINK', 'https://meet.google.com/kvk-pagd-zdz');
 
-define('TEAMS_HOUR_LINK', '3333');
+define('ZOOM_HOUR_LINK', 'https://us05web.zoom.us/j/89973469959?pwd=0YhZQ6mG3NUeCutnriiS90orDqxdQC.1');
 
-define('TEAMS_HALF_HOUR_LINK', '4444');
-
-define('ZOOM_HOUR_LINK', '5555');
-
-define('ZOOM_HALF_HOUR_LINK', '6666');
+define('ZOOM_HALF_HOUR_LINK', 'https://us05web.zoom.us/j/88580409983?pwd=fJZKnMgKCZwN7eZJs5n0Zy5i6L6vnb.1');
 
 /*
 |--------------------------------------------------------------------------

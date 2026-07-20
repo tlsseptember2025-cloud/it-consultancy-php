@@ -20,12 +20,6 @@ function getMeetingLink(string $method, string $slotTime): string
                 ? GOOGLE_MEET_HALF_HOUR_LINK
                 : GOOGLE_MEET_HOUR_LINK;
 
-        case 'Microsoft Teams':
-
-            return $isHalfHour
-                ? TEAMS_HALF_HOUR_LINK
-                : TEAMS_HOUR_LINK;
-
         case 'Zoom':
 
             return $isHalfHour

@@ -802,8 +802,6 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
                         <option value="Google Meet">Google Meet</option>
 
-                        <option value="Microsoft Teams">Microsoft Teams</option>
-
                         <option value="Zoom">Zoom</option>
 
                     </select>
