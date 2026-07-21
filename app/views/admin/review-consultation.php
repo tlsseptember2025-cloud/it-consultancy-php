@@ -93,9 +93,34 @@ if (!$request) {
 
         </p>
 
-        <p class="text-muted mt-2">
-            Consultation review page under development.
-        </p>
+        <div class="mt-4 d-flex gap-2">
+
+    
+
+<?php if ($request['workflow_stage'] === 'Consultation Scheduled'): ?>
+
+    <a href="?page=approve-consultation&id=<?= $requestId ?>"
+       class="btn btn-success">
+        Approve Consultation
+    </a>
+
+    <a href="?page=reject-consultation&id=<?= $requestId ?>"
+       class="btn btn-danger">
+        Reject Consultation
+    </a>
+
+<?php endif; ?>
+
+    <a href="?page=requests"
+       class="btn btn-secondary">
+        Back
+    </a>
+
+</div>
+
+    
+
+</div>
 
     </div>
 
