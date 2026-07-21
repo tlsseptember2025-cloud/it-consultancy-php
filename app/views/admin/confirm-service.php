@@ -143,7 +143,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-require dirname(__DIR__) . '/layouts/header-admin.php';
+require dirname(__DIR__) . '/layouts/header-customer.php';
 ?>
 
 <div class="card shadow-sm">
@@ -199,7 +199,7 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
             </button>
 
             <a
-                href="?page=schedule-consultation&request_id=<?= $requestId ?>"
+                href="?page=schedule-service&request_id=<?= $requestId ?>"
                 class="btn btn-secondary">
 
                 Cancel

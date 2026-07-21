@@ -1,8 +1,8 @@
 <?php
 
-if (!isset($_SESSION['user'])) {
+if (!isset($_SESSION['customer'])) {
 
-    header('Location: ?page=login');
+    header('Location: ?page=public-login');
     exit;
 }
 
