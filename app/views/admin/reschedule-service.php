@@ -42,7 +42,7 @@ if (!empty($selectedDate)) {
     $slots = $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-require dirname(__DIR__) . '/layouts/header-admin.php';
+require dirname(__DIR__) . '/layouts/header-customer.php';
 
 ?>
 
