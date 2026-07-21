@@ -8,6 +8,7 @@ if (!isset($_SESSION['customer'])) {
 
 require_once HELPER_PATH . '/email.php';
 require_once HELPER_PATH . '/security.php';
+require_once HELPER_PATH . '/meeting.php';
 
 $requestId = $_GET['request_id'] ?? 0;
 $slotId = $_GET['slot_id'] ?? 0;
@@ -192,34 +193,18 @@ $body = "
     </p>
 
     <p>
-        <strong>Method:</strong> Online Consultation (Zoom)
-    </p>
-";
-
-$minute = date('i', strtotime($slot['slot_time']));
-
-$meetingLink = ($minute === '00')
-    ? ZOOM_HOUR_LINK
-    : ZOOM_HALF_HOUR_LINK;
-
-$body .= "
-    <p>
-        <strong>Zoom Meeting:</strong><br>
-
-        <a href='{$meetingLink}'>
-            Join Consultation
-        </a>
+        <strong>Method:</strong> {$consultationMethod}
     </p>
 ";
 
 $body .= "
-    <p>
-        Please be available at the scheduled time.
-    </p>
+<p>
+    We will notify you once your consultation has been confirmed by our team.
+</p>
 
-    <p>
-        IT Consultancy Team
-    </p>
+<p>
+    IT Consultancy Team
+</p>
 ";
 
 sendEmail(

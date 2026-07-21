@@ -8,6 +8,7 @@ if (!isset($_SESSION['user'])) {
 
 require_once HELPER_PATH . '/email.php';
 require_once HELPER_PATH . '/notifications.php';
+require_once HELPER_PATH . '/meeting.php';
 
 $id = $_GET['id'] ?? 0;
 
@@ -64,6 +65,17 @@ $request = $stmt->fetch();
 
 /*
 |--------------------------------------------------------------------------
+| Generate Meeting Link
+|--------------------------------------------------------------------------
+*/
+
+$meetingLink = getMeetingLink(
+    $request['consultation_method'],
+    $request['slot_time']
+);
+
+/*
+|--------------------------------------------------------------------------
 | Send Email
 |--------------------------------------------------------------------------
 */
@@ -79,23 +91,46 @@ sendEmail(
     </p>
 
     <p>
-        <strong>Service:</strong>
+        <strong>Service:</strong><br>
         {$request['service_title']}
     </p>
 
     <p>
-        <strong>Date:</strong>
-        {$request['slot_date']}<br>
+        <strong>Date:</strong><br>
+        {$request['slot_date']}
+    </p>
 
-        <strong>Time:</strong>
-        {$request['slot_time']}<br>
+    <p>
+        <strong>Time:</strong><br>
+        {$request['slot_time']}
+    </p>
 
-        <strong>Method:</strong>
+    <p>
+        <strong>Method:</strong><br>
         {$request['consultation_method']}
     </p>
 
     <p>
-        Please log in to your customer portal on the scheduled date and join your consultation.
+        <strong>Join {$request['consultation_method']}:</strong><br>
+
+        <a
+            href='{$meetingLink}'
+            style='
+                background:#198754;
+                color:white;
+                padding:10px 20px;
+                text-decoration:none;
+                border-radius:5px;
+                display:inline-block;
+            '>
+
+            Join {$request['consultation_method']}
+
+        </a>
+    </p>
+
+    <p>
+        You can also access your consultation from your customer portal.
     </p>
 
     <p>
