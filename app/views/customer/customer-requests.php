@@ -6,6 +6,7 @@ if (!isset($_SESSION['customer'])) {
     exit;
 }
 
+require_once HELPER_PATH . '/meeting.php';
 require dirname(__DIR__) . '/layouts/header-customer.php';
 require_once HELPER_PATH . '/auth.php';
 
@@ -226,13 +227,12 @@ $requests = $stmt->fetchAll();
 
     <?php
 
-    $minute = date('i', strtotime($request['slot_time']));
+   $meetingLink = getMeetingLink(
+    $request['consultation_method'],
+    $request['slot_time']
+);
 
-    $meetingLink = ($minute === '00')
-        ? ZOOM_HOUR_LINK
-        : ZOOM_HALF_HOUR_LINK;
-
-    ?>
+?>
 
     <span class="badge bg-danger">
 
@@ -253,7 +253,7 @@ $requests = $stmt->fetchAll();
         target="_blank"
         class="btn btn-success btn-sm ms-2">
 
-        Join Zoom Meeting
+        Join <?= htmlspecialchars($request['consultation_method']) ?>
 
     </a>
 

@@ -96,6 +96,22 @@ if (!$slot) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
+    $consultationMethod = trim($_POST['consultation_method'] ?? '');
+
+    if ($consultationMethod === '') {
+
+        $error = 'Please select a meeting method.';
+
+    } else {
+
+        $consultationMethod = trim($_POST['consultation_method'] ?? '');
+
+    if ($consultationMethod === '') {
+
+        $error = 'Please select a meeting method.';
+
+    }
+
     $checkStmt = $pdo->prepare("
         SELECT is_booked
         FROM consultation_slots
@@ -130,12 +146,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ]);
 
         $stmt = $pdo->prepare("
-            UPDATE consultation_slots
-            SET is_booked = 1
-            WHERE id = ?
-        ");
+    UPDATE consultation_slots
+    SET
+        is_booked = 1,
+        consultation_method = ?
+    WHERE id = ?
+");
 
-        $stmt->execute([$slotId]);
+$stmt->execute([
+    $consultationMethod,
+    $slotId
+]);
 
         $stmt = $pdo->prepare("
             UPDATE requests
@@ -211,6 +232,8 @@ sendEmail(
         header('Location: ?page=customer-requests');
         exit;
     }
+    
+    }
 }
 
 require dirname(__DIR__) . '/layouts/header-customer.php';
@@ -255,6 +278,59 @@ require dirname(__DIR__) . '/layouts/header-customer.php';
             ) ?>
 
         </p>
+
+
+        <p>
+
+    <strong>Meeting Method:</strong>
+
+</p>
+
+<form method="POST">
+
+    <div class="mb-3">
+
+        <div class="form-check">
+
+            <input
+                class="form-check-input"
+                type="radio"
+                name="consultation_method"
+                id="google_meet"
+                value="Google Meet"
+                checked>
+
+            <label
+                class="form-check-label"
+                for="google_meet">
+
+                Google Meet
+
+            </label>
+
+        </div>
+
+        <div class="form-check">
+
+            <input
+                class="form-check-input"
+                type="radio"
+                name="consultation_method"
+                id="zoom"
+                value="Zoom">
+
+            <label
+                class="form-check-label"
+                for="zoom">
+
+                Zoom
+
+            </label>
+
+        </div>
+
+    </div>
+
 
         <form method="POST">
 

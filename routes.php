@@ -246,6 +246,10 @@ switch ($page) {
         require VIEW_PATH . '/admin/admin-close-request.php';
         break;
 
+        case 'review-consultation':
+        require VIEW_PATH . '/admin/review-consultation.php';
+        break;
+
     /*
     |--------------------------------------------------------------------------
     | Services
