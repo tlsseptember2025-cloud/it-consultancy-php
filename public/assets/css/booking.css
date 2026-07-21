@@ -1,0 +1,99 @@
+/* ==========================================
+   Booking Cards
+========================================== */
+
+.booking-card {
+    width: 100%;
+    min-height: 150px;
+
+    padding: 25px;
+
+    border: 2px solid #0d6efd;
+    border-radius: 14px;
+
+    background: #fff;
+    color: #0d6efd;
+
+    cursor: pointer;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+
+    transition:
+    transform .25s ease,
+    box-shadow .25s ease,
+    border-color .25s ease,
+    background-color .25s ease;
+}
+
+.booking-card:hover {
+
+    transform: translateY(-6px) scale(1.02);
+
+    border-color: #0d6efd;
+
+    box-shadow:
+        0 15px 35px rgba(13,110,253,.18);
+
+}
+
+.booking-card:focus {
+    outline: none;
+}
+
+.booking-card .booking-icon {
+    font-size: 34px;
+    margin-bottom: 15px;
+    color: #0d6efd;
+}
+
+.booking-card .booking-time {
+     font-size: 2.3rem;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: .5px;
+    margin-bottom: 8px;
+    
+}
+
+.booking-card .booking-text {
+   font-size: 1rem;
+    font-weight: 500;
+    margin-top: 10px;
+    color: #6c757d;
+    letter-spacing: .3px;
+}
+
+.booking-card.selected {
+    background: #0d6efd;
+    color: #ffffff;
+}
+
+.booking-card.selected .booking-text {
+    color: rgba(255,255,255,.9);
+}
+
+.booking-card.selected {
+
+    background: #0d6efd;
+
+    border-color: #0d6efd;
+
+    color: #ffffff;
+
+    transform: scale(1.02);
+
+    box-shadow:
+        0 15px 35px rgba(13,110,253,.25);
+
+}
+
+.booking-card.selected .booking-time,
+.booking-card.selected .booking-text,
+.booking-card.selected .booking-icon {
+
+    color: #ffffff;
+
+}

@@ -145,7 +145,7 @@ require dirname(__DIR__) . '/layouts/header-customer.php';
 
         <div class="row">
 
-            <div class="col-md-6">
+            <div class="col-md-5 px-3">
 
                 <p>
 
@@ -157,7 +157,7 @@ require dirname(__DIR__) . '/layouts/header-customer.php';
 
             </div>
 
-            <div class="col-md-6">
+            <div class="col-md-5 px-3">
 
                 <p>
 
@@ -249,69 +249,82 @@ require dirname(__DIR__) . '/layouts/header-customer.php';
 <div class="card shadow-sm">
 
     <div class="card-header">
-
         <strong>Step 2 - Choose a Time</strong>
-
     </div>
 
     <div class="card-body">
 
-        <?php
+        <div class="row justify-content-center g-4 mx-auto" style="max-width:850px;">
 
-$displayedSlots = [];
+            <?php
 
-foreach ($slots as $slot):
+            $displayedSlots = [];
 
-    if ($slot['slot_date'] != $selectedDate) {
-        continue;
-    }
+            foreach ($slots as $slot):
 
-    if ($slot['id'] == $request['slot_id']) {
-        continue;
-    }
+                if ($slot['slot_date'] != $selectedDate) {
+                    continue;
+                }
 
-    $key = $slot['slot_date'] . '_' . $slot['slot_time'];
+                if ($slot['id'] == $request['slot_id']) {
+                    continue;
+                }
 
-    if (isset($displayedSlots[$key])) {
-        continue;
-    }
+                $key = $slot['slot_date'] . '_' . $slot['slot_time'];
 
-    $displayedSlots[$key] = true;
+                if (isset($displayedSlots[$key])) {
+                    continue;
+                }
 
-?>
+                $displayedSlots[$key] = true;
 
-<div class="border rounded p-3 mb-3">
+            ?>
 
-    <div class="row align-items-center">
+                <div class="col-md-6 px-4">
 
-        <div class="col-md-9">
+                    <button
+                        type="button"
+                        class="booking-card select-slot"
+                        data-slot="<?= $slot['id'] ?>">
 
-    <h5 class="mb-0">
+                        <div class="booking-icon">
+                            <i class="bi bi-clock-fill"></i>
+                        </div>
 
-        <?= date('h:i A', strtotime($slot['slot_time'])) ?>
+                        <div class="booking-time">
+                            <?= date('h:i A', strtotime($slot['slot_time'])) ?>
+                        </div>
 
-    </h5>
+                        <div class="booking-text">
+                            Available
+                        </div>
 
-</div>
+                    </button>
 
-        <div class="col-md-3 text-end">
+                </div>
 
-    <button
-        type="button"
-        class="btn btn-success select-slot"
-        data-slot="<?= $slot['id'] ?>">
+            <?php endforeach; ?>
 
-        Select Slot
+            <input
+                type="hidden"
+                id="selectedSlotId"
+                value="">
 
-    </button>
+             <div class="text-center mt-4">
 
-</div>
+                <button
+                    type="button"
+                    id="continueBooking"
+                    class="btn btn-primary btn-lg px-5"
+                    disabled>
 
-    </div>
+                    Continue →
 
-</div>
+                </button>
 
-<?php endforeach; ?>
+            </div>
+
+        </div>
 
     </div>
 
@@ -319,21 +332,57 @@ foreach ($slots as $slot):
 
 <script>
 
-document.querySelectorAll('.select-slot').forEach(button => {
+const continueButton = document.getElementById('continueBooking');
+const selectedSlot = document.getElementById('selectedSlotId');
 
-    button.addEventListener('click', function () {
+document.querySelectorAll('.select-slot').forEach(card => {
 
-        const reason = document.getElementById('rescheduleReason').value;
+    card.addEventListener('click', function () {
 
-        const slotId = this.dataset.slot;
+        document.querySelectorAll('.select-slot').forEach(item => {
 
-        window.location =
-            '?page=confirm-reschedule-consultation'
-            + '&request_id=<?= $requestId ?>'
-            + '&slot_id=' + slotId
-            + '&reason=' + encodeURIComponent(reason);
+            item.classList.remove('selected');
+
+            const text = item.querySelector('.booking-text');
+
+            if (text) {
+                text.textContent = 'Available';
+            }
+
+        });
+
+        this.classList.add('selected');
+        selectedSlot.value = this.dataset.slot;
+
+        const text = this.querySelector('.booking-text');
+
+        if (text) {
+            text.textContent = 'Selected';
+        }
+
+        // Enable the Continue button
+        continueButton.disabled = false;
 
     });
+
+});
+
+continueButton.addEventListener('click', function () {
+
+    const reason = document.getElementById('rescheduleReason').value;
+
+    const slotId = document.getElementById('selectedSlotId').value;
+
+    if (!slotId) {
+        alert('Please select a consultation time.');
+        return;
+    }
+
+    window.location =
+        '?page=confirm-reschedule-consultation'
+        + '&request_id=<?= $requestId ?>'
+        + '&slot_id=' + slotId
+        + '&reason=' + encodeURIComponent(reason);
 
 });
 
