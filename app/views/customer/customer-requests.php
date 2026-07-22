@@ -230,9 +230,9 @@ $requests = $stmt->fetchAll();
    $meetingLink = getMeetingLink(
     $request['consultation_method'],
     $request['slot_time']
-);
+    );
 
-?>
+    ?>
 
     <span class="badge bg-danger">
 
@@ -262,6 +262,31 @@ $requests = $stmt->fetchAll();
         class="btn btn-warning btn-sm ms-2">
 
         Reschedule
+
+    </a>
+
+
+<?php elseif ($request['workflow_stage'] === 'Consultation Rejected'): ?>
+
+    <span class="badge bg-danger">
+
+        Consultation Rejected
+
+    </span>
+
+    <div class="small text-danger mt-2">
+
+        <?= htmlspecialchars($request['consultation_rejection_reason']) ?>
+
+    </div>
+
+    <a
+        href="?page=reschedule-consultation&request_id=<?= $request['id'] ?>"
+        class="btn btn-warning btn-sm mt-2">
+
+        <i class="bi bi-calendar-event"></i>
+
+        Reschedule Consultation
 
     </a>
 
@@ -349,12 +374,14 @@ $requests = $stmt->fetchAll();
 <div class="mt-2">
 
     <a
-        href="?page=customer-request-refund&request_id=<?= $request['id'] ?>"
-        class="btn btn-outline-danger btn-sm">
+    href="?page=customer-request-refund&request_id=<?= $request['id'] ?>"
+    class="btn btn-outline-danger btn-sm">
 
-        Request Refund
+    Request Refund
 
-    </a>
+</a>
+
+<?php if ((int)$request['service_reschedules'] === 0): ?>
 
     <a
         href="?page=reschedule-service&request_id=<?= $request['id'] ?>"
@@ -364,12 +391,47 @@ $requests = $stmt->fetchAll();
 
     </a>
 
+<?php else: ?>
+
+    <span class="badge bg-secondary ms-2">
+        Reschedule Used
+    </span>
+
+<?php endif; ?>
+
 </div>
+
+<?php elseif (
+    $request['workflow_stage'] === 'Service Rejected'
+): ?>
+
+    <div class="alert alert-danger mb-2">
+
+        <strong>Service Rejected</strong>
+
+        <hr>
+
+        <?= nl2br(htmlspecialchars($request['service_rejection_reason'])) ?>
+
+    </div>
+
+    <a
+        href="?page=reschedule-service&request_id=<?= $request['id'] ?>"
+        class="btn btn-warning btn-sm">
+
+        Reschedule Service
+
+    </a>
 
 <?php elseif (
     $request['workflow_stage'] === 'Service Active' ||
     $request['workflow_stage'] === 'Completed'
 ): ?>
+
+    <div class="alert alert-success mb-2">
+    <strong>Service In Progress</strong><br>
+    Your service is currently being performed.
+    </div>
 
     <small>
         <?= date('M d, Y', strtotime($request['service_date'])) ?>

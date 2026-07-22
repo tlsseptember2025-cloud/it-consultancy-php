@@ -22,7 +22,9 @@ $stmt = $pdo->prepare("
         r.consultation_reschedules,
         cb.slot_id,
         cs.slot_date,
-        cs.slot_time
+        cs.slot_time,
+        cs.consultation_method,
+        cs.meeting_link
     FROM requests r
     JOIN consultation_bookings cb
         ON cb.request_id = r.id
@@ -75,34 +77,54 @@ if ($stmt->fetchColumn()) {
 // Free the old slot
 $stmt = $pdo->prepare("
     UPDATE consultation_slots
-    SET is_booked = 0
+    SET
+        is_booked = 0,
+        consultation_method = NULL,
+        meeting_link = NULL
     WHERE id = ?
 ");
 
-$stmt->execute([$current['slot_id']]);
+$stmt->execute([
+    $current['slot_id']
+]);
 
 // Book the new slot
 $stmt = $pdo->prepare("
     UPDATE consultation_slots
-    SET is_booked = 1
+    SET
+        is_booked = 1,
+        consultation_method = ?,
+        meeting_link = ?
     WHERE id = ?
 ");
 
-$stmt->execute([$newSlotId]);
+$stmt->execute([
+    $current['consultation_method'],
+    $current['meeting_link'],
+    $newSlotId
+]);
 
-// Update existing booking
+// Update the booking to point to the new slot
 $stmt = $pdo->prepare("
     UPDATE consultation_bookings
     SET slot_id = ?
     WHERE request_id = ?
 ");
 
-$stmt->execute([$newSlotId, $requestId]);
+$stmt->execute([
+    $newSlotId,
+    $requestId
+]);
 
-// Increment reschedule counter
+// Increment reschedule counter and reset consultation workflow
 $stmt = $pdo->prepare("
     UPDATE requests
-    SET consultation_reschedules = consultation_reschedules + 1
+    SET
+        consultation_reschedules = consultation_reschedules + 1,
+        workflow_stage = 'Consultation Scheduled',
+        consultation_rejection_reason = NULL,
+        consultation_rejected_at = NULL,
+        consultation_rejected_by = NULL
     WHERE id = ?
 ");
 

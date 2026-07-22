@@ -12,6 +12,35 @@ $requestId = $_GET['request_id'] ?? 0;
 
 verifyCustomerRequest($pdo, $requestId);
 
+$stmt = $pdo->prepare("
+    SELECT
+        workflow_stage,
+        service_reschedules,
+        service_rejection_reason
+    FROM requests
+    WHERE id = ?
+");
+
+$stmt->execute([$requestId]);
+
+$request = $stmt->fetch();
+
+if (!$request) {
+    die('Request not found.');
+}
+
+if ($request['workflow_stage'] !== 'Service Rejected') {
+
+    header('Location: ?page=customer-requests');
+    exit;
+}
+
+if ($request['service_reschedules'] >= 1) {
+
+    die('You have already used your service reschedule.');
+
+}
+
 $selectedDate = $_GET['date'] ?? '';
 
 $dateStmt = $pdo->query("
@@ -49,6 +78,20 @@ require dirname(__DIR__) . '/layouts/header-customer.php';
 <div class="card shadow-sm">
 
     <div class="card-body">
+
+    <div class="alert alert-danger">
+
+    <h5 class="mb-2">
+        Service Rejected
+    </h5>
+
+    <p class="mb-0">
+
+        <?= nl2br(htmlspecialchars($request['service_rejection_reason'])) ?>
+
+    </p>
+
+</div>
 
       <h2 class="mb-4">
     Reschedule Service

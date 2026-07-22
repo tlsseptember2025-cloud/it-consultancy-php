@@ -99,14 +99,17 @@ if (!$request) {
 
 <?php if ($request['workflow_stage'] === 'Consultation Scheduled'): ?>
 
-    <a href="?page=approve-consultation&id=<?= $requestId ?>"
+    <a href="?page=confirm-consultation-booking&id=<?= $request['id'] ?>"
        class="btn btn-success">
-        Approve Consultation
+        Confirm Consultation
     </a>
 
-    <a href="?page=reject-consultation&id=<?= $requestId ?>"
-       class="btn btn-danger">
+    <a
+        href="?page=reject-consultation&id=<?= $request['id'] ?>"
+        class="btn btn-danger">
+
         Reject Consultation
+
     </a>
 
 <?php endif; ?>

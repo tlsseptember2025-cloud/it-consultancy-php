@@ -179,12 +179,14 @@ $requests = $stmt->fetchAll();
 <?php endif; ?>
 
 
-    <?php if ($request['workflow_stage'] === 'Consultation Scheduled'): ?>
+    <?php if ($request['workflow_stage'] == 'Consultation Scheduled'): ?>
 
         <a
-            href="?page=confirm-consultation-admin&id=<?= $request['id'] ?>"
+            href="?page=review-consultation&id=<?= $request['id'] ?>"
             class="btn btn-primary btn-sm">
-            Confirm Consultation
+
+            Review Consultation
+
         </a>
 
     <?php endif; ?>
@@ -262,10 +264,8 @@ $requests = $stmt->fetchAll();
 
     <?php if ($request['workflow_stage'] === 'Service Scheduled'): ?>
 
-        <a
-            href="?page=approve-service-schedule&id=<?= $request['id'] ?>"
-            class="btn btn-success btn-sm">
-            Approve Service
+        <a href="?page=review-service&id=<?= $request['id'] ?>" class="btn btn-success btn-sm">
+            Review
         </a>
 
     <?php endif; ?>

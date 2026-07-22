@@ -135,11 +135,15 @@ $stmt->execute([
     $requestId
 ]);
 
-// Increment counter
+// Increment counter and reset workflow
 $stmt = $pdo->prepare("
     UPDATE requests
-    SET service_reschedules =
-        service_reschedules + 1
+    SET
+        service_reschedules = service_reschedules + 1,
+        workflow_stage = 'Service Scheduled',
+        service_rejection_reason = NULL,
+        service_rejected_at = NULL,
+        service_rejected_by = NULL
     WHERE id = ?
 ");
 

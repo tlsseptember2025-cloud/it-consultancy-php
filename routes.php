@@ -246,10 +246,6 @@ switch ($page) {
         require VIEW_PATH . '/admin/admin-close-request.php';
         break;
 
-        case 'review-consultation':
-        require VIEW_PATH . '/admin/review-consultation.php';
-        break;
-
     /*
     |--------------------------------------------------------------------------
     | Services
@@ -450,8 +446,16 @@ switch ($page) {
         require VIEW_PATH . '/customer/confirm-consultation.php';
         break;
 
-    case 'confirm-consultation-admin':
-        require VIEW_PATH . '/admin/confirm-consultation-admin.php';
+    case 'review-consultation':
+        require VIEW_PATH . '/admin/review-consultation.php';
+        break;
+
+    case 'confirm-consultation-booking':
+        require VIEW_PATH . '/admin/confirm-consultation-booking.php';
+        break;
+
+    case 'reject-consultation':
+        require VIEW_PATH . '/admin/reject-consultation.php';
         break;
 
     case 'reschedule-consultation':
@@ -489,23 +493,35 @@ switch ($page) {
         break;
 
     case 'schedule-service':
-        require VIEW_PATH . '/admin/schedule-service.php';
+        require VIEW_PATH . '/customer/schedule-service.php';
         break;
 
     case 'approve-service-schedule':
         require VIEW_PATH . '/admin/approve-service-schedule.php';
         break;
 
+    case 'review-service':
+        require VIEW_PATH . '/admin/review-service.php';
+        break;
+
+    case 'approve-service':
+        require VIEW_PATH . '/admin/approve-service.php';
+        break;
+
+    case 'reject-service':
+        require VIEW_PATH . '/admin/reject-service.php';
+        break;
+
     case 'confirm-service':
-        require VIEW_PATH . '/admin/confirm-service.php';
+        require VIEW_PATH . '/customer/confirm-service.php';
         break;
 
     case 'reschedule-service':
-        require VIEW_PATH . '/admin/reschedule-service.php';
+        require VIEW_PATH . '/customer/reschedule-service.php';
         break;
 
     case 'confirm-reschedule-service':
-        require VIEW_PATH . '/admin/confirm-reschedule-service.php';
+        require VIEW_PATH . '/customer/confirm-reschedule-service.php';
         break;
 
     case 'complete-service':
