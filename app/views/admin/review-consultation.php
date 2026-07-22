@@ -97,7 +97,7 @@ if (!$request) {
 
     
 
-<?php if ($request['workflow_stage'] === 'Consultation Scheduled'): ?>
+<?php if ($request['workflow_stage'] === 'Needs Admin Review'): ?>
 
     <a href="?page=confirm-consultation-booking&id=<?= $request['id'] ?>"
        class="btn btn-success">

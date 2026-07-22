@@ -42,7 +42,7 @@ LEFT JOIN consultation_bookings cb
 LEFT JOIN consultation_slots cs
     ON cs.id = cb.slot_id
 
-WHERE r.job_status = 'Needs Admin Review'
+WHERE r.workflow_stage = 'Needs Admin Review'
 
 ORDER BY cs.slot_date DESC,
          cs.slot_time DESC

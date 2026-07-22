@@ -41,7 +41,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $update = $pdo->prepare("
         UPDATE requests
         SET
-            job_status='Needs Admin Review',
+            job_status='Could Not Complete',
+            workflow_stage='Needs Admin Review',
             incomplete_reason=?,
             completion_notes=?,
             completed_at=NOW()

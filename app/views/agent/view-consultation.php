@@ -7,6 +7,7 @@ if (!isset($_SESSION['agent'])) {
 }
 
 require_once CONFIG_PATH . '/database.php';
+require_once HELPER_PATH . '/meeting.php';
 
 $requestId = (int) ($_GET['id'] ?? 0);
 
@@ -52,6 +53,11 @@ $stmt->execute([
 ]);
 
 $consultation = $stmt->fetch(PDO::FETCH_ASSOC);
+
+$meetingLink = getMeetingLink(
+    $consultation['consultation_method'],
+    $consultation['slot_time']
+);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
@@ -296,10 +302,10 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
                     <strong>Meeting</strong><br>
 
-                    <?php if (!empty($consultation['meeting_link'])): ?>
+                    <?php if (!empty($meetingLink)): ?>
 
                         <a
-                            href="<?= htmlspecialchars($consultation['meeting_link']) ?>"
+                            href="<?= htmlspecialchars($meetingLink) ?>"
                             target="_blank"
                             class="btn btn-success btn-sm mt-2">
 
