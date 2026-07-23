@@ -19,6 +19,20 @@ try {
 
 }
 
+
+$stmt = $pdo->prepare("
+    SELECT COUNT(*) AS total
+    FROM requests
+    WHERE workflow_stage = ?
+");
+
+$stmt->execute([
+    'Needs Admin Review'
+]);
+
+$needsAdminReviewCount = (int) $stmt->fetch(PDO::FETCH_ASSOC)['total'];
+
+
 ?>
 
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark py-3">
@@ -53,18 +67,13 @@ try {
 
             <ul class="navbar-nav ms-auto align-items-lg-center">
 
-                <!-- Dashboard -->
+                <!-- Needs Admin Review -->
 
                 <li class="nav-item">
-
-                    <a
-                        class="nav-link"
-                        href="?page=dashboard">
-
-                        Dashboard
-
+                    <a class="nav-link <?= $needsAdminReviewCount > 0 ? 'text-warning fw-semibold' : '' ?>"
+                    href="?page=needs-admin-review">
+                        Needs Admin Review
                     </a>
-
                 </li>
 
                 <!-- Services -->

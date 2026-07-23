@@ -345,145 +345,95 @@ if (!$consultation) {
 
         </p>
 
-        <div class="row g-3">
+        
 
-            <!-- Reschedule -->
+        <h4 class="mb-3">Workflow Decisions</h4>
 
-            <div class="col-md-6">
+<div class="row g-3">
 
-                <div class="card h-100 decision-option">
+    <!-- Reschedule -->
+    <div class="col-lg-3 col-md-6">
+        <div class="card h-100 decision-option">
+            <div class="card-body p-4">
+                <input class="form-check-input float-end"
+                       type="radio"
+                       name="decision"
+                       value="reschedule">
 
-                    <div class="card-body p-4">
+                <h5 class="mt-2">
+                    📅 Reschedule Consultation
+                </h5>
 
-                        <input class="form-check-input float-end"
-
-                               type="radio"
-
-                               name="decision"
-
-                               value="reschedule">
-
-                        <h5 class="mt-2">
-
-                            📅 Reschedule Consultation
-
-                        </h5>
-
-                        <small class="text-muted">
-
-                            Schedule another consultation with the customer.
-
-                        </small>
-
-                    </div>
-
-                </div>
-
+                <small class="text-muted">
+                    Schedule another consultation with the customer.
+                </small>
             </div>
-
-            <!-- Reassign -->
-
-            <div class="col-md-6">
-
-                <div class="card h-100 decision-option">
-
-                    <div class="card-body">
-
-                        <input class="form-check-input float-end"
-
-                               type="radio"
-
-                               name="decision"
-
-                               value="reassign">
-
-                        <h5 class="mt-2">
-
-                            👤 Assign Another Agent
-
-                        </h5>
-
-                        <small class="text-muted">
-
-                            Transfer this consultation to another consultant.
-
-                        </small>
-
-                    </div>
-
-                </div>
-
-            </div>
-
-            <!-- Contact -->
-
-            <div class="col-md-6">
-
-                <div class="card h-100 decision-option">
-
-                    <div class="card-body">
-
-                        <input class="form-check-input float-end"
-
-                               type="radio"
-
-                               name="decision"
-
-                               value="contact">
-
-                        <h5 class="mt-2">
-
-                            📞 Contact Customer
-
-                        </h5>
-
-                        <small class="text-muted">
-
-                            Contact the customer before making another decision.
-
-                        </small>
-
-                    </div>
-
-                </div>
-
-            </div>
-
-            <!-- Close -->
-
-            <div class="col-md-6">
-
-                <div class="card h-100 decision-option">
-
-                    <div class="card-body">
-
-                        <input class="form-check-input float-end"
-
-                               type="radio"
-
-                               name="decision"
-
-                               value="close">
-
-                        <h5 class="mt-2">
-
-                            ✔ Close Request
-
-                        </h5>
-
-                        <small class="text-muted">
-
-                            Close this consultation permanently.
-
-                        </small>
-
-                    </div>
-
-                </div>
-
-            </div>
-
         </div>
+    </div>
+
+    <!-- Reassign -->
+    <div class="col-lg-3 col-md-6">
+        <div class="card h-100 decision-option">
+            <div class="card-body">
+                <input class="form-check-input float-end"
+                       type="radio"
+                       name="decision"
+                       value="reassign">
+
+                <h5 class="mt-2">
+                    👤 Assign Another Agent
+                </h5>
+
+                <small class="text-muted">
+                    Transfer this consultation to another consultant.
+                </small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Approve Customer Contact -->
+    <div class="col-lg-3 col-md-6">
+        <div class="card h-100 decision-option">
+            <div class="card-body">
+                <input class="form-check-input float-end"
+                       type="radio"
+                       name="decision"
+                       value="contact">
+
+                <h5 class="mt-2">
+                    <i class="bi bi-person-check-fill me-2"></i>Approve Customer Contact
+                </h5>
+
+                <small class="text-muted">
+                    Approve the original agent to contact the customer and continue the consultation.
+                </small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Close -->
+    <div class="col-lg-3 col-md-6">
+        <div class="card h-100 decision-option">
+            <div class="card-body">
+                <input class="form-check-input float-end"
+                       type="radio"
+                       name="decision"
+                       value="close">
+
+                <h5 class="mt-2">
+                    <i class="bi bi-lock-fill me-2"></i>Close Request
+                </h5>
+
+                <small class="text-muted">
+                    Close this consultation permanently.
+                </small>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<hr class="my-4">
 
         <div class="text-end mt-4">
 
@@ -516,10 +466,10 @@ options.forEach(option => {
     option.addEventListener('click', function () {
 
         options.forEach(o => {
-            o.classList.remove('border-primary','shadow','bg-light');
+            o.classList.remove('border-primary', 'shadow', 'bg-light');
         });
 
-        this.classList.add('border-primary','shadow','bg-light');
+        this.classList.add('border-primary', 'shadow', 'bg-light');
 
         this.querySelector('input').checked = true;
 
@@ -529,15 +479,15 @@ options.forEach(option => {
 
 });
 
-button.addEventListener('click', function(){
+button.addEventListener('click', function () {
 
     const selected = document.querySelector('input[name="decision"]:checked');
 
-    if(!selected) return;
+    if (!selected) return;
 
     const id = <?= (int)$consultation['id']; ?>;
 
-    switch(selected.value){
+    switch (selected.value) {
 
         case 'reschedule':
             window.location =
@@ -547,11 +497,6 @@ button.addEventListener('click', function(){
         case 'reassign':
             window.location =
                 '?page=admin-assign-agent&id=' + id;
-            break;
-
-        case 'contact':
-            window.location =
-                '?page=admin-contact-customer&id=' + id;
             break;
 
         case 'close':

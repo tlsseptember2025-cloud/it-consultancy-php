@@ -239,7 +239,7 @@ switch ($page) {
         break;
 
         case 'admin-contact-customer':
-        require VIEW_PATH . '/admin/admin-contact-customer.php';
+        require APP_PATH  . '/controllers/admin-contact-customer.php';
         break;
 
         case 'admin-close-request':
