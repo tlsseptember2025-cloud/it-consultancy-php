@@ -16,7 +16,7 @@ require VIEW_PATH . '/layouts/header-agent.php';
     
     <?php if (isset($_GET['success']) && $_GET['success'] === 'contact-saved'): ?>
 
-        <div class="alert alert-success">
+        <div id="successAlert" class="alert alert-success">
             Customer contact result has been saved successfully.
         </div>
 
@@ -61,5 +61,28 @@ require VIEW_PATH . '/layouts/header-agent.php';
 </div>
 
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    const alert = document.getElementById('successAlert');
+
+    if (alert) {
+
+        setTimeout(function () {
+
+            alert.style.transition = 'opacity 0.5s';
+            alert.style.opacity = '0';
+
+            setTimeout(function () {
+                alert.remove();
+            }, 500);
+
+        }, 5000); // disappears after 5 seconds
+
+    }
+
+});
+</script>
 
 <?php require VIEW_PATH . '/layouts/footer.php'; ?>
