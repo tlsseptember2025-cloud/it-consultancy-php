@@ -1,3 +1,24 @@
+<?php
+
+$stmt = $pdo->prepare("
+    SELECT COUNT(*) AS total
+    FROM consultation_bookings cb
+    INNER JOIN requests r
+        ON r.id = cb.request_id
+    WHERE
+        cb.agent_id = ?
+        AND r.workflow_stage = ?
+");
+
+$stmt->execute([
+    $_SESSION['agent']['id'],
+    'Customer Contact Approved'
+]);
+
+$customerContactApprovedCount = (int) $stmt->fetch(PDO::FETCH_ASSOC)['total'];
+
+?>
+
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark py-3">
 
     <div class="container-fluid">
@@ -30,18 +51,13 @@
 
             <ul class="navbar-nav ms-auto align-items-lg-center">
 
-                <!-- Dashboard -->
+                <li>
 
-                <li class="nav-item">
-
-                    <a
-                        class="nav-link"
-                        href="?page=agent-dashboard">
-
-                        Dashboard
-
+                    <a class="nav-link <?= $customerContactApprovedCount > 0 ? 'text-warning fw-semibold' : '' ?>"
+                        href="?page=customer-contact-approved">
+                            Customer Contact Approved
                     </a>
-
+                
                 </li>
 
                 <!-- Consultations -->
