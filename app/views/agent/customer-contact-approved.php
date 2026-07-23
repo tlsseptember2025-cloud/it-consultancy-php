@@ -11,6 +11,17 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
     <h2>Customer Contact Approved</h2>
 
+    <div class="container py-4">
+
+    
+    <?php if (isset($_GET['success']) && $_GET['success'] === 'contact-saved'): ?>
+
+        <div class="alert alert-success">
+            Customer contact result has been saved successfully.
+        </div>
+
+    <?php endif; ?>
+
     <div class="table-responsive">
 
     <table class="table table-bordered table-hover align-middle">

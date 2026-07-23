@@ -137,7 +137,10 @@ function toggleCustomerDecision() {
 
 contactResult.addEventListener('change', toggleCustomerDecision);
 
-toggleCustomerDecision();
+// Run once after the page is ready
+document.addEventListener('DOMContentLoaded', function () {
+    toggleCustomerDecision();
+});
 
 </script>
 
