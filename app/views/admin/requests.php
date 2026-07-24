@@ -185,7 +185,7 @@ $requests = $stmt->fetchAll();
             href="?page=review-consultation&id=<?= $request['id'] ?>"
             class="btn btn-primary btn-sm">
 
-            Review Consultation
+            Confirm Schedule
 
         </a>
 

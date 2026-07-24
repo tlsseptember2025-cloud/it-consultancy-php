@@ -8,7 +8,7 @@
             title="<?= COMPANY_TAGLINE ?>">
 
             <img
-                src="/uploads/assets/logo.png"
+                src="uploads/assets/logo.png"
                 alt="<?= COMPANY_NAME ?>"
                 height="40"
                 class="me-2">

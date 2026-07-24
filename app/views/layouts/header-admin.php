@@ -32,6 +32,7 @@
 
 <?php require __DIR__ . '/partials/demo-banner.php'; ?>
 <?php require __DIR__ . '/partials/navbar-admin.php'; ?>
+<?php require_once HELPER_PATH . '/backup.php'; ?>
 
 <div class="container py-4">
 

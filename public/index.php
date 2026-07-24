@@ -9,9 +9,12 @@ define('VIEW_PATH', APP_PATH . '/views');
 define('HELPER_PATH', APP_PATH . '/helpers');
 
 require_once CONFIG_PATH . '/settings.php';
+
 require_once HELPER_PATH . '/demo_helper.php';
-require_once ROOT_PATH . '/routes.php';
+require_once HELPER_PATH . '/backup.php';
 require_once HELPER_PATH . '/slot_generator.php';
+
+require_once ROOT_PATH . '/routes.php';
 
 if (isDevelopment()) {
     ini_set('display_errors', 1);

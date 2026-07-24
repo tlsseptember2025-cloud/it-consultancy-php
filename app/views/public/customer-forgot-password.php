@@ -47,8 +47,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $token
 );
 
-var_dump($result);
-exit;
     }
 
     // Generic message for security
