@@ -103,7 +103,7 @@ if (isset($_POST['approve_contact'])) {
 
     $stmt->execute([
         $adminInstruction,
-        'Customer Contact Approved',
+        ''Customer Contact',',
         $consultation['id']
     ]);
 
@@ -156,7 +156,7 @@ if (isset($_POST['approve_contact'])) {
         $adminInstruction
     ]);
 
-    header('Location: ?page=needs-admin-review&success=customer-contact-approved');
+    header('Location: ?page=requests&success=customer-contact-approved');
     exit;
 }
 

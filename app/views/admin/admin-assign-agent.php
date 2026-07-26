@@ -133,6 +133,12 @@ $agents = $stmt->fetchAll(PDO::FETCH_ASSOC);
 |--------------------------------------------------------------------------
 */
 
+/*
+|--------------------------------------------------------------------------
+| Handle Reassign Agent
+|--------------------------------------------------------------------------
+*/
+
 if (isset($_POST['reassign_agent'])) {
 
     $newAgentId = (int)($_POST['agent_id'] ?? 0);
@@ -150,105 +156,109 @@ if (isset($_POST['reassign_agent'])) {
         die('Please enter a reason.');
     }
 
-   try {
+    try {
 
-    $pdo->beginTransaction();
+        $pdo->beginTransaction();
 
-    /*
-    |--------------------------------------------------------------------------
-    | Save Reassignment History
-    |--------------------------------------------------------------------------
-    */
+        /*
+        |--------------------------------------------------------------------------
+        | Get Administrator
+        |--------------------------------------------------------------------------
+        */
 
+        $stmt = $pdo->prepare("
+            SELECT id
+            FROM users
+            WHERE email = ?
+            LIMIT 1
+        ");
 
-    $stmt = $pdo->prepare("
-    SELECT id
-    FROM users
-    WHERE email = ?
-    LIMIT 1
-");
+        $stmt->execute([$_SESSION['user']]);
 
-$stmt->execute([$_SESSION['user']]);
+        $admin = $stmt->fetch(PDO::FETCH_ASSOC);
 
-$admin = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$admin) {
+            throw new Exception('Administrator not found.');
+        }
 
-if (!$admin) {
-    die('Administrator not found.');
-}
+        $adminId = $admin['id'];
 
-$adminId = $admin['id'];
+        /*
+        |--------------------------------------------------------------------------
+        | Save Reassignment History
+        |--------------------------------------------------------------------------
+        */
 
+        $stmt = $pdo->prepare("
+            INSERT INTO consultation_agent_reassignments
+            (
+                request_id,
+                booking_id,
+                old_agent_id,
+                new_agent_id,
+                reassigned_by,
+                reason
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+        ");
 
-    
-$stmt = $pdo->prepare("
-    INSERT INTO consultation_agent_reassignments
-    (
-        request_id,
-        booking_id,
-        old_agent_id,
-        new_agent_id,
-        reassigned_by,
-        reason
-    )
-    VALUES (?, ?, ?, ?, ?, ?)
-");
+        $stmt->execute([
+            $consultation['id'],
+            $consultation['booking_id'],
+            $consultation['agent_id'],
+            $newAgentId,
+            $adminId,
+            $reason
+        ]);
 
+        /*
+        |--------------------------------------------------------------------------
+        | Update Consultation Booking
+        |--------------------------------------------------------------------------
+        */
 
-$stmt->execute([
-    $consultation['id'],
-    $consultation['booking_id'],
-    $consultation['agent_id'],
-    $newAgentId,
-    $adminId,
-    $reason
-]);
+        $stmt = $pdo->prepare("
+            UPDATE consultation_bookings
+            SET agent_id = ?
+            WHERE id = ?
+        ");
 
-    /*
-    |--------------------------------------------------------------------------
-    | Update Booking
-    |--------------------------------------------------------------------------
-    */
+        $stmt->execute([
+            $newAgentId,
+            $consultation['booking_id']
+        ]);
 
-    $stmt = $pdo->prepare("
-        UPDATE consultation_bookings
-        SET agent_id = ?
-        WHERE id = ?
-    ");
+        /*
+        |--------------------------------------------------------------------------
+        | Update Request
+        |--------------------------------------------------------------------------
+        */
 
-    $stmt->execute([
-        $newAgentId,
-        $consultation['booking_id']
-    ]);
+        $stmt = $pdo->prepare("
+            UPDATE requests
+            SET
+                agent_id = ?,
+                workflow_stage = 'Consultation Scheduled'
+            WHERE id = ?
+        ");
 
-    /*
-    |--------------------------------------------------------------------------
-    | Keep requests table in sync
-    |--------------------------------------------------------------------------
-    */
+        $stmt->execute([
+            $newAgentId,
+            $consultation['id']
+        ]);
 
-    $stmt = $pdo->prepare("
-        UPDATE requests
-        SET agent_id = ?
-        WHERE id = ?
-    ");
+        $pdo->commit();
 
-    $stmt->execute([
-        $newAgentId,
-        $consultation['id']
-    ]);
+        header('Location: ?page=requests&success=agent-reassigned');
+        exit;
 
-    $pdo->commit();
+    } catch (Exception $e) {
 
-    header('Location: ?page=needs-admin-review&success=agent-reassigned');
-    exit;
+        $pdo->rollBack();
 
-} catch (Exception $e) {
+        die($e->getMessage());
 
-    $pdo->rollBack();
-
-    die($e->getMessage());
-
-}
+    }
 
 }
 

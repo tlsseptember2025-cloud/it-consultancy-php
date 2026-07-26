@@ -315,11 +315,6 @@ if (!empty($selectedDate)) {
 
     $slots = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    echo '<pre>';
-print_r($slots);
-echo '</pre>';
-exit;
-
 }
 
 require VIEW_PATH . '/layouts/header-admin.php';
