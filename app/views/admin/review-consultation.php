@@ -96,12 +96,32 @@ if (!$request) {
         <div class="mt-4 d-flex gap-2">
 
     
+    <?php if ($request['workflow_stage'] === 'Consultation Scheduled'): ?>
 
-<?php if ($request['workflow_stage'] === 'Needs Admin Review'): ?>
+    <a
+        href="?page=confirm-consultation-booking&id=<?= $request['id'] ?>"
+        class="btn btn-success">
 
-    <a href="?page=confirm-consultation-booking&id=<?= $request['id'] ?>"
-       class="btn btn-success">
+        Approve Schedule
+
+    </a>
+
+    <a
+        href="?page=reject-consultation-schedule&id=<?= $request['id'] ?>"
+        class="btn btn-danger">
+
+        Reject Schedule
+
+    </a>
+
+<?php elseif ($request['workflow_stage'] === 'Needs Admin Review'): ?>
+
+    <a
+        href="?page=approve-consultation&id=<?= $request['id'] ?>"
+        class="btn btn-success">
+
         Confirm Consultation
+
     </a>
 
     <a

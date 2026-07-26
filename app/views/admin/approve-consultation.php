@@ -26,7 +26,7 @@ $customer = $stmt->fetch();
 
 $stmt = $pdo->prepare("
     UPDATE requests
-    SET workflow_stage = 'Consultation Approved'
+    SET workflow_stage = 'Consultation Confirmed'
     WHERE id = ?
 ");
 
@@ -36,7 +36,7 @@ if ($customer && !empty($customer['email'])) {
 
     sendEmail(
     $customer['email'],
-    'Consultation Approved',
+    'Consultation Confirmed',
     "
     <h2>Hello {$customer['name']},</h2>
 

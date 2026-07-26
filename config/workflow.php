@@ -8,7 +8,7 @@
 
 define('WF_SUBMITTED', 'Submitted');
 
-define('WF_CONSULTATION_APPROVED', 'Consultation Approved');
+define('WF_CONSULTATION_APPROVED', 'Consultation Confirmed');
 define('WF_CONSULTATION_SCHEDULED', 'Consultation Scheduled');
 define('WF_CONSULTATION_CONFIRMED', 'Consultation Confirmed');
 define('WF_CONSULTATION_COMPLETED', 'Consultation Completed');

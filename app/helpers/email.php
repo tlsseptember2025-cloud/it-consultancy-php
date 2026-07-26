@@ -53,19 +53,17 @@ function sendEmail(
 
         return true;
 
-    } catch (Exception $e) {
+   } catch (Exception $e) {
 
-    die(
-        'Mailer Error: ' .
-        $mail->ErrorInfo
-    );
+    return false;
 
-}
+    }
+
 }
 
 function sendConsultationApprovedEmail($email, $name)
 {
-    $subject = 'Consultation Approved';
+    $subject = 'Consultation Confirmed';
 
     $body = "
         <h2>Hello {$name},</h2>

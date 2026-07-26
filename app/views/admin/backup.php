@@ -1,5 +1,7 @@
 <?php
 
+require_once HELPER_PATH . '/email.php';
+
 if (!isset($_SESSION['user'])) {
 
     header('Location: ?page=login');
@@ -43,12 +45,63 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($returnCode === 0 && file_exists($filename) && filesize($filename) > 0) {
 
-        $messageType = 'success';
+        $emailSent = sendEmail(
 
-        $message =
-            '<strong>Database backup created successfully.</strong><br><br>'
-            . '<strong>File:</strong><br>'
-            . htmlspecialchars($filename);
+    'ramiwahdan2023@gmail.com',
+
+    'WAHBIB Consultancy - Database Backup',
+
+    '
+        <h2>Database Backup</h2>
+
+        <p>
+            A new database backup has been created successfully.
+        </p>
+
+        <p>
+
+            <strong>Date:</strong><br>'
+            . date('F j, Y g:i A') .
+        '</p>
+
+        <p>
+
+            The SQL backup is attached to this email.
+
+        </p>
+    ',
+
+    [$filename]
+
+);
+
+$messageType = 'success';
+
+$message =
+    '<strong>Database backup created successfully.</strong><br><br>';
+
+if ($emailSent) {
+
+    $message .=
+        '<span class="text-success">'
+        . 'Backup emailed successfully.'
+        . '</span><br><br>';
+
+} else {
+
+    $message .=
+        '<span class="text-warning">'
+        . 'Backup created successfully, but the email could not be sent.'
+        . '</span><br><br>';
+
+}
+
+$message .=
+    '<strong>Backup Location:</strong><br>'
+    . 'database/backups/<br><br>'
+
+    . '<strong>File:</strong><br>'
+    . htmlspecialchars(basename($filename));
 
     } else {
 
