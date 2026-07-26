@@ -107,7 +107,7 @@ $stmt->execute([
     $request['id']
 ]);
 
-header('Location: ?page=customer-contact-approved&success=contact-saved');
+header('Location: ?page=my-consultations&success=contact-saved');
 exit;
 
 }

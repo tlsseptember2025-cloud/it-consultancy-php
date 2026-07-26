@@ -8,6 +8,7 @@ if (!isset($_SESSION['customer'])) {
 
 require_once HELPER_PATH . '/auth.php';
 require_once HELPER_PATH . '/security.php';
+require_once HELPER_PATH . '/notifications.php';
 
 $customerId = (int) $_SESSION['customer']['id'];
 
@@ -51,9 +52,19 @@ $serviceSchedule = $stmt->fetch(PDO::FETCH_ASSOC);
 
 // Load current workflow stage
 $stmt = $pdo->prepare("
-    SELECT workflow_stage
-    FROM requests
-    WHERE id = ?
+    SELECT
+        r.workflow_stage,
+        c.name AS customer_name,
+        s.title AS service_title
+    FROM requests r
+
+    JOIN customers c
+        ON c.id = r.customer_id
+
+    JOIN services s
+        ON s.id = r.service_id
+
+    WHERE r.id = ?
 ");
 
 $stmt->execute([$requestId]);
@@ -136,6 +147,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $reasonType,
     $reasonDetails
     ]);
+
+    
+    createNotification(
+    $pdo,
+    'admin',
+    null,
+    'New Refund Request',
+    $request['customer_name'] .
+        ' has requested a refund for "' .
+        $request['service_title'] . '".',
+    '?page=refund-requests'
+);
 
                 header('Location: ?page=customer-refunds');
                 exit;

@@ -93,6 +93,16 @@ if (!$request) {
 
         </p>
 
+        <hr>
+
+<h5>Agent Consultation Notes</h5>
+
+<div class="border rounded bg-light p-3 mb-3">
+
+    <?= nl2br(htmlspecialchars($request['completion_notes'] ?? 'No notes provided.')) ?>
+
+</div>
+
         <div class="mt-4 d-flex gap-2">
 
     
@@ -120,7 +130,7 @@ if (!$request) {
         href="?page=approve-consultation&id=<?= $request['id'] ?>"
         class="btn btn-success">
 
-        Confirm Consultation
+        Complete Consultation
 
     </a>
 
@@ -128,7 +138,7 @@ if (!$request) {
         href="?page=reject-consultation&id=<?= $request['id'] ?>"
         class="btn btn-danger">
 
-        Reject Consultation
+        Return to Agent
 
     </a>
 

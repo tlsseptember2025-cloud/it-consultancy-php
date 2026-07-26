@@ -8,8 +8,6 @@ if (!isset($_SESSION['user'])) {
 
 require_once CONFIG_PATH . '/database.php';
 
-require VIEW_PATH . '/layouts/header-admin.php';
-
 $requestId = (int)($_GET['id'] ?? 0);
 
 $stmt = $pdo->prepare("
@@ -61,6 +59,65 @@ if (!$consultation) {
     die('Consultation not found.');
 
 }
+
+if (
+    $_SERVER['REQUEST_METHOD'] === 'POST'
+    && isset($_POST['submit_review'])
+) {
+
+    $decision = $_POST['admin_decision'] ?? '';
+    $comments = trim($_POST['admin_review_comments'] ?? '');
+
+    if ($decision === '') {
+
+        die('Please select a decision.');
+
+    }
+
+    if ($decision === 'approve') {
+
+    $update = $pdo->prepare("
+        UPDATE requests
+        SET
+            admin_review_comments = ?,
+            workflow_stage = 'Proposal Draft'
+        WHERE id = ?
+    ");
+
+    $update->execute([
+        $comments,
+        $consultation['id']
+    ]);
+
+    header("Location: ?page=needs-admin-review&success=consultation-approved");
+    exit;
+
+}
+
+    if ($decision === 'return') {
+
+    $update = $pdo->prepare("
+        UPDATE requests
+        SET
+            admin_review_comments = ?,
+            workflow_stage = 'Consultation In Progress',
+            job_status = 'In Progress'
+        WHERE id = ?
+    ");
+
+    $update->execute([
+        $comments,
+        $consultation['id']
+    ]);
+
+    header("Location: ?page=needs-admin-review&success=returned-to-agent");
+    exit;
+
+}
+
+}
+
+require VIEW_PATH . '/layouts/header-admin.php';
 
 ?>
 
@@ -269,6 +326,8 @@ if (!$consultation) {
 
 </div>
 
+<?php if ($consultation['job_status'] === 'Could Not Complete'): ?>
+
 <div class="card shadow-sm mb-4 border-danger">
 
     <div class="card-header bg-danger text-white">
@@ -279,55 +338,169 @@ if (!$consultation) {
 
     <div class="card-body">
 
-    <p class="mb-3">
+        <p class="mb-3">
 
-        The assigned agent could not complete this consultation and requested an administrator review.
+            The assigned agent could not complete this consultation and requested an administrator review.
 
-    </p>
+        </p>
 
-    <strong>Reason for Review</strong>
+        <strong>Reason for Review</strong>
 
-    <div class="border rounded bg-light p-3 mt-2">
+        <div class="border rounded bg-light p-3 mt-2">
 
-        <?= htmlspecialchars($consultation['incomplete_reason']) ?>
+            <?= htmlspecialchars($consultation['incomplete_reason']) ?>
+
+        </div>
 
     </div>
 
 </div>
 
-</div>
+<?php elseif ($consultation['job_status'] === 'Completed'): ?>
 
-<div class="card shadow-sm mb-4">
+<div class="card shadow-sm mb-4 border-success">
 
-    <div class="card-header bg-warning">
+    <div class="card-header bg-success text-white">
 
-        Agent Notes
+        Consultation Completed
 
     </div>
 
     <div class="card-body">
 
-        <?php if (!empty($consultation['completion_notes'])): ?>
+        <p class="mb-3">
 
-            <div class="border rounded p-3 bg-light">
+            The assigned agent completed this consultation and submitted it for administrator review.
 
-                <?= nl2br(htmlspecialchars($consultation['completion_notes'])) ?>
+        </p>
 
-            </div>
+        <strong>Consultation Notes</strong>
 
-        <?php else: ?>
+        <div class="border rounded bg-light p-3 mt-2">
 
-            <div class="text-muted">
+            <?= nl2br(htmlspecialchars($consultation['completion_notes'])) ?>
 
-                The assigned agent did not leave any consultation notes.
-
-            </div>
-
-        <?php endif; ?>
+        </div>
 
     </div>
 
 </div>
+
+<?php endif; ?>
+
+<form method="POST">
+
+<?php if ($consultation['job_status'] === 'Completed'): ?>
+
+<div class="card shadow-sm mb-4">
+
+    <div class="card-header bg-primary text-white">
+
+        Final Review
+
+    </div>
+
+    <div class="card-body">
+
+        <p class="mb-4">
+
+            Please review the completed consultation before continuing.
+
+        </p>
+
+        <div class="mb-3">
+
+            <label class="form-label">
+
+                Review Comments
+
+            </label>
+
+            <textarea
+                name="admin_review_comments"
+                class="form-control"
+                rows="3"><?= htmlspecialchars($consultation['admin_review_comments'] ?? '') ?></textarea>
+
+        </div>
+
+        <label class="form-label mt-3">
+    Decision
+</label>
+
+<div class="row mt-2 mb-4">
+
+    <div class="col-md-6">
+
+        <div class="form-check">
+
+            <input
+                class="form-check-input"
+                type="radio"
+                name="admin_decision"
+                id="approveConsultation"
+                value="approve">
+
+            <label
+                class="form-check-label"
+                for="approveConsultation">
+
+                Approve Consultation
+
+            </label>
+
+        </div>
+
+    </div>
+
+    <div class="col-md-6">
+
+        <div class="form-check">
+
+            <input
+                class="form-check-input"
+                type="radio"
+                name="admin_decision"
+                id="returnAgent"
+                value="return">
+
+            <label
+                class="form-check-label"
+                for="returnAgent">
+
+                Return to Agent
+
+            </label>
+
+        </div>
+
+    </div>
+
+</div>
+
+        </div>
+
+        <div class="text-end mt-4">
+
+            <button
+                type="submit"
+                name="submit_review"
+                class="btn btn-success">
+
+                Continue →
+
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+<?php endif; ?>
+
+</form>
+
+<?php if ($consultation['job_status'] === 'Could Not Complete'): ?>
 
 <div class="card shadow-sm mb-4">
 
@@ -455,6 +628,7 @@ if (!$consultation) {
 
 </div>
 
+<?php endif; ?>
 
 <script>
 
@@ -489,22 +663,27 @@ button.addEventListener('click', function () {
 
     switch (selected.value) {
 
-        case 'reschedule':
-            window.location =
-                '?page=admin-reschedule-consultation&id=' + id;
-            break;
+    case 'reschedule':
+        window.location =
+            '?page=admin-reschedule-consultation&id=' + id;
+        break;
 
-        case 'reassign':
-            window.location =
-                '?page=admin-assign-agent&id=' + id;
-            break;
+    case 'reassign':
+        window.location =
+            '?page=admin-assign-agent&id=' + id;
+        break;
 
-        case 'close':
-            window.location =
-                '?page=admin-close-request&id=' + id;
-            break;
+    case 'contact':
+        window.location =
+            '?page=admin-contact-customer&id=' + id;
+        break;
 
-    }
+    case 'close':
+        window.location =
+            '?page=admin-close-request&id=' + id;
+        break;
+
+}
 
 });
 

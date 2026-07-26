@@ -114,10 +114,6 @@ switch ($page) {
         require VIEW_PATH . '/agent/dashboard.php';
         break;
 
-    case 'customer-contact-approved':
-        require APP_PATH . '/controllers/customer-contact-approved.php';
-        break;
-
     case 'contact-customer':
         require APP_PATH . '/controllers/contact-customer.php';
         break;
@@ -534,6 +530,10 @@ switch ($page) {
 
     case 'complete-service':
         require VIEW_PATH . '/admin/complete-service.php';
+        break;
+
+    case 'review-refund':
+        require VIEW_PATH . '/admin/review-refund.php';
         break;
 
         /*

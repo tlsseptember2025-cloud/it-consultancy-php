@@ -11,6 +11,7 @@ require CONFIG_PATH . '/database.php';
 
 $stmt = $pdo->query("
     SELECT
+        rr.id AS refund_id,
         rr.*,
         c.name AS customer_name,
         s.title AS service_title
@@ -62,7 +63,16 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
 
             <tbody>
 
-                <?php foreach ($refundRequests as $request): ?>
+                <?php 
+                
+                    foreach ($refundRequests as $request): 
+
+                        echo '<pre>';
+                        print_r($request);
+                        echo '</pre>';
+                        exit;
+
+                ?>
 
                     <tr>
 
@@ -91,19 +101,13 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
 
                         <td>
 
-                            <?php if ($request['status'] === 'Pending'): ?>
+                           <?php if ($request['status'] === 'Pending'): ?>
 
                                 <a
-                                    href="?page=approve-refund-request&id=<?= $request['id'] ?>"
-                                    class="btn btn-success btn-sm">
-                                    Approve
-                                </a>
+                                    href="?page=review-refund&id=<?= $request['refund_id'] ?>"
+                                    class="btn btn-primary btn-sm">
 
-                                <a
-                                    href="?page=process-refund-request&id=<?= $request['id'] ?>&action=reject"
-                                    class="btn btn-danger btn-sm ms-1">
-
-                                    Reject
+                                    Review
 
                                 </a>
 

@@ -51,15 +51,6 @@ $customerContactApprovedCount = (int) $stmt->fetch(PDO::FETCH_ASSOC)['total'];
 
             <ul class="navbar-nav ms-auto align-items-lg-center">
 
-                <li>
-
-                    <a class="nav-link <?= $customerContactApprovedCount > 0 ? 'text-warning fw-semibold' : '' ?>"
-                        href="?page=customer-contact-approved">
-                            Customer Contact Approved
-                    </a>
-                
-                </li>
-
                 <!-- Consultations -->
 
                 <li class="nav-item">

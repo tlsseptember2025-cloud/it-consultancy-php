@@ -161,7 +161,7 @@ $requests = $stmt->fetchAll();
                         </td>
 
                         <td>
-                            <?= htmlspecialchars($request['status']) ?>
+                            <?= htmlspecialchars($request['job_status']) ?>
                         </td>
 
                         <td>

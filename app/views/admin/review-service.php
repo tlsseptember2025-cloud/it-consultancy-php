@@ -46,53 +46,169 @@ $request = $stmt->fetch();
 if (!$request) {
     die('Request not found.');
 }
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+    $notes = trim($_POST['service_review_notes'] ?? '');
+    $decision = $_POST['decision'] ?? '';
+
+    if ($decision === 'approve') {
+
+    $stmt = $pdo->prepare("
+        UPDATE requests
+        SET
+            service_review_notes = ?,
+            workflow_stage = 'Service Active'
+        WHERE id = ?
+    ");
+
+    $stmt->execute([
+        $notes,
+        $id
+    ]);
+
+    header('Location: ?page=requests');
+    exit;
+}
+
+}
+
+require dirname(__DIR__) . '/layouts/header-admin.php';
 ?>
 
 <div class="container mt-4">
 
-    <h2>Review Service</h2>
+    <h2 class="mb-4">Review Service</h2>
+    <form method="POST">
 
-    <hr>
+    <!-- Customer Information -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <strong>Customer Information</strong>
+        </div>
 
-    <h4>Customer Information</h4>
+        <div class="card-body">
 
-    <p><strong>Name:</strong> <?= htmlspecialchars($request['name']) ?></p>
+            <p><strong>Name:</strong> <?= htmlspecialchars($request['name']) ?></p>
 
-    <p><strong>Email:</strong> <?= htmlspecialchars($request['email']) ?></p>
+            <p><strong>Email:</strong> <?= htmlspecialchars($request['email']) ?></p>
 
-    <p><strong>Phone:</strong> <?= htmlspecialchars($request['phone']) ?></p>
+            <p><strong>Phone:</strong> <?= htmlspecialchars($request['phone']) ?></p>
 
-    <hr>
+        </div>
+    </div>
 
-    <h4>Service Information</h4>
+    <!-- Service Information -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <strong>Service Information</strong>
+        </div>
 
-    <p><strong>Service:</strong> <?= htmlspecialchars($request['service_title']) ?></p>
+        <div class="card-body">
 
-    <p><strong>Date:</strong> <?= date('M d, Y', strtotime($request['service_date'])) ?></p>
+            <p><strong>Service:</strong> <?= htmlspecialchars($request['service_title']) ?></p>
 
-    <p><strong>Time:</strong> <?= date('h:i A', strtotime($request['service_time'])) ?></p>
+            <p><strong>Date:</strong> <?= date('M d, Y', strtotime($request['service_date'])) ?></p>
 
-    <p><strong>Status:</strong> <?= htmlspecialchars($request['workflow_stage']) ?></p>
+            <p><strong>Time:</strong> <?= date('h:i A', strtotime($request['service_time'])) ?></p>
+
+            <p><strong>Status:</strong> <?= htmlspecialchars($request['workflow_stage']) ?></p>
+
+        </div>
+    </div>
+
+    <!-- Service Review -->
+<div class="card mb-4">
+
+    <div class="card-header">
+        <strong>Service Review</strong>
+    </div>
+
+    <div class="card-body">
+
+        <div class="mb-3">
+            <label for="service_review_notes" class="form-label">
+                Review Notes
+            </label>
+
+            <textarea
+                id="service_review_notes"
+                name="service_review_notes"
+                class="form-control"
+                rows="5"
+                placeholder="Enter your review notes here..."></textarea>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+    <!-- Decision -->
+<div class="card mb-4">
+
+    <div class="card-header">
+        <strong>Decision</strong>
+    </div>
+
+    <div class="card-body">
+
+        <div class="form-check mb-3">
+
+            <input
+                class="form-check-input"
+                type="radio"
+                name="decision"
+                id="approve"
+                value="approve"
+                checked>
+
+            <label class="form-check-label" for="approve">
+                Approve Service
+            </label>
+
+        </div>
+
+        <div class="form-check">
+
+            <input
+                class="form-check-input"
+                type="radio"
+                name="decision"
+                id="return"
+                value="return">
+
+            <label class="form-check-label" for="return">
+                Return for Rescheduling
+            </label>
+
+        </div>
+
+    </div>
 
 </div>
 
 <hr>
-
-<div class="mt-4">
-
-    <a href="?page=approve-service&id=<?= $request['id'] ?>"
-       class="btn btn-success">
-        <i class="bi bi-check-circle"></i> Approve Service
-    </a>
-
-    <a href="?page=reject-service&id=<?= $request['id'] ?>"
-       class="btn btn-danger">
-        <i class="bi bi-x-circle"></i> Reject Service
-    </a>
+<div class="d-flex justify-content-end gap-2">
 
     <a href="?page=requests"
        class="btn btn-secondary">
-        <i class="bi bi-arrow-left"></i> Back
+        Cancel
     </a>
 
+    <button
+        type="submit"
+        class="btn btn-success">
+        Continue
+    </button>
+
 </div>
+
+    </div>
+
+</form>
+
+</div>
+
+<?php require VIEW_PATH . '/layouts/footer.php'; ?>

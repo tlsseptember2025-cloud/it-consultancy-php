@@ -101,19 +101,19 @@ $requests = $stmt->fetchAll();
 
                     <td>
 
-                        <?php if ($request['status'] === 'Pending'): ?>
+                        <?php if ($request['job_status'] === 'Pending'): ?>
 
                             <span class="badge bg-warning">
                                 Pending
                             </span>
 
-                        <?php elseif ($request['status'] === 'Completed'): ?>
+                        <?php elseif ($request['job_status'] === 'Completed'): ?>
 
                             <span class="badge bg-success">
                                 Completed
                             </span>
 
-                        <?php elseif ($request['status'] === 'Cancelled'): ?>
+                        <?php elseif ($request['job_status'] === 'Cancelled'): ?>
 
                             <span class="badge bg-danger">
                                 Cancelled
@@ -122,7 +122,7 @@ $requests = $stmt->fetchAll();
                         <?php else: ?>
 
                             <span class="badge bg-primary">
-                                <?= htmlspecialchars($request['status']) ?>
+                                <?= htmlspecialchars($request['job_status']) ?>
                             </span>
 
                         <?php endif; ?>
@@ -219,24 +219,35 @@ $requests = $stmt->fetchAll();
 
 <?php if ($request['workflow_stage'] === 'Proposal Draft'): ?>
 
-    <a
-        href="?page=create-proposal&id=<?= $request['id'] ?>"
-        class="btn btn-warning btn-sm">
-        Edit Proposal
-    </a>
+    <?php if (empty($request['proposal'])): ?>
 
-    <a
-        href="?page=admin-view-proposal&id=<?= $request['id'] ?>"
-        class="btn btn-info btn-sm">
-        View Proposal
-    </a>
+        <a
+            href="?page=create-proposal&id=<?= $request['id'] ?>"
+            class="btn btn-secondary btn-sm">
+            Create Proposal
+        </a>
 
-    <a
-        href="?page=send-proposal&id=<?= $request['id'] ?>"
-        class="btn btn-success btn-sm">
-        Send Proposal
-    </a>
+    <?php else: ?>
 
+        <a
+            href="?page=create-proposal&id=<?= $request['id'] ?>"
+            class="btn btn-warning btn-sm">
+            Edit Proposal
+        </a>
+
+        <a
+            href="?page=admin-view-proposal&id=<?= $request['id'] ?>"
+            class="btn btn-info btn-sm">
+            View Proposal
+        </a>
+
+        <a
+            href="?page=send-proposal&id=<?= $request['id'] ?>"
+            class="btn btn-success btn-sm">
+            Send Proposal
+        </a>
+
+    <?php endif; ?>
 <?php endif; ?>
 
 
@@ -282,32 +293,7 @@ $requests = $stmt->fetchAll();
     <?php endif; ?>
 
 
-    <?php if (
-        !in_array(
-            $request['workflow_stage'],
-            [
-                'Proposal Sent',
-                'Service Active',
-                'Completed'
-            ]
-        )
-    ): ?>
-
-        <a
-            href="?page=edit-request&id=<?= $request['id'] ?>"
-            class="btn btn-warning btn-sm">
-            Edit
-        </a>
-
-    <?php endif; ?>
-
-
-    <a
-        href="?page=delete-request&id=<?= $request['id'] ?>"
-        class="btn btn-danger btn-sm"
-        onclick="return confirm('Delete request?')">
-        Delete
-    </a>
+   
 
 </td>
 

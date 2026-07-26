@@ -54,6 +54,87 @@ $stmt->execute([
 
 $consultation = $stmt->fetch(PDO::FETCH_ASSOC);
 
+if (
+    $_SERVER['REQUEST_METHOD'] === 'POST'
+    && isset($_POST['save_contact_result'])
+) {
+
+    $contactResult    = trim($_POST['contact_result'] ?? '');
+    $contactNotes     = trim($_POST['contact_notes'] ?? '');
+    $customerDecision = trim($_POST['customer_decision'] ?? '');
+
+    if ($contactResult === '' || $contactNotes === '') {
+        die('Please complete all required fields.');
+    }
+
+    if (
+        $contactResult === 'Customer Answered'
+        && $customerDecision === ''
+    ) {
+        die('Please select the customer decision.');
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Determine Next Workflow Stage
+    |--------------------------------------------------------------------------
+    */
+
+    $workflowStage = $consultation['workflow_stage'];
+
+    if ($contactResult === 'No Answer') {
+
+        // Stay in Customer Contact so the agent can try again later.
+        $workflowStage = 'Customer Contact';
+
+    } elseif ($contactResult === 'Wrong Number') {
+
+        // Administrator intervention required.
+        $workflowStage = 'Needs Admin Review';
+
+    } elseif ($contactResult === 'Customer Requested Reschedule') {
+
+        // Administrator must arrange a new consultation.
+        $workflowStage = 'Needs Admin Review';
+
+    } elseif ($contactResult === 'Customer Answered') {
+
+        if ($customerDecision === 'Continue Consultation') {
+
+            $workflowStage = 'Consultation In Progress';
+
+        } elseif ($customerDecision === 'Close Request') {
+
+            $workflowStage = 'Closed';
+
+        }
+
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Update Request
+    |--------------------------------------------------------------------------
+    */
+
+    $stmt = $pdo->prepare("
+    UPDATE requests
+    SET
+        contact_notes = ?,
+        workflow_stage = ?
+    WHERE id = ?
+");
+
+$stmt->execute([
+    $contactNotes,
+    $workflowStage,
+    $consultation['id']
+]);
+
+    header('Location: ?page=agent-consultations&success=contact-saved');
+    exit;
+}
+
 $meetingLink = getMeetingLink(
     $consultation['consultation_method'],
     $consultation['slot_time']
@@ -80,7 +161,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    if (isset($_POST['complete_consultation'])) {
+    elseif (isset($_POST['complete_consultation'])) {
 
     $notes = trim($_POST['agent_notes']);
 
@@ -89,6 +170,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         SET
             completion_notes = ?,
             job_status = 'Completed',
+            workflow_stage = 'Needs Admin Review',
             completed_at = NOW()
         WHERE id = ?
     ");
@@ -102,7 +184,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
-    if (isset($_POST['start_consultation'])) {
+    elseif (isset($_POST['start_consultation'])) {
 
         $update = $pdo->prepare("
             UPDATE requests
@@ -327,6 +409,135 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
     </div>
 
+   <?php if ($consultation['workflow_stage'] === 'Customer Contact'): ?>
+
+<div class="card shadow-sm mb-4">
+
+    <div class="card-header bg-success text-white">
+        Administrator Instructions
+    </div>
+
+    <div class="card-body">
+
+        <div class="border rounded bg-light p-3">
+            <?= nl2br(htmlspecialchars($consultation['admin_instruction'])) ?>
+        </div>
+
+    </div>
+
+</div>
+
+<?php endif; ?>
+
+<?php if ($consultation['workflow_stage'] === 'Customer Contact'): ?>
+
+<div class="card shadow-sm mb-4">
+
+    <div class="card-header bg-primary text-white">
+        Contact Customer
+    </div>
+
+    <div class="card-body">
+
+        <form method="POST">
+
+            <div class="mb-3">
+
+                <label class="form-label">
+                    Contact Result
+                </label>
+
+                <select
+                    name="contact_result"
+                    id="contact_result"
+                    class="form-select"
+                    required>
+
+                    <option value="">
+                        Select Result
+                    </option>
+
+                    <option value="Customer Answered">
+                        Customer Answered
+                    </option>
+
+                    <option value="No Answer">
+                        No Answer
+                    </option>
+
+                    <option value="Wrong Number">
+                        Wrong Number
+                    </option>
+
+                    <option value="Customer Requested Reschedule">
+                        Customer Requested Reschedule
+                    </option>
+
+                </select>
+
+            </div>
+
+            <div
+                id="customerDecisionSection"
+                class="mb-3"
+                style="display:none;">
+
+                <label class="form-label">
+                    Customer Decision
+                </label>
+
+                <select
+                    name="customer_decision"
+                    id="customerDecision"
+                    class="form-select">
+
+                    <option value="">
+                        Select Decision
+                    </option>
+
+                    <option value="Continue Consultation">
+                        Continue Consultation
+                    </option>
+
+                    <option value="Close Request">
+                        Close Request
+                    </option>
+
+                </select>
+
+            </div>
+
+            <div class="mb-3">
+
+                <label class="form-label">
+                    Agent Notes
+                </label>
+
+                <textarea
+                    name="contact_notes"
+                    class="form-control"
+                    rows="5"
+                    required></textarea>
+
+            </div>
+
+            <button
+                type="submit"
+                name="save_contact_result"
+                class="btn btn-success">
+
+                Save Contact Result
+
+            </button>
+
+        </form>
+
+    </div>
+
+</div>
+
+<?php endif; ?>
+
     <div class="card shadow-sm mb-4">
 
         <div class="card-header">
@@ -366,6 +577,36 @@ require VIEW_PATH . '/layouts/header-agent.php';
             <?= htmlspecialchars($consultation['incomplete_reason']) ?>
 
         </p>
+
+    </div>
+
+</div>
+
+<?php endif; ?>
+
+<?php if (!empty($consultation['admin_review_comments'])): ?>
+
+<div class="card shadow-sm mb-4 border-warning">
+
+    <div class="card-header bg-warning">
+
+        Administrator Review
+
+    </div>
+
+    <div class="card-body">
+
+        <p class="mb-2">
+
+            The administrator has requested changes before approving this consultation.
+
+        </p>
+
+        <div class="border rounded bg-light p-3">
+
+            <?= nl2br(htmlspecialchars($consultation['admin_review_comments'])) ?>
+
+        </div>
 
     </div>
 
@@ -424,7 +665,7 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
         <?php endif; ?>
 
-        <?php if ($consultation['job_status'] == 'In Progress'): ?>
+        <?php if ($consultation['workflow_stage'] === 'Consultation In Progress'): ?>
 
     <button
         type="submit"
@@ -461,5 +702,38 @@ require VIEW_PATH . '/layouts/header-agent.php';
 </form>
 
 </div>
+
+<script>
+
+const contactResult = document.getElementById('contact_result');
+const customerDecisionSection = document.getElementById('customerDecisionSection');
+
+function toggleCustomerDecision() {
+
+    if (!contactResult || !customerDecisionSection) {
+        return;
+    }
+
+    if (contactResult.value === 'Customer Answered') {
+
+        customerDecisionSection.style.display = 'block';
+
+    } else {
+
+        customerDecisionSection.style.display = 'none';
+
+    }
+
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+
+    toggleCustomerDecision();
+
+    contactResult.addEventListener('change', toggleCustomerDecision);
+
+});
+
+</script>
 
 <?php require VIEW_PATH . '/layouts/footer.php'; ?>
