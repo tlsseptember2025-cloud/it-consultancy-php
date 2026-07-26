@@ -103,7 +103,7 @@ if (isset($_POST['approve_contact'])) {
 
     $stmt->execute([
         $adminInstruction,
-        ''Customer Contact',',
+        'Customer Contact',
         $consultation['id']
     ]);
 
