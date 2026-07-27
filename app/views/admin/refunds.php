@@ -10,17 +10,35 @@ require CONFIG_PATH . '/database.php';
 
 $refunds = $pdo->query("
     SELECT
-        refunds.*,
-        customers.name,
-        services.title
-    FROM refunds
-    JOIN requests
-        ON requests.id = refunds.request_id
-    JOIN customers
-        ON customers.id = requests.customer_id
-    JOIN services
-        ON services.id = requests.service_id
-    ORDER BY refunds.id DESC
+        rr.id,
+        rr.request_id,
+        rr.reason_type,
+        rr.reason_details,
+        rr.refund_amount,
+        rr.refund_status,
+        rr.status,
+        rr.reviewed_at,
+
+        c.name,
+        s.title
+
+    FROM refund_requests rr
+
+    JOIN requests r
+        ON r.id = rr.request_id
+
+    JOIN customers c
+        ON c.id = r.customer_id
+
+    JOIN services s
+        ON s.id = r.service_id
+
+    WHERE
+        rr.status = 'Approved'
+    AND
+        rr.refund_status = 'Processing'
+
+    ORDER BY rr.reviewed_at DESC
 ")->fetchAll();
 
 ?>
@@ -82,21 +100,21 @@ $refunds = $pdo->query("
                         </td>
 
                         <td>
-                            AED <?= number_format($refund['amount'], 2) ?>
+                            AED <?= number_format($refund['refund_amount'], 2) ?>
                         </td>
 
                         <td>
-                            <?= date('M d, Y', strtotime($refund['refund_date'])) ?>
+                            <?= date('M d, Y', strtotime($refund['reviewed_at'])) ?>
                         </td>
 
                         <td>
-                            <?= htmlspecialchars($refund['reason']) ?>
+                            <?= htmlspecialchars($refund['reason_type']) ?>
                         </td>
 
                         <td>
 
                            <?php
-                            $status = trim((string)($refund['status'] ?? ''));
+                            $status = trim((string)($refund['refund_status'] ?? ''));
 
                             if ($status === 'Processing'):
                             ?>

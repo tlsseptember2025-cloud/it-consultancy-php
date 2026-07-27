@@ -43,16 +43,15 @@ $payments = $payments->fetchAll();
 
 $refunds = $pdo->prepare("
     SELECT
-        refunds.*
-    FROM refunds
-    JOIN requests
-        ON requests.id = refunds.request_id
-    WHERE requests.customer_id = ?
-    ORDER BY refunds.id DESC
+        rr.*
+    FROM refund_requests rr
+    JOIN requests r
+        ON r.id = rr.request_id
+    WHERE r.customer_id = ?
+    ORDER BY rr.id DESC
 ");
 
 $refunds->execute([$customerId]);
-
 $refunds = $refunds->fetchAll();
 
 ?>

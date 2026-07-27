@@ -22,6 +22,7 @@ $stmt = $pdo->query("
         ON r.customer_id = c.id
     JOIN services s
         ON r.service_id = s.id
+    WHERE rr.status = 'Pending'
     ORDER BY rr.created_at DESC
 ");
 
@@ -63,16 +64,7 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
 
             <tbody>
 
-                <?php 
-                
-                    foreach ($refundRequests as $request): 
-
-                        echo '<pre>';
-                        print_r($request);
-                        echo '</pre>';
-                        exit;
-
-                ?>
+                <?php foreach ($refundRequests as $request): ?> 
 
                     <tr>
 

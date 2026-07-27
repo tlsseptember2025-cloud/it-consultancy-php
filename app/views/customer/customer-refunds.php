@@ -105,16 +105,14 @@ $refunds = $stmt->fetchAll();
 
         <br>
 
-        <small class="text-muted">
-            Refund Amount:
+        Refund Amount:
             <strong>
-                AED <?= number_format($refund['refund_amount'], 2) ?>
+                <?php if ($refund['refund_amount'] !== null): ?>
+                    AED <?= number_format($refund['refund_amount'], 2) ?>
+                <?php else: ?>
+                    Pending
+                <?php endif; ?>
             </strong>
-
-            <br>
-
-            Your refund has been successfully processed.
-        </small>
 
     <?php else: ?>
 
@@ -124,17 +122,14 @@ $refunds = $stmt->fetchAll();
 
         <br>
 
-        <small class="text-muted">
-            Refund Amount:
+        Refund Amount:
             <strong>
-                AED <?= number_format($refund['refund_amount'], 2) ?>
+                <?php if ($refund['refund_amount'] !== null): ?>
+                    AED <?= number_format($refund['refund_amount'], 2) ?>
+                <?php else: ?>
+                    Pending
+                <?php endif; ?>
             </strong>
-
-            <br>
-
-            Under processing. Expected completion within
-            <strong>7 working days</strong>.
-        </small>
 
     <?php endif; ?>
 
