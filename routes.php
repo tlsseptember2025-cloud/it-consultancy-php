@@ -478,6 +478,14 @@ switch ($page) {
         require VIEW_PATH . '/customer/confirm-reschedule-consultation.php';
         break;
 
+    case 'refund-history':
+        require VIEW_PATH . '/customer/refund-history.php';
+        break;
+
+    case 'customer-view-refund':
+        require VIEW_PATH . '/customer/view-refund.php';
+        break;
+
     case 'complete-consultation':
         require VIEW_PATH . '/admin/complete-consultation.php';
         break;

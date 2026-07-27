@@ -71,20 +71,6 @@ if (isset($_SESSION['customer'])) {
 
             <ul class="navbar-nav ms-auto align-items-lg-center">
 
-                <!-- Dashboard -->
-
-                <li class="nav-item">
-
-                    <a
-                        class="nav-link"
-                        href="?page=customer-dashboard">
-
-                        Dashboard
-
-                    </a>
-
-                </li>
-
                 <!-- Requests -->
 
                 <li class="nav-item">
