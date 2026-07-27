@@ -388,6 +388,14 @@ switch ($page) {
         require VIEW_PATH . '/admin/complete-refund.php';
         break;
 
+    case 'archived-refunds':
+        require VIEW_PATH . '/admin/archived-refunds.php';
+        break;
+
+    case 'view-refund':
+        require VIEW_PATH . '/admin/view-refund.php';
+        break;
+
     case 'delete-refund':
 
         $stmt = $pdo->prepare("
