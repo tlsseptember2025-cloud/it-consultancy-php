@@ -42,6 +42,7 @@ $stmt = $pdo->prepare("
         ON s.id = r.service_id
 
     WHERE cb.agent_id = ?
+    AND r.workflow_stage = 'Consultation Confirmed'
 
     ORDER BY
         cs.slot_date,
