@@ -10,8 +10,6 @@ require_once HELPER_PATH . '/auth.php';
 
 $customerId = (int) $_SESSION['customer']['id'];
 
-require dirname(__DIR__) . '/layouts/header-customer.php';
-
 $services = $pdo->query("
     SELECT *
     FROM services
@@ -38,9 +36,15 @@ $stmt->execute([
     $_POST['description']
 ]);
 
-    $success =
-        'Service request submitted successfully.';
+$_SESSION['success'] = 'Service request submitted successfully.';
+
+header('Location: ?page=customer-requests');
+exit;
+
+
 }
+
+require dirname(__DIR__) . '/layouts/header-customer.php';
 
 ?>
 

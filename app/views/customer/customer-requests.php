@@ -54,6 +54,15 @@ $requests = $stmt->fetchAll();
 
 ?>
 
+<?php if (!empty($_SESSION['success'])): ?>
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <?= htmlspecialchars($_SESSION['success']) ?>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    <?php unset($_SESSION['success']); ?>
+<?php endif; ?>
+
+
 <h1 class="mb-4">My Requests</h1>
 
 <?php if (!empty($_SESSION['error'])): ?>
