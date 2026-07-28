@@ -97,13 +97,13 @@ if (
     if ($decision === 'return') {
 
     $update = $pdo->prepare("
-        UPDATE requests
-        SET
-            admin_review_comments = ?,
-            workflow_stage = 'Consultation In Progress',
-            job_status = 'In Progress'
-        WHERE id = ?
-    ");
+    UPDATE requests
+    SET
+        admin_review_comments = ?,
+        workflow_stage = 'Consultation Confirmed',
+        job_status = 'In Progress'
+    WHERE id = ?
+");
 
     $update->execute([
         $comments,

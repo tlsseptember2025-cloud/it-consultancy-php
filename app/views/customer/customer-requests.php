@@ -174,8 +174,38 @@ $requests = $stmt->fetchAll();
                         </td>
 
                         <td>
-                            <?= htmlspecialchars($request['workflow_stage']) ?>
-                        </td>
+
+<?php
+
+if (
+
+    $request['workflow_stage'] === 'Needs Admin Review'
+    &&
+    $request['job_status'] === 'Could Not Complete'
+    &&
+    (
+        $request['admin_instruction'] === '__RESCHEDULE_ALLOWED__'
+        ||
+        (
+            $request['admin_instruction'] !== null
+            &&
+            trim($request['admin_instruction']) !== ''
+        )
+    )
+
+) {
+
+    echo '<span class="badge bg-warning text-dark">Ready to Reschedule</span>';
+
+} else {
+
+    echo htmlspecialchars($request['workflow_stage']);
+
+}
+
+?>
+
+</td>
 
                         <td>
                             <?= date('M d, Y', strtotime($request['created_at'])) ?>
@@ -232,7 +262,11 @@ $requests = $stmt->fetchAll();
 
     </div>
 
-<?php elseif ($request['workflow_stage'] === 'Consultation Confirmed'): ?>
+<?php elseif (
+
+    $request['workflow_stage'] === 'Consultation Confirmed'
+
+): ?>
 
     <?php
 
@@ -266,13 +300,45 @@ $requests = $stmt->fetchAll();
 
     </a>
 
+    <?php if ((int)$request['consultation_reschedules'] < 1): ?>
+
+<a
+    href="?page=reschedule-consultation&request_id=<?= $request['id'] ?>"
+    class="btn btn-warning btn-sm ms-2">
+
+    Reschedule
+
+</a>
+
+<?php endif; ?>
+
+<?php elseif (
+
+    $request['workflow_stage'] === 'Needs Admin Review'
+    &&
+    $request['job_status'] === 'Could Not Complete'
+
+): ?>
+
+    <?php if (empty($request['admin_instruction'])): ?>
+
+    <span class="badge bg-warning text-dark">
+
+        Awaiting Administrator Review
+
+    </span>
+
+<?php else: ?>
+
     <a
         href="?page=reschedule-consultation&request_id=<?= $request['id'] ?>"
-        class="btn btn-warning btn-sm ms-2">
+        class="btn btn-warning btn-sm">
 
-        Reschedule
+        Reschedule Consultation
 
     </a>
+
+<?php endif; ?>
 
 
 <?php elseif ($request['workflow_stage'] === 'Consultation Rejected'): ?>

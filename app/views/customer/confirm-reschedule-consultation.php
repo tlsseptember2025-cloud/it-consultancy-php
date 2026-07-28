@@ -20,6 +20,9 @@ verifyCustomerRequest($pdo, $requestId);
 $stmt = $pdo->prepare("
     SELECT
         r.consultation_reschedules,
+        r.workflow_stage,
+        r.job_status,
+        r.admin_instruction,
         cb.slot_id,
         cs.slot_date,
         cs.slot_time,
@@ -42,8 +45,21 @@ if (!$current) {
     die('Invalid request.');
 }
 
-// Only one reschedule allowed
-if ((int) $current['consultation_reschedules'] >= 1) {
+// Unlimited reschedules when approved by the administrator
+$isAdminReschedule = (
+    $current['workflow_stage'] === 'Needs Admin Review'
+    &&
+    $current['job_status'] === 'Could Not Complete'
+    &&
+    !empty($current['admin_instruction'])
+);
+
+// Normal customer reschedule: only one allowed
+if (
+    !$isAdminReschedule
+    &&
+    (int)$current['consultation_reschedules'] >= 1
+) {
     die('You have already used your consultation reschedule.');
 }
 
@@ -122,7 +138,9 @@ $stmt = $pdo->prepare("
     SET
         consultation_reschedules = consultation_reschedules + 1,
         workflow_stage = 'Consultation Scheduled',
+        job_status = 'Pending',
         consultation_rejection_reason = NULL,
+        admin_instruction = NULL,
         consultation_rejected_at = NULL,
         consultation_rejected_by = NULL
     WHERE id = ?

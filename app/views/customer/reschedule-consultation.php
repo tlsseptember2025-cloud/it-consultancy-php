@@ -19,6 +19,9 @@ verifyCustomerRequest($pdo, $requestId);
 $stmt = $pdo->prepare("
     SELECT
         r.consultation_reschedules,
+        r.workflow_stage,
+        r.job_status,
+        r.admin_instruction,
         cb.slot_id,
         cs.slot_date,
         cs.slot_time
@@ -43,13 +46,26 @@ header('Location: ?page=customer-requests');
 exit;
 }
 
-// Only one reschedule allowed
-if ((int)$request['consultation_reschedules'] >= 1) {
+// Unlimited reschedules when approved by the administrator
+$isAdminReschedule = (
+    $request['workflow_stage'] === 'Needs Admin Review'
+    &&
+    $request['job_status'] === 'Could Not Complete'
+    &&
+    !empty($request['admin_instruction'])
+);
+
+// Normal customer reschedule: only one allowed
+if (
+    !$isAdminReschedule
+    &&
+    (int)$request['consultation_reschedules'] >= 1
+) {
     $_SESSION['error'] =
     'You have already used your one allowed consultation reschedule.';
 
-header('Location: ?page=customer-requests');
-exit;
+    header('Location: ?page=customer-requests');
+    exit;
 }
 
 // Must be more than 24 hours before
@@ -105,6 +121,8 @@ require dirname(__DIR__) . '/layouts/header-customer.php';
 
 ?>
 
+
+
 <div class="d-flex justify-content-between align-items-center mb-4">
 
     <div>
@@ -132,6 +150,32 @@ require dirname(__DIR__) . '/layouts/header-customer.php';
     </a>
 
 </div>
+
+<?php if (
+
+    !empty($request['admin_instruction'])
+    &&
+    $request['admin_instruction'] !== '__RESCHEDULE_ALLOWED__'
+
+): ?>
+
+<div class="alert alert-info shadow-sm mb-4">
+
+    <h5 class="mb-3">
+
+        Administrator Instructions
+
+    </h5>
+
+    <p class="mb-0">
+
+        <?= nl2br(htmlspecialchars($request['admin_instruction'])) ?>
+
+    </p>
+
+</div>
+
+<?php endif; ?>
 
 <div class="card shadow-sm mb-4">
 
