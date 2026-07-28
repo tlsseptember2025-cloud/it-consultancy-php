@@ -95,13 +95,17 @@ if (!$request) {
 
         <hr>
 
-<h5>Agent Consultation Notes</h5>
+<?php if (!empty($consultation['agent_notes'])): ?>
 
-<div class="border rounded bg-light p-3 mb-3">
+    <hr>
 
-    <?= nl2br(htmlspecialchars($request['completion_notes'] ?? 'No notes provided.')) ?>
+    <h4>Agent Consultation Notes</h4>
 
-</div>
+    <div class="alert alert-light border">
+        <?= nl2br(htmlspecialchars($consultation['agent_notes'])) ?>
+    </div>
+
+<?php endif; ?>
 
         <div class="mt-4 d-flex gap-2">
 
