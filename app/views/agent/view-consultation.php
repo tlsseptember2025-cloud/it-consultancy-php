@@ -665,32 +665,20 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
         <?php endif; ?>
 
-        <?php if ($consultation['workflow_stage'] === 'Consultation In Progress'): ?>
 
-    <button
-        type="submit"
-        name="save_notes"
-        class="btn btn-primary">
+        <?php if ($consultation['job_status'] === 'In Progress'): ?>
 
+    <button type="submit" name="save_notes" class="btn btn-primary">
         💾 Save Notes
-
     </button>
 
-    <button
-        type="submit"
-        name="complete_consultation"
-        class="btn btn-success">
-
+    <button type="submit" name="complete_consultation" class="btn btn-success">
         ✅ Complete Consultation
-
     </button>
 
-    <a
-        href="?page=cannot-complete-consultation&id=<?= $consultation['id'] ?>"
-        class="btn btn-danger">
-
+    <a href="?page=cannot-complete-consultation&id=<?= $consultation['id'] ?>"
+       class="btn btn-danger">
         ❌ Could Not Complete
-
     </a>
 
 <?php endif; ?>

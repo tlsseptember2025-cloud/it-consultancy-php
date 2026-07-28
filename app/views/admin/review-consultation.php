@@ -121,7 +121,7 @@ if (!$request) {
     </a>
 
     <a
-        href="?page=reject-consultation-schedule&id=<?= $request['id'] ?>"
+        href="?page=reject-consultation&id=<?= $request['id'] ?>"
         class="btn btn-danger">
 
         Reject Schedule

@@ -13,8 +13,11 @@ $agentId = $_SESSION['agent']['id'];
 
 $totalConsultations = $pdo->prepare("
     SELECT COUNT(*)
-    FROM consultation_bookings
-    WHERE agent_id = ?
+    FROM consultation_bookings cb
+    INNER JOIN requests r
+        ON r.id = cb.request_id
+    WHERE cb.agent_id = ?
+      AND r.workflow_stage = 'Consultation Confirmed'
 ");
 
 $totalConsultations->execute([$agentId]);
@@ -25,6 +28,7 @@ $totalServices = $pdo->prepare("
     SELECT COUNT(*)
     FROM requests
     WHERE agent_id = ?
+      AND workflow_stage = 'Consultation Completed'
 ");
 
 $totalServices->execute([$agentId]);
