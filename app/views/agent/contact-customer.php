@@ -1,7 +1,14 @@
 <?php
 /** @var array $agent */
-
 /** @var array $request */
+
+if (!isset($_SESSION['agent'])) {
+
+    header('Location: ?page=public-login');
+    exit;
+}
+
+
 ?>
 
 <?php require VIEW_PATH . '/layouts/header-agent.php'; ?>

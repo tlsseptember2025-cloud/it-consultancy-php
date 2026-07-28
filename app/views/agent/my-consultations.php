@@ -2,7 +2,7 @@
 
 if (!isset($_SESSION['agent'])) {
 
-    header('Location: ?page=agent-login');
+    header('Location: ?page=public-login');
     exit;
 }
 
