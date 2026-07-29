@@ -25,7 +25,8 @@ $stmt = $pdo->prepare("
 
         cs.slot_time,
 
-        r.job_status
+        r.job_status,
+        r.workflow_stage
 
     FROM consultation_bookings cb
 
@@ -41,8 +42,12 @@ $stmt = $pdo->prepare("
     INNER JOIN services s
         ON s.id = r.service_id
 
-    WHERE cb.agent_id = ?
-    AND r.workflow_stage = 'Consultation Confirmed'
+    WHERE
+    cb.agent_id = ?
+    AND r.workflow_stage IN (
+        'Consultation Confirmed',
+        'Customer Contact'
+    )
 
     ORDER BY
         cs.slot_date,
@@ -89,9 +94,11 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
                             <th>Service</th>
 
-                            <th>Status</th>
+                            <th>Stage</th>
 
-                            <th width="120">Action</th>
+                            <th>Job Status</th>
+
+                            <th width="200">Action</th>
 
                         </tr>
 
@@ -142,6 +149,10 @@ require VIEW_PATH . '/layouts/header-agent.php';
     </td>
 
     <td>
+        <?= htmlspecialchars($consultation['workflow_stage']) ?>
+    </td>
+
+    <td>
 
         <?= htmlspecialchars($consultation['job_status']) ?>
 
@@ -149,13 +160,21 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
     <td>
 
-        <a
-            href="?page=view-consultation&id=<?= $consultation['request_id'] ?>"
+        <?php if ($consultation['workflow_stage'] === 'Customer Contact'): ?>
+
+            <a href="?page=contact-customer&request_id=<?= $consultation['request_id'] ?>"
             class="btn btn-primary btn-sm">
+                Contact Customer
+            </a>
 
-            Open
+        <?php elseif ($consultation['workflow_stage'] === 'Consultation Confirmed'): ?>
 
-        </a>
+            <a href="?page=start-consultation&request_id=<?= $consultation['request_id'] ?>"
+            class="btn btn-success btn-sm">
+                Start Consultation
+            </a>
+
+        <?php endif; ?>
 
     </td>
 

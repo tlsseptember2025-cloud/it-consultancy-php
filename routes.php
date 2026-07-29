@@ -114,6 +114,10 @@ switch ($page) {
         require VIEW_PATH . '/agent/dashboard.php';
         break;
 
+    case 'customer-contact':
+        require APP_PATH . '/controllers/customer-contact.php';
+        break;
+
     case 'contact-customer':
         require APP_PATH . '/controllers/contact-customer.php';
         break;

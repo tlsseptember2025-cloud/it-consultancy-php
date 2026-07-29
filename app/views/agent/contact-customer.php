@@ -73,46 +73,78 @@ if (!isset($_SESSION['agent'])) {
 
         <form method="POST">
 
-            <div class="mb-3">
-                <label class="form-label">Contact Result</label>
+            <!-- Step 1 -->
+            <div class="card border mb-3">
+                <div class="card-header bg-light fw-bold">
+                    Step 1: Contact Result
+                </div>
 
-                <select name="contact_result" class="form-select" required>
-                    <option value="">Select Result</option>
-                    <option value="Customer Answered">Customer Answered</option>
-                    <option value="No Answer">No Answer</option>
-                    <option value="Wrong Number">Wrong Number</option>
-                    <option value="Customer Requested Reschedule">Customer Requested Reschedule</option>
-                </select>
+                <div class="card-body">
+
+                    <label class="form-label">Contact Result</label>
+
+                    <select name="contact_result" class="form-select" required>
+                        <option value="">Select Result</option>
+                        <option value="Customer Answered">Customer Answered</option>
+                        <option value="No Answer">No Answer</option>
+                        <option value="Wrong Number">Wrong Number</option>
+                    </select>
+
+                </div>
             </div>
 
-            <div id="customerDecisionSection" class="mb-3" style="display:none;">
+            <!-- Step 2 -->
+            <div id="customerDecisionSection" class="card border mb-3" style="display:none;">
 
-    <label class="form-label">Customer Decision</label>
+                <div id="customerRequestHeader" class="card-header bg-light fw-bold">
+                    Step 2: Customer Request
+                </div>
 
-    <select name="customer_decision" id="customerDecision" class="form-select">
+                <div class="card-body">
 
-        <option value="">Select Decision</option>
+                    <label class="form-label">Customer Request</label>
 
-        <option value="Continue Consultation">
-            Continue Consultation
-        </option>
+                    <select name="customer_decision" id="customerDecision" class="form-select">
 
-        <option value="Close Request">
-            Close Request
-        </option>
+                        <option value="">Select Request</option>
 
-    </select>
+                        <option value="Continue Current Appointment">
+                            Continue with Current Appointment
+                        </option>
 
-</div>
+                        <option value="Continue New Appointment">
+                            Continue with New Appointment
+                        </option>
 
-            <div class="mb-3">
-                <label class="form-label">Agent Notes</label>
+                        <option value="Close Request">
+                            Close Request
+                        </option>
 
-                <textarea
-                    name="agent_notes"
-                    class="form-control"
-                    rows="5"
-                    required></textarea>
+                    </select>
+
+                </div>
+
+            </div>
+
+            <!-- Step 3 -->
+            <div class="card border mb-3">
+
+                <div id="agentNotesHeader" class="card-header bg-light fw-bold">
+                    Step 2: Agent Notes
+                </div>
+
+                <div class="card-body">
+
+                    <label class="form-label">Agent Notes</label>
+
+                    <textarea
+                        name="agent_notes"
+                        class="form-control"
+                        rows="5"
+                        required></textarea>
+
+                </div>
+
             </div>
 
             <button type="submit" class="btn btn-success">
@@ -132,12 +164,24 @@ if (!isset($_SESSION['agent'])) {
 const contactResult = document.querySelector('select[name="contact_result"]');
 const customerDecisionSection = document.getElementById('customerDecisionSection');
 
+const customerRequestHeader = document.getElementById('customerRequestHeader');
+const agentNotesHeader = document.getElementById('agentNotesHeader');
+
 function toggleCustomerDecision() {
 
     if (contactResult.value === 'Customer Answered') {
+
         customerDecisionSection.style.display = 'block';
+
+        customerRequestHeader.textContent = 'Step 2: Customer Request';
+        agentNotesHeader.textContent = 'Step 3: Agent Notes';
+
     } else {
+
         customerDecisionSection.style.display = 'none';
+
+        agentNotesHeader.textContent = 'Step 2: Agent Notes';
+
     }
 
 }

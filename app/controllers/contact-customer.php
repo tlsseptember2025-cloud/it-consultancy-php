@@ -46,11 +46,18 @@ if (!$request) {
     die('Request not found.');
 }
 
+if ($request['workflow_stage'] !== 'Customer Contact') {
+
+    die('Invalid workflow.');
+
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $contactResult = trim($_POST['contact_result'] ?? '');
     $agentNotes    = trim($_POST['agent_notes'] ?? '');
     $customerDecision = trim($_POST['customer_decision'] ?? '');
+    $jobStatus = '';
 
     if ($contactResult === '' || $agentNotes === '') {
         die('Please complete all required fields.');
@@ -67,25 +74,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 if ($contactResult === 'No Answer') {
 
-    $workflowStage = 'Customer Contact Approved';
+    $workflowStage = 'Customer Contact';
+    $jobStatus = 'Could Not Complete';
 
 } elseif ($contactResult === 'Wrong Number') {
 
     $workflowStage = 'Needs Admin Review';
-
-} elseif ($contactResult === 'Customer Requested Reschedule') {
-
-    $workflowStage = 'Needs Admin Review';
+    $jobStatus = 'Could Not Complete';
 
 } elseif ($contactResult === 'Customer Answered') {
 
-    if ($customerDecision === 'Continue Consultation') {
+    if ($customerDecision === 'Continue Current Appointment') {
 
-        $workflowStage = 'Consultation In Progress';
+        $workflowStage = 'Consultation Confirmed';
+        $jobStatus = 'In Progress';
+
+    } elseif ($customerDecision === 'Continue New Appointment') {
+
+        $workflowStage = 'Needs Admin Review';
+        $jobStatus = 'Completed';
 
     } elseif ($customerDecision === 'Close Request') {
 
-        $workflowStage = 'Closed';
+        $workflowStage = 'Needs Admin Review';
+        $jobStatus = 'Completed';
 
     }
 
@@ -101,13 +113,13 @@ if ($contactResult === 'No Answer') {
 ");
 
 $stmt->execute([
-    $contactResult,
+    $jobStatus,
     $workflowStage,
     $agentNotes,
     $request['id']
 ]);
 
-header('Location: ?page=my-consultations&success=contact-saved');
+header('Location: ?page=agent-consultations&success=contact-saved');
 exit;
 
 }
