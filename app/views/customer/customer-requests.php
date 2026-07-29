@@ -181,8 +181,6 @@ if (
 
     $request['workflow_stage'] === 'Needs Admin Review'
     &&
-    $request['job_status'] === 'Could Not Complete'
-    &&
     (
         $request['admin_instruction'] === '__RESCHEDULE_ALLOWED__'
         ||
@@ -310,13 +308,21 @@ if (
 
 </a>
 
-<?php endif; ?>
+<?php endif; 
 
-<?php elseif (
+elseif (
 
     $request['workflow_stage'] === 'Needs Admin Review'
     &&
-    $request['job_status'] === 'Could Not Complete'
+    (
+        $request['admin_instruction'] === '__RESCHEDULE_ALLOWED__'
+        ||
+        (
+            $request['admin_instruction'] !== null
+            &&
+            trim($request['admin_instruction']) !== ''
+        )
+    )
 
 ): ?>
 

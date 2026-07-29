@@ -234,18 +234,35 @@ if (isset($_POST['reassign_agent'])) {
         |--------------------------------------------------------------------------
         */
 
-        $stmt = $pdo->prepare("
-            UPDATE requests
-            SET
-                agent_id = ?,
-                workflow_stage = 'Consultation Scheduled'
-            WHERE id = ?
-        ");
+        $adminInstruction = trim($_POST['admin_instruction'] ?? '');
 
-        $stmt->execute([
-            $newAgentId,
-            $consultation['id']
-        ]);
+        if ($adminInstruction === '') {
+            $adminInstruction = '__RESCHEDULE_ALLOWED__';
+}
+
+       $stmt = $pdo->prepare("
+    UPDATE requests
+    SET
+        agent_id = ?,
+        workflow_stage = 'Needs Admin Review',
+
+        status = 'Pending',
+        job_status = 'Pending',
+
+        admin_instruction = ?,
+
+        completed_at = NULL,
+        completion_notes = NULL,
+        incomplete_reason = NULL
+
+    WHERE id = ?
+");
+
+       $stmt->execute([
+    $newAgentId,
+    $adminInstruction,
+    $consultation['id']
+]);
 
         $pdo->commit();
 
@@ -706,6 +723,32 @@ require VIEW_PATH . '/layouts/header-admin.php';
                 </div>
 
             <?php endif; ?>
+
+            <?php if ($isReassignment): ?>
+
+<div class="mb-4">
+
+    <label class="form-label fw-bold">
+
+        Administrator Instructions (Optional)
+
+    </label>
+
+    <textarea
+        name="admin_instruction"
+        class="form-control"
+        rows="6"
+        placeholder="Example: Your consultation has been assigned to another consultant. Please choose a new appointment that suits your availability."></textarea>
+
+    <div class="form-text">
+
+        These instructions will be displayed to the customer before they choose a new consultation date and time.
+
+    </div>
+
+</div>
+
+<?php endif; ?>
 
             <?php if ($isReassignment): ?>
 

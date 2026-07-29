@@ -326,7 +326,7 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
 </div>
 
-<?php if ($consultation['job_status'] === 'Could Not Complete'): ?>
+<?php if ($consultation['workflow_stage'] === 'Needs Admin Review'): ?>
 
 <div class="card shadow-sm mb-4 border-danger">
 
@@ -500,7 +500,7 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
 </form>
 
-<?php if ($consultation['job_status'] === 'Could Not Complete'): ?>
+<?php if ($consultation['workflow_stage'] === 'Needs Admin Review'): ?>
 
 <div class="card shadow-sm mb-4">
 
