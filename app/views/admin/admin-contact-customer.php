@@ -1,6 +1,7 @@
 <?php
 
 /** @var array $consultation */
+/** @var string $action */
 
 require VIEW_PATH . '/layouts/header-admin.php';
 require_once CONFIG_PATH . '/database.php';
@@ -12,17 +13,53 @@ require_once CONFIG_PATH . '/database.php';
     <div class="card-header bg-success text-white">
 
         <h4 class="mb-0">
-            Approve Customer Contact
+
+            <?php
+
+            switch ($action) {
+
+                case 'wrong-number':
+                    echo 'Incorrect Customer Phone Number';
+                    break;
+
+                case 'no-answer':
+                    echo 'Customer Contact Required';
+                    break;
+
+                case 'new-consultation':
+                    echo 'Customer Requested New Consultation';
+                    break;
+
+                case 'close-request':
+                    echo 'Customer Requested Closure';
+                    break;
+
+                default:
+                    echo 'Approve Customer Contact';
+
+            }
+
+            ?>
+
         </h4>
 
     </div>
 
     <div class="card-body">
 
-        <p class="mb-0">
-            Review the consultation details below. If appropriate, approve the assigned
-            agent to contact the customer and provide any instructions required.
-        </p>
+        <?php if ($action === 'wrong-number'): ?>
+
+<p class="mb-0">
+    Review the request details below. The assigned agent reported that the customer's phone number is incorrect. Verify the customer's contact information and update the request as appropriate.
+</p>
+
+<?php else: ?>
+
+<p class="mb-0">
+    Review the consultation details below. If appropriate, approve the assigned agent to contact the customer and provide any instructions required.
+</p>
+
+<?php endif; ?>
 
     </div>
 
@@ -187,7 +224,7 @@ require_once CONFIG_PATH . '/database.php';
 
     </div>
 
-
+<?php if ($action === ''): ?>
     <form method="post">
         <div class="card shadow-sm mb-4">
 
@@ -233,6 +270,147 @@ require_once CONFIG_PATH . '/database.php';
         </div>
     </form>
 
+<?php endif ?>
+
+<?php if ($action === 'wrong-number'): ?>
+
+<div class="card shadow-sm mb-4">
+
+    <div class="card-header bg-warning">
+        Incorrect Customer Phone Number
+    </div>
+
+    <div class="card-body">
+
+        <p>
+            The assigned agent reported that the customer's phone number is incorrect.
+        </p>
+
+        <p class="mb-4">
+            Choose one of the following actions:
+        </p>
+
+        
+
+           <div id="wrong-number-actions" class="row g-3">
+
+                <div class="col-md-6">
+                    <button
+                        type="button"
+                        class="btn btn-outline-success w-100"
+                        id="show-phone-update">
+                        Update Customer Phone Number
+                    </button>
+                </div>
+
+                <div class="col-md-6">
+                    <button
+                        type="button"
+                        class="btn btn-outline-primary w-100"
+                        id="request-phone-update">
+                        Request Updated Phone Number
+                    </button>
+                </div>
+
+            </div>
+    
+
+        <div id="phone-update-card" class="card border-success mt-4" style="display:none;">
+
+    <div class="card-header bg-success text-white">
+        Update Customer Phone Number
+    </div>
+
+    <div class="card-body">
+
+        <div class="mb-3">
+            <label class="form-label">Current Phone Number</label>
+
+            <input
+                type="text"
+                class="form-control"
+                value="<?= htmlspecialchars($consultation['phone']) ?>"
+                readonly>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">New Phone Number</label>
+
+            <input
+                type="text"
+                class="form-control"
+                name="new_phone">
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Administrator Notes</label>
+
+            <textarea
+                class="form-control"
+                name="update_notes"
+                rows="4"></textarea>
+        </div>
+
+        <div class="text-end">
+
+            <button
+                type="button"
+                class="btn btn-secondary"
+                id="hide-phone-update">
+                Cancel
+            </button>
+
+            <button
+                type="submit"
+                class="btn btn-success">
+                Save & Return to Customer Contact
+            </button>
+
+        </div>
+
+    </div>
+
 </div>
+
+    </div>
+
+</div>
+
+<?php endif; ?>
+
+</div>
+
+<script>
+
+
+document
+    .getElementById('show-phone-update')
+    .addEventListener('click', function () {
+
+        document
+            .getElementById('wrong-number-actions')
+            .classList.add('d-none');
+
+        document
+            .getElementById('phone-update-card')
+            .classList.remove('d-none');
+
+    });
+
+document
+    .getElementById('hide-phone-update')
+    .addEventListener('click', function () {
+
+        document
+            .getElementById('phone-update-card')
+            .classList.add('d-none');
+
+        document
+            .getElementById('wrong-number-actions')
+            .classList.remove('d-none');
+
+    });
+    
+</script>
 
 <?php require VIEW_PATH.'/layouts/footer.php'; ?>

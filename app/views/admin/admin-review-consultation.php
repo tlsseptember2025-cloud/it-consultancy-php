@@ -343,7 +343,10 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
 </div>
 
-<?php if ($consultation['workflow_stage'] === 'Needs Admin Review'): ?>
+<?php if (
+    $consultation['workflow_stage'] === 'Needs Admin Review'
+    && ($isConsultationReview || $isCustomerContactReview)
+): ?>
 
 <div class="card shadow-sm mb-4 border-danger">
 
@@ -409,32 +412,35 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
 <?php endif; ?>
 
+<pre>
+<?= $consultation['job_status'] ?>
+<?= $consultation['workflow_stage'] ?>
+<?= $consultation['review_type'] ?>
+</pre>
+
 <form method="POST">
 
-<?php if ($consultation['job_status'] === 'Completed'): ?>
+<?php if (
+    $isConsultationReview
+    && $consultation['job_status'] === 'Completed'
+): ?>
 
 <div class="card shadow-sm mb-4">
 
     <div class="card-header bg-primary text-white">
-
         Final Review
-
     </div>
 
     <div class="card-body">
 
         <p class="mb-4">
-
             Please review the completed consultation before continuing.
-
         </p>
 
         <div class="mb-3">
 
             <label class="form-label">
-
                 Review Comments
-
             </label>
 
             <textarea
@@ -445,67 +451,66 @@ require VIEW_PATH . '/layouts/header-admin.php';
         </div>
 
         <label class="form-label mt-3">
-    Decision
-</label>
+            Decision
+        </label>
 
-<div class="row mt-2 mb-4">
+        <div class="row mt-2 mb-4">
 
-    <div class="col-md-6">
+            <div class="col-md-6">
 
-        <div class="form-check">
+                <div class="form-check">
 
-            <input
-                class="form-check-input"
-                type="radio"
-                name="admin_decision"
-                id="approveConsultation"
-                value="approve">
+                    <input
+                        class="form-check-input"
+                        type="radio"
+                        name="admin_decision"
+                        id="approveConsultation"
+                        value="approve">
 
-            <label
-                class="form-check-label"
-                for="approveConsultation">
+                    <label
+                        class="form-check-label"
+                        for="approveConsultation">
 
-                Approve Consultation
+                        Approve Consultation
 
-            </label>
+                    </label>
 
-        </div>
+                </div>
 
-    </div>
+            </div>
 
-    <div class="col-md-6">
+            <div class="col-md-6">
 
-        <div class="form-check">
+                <div class="form-check">
 
-            <input
-                class="form-check-input"
-                type="radio"
-                name="admin_decision"
-                id="returnAgent"
-                value="return">
+                    <input
+                        class="form-check-input"
+                        type="radio"
+                        name="admin_decision"
+                        id="returnAgent"
+                        value="return">
 
-            <label
-                class="form-check-label"
-                for="returnAgent">
+                    <label
+                        class="form-check-label"
+                        for="returnAgent">
 
-                Return to Agent
+                        Return to Agent
 
-            </label>
+                    </label>
 
-        </div>
+                </div>
 
-    </div>
-
-</div>
+            </div>
 
         </div>
 
         <div class="text-end mt-4">
 
             <button
-                type="submit"
-                name="submit_review"
-                class="btn btn-success">
+                type="button"
+                id="continueBtn"
+                class="btn btn-success btn-lg px-4"
+                disabled>
 
                 Continue →
 
@@ -521,7 +526,10 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
 </form>
 
-<?php if ($consultation['workflow_stage'] === 'Needs Admin Review'): ?>
+<?php if (
+    $consultation['workflow_stage'] === 'Needs Admin Review'
+    && $consultation['job_status'] !== 'Completed'
+): ?>
 
 <div class="card shadow-sm mb-4">
 
@@ -777,6 +785,8 @@ require VIEW_PATH . '/layouts/header-admin.php';
 const options = document.querySelectorAll('.decision-option');
 const button = document.getElementById('continueBtn');
 
+console.log(options.length);
+
 options.forEach(option => {
 
     option.addEventListener('click', function () {
@@ -805,27 +815,49 @@ button.addEventListener('click', function () {
 
     switch (selected.value) {
 
-    case 'reschedule':
-        window.location =
-            '?page=admin-reschedule-consultation&id=' + id;
-        break;
+        // Consultation Review
+        case 'reschedule':
+            window.location =
+                '?page=admin-reschedule-consultation&id=' + id;
+            break;
 
-    case 'reassign':
-        window.location =
-            '?page=admin-assign-agent&id=' + id;
-        break;
+        case 'reassign':
+            window.location =
+                '?page=admin-assign-agent&id=' + id;
+            break;
 
-    case 'contact':
-        window.location =
-            '?page=admin-contact-customer&id=' + id;
-        break;
+        case 'contact':
+            window.location =
+                '?page=admin-contact-customer&id=' + id;
+            break;
 
-    case 'close':
-        window.location =
-            '?page=admin-close-request&id=' + id;
-        break;
+        case 'close':
+            window.location =
+                '?page=admin-close-request&id=' + id;
+            break;
 
-}
+        // Customer Contact Review
+        case 'no-answer':
+            window.location =
+                '?page=admin-contact-customer&id=' + id + '&action=no-answer';
+            break;
+
+        case 'wrong-number':
+            window.location =
+                '?page=admin-contact-customer&id=' + id + '&action=wrong-number';
+            break;
+
+        case 'new-consultation':
+            window.location =
+                '?page=admin-reschedule-consultation&id=' + id;
+            break;
+
+        case 'close-request':
+            window.location =
+                '?page=admin-close-request&id=' + id;
+            break;
+
+    }
 
 });
 

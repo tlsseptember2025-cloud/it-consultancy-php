@@ -8,6 +8,7 @@ if (!isset($_SESSION['user'])) {
 require_once CONFIG_PATH . '/database.php';
 
 $requestId = (int)($_GET['id'] ?? 0);
+$action = $_GET['action'] ?? '';
 
 /*
 |--------------------------------------------------------------------------
