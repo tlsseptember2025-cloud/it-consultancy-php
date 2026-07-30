@@ -58,32 +58,3 @@ function blockDemoAction($message = null, $redirect = null)
     header('Location: ?page=dashboard');
     exit;
 }
-
-/**
- * Check if today is a backup reminder day.
- */
-function isBackupReminderDay()
-{
-    return in_array(date('N'), [4, 6]); // Thursday & Saturday
-}
-
-/**
- * Check if a database backup has been created today.
-*/
-
-
-function shouldShowBackupReminder()
-{
-    return isDevelopment()
-        && isBackupReminderDay()
-        && !hasBackupToday();
-}
-
-
-/*
-function shouldShowBackupReminder()
-{
-    return true;
-}
-
-*/

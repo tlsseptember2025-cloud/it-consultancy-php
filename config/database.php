@@ -4,23 +4,34 @@ require_once __DIR__ . '/workflow.php';
 
 /**
  * Database Connection
- * Creates the PDO instance used throughout the application.
  */
 
-$host = 'localhost';
-$dbname = 'consultancy';
-$username = 'root';
-$password = '';
+$env = parse_ini_file(dirname(__DIR__) . '/.env');
+
+$host     = $env['DB_HOST'];
+$port     = $env['DB_PORT'];
+$dbname   = $env['DB_NAME'];
+$username = $env['DB_USER'];
+$password = $env['DB_PASS'];
+
+$sslCa = dirname(__DIR__) . '/' . $env['DB_SSL_CA'];
 
 try {
+
+    $dsn = "mysql:host=$host;port=$port;dbname=$dbname;charset=utf8mb4";
+
+    $options = [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::MYSQL_ATTR_SSL_CA => $sslCa,
+    ];
+
     $pdo = new PDO(
-        "mysql:host=$host;dbname=$dbname;charset=utf8mb4",
+        $dsn,
         $username,
-        $password
+        $password,
+        $options
     );
 
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-
 } catch (PDOException $e) {
-    die('Database connection failed');
+    die('Database connection failed: ' . $e->getMessage());
 }
