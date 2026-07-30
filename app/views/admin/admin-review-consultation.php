@@ -60,6 +60,21 @@ if (!$consultation) {
 
 }
 
+/*
+|--------------------------------------------------------------------------
+| Review Type
+|--------------------------------------------------------------------------
+|
+| The Administrative Review page supports multiple workflows.
+| Determine which workflow should be displayed.
+|
+*/
+
+$reviewType = $consultation['review_type'] ?? 'consultation';
+
+$isConsultationReview   = ($reviewType === 'consultation');
+$isCustomerContactReview = ($reviewType === 'customer_contact');
+
 if (
     $_SERVER['REQUEST_METHOD'] === 'POST'
     && isset($_POST['submit_review'])
@@ -127,9 +142,11 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
         <h2>
 
-            Review Consultation
+<?= $isConsultationReview
+        ? 'Review Consultation'
+        : 'Review Customer Contact'; ?>
 
-        </h2>
+</h2>
 
         <p class="text-muted">
 
@@ -332,7 +349,9 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
     <div class="card-header bg-danger text-white">
 
-        Consultation Outcome
+        <?= $isConsultationReview
+        ? 'Consultation Outcome'
+        : 'Customer Contact Outcome'; ?>
 
     </div>
 
@@ -340,7 +359,9 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
         <p class="mb-3">
 
-            The assigned agent could not complete this consultation and requested an administrator review.
+            <?= $isConsultationReview
+    ? 'The assigned agent could not complete this consultation and requested an administrator review.'
+    : 'The assigned agent completed the customer contact and requested an administrator review.'; ?>
 
         </p>
 
@@ -514,13 +535,17 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
         <p class="text-muted mb-4">
 
-            Choose the next action for this consultation.
+            <?= $isConsultationReview
+        ? 'Choose the next action for this consultation.'
+        : 'Choose the next action for this customer contact.'; ?>
 
         </p>
 
         
 
         <h4 class="mb-3">Workflow Decisions</h4>
+
+        <?php if ($isConsultationReview): ?>
 
 <div class="row g-3">
 
@@ -605,6 +630,123 @@ require VIEW_PATH . '/layouts/header-admin.php';
     </div>
 
 </div>
+
+<?php elseif ($isCustomerContactReview): ?>
+
+    <div class="row g-3">
+
+        <!-- No Answer -->
+        <div class="col-lg-3 col-md-6">
+
+            <div class="card h-100 decision-option">
+
+                <div class="card-body">
+
+                    <input
+                        class="form-check-input float-end"
+                        type="radio"
+                        name="decision"
+                        value="no-answer">
+
+                    <h5 class="mt-2">
+                        📞 No Answer
+                    </h5>
+
+                    <small class="text-muted">
+                        Contact the customer again.
+                    </small>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- Wrong Number -->
+        <div class="col-lg-3 col-md-6">
+
+            <div class="card h-100 decision-option">
+
+                <div class="card-body">
+
+                    <input
+                        class="form-check-input float-end"
+                        type="radio"
+                        name="decision"
+                        value="wrong-number">
+
+                    <h5 class="mt-2">
+                        ☎️ Wrong Number
+                    </h5>
+
+                    <small class="text-muted">
+                        Update the customer's contact information.
+                    </small>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- Customer Requested New Consultation -->
+        <div class="col-lg-3 col-md-6">
+
+            <div class="card h-100 decision-option">
+
+                <div class="card-body">
+
+                    <input
+                        class="form-check-input float-end"
+                        type="radio"
+                        name="decision"
+                        value="new-consultation">
+
+                    <h5 class="mt-2">
+                        📅 Customer Requested New Consultation
+                    </h5>
+
+                    <small class="text-muted">
+                        Schedule a new consultation appointment for the customer.
+                    </small>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- Customer Requested Closure -->
+        <div class="col-lg-3 col-md-6">
+
+            <div class="card h-100 decision-option">
+
+                <div class="card-body">
+
+                    <input
+                        class="form-check-input float-end"
+                        type="radio"
+                        name="decision"
+                        value="close-request">
+
+                    <h5 class="mt-2">
+                        🔒 Customer Requested Closure
+                    </h5>
+
+                    <small class="text-muted">
+                        Close this request as requested by the customer.
+                    </small>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+<?php endif; ?>
 
 <hr class="my-4">
 

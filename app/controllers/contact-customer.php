@@ -72,6 +72,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $workflowStage = $request['workflow_stage'];
 
+    /*
+    |--------------------------------------------------------------------------
+    | Review Type
+    |--------------------------------------------------------------------------
+    |
+    | Default to consultation. Only change this when the request enters
+    | the Customer Contact administrative review workflow.
+    |
+    */
+
+    $reviewType = 'consultation';
+
+    
+    $reviewType = null;
+
 if ($contactResult === 'No Answer') {
 
     $workflowStage = 'Customer Contact';
@@ -81,6 +96,7 @@ if ($contactResult === 'No Answer') {
 
     $workflowStage = 'Needs Admin Review';
     $jobStatus = 'Could Not Complete';
+    $reviewType = 'customer_contact';
 
 } elseif ($contactResult === 'Customer Answered') {
 
@@ -93,11 +109,13 @@ if ($contactResult === 'No Answer') {
 
         $workflowStage = 'Needs Admin Review';
         $jobStatus = 'Completed';
+        $reviewType = 'customer_contact';
 
     } elseif ($customerDecision === 'Close Request') {
 
         $workflowStage = 'Needs Admin Review';
         $jobStatus = 'Completed';
+        $reviewType = 'customer_contact';
 
     }
 
@@ -108,6 +126,7 @@ if ($contactResult === 'No Answer') {
     SET
         job_status = ?,
         workflow_stage = ?,
+        review_type = ?,
         contact_notes = ?
     WHERE id = ?
 ");
@@ -115,6 +134,7 @@ if ($contactResult === 'No Answer') {
 $stmt->execute([
     $jobStatus,
     $workflowStage,
+    $reviewType,
     $agentNotes,
     $request['id']
 ]);
