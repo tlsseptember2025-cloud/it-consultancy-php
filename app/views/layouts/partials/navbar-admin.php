@@ -299,18 +299,6 @@ $needsAdminReviewCount = (int) $stmt->fetch(PDO::FETCH_ASSOC)['total'];
 
                         </li>
 
-                        <li>
-
-                            <a
-                                class="dropdown-item"
-                                href="?page=backup">
-
-                                Database Backup
-
-                            </a>
-
-                        </li>
-
                     </ul>
 
                 </li>
