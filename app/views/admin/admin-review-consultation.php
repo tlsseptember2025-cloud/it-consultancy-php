@@ -412,12 +412,6 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
 <?php endif; ?>
 
-<pre>
-<?= $consultation['job_status'] ?>
-<?= $consultation['workflow_stage'] ?>
-<?= $consultation['review_type'] ?>
-</pre>
-
 <form method="POST">
 
 <?php if (
