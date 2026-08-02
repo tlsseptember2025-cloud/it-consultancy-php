@@ -1,5 +1,12 @@
 <?php
 
+/**
+ * Customer Contact Workflow
+ */
+define('MAX_CONTACT_ATTEMPTS', 3);
+define('CONTACT_VERIFICATION_WAIT_DAYS', 2);
+define('CONTACT_REMINDER_WAIT_DAYS', 2);
+
 /*
 |--------------------------------------------------------------------------
 | Request Workflow Stages

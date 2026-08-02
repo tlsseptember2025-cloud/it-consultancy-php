@@ -54,6 +54,18 @@ $stmt->execute([$requestId]);
 
 $consultation = $stmt->fetch(PDO::FETCH_ASSOC);
 
+/**
+ * Customer Contact Workflow
+ */
+
+$contactAttempts = (int)($consultation['contact_attempts'] ?? 0);
+
+$canRetryContact =
+    $contactAttempts < MAX_CONTACT_ATTEMPTS;
+
+$maximumAttemptsReached =
+    $contactAttempts >= MAX_CONTACT_ATTEMPTS;
+
 if (!$consultation) {
 
     die('Consultation not found.');
