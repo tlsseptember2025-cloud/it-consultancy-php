@@ -1,5 +1,7 @@
 <?php
 
+require_once APP_PATH . '/helpers/DateHelper.php';
+
 /*
 |--------------------------------------------------------------------------
 | Authentication
@@ -326,7 +328,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     <div>
                         <i class="bi bi-calendar3"></i>
-                        <?= htmlspecialchars($request['slot_date']) ?>
+                        <?= formatDate($request['slot_date']) ?>
                     </div>
 
                 </div>

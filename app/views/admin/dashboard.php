@@ -1,5 +1,7 @@
 <?php
 
+require_once APP_PATH . '/helpers/DateHelper.php';
+
 if (!isset($_SESSION['user'])) {
     header("Location: ?page=login");
     exit;
@@ -305,7 +307,7 @@ $awaitingPayment = $pdo->query("
 
                             <br>
 
-                            <?= date('M d, Y', strtotime($c['slot_date'])) ?>
+                            <?= formatDate($c['slot_date']) ?>
 
                             <br>
 

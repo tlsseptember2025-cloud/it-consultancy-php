@@ -5,6 +5,7 @@
 
 require VIEW_PATH . '/layouts/header-admin.php';
 require_once CONFIG_PATH . '/database.php';
+require_once APP_PATH . '/helpers/DateHelper.php';
 
 ?>
 
@@ -344,7 +345,7 @@ require_once CONFIG_PATH . '/database.php';
 
                 <strong>Date</strong><br>
 
-                <?= date('d M Y', strtotime($consultation['slot_date'])) ?>
+                <?= formatDate($consultation['slot_date']) ?>
 
             </div>
 

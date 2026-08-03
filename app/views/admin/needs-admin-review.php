@@ -1,5 +1,7 @@
 <?php
 
+require_once APP_PATH . '/helpers/DateHelper.php';
+
 if (!isset($_SESSION['user'])) {
 
     header('Location: ?page=login');
@@ -200,7 +202,7 @@ if ($consultation['job_status'] == 'Completed') {
 
 <td>
 
-    <?= date('d M Y', strtotime($consultation['slot_date'])) ?>
+    <?= formatDate($consultation['slot_date']) ?>
 
     <br>
 

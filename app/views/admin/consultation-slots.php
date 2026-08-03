@@ -1,5 +1,7 @@
 <?php
 
+require_once APP_PATH . '/helpers/DateHelper.php';
+
 if (!isset($_SESSION['user'])) {
 
     header('Location: ?page=login');
@@ -142,7 +144,7 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
 
     <td><?= $slot['id'] ?></td>
 
-    <td><?= $slot['slot_date'] ?></td>
+    <td><?= formatDate($slot['slot_date']) ?></td>
 
     <td><?= htmlspecialchars($slot['consultation_method']) ?></td>
 

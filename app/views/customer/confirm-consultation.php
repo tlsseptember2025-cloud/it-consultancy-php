@@ -1,5 +1,7 @@
 <?php
 
+require_once APP_PATH . '/helpers/DateHelper.php';
+
 if (!isset($_SESSION['customer'])) {
 
     header('Location: ?page=public-login');
@@ -244,14 +246,11 @@ require dirname(__DIR__) . '/layouts/header-customer.php';
 
         <p>
 
-            <strong>Date:</strong>
+    <strong>Date:</strong>
 
-            <?= date(
-                'M d, Y',
-                strtotime($slot['slot_date'])
-            ) ?>
+    <?= formatDate($slot['slot_date']) ?>
 
-        </p>
+</p>
 
         <p>
 

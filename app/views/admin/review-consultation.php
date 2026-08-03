@@ -1,5 +1,7 @@
 <?php
 
+require_once APP_PATH . '/helpers/DateHelper.php';
+
 if (!isset($_SESSION['user'])) {
     header('Location: ?page=login');
     exit;
@@ -72,7 +74,7 @@ if (!$request) {
             <strong>Date:</strong>
 
             <?= $request['slot_date']
-                ? date('M d, Y', strtotime($request['slot_date']))
+                ? formatDate($request['slot_date'])
                 : 'Not Scheduled' ?>
 
         </p>

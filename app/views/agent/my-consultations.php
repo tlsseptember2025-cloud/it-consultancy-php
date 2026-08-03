@@ -1,5 +1,7 @@
 <?php
 
+require_once APP_PATH . '/helpers/DateHelper.php';
+
 if (!isset($_SESSION['agent'])) {
 
     header('Location: ?page=public-login');
@@ -126,7 +128,7 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
     <td>
 
-        <?= date('d M Y', strtotime($consultation['slot_date'])) ?>
+        <?= formatDate($consultation['slot_date']) ?>
 
     </td>
 
