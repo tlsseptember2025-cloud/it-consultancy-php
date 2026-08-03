@@ -311,7 +311,7 @@ $awaitingPayment = $pdo->query("
 
                             <br>
 
-                            <?= date('h:i A', strtotime($c['slot_time'])) ?>
+                            <?= formatTime($c['slot_time']) ?>
 
                         </div>
 

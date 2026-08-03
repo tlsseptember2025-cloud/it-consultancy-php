@@ -213,7 +213,7 @@ require dirname(__DIR__) . '/layouts/header-customer.php';
 
                     <strong>Time</strong><br>
 
-                    <?= date('h:i A', strtotime($request['slot_time'])) ?>
+                    <?= formatTime($request['slot_time']) ?>
 
                 </p>
 
@@ -342,7 +342,7 @@ require dirname(__DIR__) . '/layouts/header-customer.php';
                         </div>
 
                         <div class="booking-time">
-                            <?= date('h:i A', strtotime($slot['slot_time'])) ?>
+                            <?= formatTime($slot['slot_time']) ?>
                         </div>
 
                         <div class="booking-text">

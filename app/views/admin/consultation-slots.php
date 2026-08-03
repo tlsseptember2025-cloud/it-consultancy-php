@@ -164,7 +164,7 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
         <?php endif; ?>
     </td>
 
-    <td><?= $slot['slot_time'] ?></td>
+    <td><?= formatTime($slot['slot_time']) ?></td>
 
     <td>
         <?= $slot['is_booked'] ? 'Booked' : 'Available' ?>

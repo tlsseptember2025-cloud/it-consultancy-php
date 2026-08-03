@@ -83,7 +83,7 @@ if (!$request) {
             <strong>Time:</strong>
 
             <?= $request['slot_time']
-                ? date('h:i A', strtotime($request['slot_time']))
+                ? formatTime($request['slot_time'])
                 : 'Not Scheduled' ?>
 
         </p>

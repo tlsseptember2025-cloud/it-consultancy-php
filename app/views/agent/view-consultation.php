@@ -370,7 +370,7 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
                     <strong>Time</strong><br>
 
-                    <?= date('h:i A', strtotime($consultation['slot_time'])) ?>
+                    <?= formatTime($consultation['slot_time']) ?>
 
                 </div>
 

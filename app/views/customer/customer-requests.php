@@ -246,7 +246,7 @@ if (
 
             @
 
-            <?= date('h:i A', strtotime($request['slot_time'])) ?>
+            <?= formatTime($request['slot_time']) ?>
 
             @
 
@@ -283,7 +283,7 @@ if (
 
         @
 
-        <?= date('h:i A', strtotime($request['slot_time'])) ?>
+        <?= formatTime($request['slot_time']) ?>
 
         @
 

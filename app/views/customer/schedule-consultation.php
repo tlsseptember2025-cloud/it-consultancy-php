@@ -1,5 +1,7 @@
 <?php
 
+require_once APP_PATH . '/helpers/DateHelper.php';
+
 if (!isset($_SESSION['customer'])) {
     header('Location: ?page=public-login');
     exit;
@@ -193,10 +195,7 @@ if ($alreadyBooked) {
 
                                 <td>
 
-                                    <?= date(
-                                        'h:i A',
-                                        strtotime($slot['slot_time'])
-                                    ) ?>
+                                    <?= formatTime($slot['slot_time']) ?>
 
                                 </td>
 

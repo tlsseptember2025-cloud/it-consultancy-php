@@ -1,5 +1,7 @@
 <?php
 
+require_once APP_PATH . '/helpers/DateHelper.php';
+
 /** @var array $consultation */
 /** @var string $action */
 
@@ -353,7 +355,7 @@ require_once APP_PATH . '/helpers/DateHelper.php';
 
                 <strong>Time</strong><br>
 
-                <?= date('h:i A', strtotime($consultation['slot_time'])) ?>
+                <?= formatTime($consultation['slot_time']) ?>
 
             </div>
 

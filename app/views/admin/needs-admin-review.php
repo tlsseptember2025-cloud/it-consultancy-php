@@ -208,7 +208,7 @@ if ($consultation['job_status'] == 'Completed') {
 
     <small class="text-muted">
 
-        <?= date('h:i A', strtotime($consultation['slot_time'])) ?>
+        <?= formatTime($consultation['slot_time']) ?>
 
     </small>
 
