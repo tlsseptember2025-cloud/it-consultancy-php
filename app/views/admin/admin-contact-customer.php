@@ -391,17 +391,65 @@ require_once APP_PATH . '/helpers/DateHelper.php';
 
         <div class="card shadow-sm h-100">
 
-            <div class="card-header bg-warning">
-                Reason for Review
-            </div>
+            <div class="mb-3">
 
-            <div class="card-body">
+    <strong>Contact Result</strong>
 
-                <?= !empty($consultation['incomplete_reason'])
-                    ? nl2br(htmlspecialchars($consultation['incomplete_reason']))
-                    : '<span class="text-muted">No reason provided.</span>'; ?>
+    <div class="border rounded p-3 mt-2">
 
-            </div>
+        <?= htmlspecialchars($consultation['contact_result']) ?>
+
+    </div>
+
+</div>
+
+<div class="mb-3">
+
+    <strong>Agent Notes</strong>
+
+    <div class="border rounded p-3 mt-2">
+
+        <?= nl2br(htmlspecialchars($consultation['contact_notes'])) ?>
+
+    </div>
+
+</div>
+
+           <div class="card-header bg-warning">
+    Contact Result
+</div>
+
+<div class="card-body">
+
+    <?= !empty($consultation['contact_result'])
+        ? htmlspecialchars($consultation['contact_result'])
+        : '<span class="text-muted">No contact result provided.</span>'; ?>
+
+</div>
+
+<div class="card-header bg-info text-white">
+    Agent Notes
+</div>
+
+<div class="card-body">
+
+    <?= !empty($consultation['contact_notes'])
+        ? nl2br(htmlspecialchars($consultation['contact_notes']))
+        : '<span class="text-muted">No notes provided.</span>'; ?>
+
+</div>
+
+<div class="card-header bg-secondary text-white">
+    Reason for Review
+</div>
+
+<div class="card-body">
+
+    <?= !empty($consultation['incomplete_reason'])
+        ? nl2br(htmlspecialchars($consultation['incomplete_reason']))
+        : '<span class="text-muted">No reason provided.</span>'; ?>
+
+</div>
 
         </div>
 

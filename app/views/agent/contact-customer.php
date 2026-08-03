@@ -63,6 +63,38 @@ if (!isset($_SESSION['agent'])) {
 
 </div>
 
+<div class="card mb-4">
+
+    <div class="card-header bg-warning">
+        Customer Contact Attempts
+    </div>
+
+    <div class="card-body">
+
+        <div class="row">
+
+            <div class="col-md-6">
+
+                <strong>Current Attempt</strong><br>
+
+                <?= $currentAttempt ?> of <?= MAX_CONTACT_ATTEMPTS ?>
+
+            </div>
+
+            <div class="col-md-6">
+
+                <strong>Remaining Attempts</strong><br>
+
+                <?= $remainingAttempts ?>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
 <div class="card shadow-sm mt-4">
 
     <div class="card-header">

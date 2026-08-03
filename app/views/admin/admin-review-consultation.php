@@ -368,29 +368,95 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
         <?= $isConsultationReview
         ? 'Consultation Outcome'
-        : 'Customer Contact Outcome'; ?>
+        : 'Customer Contact Report'; ?>
 
     </div>
 
-    <div class="card-body">
+    <p class="mb-3">
 
-        <p class="mb-3">
+    <?= $isConsultationReview
+        ? 'The assigned agent could not complete this consultation and requested an administrator review.'
+        : 'The assigned agent completed the customer contact and requested an administrator review.'; ?>
 
-            <?= $isConsultationReview
-    ? 'The assigned agent could not complete this consultation and requested an administrator review.'
-    : 'The assigned agent completed the customer contact and requested an administrator review.'; ?>
+</p>
 
-        </p>
+<?php if ($isCustomerContactReview): ?>
 
-        <strong>Reason for Review</strong>
+<div class="mb-3">
 
-        <div class="border rounded bg-light p-3 mt-2">
+    <strong>Contact Result</strong>
 
-            <?= htmlspecialchars($consultation['incomplete_reason']) ?>
+    <div class="border rounded bg-light p-3 mt-2">
 
-        </div>
+<?php if (!empty($consultation['contact_result'])):
+
+    switch ($consultation['contact_result']) {
+
+        case 'No Answer':
+            $badgeClass = 'bg-warning text-dark';
+            break;
+
+        case 'Wrong Number':
+            $badgeClass = 'bg-danger';
+            break;
+
+        case 'Customer Answered':
+            $badgeClass = 'bg-success';
+            break;
+
+        default:
+            $badgeClass = 'bg-secondary';
+    }
+
+?>
+
+    <span class="badge <?= $badgeClass ?> fs-6">
+        <?= htmlspecialchars($consultation['contact_result']) ?>
+    </span>
+
+<?php else: ?>
+
+    <span class="text-muted">No contact result provided.</span>
+
+<?php endif; ?>
+
+</div>
+
+</div>
+
+<div class="mb-3">
+
+    <strong>Agent Notes</strong>
+
+    <div class="border rounded bg-light p-3 mt-2">
+
+        <?= !empty($consultation['contact_notes'])
+            ? nl2br(htmlspecialchars($consultation['contact_notes']))
+            : '<span class="text-muted">No agent notes provided.</span>' ?>
 
     </div>
+
+</div>
+
+<?php endif; ?>
+
+<?php if ($isConsultationReview): ?>
+
+<div class="mb-3">
+
+    <strong>Reason for Review</strong>
+
+    <div class="border rounded bg-light p-3 mt-2">
+
+        <?= !empty($consultation['incomplete_reason'])
+            ? nl2br(htmlspecialchars($consultation['incomplete_reason']))
+            : '<span class="text-muted">No reason provided.</span>' ?>
+
+    </div>
+
+</div>
+
+<?php endif; ?>
 
 </div>
 
