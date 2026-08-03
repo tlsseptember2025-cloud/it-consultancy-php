@@ -6,6 +6,7 @@ if (!isset($_SESSION['user'])) {
 }
 
 require_once CONFIG_PATH . '/database.php';
+require_once APP_PATH . '/helpers/RequestEventHelper.php';
 
 $requestId = (int)($_GET['id'] ?? 0);
 $action = $_GET['action'] ?? '';
@@ -169,6 +170,58 @@ if (isset($_POST['approve_contact'])) {
         $adminId,
         $adminInstruction
     ]);
+
+    /*
+|--------------------------------------------------------------------------
+| Log Request Event
+|--------------------------------------------------------------------------
+*/
+
+RequestEventHelper::add(
+
+    $pdo,
+
+    $consultation['id'],
+
+    'CONTACT_ATTEMPT_APPROVED',
+
+    RequestEventHelper::TYPE_CONTACT,
+
+    'Administrator Approved Customer Contact',
+
+    'The administrator approved another customer contact attempt.',
+
+    RequestEventHelper::SOURCE_ADMINISTRATOR,
+
+    $adminId
+
+);
+
+/*
+|--------------------------------------------------------------------------
+| Log Request Event
+|--------------------------------------------------------------------------
+*/
+
+RequestEventHelper::add(
+
+    $pdo,
+
+    $consultation['id'],
+
+    RequestEventHelper::EVENT_CONTACT_ATTEMPT_APPROVED,
+
+    RequestEventHelper::TYPE_CONTACT,
+
+    'Administrator Approved Customer Contact',
+
+    'The administrator approved another customer contact attempt.',
+
+    RequestEventHelper::SOURCE_ADMINISTRATOR,
+
+    $adminId
+
+);
 
     header('Location: ?page=requests&success=customer-contact-approved');
     exit;

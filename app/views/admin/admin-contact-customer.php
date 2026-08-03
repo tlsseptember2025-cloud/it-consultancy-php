@@ -139,6 +139,67 @@ require_once CONFIG_PATH . '/database.php';
 
 <?php endif; ?>
 
+
+<div
+    id="contact-approval-form"
+    class="card shadow-sm mt-4"
+    style="display:none;">
+
+    <div class="card-header bg-success text-white">
+
+        Administrator Instructions
+
+    </div>
+
+    <div class="card-body">
+
+        <form method="post">
+
+            <div class="mb-3">
+
+                <label class="form-label">
+
+                    Administrator Instructions to Assigned Agent
+
+                </label>
+
+                <textarea
+                    name="admin_instruction"
+                    class="form-control"
+                    rows="5"
+                    required
+                    placeholder="Enter instructions for the assigned agent..."></textarea>
+
+            </div>
+
+            <div class="text-end">
+
+                <button
+                    type="button"
+                    id="cancel-contact-approval"
+                    class="btn btn-secondary">
+
+                    Cancel
+
+                </button>
+
+                <button
+                    type="submit"
+                    name="approve_contact"
+                    class="btn btn-success">
+
+                    Approve Customer Contact
+
+                </button>
+
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
 <p class="mb-0">
     Review the consultation details below. If appropriate, approve the assigned agent to contact the customer and provide any instructions required.
 </p>
@@ -177,6 +238,7 @@ require_once CONFIG_PATH . '/database.php';
 
             <button
                 type="button"
+                id="show-contact-approval"
                 class="btn btn-primary">
 
                 Approve Contact Attempt
@@ -207,7 +269,9 @@ require_once CONFIG_PATH . '/database.php';
 
     <div class="col-md-6">
 
-        <div class="card shadow-sm h-100">
+        <div
+    class="card shadow-sm"
+    id="contact-attempt-card">
 
             <div class="card-header">
                 Customer Information
@@ -518,35 +582,88 @@ require_once CONFIG_PATH . '/database.php';
 
 <script>
 
+/*
+|--------------------------------------------------------------------------
+| Wrong Number Workflow
+|--------------------------------------------------------------------------
+*/
 
-document
-    .getElementById('show-phone-update')
-    .addEventListener('click', function () {
+const showPhoneUpdate = document.getElementById('show-phone-update');
+const hidePhoneUpdate = document.getElementById('hide-phone-update');
+const wrongNumberActions = document.getElementById('wrong-number-actions');
+const phoneUpdateCard = document.getElementById('phone-update-card');
 
-        document
-            .getElementById('wrong-number-actions')
-            .classList.add('d-none');
+if (showPhoneUpdate) {
 
-        document
-            .getElementById('phone-update-card')
-            .classList.remove('d-none');
+    showPhoneUpdate.addEventListener('click', function () {
+
+        if (wrongNumberActions) {
+            wrongNumberActions.classList.add('d-none');
+        }
+
+        if (phoneUpdateCard) {
+            phoneUpdateCard.style.display = 'block';
+        }
+
+    });
+
+}
+
+if (hidePhoneUpdate) {
+
+    hidePhoneUpdate.addEventListener('click', function () {
+
+        if (phoneUpdateCard) {
+            phoneUpdateCard.style.display = 'none';
+        }
+
+        if (wrongNumberActions) {
+            wrongNumberActions.classList.remove('d-none');
+        }
 
     });
 
-document
-    .getElementById('hide-phone-update')
-    .addEventListener('click', function () {
+}
 
-        document
-            .getElementById('phone-update-card')
-            .classList.add('d-none');
 
-        document
-            .getElementById('wrong-number-actions')
-            .classList.remove('d-none');
+/*
+|--------------------------------------------------------------------------
+| No Answer Workflow
+|--------------------------------------------------------------------------
+*/
+
+const approveButton = document.getElementById('show-contact-approval');
+const approvalForm = document.getElementById('contact-approval-form');
+const cancelButton = document.getElementById('cancel-contact-approval');
+const contactAttemptCard = document.getElementById('contact-attempt-card');
+
+if (approveButton && approvalForm) {
+
+    approveButton.addEventListener('click', function () {
+
+    if (contactAttemptCard) {
+        contactAttemptCard.style.display = 'none';
+    }
+
+    approvalForm.style.display = 'block';
 
     });
-    
+
+}
+
+if (cancelButton && approvalForm && approveButton) {
+
+    cancelButton.addEventListener('click', function () {
+
+    approvalForm.style.display = 'none';
+
+    if (contactAttemptCard) {
+        contactAttemptCard.style.display = 'block';
+    }
+
+});
+}
+
 </script>
 
 <?php require VIEW_PATH.'/layouts/footer.php'; ?>
