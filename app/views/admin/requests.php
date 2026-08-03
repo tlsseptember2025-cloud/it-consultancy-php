@@ -1,5 +1,7 @@
 <?php
 
+require_once APP_PATH . '/helpers/DateHelper.php';
+
 if (!isset($_SESSION['user'])) {
     header("Location: ?page=login");
     exit;
@@ -134,7 +136,7 @@ $requests = $stmt->fetchAll();
                     </td>
 
                     <td>
-                        <?= $request['created_at'] ?>
+                        <?= formatDate($request['created_at']) ?>
                     </td>
 
                    

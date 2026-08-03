@@ -1,5 +1,7 @@
 <?php
 
+require_once APP_PATH . '/helpers/DateHelper.php';
+
 if (!isset($_SESSION['user'])) {
     header("Location: ?page=login");
     exit;
@@ -102,7 +104,7 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                 </strong>
 
                 <small class="text-muted">
-                    <?= $reply['created_at'] ?>
+                    <?= formatDateTime($reply['created_at']) ?>
                 </small>
 
                 <br><br>

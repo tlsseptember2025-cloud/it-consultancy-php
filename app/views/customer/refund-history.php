@@ -1,5 +1,7 @@
 <?php
 
+require_once APP_PATH . '/helpers/DateHelper.php';
+
 if (!isset($_SESSION['customer'])) {
     header('Location: ?page=public-login');
     exit;
@@ -330,10 +332,7 @@ require dirname(__DIR__) . '/layouts/header-customer.php';
 
                     <td>
 
-                        <?= date(
-                            'l, d M Y - h:i A',
-                            strtotime($refund['created_at'])
-                        ) ?>
+                        <?= formatDateTime($refund['created_at']) ?>
 
                     </td>
 

@@ -1,5 +1,7 @@
 <?php
 
+require_once APP_PATH . '/helpers/DateHelper.php';
+
 if (!isset($_SESSION['user'])) {
     header("Location: ?page=login");
     exit;
@@ -173,10 +175,7 @@ if (!$refund) {
             <tr>
                 <th width="220">Refund Requested</th>
                 <td>
-                    <?= date(
-                        'l, d M Y - h:i A',
-                        strtotime($refund['created_at'])
-                    ) ?>
+                   <?= formatDateTime($refund['created_at']) ?>
                 </td>
             </tr>
 

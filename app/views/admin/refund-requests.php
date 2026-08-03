@@ -1,5 +1,7 @@
 <?php
 
+require_once APP_PATH . '/helpers/DateHelper.php';
+
 if (!isset($_SESSION['user'])) {
 
     header("Location: ?page=login");
@@ -85,10 +87,7 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                         </td>
 
                         <td>
-                            <?= date(
-                                'M d, Y',
-                                strtotime($request['created_at'])
-                            ) ?>
+                            <?= formatDate($request['created_at']) ?>
                         </td>
 
                         <td>

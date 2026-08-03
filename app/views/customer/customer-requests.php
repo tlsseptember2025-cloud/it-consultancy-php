@@ -1,5 +1,7 @@
 <?php
 
+require_once APP_PATH . '/helpers/DateHelper.php';
+
 if (!isset($_SESSION['customer'])) {
 
     header('Location: ?page=public-login');
@@ -206,7 +208,7 @@ if (
 </td>
 
                         <td>
-                            <?= date('M d, Y', strtotime($request['created_at'])) ?>
+                           <?= formatDateTime($request['created_at']) ?>
                         </td>
 
     <td>

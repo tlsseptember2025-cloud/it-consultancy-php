@@ -1,5 +1,7 @@
 <?php
 
+require_once APP_PATH . '/helpers/DateHelper.php';
+
 if (!isset($_SESSION['user'])) {
 
     header('Location: ?page=login');
@@ -81,7 +83,7 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
 </span>
                 </td>
 
-                <td><?= htmlspecialchars($lead['created_at']) ?></td>
+                <td><?= formatDateTime($lead['created_at']) ?></td>
 
                 <td><?= nl2br(htmlspecialchars($lead['comments'])) ?></td>
 

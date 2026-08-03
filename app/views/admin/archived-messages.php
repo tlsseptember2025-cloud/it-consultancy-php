@@ -1,5 +1,7 @@
 <?php
 
+require_once APP_PATH . '/helpers/DateHelper.php';
+
 if (!isset($_SESSION['user'])) {
 
     header('Location: ?page=login');
@@ -179,7 +181,7 @@ $messages = $stmt->fetchAll();
 
             <td><?= htmlspecialchars($msg['message']) ?></td>
             
-            <td><?= $msg['created_at'] ?></td>
+            <td><?= formatDateTime($msg['created_at']) ?></td>
             
             <td>
                 <?php if ($msg['status'] === 'unread'): ?>

@@ -1,5 +1,7 @@
 <?php
 
+require_once APP_PATH . '/helpers/DateHelper.php';
+
 if (!isset($_SESSION['user'])) {
     header("Location: ?page=login");
     exit;
@@ -89,7 +91,7 @@ $notifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
                         </td>
 
                         <td>
-                            <?= $notification['created_at'] ?>
+                            <?= formatDateTime($notification['created_at']) ?>
                         </td>
 
                         <td>

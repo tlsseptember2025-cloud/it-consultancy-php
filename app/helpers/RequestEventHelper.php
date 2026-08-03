@@ -140,7 +140,7 @@ return (int)$pdo->lastInsertId();
             SELECT *
             FROM request_events
             WHERE request_id = ?
-            ORDER BY created_at ASC
+            ORDER BY created_at DESC, id DESC
         ");
 
         $stmt->execute([$requestId]);

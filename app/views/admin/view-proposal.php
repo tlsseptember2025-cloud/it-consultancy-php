@@ -5,6 +5,8 @@
 // Adjust include paths/routes if required.
 // ======================================================
 
+require_once APP_PATH . '/helpers/DateHelper.php';
+
 if (!isset($_SESSION['user'])) {
     header('Location: ?page=login');
     exit;
@@ -73,7 +75,7 @@ body{background:#fff;}
         </div>
         <div class="col-md-4">
             <div class="small text-white-50"><i class="bi bi-calendar-event"></i> Created</div>
-            <div><?= date('d M Y',strtotime($request['created_at'])); ?></div>
+            <div><?= formatDateTime($request['created_at']) ?></div>
         </div>
         <div class="col-md-4">
             <div class="small text-white-50"><i class="bi bi-diagram-3"></i> Workflow Stage</div>

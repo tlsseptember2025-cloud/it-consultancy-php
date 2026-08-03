@@ -1,5 +1,7 @@
 <?php
 
+require_once APP_PATH . '/helpers/DateHelper.php';
+
 if (!isset($_SESSION['user'])) {
     header("Location: ?page=login");
     exit;
@@ -137,7 +139,7 @@ if (
     <p><strong>Phone:</strong> <?= htmlspecialchars($message['phone']) ?></p>
     <p><strong>Preferred Contact:</strong> <?= htmlspecialchars($message['preferred_contact']) ?></p>
     <p><strong>Service:</strong><?= htmlspecialchars($message['service']) ?></p>
-    <p><strong>Date:</strong> <?= $message['created_at'] ?></p>
+    <p><strong>Date:</strong> <?= formatDateTime($message['created_at']) ?></p>
 </div>
 
 <div class="card p-3 mt-3">
@@ -169,7 +171,7 @@ if (
                 </strong>
 
                 <small class="text-muted">
-                    (<?= $reply['created_at'] ?>)
+                    (<?= formatDateTime($reply['created_at']) ?>)
                 </small>
 
                 <br>

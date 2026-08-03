@@ -1,5 +1,7 @@
 <?php
 
+require_once APP_PATH . '/helpers/DateHelper.php';
+
 if (!isset($_SESSION['user'])) {
     header('Location: ?page=login');
     exit;
@@ -223,7 +225,7 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                 </p>
 
                 <p><strong>Requested On:</strong>
-                    <?= date('M d, Y h:i A', strtotime($refund['created_at'])) ?>
+                    <?= formatDateTime($refund['created_at']) ?>
                 </p>
 
             </div>

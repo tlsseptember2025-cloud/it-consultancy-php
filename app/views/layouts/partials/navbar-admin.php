@@ -1,5 +1,7 @@
 <?php
 
+require_once APP_PATH . '/helpers/DateHelper.php';
+
 $notificationCount = 0;
 
 try {
@@ -387,7 +389,7 @@ $needsAdminReviewCount = (int) $stmt->fetch(PDO::FETCH_ASSOC)['total'];
 
                                         <small class="text-muted">
 
-                                            <?= $notification['created_at'] ?>
+                                            <?= formatDateTime($notification['created_at']) ?>
 
                                         </small>
 

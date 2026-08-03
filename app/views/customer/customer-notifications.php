@@ -1,5 +1,7 @@
 <?php
 
+require_once APP_PATH . '/helpers/DateHelper.php';
+
 if (!isset($_SESSION['customer'])) {
 
     header('Location: ?page=public-login');
@@ -125,7 +127,7 @@ require dirname(__DIR__) . '/layouts/header-customer.php';
                             </td>
 
                             <td>
-                                <?= date('d M Y, h:i A', strtotime($notification['created_at'])) ?>
+                                <?= formatDateTime($notification['created_at']) ?>
                             </td>
                           
                           <td>

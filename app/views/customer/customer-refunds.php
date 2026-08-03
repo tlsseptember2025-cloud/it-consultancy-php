@@ -1,5 +1,7 @@
 <?php
 
+require_once APP_PATH . '/helpers/DateHelper.php';
+
 if (!isset($_SESSION['customer'])) {
 
     header('Location: ?page=public-login');
@@ -156,7 +158,7 @@ $refunds = $stmt->fetchAll();
 </td>
 
     <td>
-        <?= date('M d, Y', strtotime($refund['created_at'])) ?>
+        <?= formatDateTime($refund['created_at']) ?>
     </td>
 
 </tr>
