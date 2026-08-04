@@ -79,6 +79,10 @@ switch ($page) {
         require APP_PATH . '/controllers/awaiting-customer-response.php';
         break;
 
+    case 'view-awaiting-customer-response':
+        require APP_PATH . '/controllers/view-awaiting-customer-response.php';
+        break;
+
     /*
     |--------------------------------------------------------------------------
     | Authentication
