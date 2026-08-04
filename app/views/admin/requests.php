@@ -1,6 +1,7 @@
 <?php
 
 require_once APP_PATH . '/helpers/DateHelper.php';
+require_once APP_PATH . '/helpers/WorkflowHelper.php';
 
 if (!isset($_SESSION['user'])) {
     header("Location: ?page=login");
@@ -87,15 +88,25 @@ $requests = $stmt->fetchAll();
 
                     <td>
 
-                        <?php if ($request['quoted_price'] > 0): ?>
+                       <?php if ($request['quoted_price'] > 0): ?>
 
-                            AED <?= number_format($request['quoted_price'], 2) ?>
+                            <span class="badge bg-success">
+                                AED <?= number_format($request['quoted_price'], 2) ?>
+                            </span>
 
                         <?php else: ?>
 
-                            <span class="text-muted">
-                                Awaiting Quote
-                            </span>
+                            <?php if ($request['quoted_price'] > 0): ?>
+
+    AED <?= number_format($request['quoted_price'], 2) ?>
+
+<?php else: ?>
+
+    <span class="text-muted">
+        Awaiting Quote
+    </span>
+
+<?php endif; ?>
 
                         <?php endif; ?>
 
@@ -105,7 +116,7 @@ $requests = $stmt->fetchAll();
 
                         <?php if ($request['job_status'] === 'Pending'): ?>
 
-                            <span class="badge bg-warning">
+                            <span class="badge bg-warning text-dark">
                                 Pending
                             </span>
 
@@ -132,7 +143,7 @@ $requests = $stmt->fetchAll();
                     </td>
 
                     <td>
-                        <?= htmlspecialchars($request['workflow_stage']) ?>
+                        <?= workflowBadge($request['workflow_stage']) ?>
                     </td>
 
                     <td>
@@ -194,15 +205,24 @@ $requests = $stmt->fetchAll();
     <?php endif; ?>
 
 
-    <?php if ($request['workflow_stage'] === 'Consultation Confirmed'): ?>
+    <?php if ($request['workflow_stage'] === 'Waiting Customer Response'): ?>
 
-        <a
-            href="?page=complete-consultation&id=<?= $request['id'] ?>"
-            class="btn btn-success btn-sm">
-            Complete Consultation
-        </a>
+    <button
+        type="button"
+        class="btn btn-secondary btn-sm"
+        disabled>
+        Waiting for Customer Response
+    </button>
 
-    <?php endif; ?>
+<?php elseif ($request['workflow_stage'] === 'Consultation Confirmed'): ?>
+
+    <a
+        href="?page=complete-consultation&id=<?= $request['id'] ?>"
+        class="btn btn-success btn-sm">
+        Complete Consultation
+    </a>
+
+<?php endif; ?>
 
     <?php if ($request['workflow_stage'] === 'Consultation Completed'): ?>
 

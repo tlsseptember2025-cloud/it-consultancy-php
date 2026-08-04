@@ -1,5 +1,7 @@
 <?php
 
+require_once APP_PATH . '/helpers/email.php';
+require_once APP_PATH . '/helpers/VerificationEmailHelper.php';
 require_once APP_PATH . '/helpers/contact_history_helper.php';
 
 if (!isset($_SESSION['user'])) {
@@ -271,12 +273,88 @@ $adminId = $admin['id'];
     ");
 
     $stmt->execute([
-        'Waiting Customer Response',
+        'Awaiting Customer Response',
         'Pending',
         $consultation['id']
     ]);
 
-    addContactHistory(
+    $subject = 'Action Required: We Could Not Reach You Regarding Your Consultation';
+
+$body = '
+
+<h2>Customer Contact Verification</h2>
+
+<p>Dear <strong>' . htmlspecialchars($consultation['customer_name']) . '</strong>,</p>
+
+<p>
+We recently attempted to contact you regarding your scheduled consultation with
+<strong>WAHBIB Consultancy</strong>, but unfortunately we were unable to reach you by telephone.
+</p>
+
+<h3>Consultation Details</h3>
+
+<table cellpadding="8" cellspacing="0" border="1" style="border-collapse:collapse; width:100%;">
+
+<tr>
+    <td><strong>Request ID</strong></td>
+    <td>#' . $consultation['id'] . '</td>
+</tr>
+
+<tr>
+    <td><strong>Service</strong></td>
+    <td>' . htmlspecialchars($consultation['service_name']) . '</td>
+</tr>
+
+<tr>
+    <td><strong>Consultation Date</strong></td>
+    <td>' . date('F j, Y', strtotime($consultation['slot_date'])) . '</td>
+</tr>
+
+<tr>
+    <td><strong>Consultation Time</strong></td>
+    <td>' . date('g:i A', strtotime($consultation['slot_time'])) . '</td>
+</tr>
+
+<tr>
+    <td><strong>Consultation Method</strong></td>
+    <td>' . htmlspecialchars($consultation['consultation_method']) . '</td>
+</tr>
+
+</table>
+
+<br>
+
+<p>
+To continue processing your consultation request, please reply to this email or contact us as soon as possible.
+</p>
+
+<p>
+If you are no longer interested in this consultation, please let us know so we can update your request accordingly.
+</p>
+
+<hr>
+
+<p>
+<strong>WAHBIB Consultancy</strong><br>
+Professional IT Consultancy & Digital Solutions<br><br>
+
+Email: info@wahbibconsultancy.com<br>
+Website: https://wahbibconsultancy.com
+</p>
+
+';
+
+$emailSent = sendEmail(
+    $consultation['email'],
+    $subject,
+    $body
+);
+
+if (!$emailSent) {
+    die('Verification email could not be sent.');
+}
+
+addContactHistory(
     $pdo,
     $consultation['id'],
     null,
