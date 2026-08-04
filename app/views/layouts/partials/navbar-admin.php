@@ -113,6 +113,19 @@ $needsAdminReviewCount = (int) $stmt->fetch(PDO::FETCH_ASSOC)['total'];
 
                 </li>
 
+                <li>
+
+                    <a 
+                     
+                        class="nav-link"
+                        href="?page=awaiting-customer-response">
+                        
+                        Awaiting Customer Response
+                    
+                    </a>
+
+                </li>
+
                 <!-- Agents -->
 
                 <li class="nav-item dropdown">

@@ -75,6 +75,10 @@ switch ($page) {
         require VIEW_PATH . '/admin/mark-all-notifications-read.php';
         break;
 
+    case 'awaiting-customer-response':
+        require APP_PATH . '/controllers/awaiting-customer-response.php';
+        break;
+
     /*
     |--------------------------------------------------------------------------
     | Authentication
