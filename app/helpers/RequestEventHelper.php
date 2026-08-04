@@ -30,6 +30,8 @@ class RequestEventHelper
 
     public const TYPE_SYSTEM = 'System';
 
+    public const EVENT_CUSTOMER_RESPONSE_RECORDED = 'CUSTOMER_RESPONSE_RECORDED';
+
 
     /*
     |--------------------------------------------------------------------------
