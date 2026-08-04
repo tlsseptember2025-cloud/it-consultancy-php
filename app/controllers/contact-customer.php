@@ -1,5 +1,7 @@
 <?php
 
+require_once APP_PATH . '/helpers/contact_history_helper.php';
+
 if (!isset($_SESSION['agent'])) {
     header('Location: ?page=login');
     exit;
@@ -12,6 +14,7 @@ $requestId = (int) ($_GET['request_id'] ?? 0);
 $stmt = $pdo->prepare("
     SELECT
         r.*,
+        cb.agent_id AS consultation_agent_id,
         c.name AS customer_name,
         c.email,
         c.phone,
@@ -139,6 +142,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $contactAttempts,
         $request['id']
     ]);
+
+    addContactHistory(
+    $pdo,
+    $request['id'],
+    $request['agent_id'],
+    null,
+    'phone',
+    $contactResult,
+    $agentNotes
+);
 
     header('Location: ?page=agent-consultations&success=contact-saved');
     exit;

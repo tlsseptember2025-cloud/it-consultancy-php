@@ -1,4 +1,5 @@
 <?php
+
 /** @var array $agent */
 /** @var array $request */
 
@@ -8,10 +9,9 @@ if (!isset($_SESSION['agent'])) {
     exit;
 }
 
+require VIEW_PATH . '/layouts/header-agent.php'; 
 
 ?>
-
-<?php require VIEW_PATH . '/layouts/header-agent.php'; ?>
 
 <div class="container py-4">
 
