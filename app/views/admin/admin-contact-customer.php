@@ -250,13 +250,18 @@ require_once APP_PATH . '/helpers/DateHelper.php';
 
         <?php else: ?>
 
-            <button
-                type="button"
-                class="btn btn-danger">
+            <form method="POST">
 
-                Send Contact Verification Email
+                <button
+                    type="submit"
+                    name="send_contact_email"
+                    class="btn btn-danger">
 
-            </button>
+                    Send Contact Verification Email
+
+                </button>
+
+            </form>
 
         <?php endif; ?>
 

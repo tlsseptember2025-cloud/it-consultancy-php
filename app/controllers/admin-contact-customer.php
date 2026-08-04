@@ -1,5 +1,7 @@
 <?php
 
+require_once APP_PATH . '/helpers/contact_history_helper.php';
+
 if (!isset($_SESSION['user'])) {
     header('Location: ?page=login');
     exit;
@@ -117,9 +119,9 @@ if (isset($_POST['approve_contact'])) {
     ");
 
     $stmt->execute([
-        $adminInstruction,
-        'Customer Contact',
-        $consultation['id']
+    $adminInstruction,
+    'Customer Contact',
+    $consultation['id']
     ]);
 
     /*
@@ -144,6 +146,16 @@ if (isset($_POST['approve_contact'])) {
     }
 
     $adminId = $admin['id'];
+
+    addContactHistory(
+    $pdo,
+    $consultation['id'],
+    null,
+    $adminId,
+    'admin',
+    'contact_retry_approved',
+    $adminInstruction
+    );
 
     /*
     |--------------------------------------------------------------------------
@@ -172,12 +184,12 @@ if (isset($_POST['approve_contact'])) {
     ]);
 
     /*
-|--------------------------------------------------------------------------
-| Log Request Event
-|--------------------------------------------------------------------------
-*/
+    |--------------------------------------------------------------------------
+    | Log Request Event
+    |--------------------------------------------------------------------------
+    */
 
-RequestEventHelper::add(
+    RequestEventHelper::add(
 
     $pdo,
 
@@ -195,15 +207,15 @@ RequestEventHelper::add(
 
     $adminId
 
-);
+    );
 
-/*
-|--------------------------------------------------------------------------
-| Log Request Event
-|--------------------------------------------------------------------------
-*/
+    /*
+    |--------------------------------------------------------------------------
+    | Log Request Event
+    |--------------------------------------------------------------------------
+    */
 
-RequestEventHelper::add(
+    RequestEventHelper::add(
 
     $pdo,
 
@@ -221,10 +233,62 @@ RequestEventHelper::add(
 
     $adminId
 
-);
+    );
 
     header('Location: ?page=requests&success=customer-contact-approved');
     exit;
+}
+
+if (isset($_POST['send_contact_email'])) {
+
+    $stmt = $pdo->prepare("
+    SELECT id
+    FROM users
+    WHERE email = ?
+    LIMIT 1
+");
+
+$stmt->execute([$_SESSION['user']]);
+
+$admin = $stmt->fetch(PDO::FETCH_ASSOC);
+
+if (!$admin) {
+    die('Administrator not found.');
+}
+
+$adminId = $admin['id'];
+
+
+    $stmt = $pdo->prepare("
+    UPDATE requests
+    SET
+        verification_email_count = 1,
+        first_verification_email_at = NOW(),
+        customer_response_deadline = DATE_ADD(NOW(), INTERVAL 90 DAY),
+        workflow_stage = ?,
+        job_status = ?
+    WHERE id = ?
+    ");
+
+    $stmt->execute([
+        'Waiting Customer Response',
+        'Pending',
+        $consultation['id']
+    ]);
+
+    addContactHistory(
+    $pdo,
+    $consultation['id'],
+    null,
+    $adminId,
+    'admin',
+    'verification_email_1_sent',
+    'Administrator initiated the first contact verification email.'
+);
+
+    header('Location: ?page=requests&success=verification-email-stage1');
+    exit;
+
 }
 
 require VIEW_PATH . '/admin/admin-contact-customer.php';

@@ -43,13 +43,13 @@ if (!$request) {
 }
 
 $currentAttempt = min(
-    $request['contact_attempts'] + 1,
+    $request['contact_attempts'],
     MAX_CONTACT_ATTEMPTS
 );
 
 $remainingAttempts = max(
-    MAX_CONTACT_ATTEMPTS - $request['contact_attempts'],
-    0
+    0,
+    MAX_CONTACT_ATTEMPTS - $currentAttempt
 );
 
 if ($request['workflow_stage'] !== 'Customer Contact') {
