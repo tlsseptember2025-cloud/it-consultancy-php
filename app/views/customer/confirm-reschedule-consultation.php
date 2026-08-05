@@ -69,13 +69,21 @@ if (
     die('You have already used your consultation reschedule.');
 }
 
-// Must be more than 24 hours before
+// Must be more than 24 hours before,
+// unless an administrator has already approved the reschedule.
+
 $currentDateTime = strtotime(
     $current['slot_date'] . ' ' . $current['slot_time']
 );
 
-if (time() >= ($currentDateTime - (24 * 60 * 60))) {
+if (
+    $current['admin_instruction'] !== '__RESCHEDULE_ALLOWED__'
+    &&
+    time() >= ($currentDateTime - (24 * 60 * 60))
+) {
+
     die('Consultations can only be rescheduled more than 24 hours in advance.');
+
 }
 
 // Prevent selecting the same slot

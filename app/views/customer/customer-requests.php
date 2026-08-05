@@ -113,6 +113,7 @@ $requests = $stmt->fetchAll();
 
                 <tr>
 
+                    <th width="100">Request #</th>
                     <th>Service</th>
                     <th>Quoted Price</th>
                     <th>Status</th>
@@ -150,6 +151,10 @@ $requests = $stmt->fetchAll();
                     ?>
 
                     <tr>
+
+                        <td class="text-center">
+                            <strong>#<?= (int)$request['id'] ?></strong>
+                        </td>
 
                         <td>
                             <?= htmlspecialchars($request['service_title']) ?>

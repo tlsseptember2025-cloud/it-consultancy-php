@@ -1,6 +1,7 @@
 <?php
 
 require_once APP_PATH . '/helpers/DateHelper.php';
+require_once APP_PATH . '/helpers/consultation_helper.php';
 
 if (!isset($_SESSION['user'])) {
 
@@ -149,7 +150,14 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
     <td><?= htmlspecialchars($slot['consultation_method']) ?></td>
 
     <td>
-        <?php if (!empty($slot['meeting_link'])): ?>
+        <?php if (
+    !empty($consultation['meeting_link'])
+    &&
+    shouldShowMeetingLink(
+        $consultation['slot_date'],
+        $consultation['slot_time']
+    )
+): ?>
 
             <a
                 href="<?= htmlspecialchars($slot['meeting_link']) ?>"

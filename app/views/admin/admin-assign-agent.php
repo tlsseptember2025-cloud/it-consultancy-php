@@ -1,6 +1,7 @@
 <?php
 
 require_once APP_PATH . '/helpers/DateHelper.php';
+require_once APP_PATH . '/helpers/consultation_helper.php';
 
 if (!isset($_SESSION['user'])) {
     header('Location: ?page=login');
@@ -507,7 +508,14 @@ require VIEW_PATH . '/layouts/header-admin.php';
                 <strong>Meeting Link</strong><br>
 
 
-                <?php if (!empty($consultation['meeting_link'])): ?>
+                <?php if (
+                        !empty($consultation['meeting_link'])
+                        &&
+                        shouldShowMeetingLink(
+                            $consultation['slot_date'],
+                            $consultation['slot_time']
+                        )
+                    ): ?>
 
 
                     <a href="<?= htmlspecialchars($consultation['meeting_link']) ?>"

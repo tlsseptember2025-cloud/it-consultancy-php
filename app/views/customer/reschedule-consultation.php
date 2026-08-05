@@ -8,6 +8,7 @@ if (!isset($_SESSION['customer'])) {
 
 require_once HELPER_PATH . '/security.php';
 require_once HELPER_PATH . '/auth.php';
+require_once HELPER_PATH . '/DateHelper.php';
 
 $customerId = (int) $_SESSION['customer']['id'];
 
@@ -74,17 +75,25 @@ if (
     exit;
 }
 
-// Must be more than 24 hours before
+// Must be more than 24 hours before,
+// unless an administrator has already approved the reschedule.
+
 $currentConsultation = strtotime(
     $request['slot_date'] . ' ' . $request['slot_time']
 );
 
-if (time() >= ($currentConsultation - (24 * 60 * 60))) {
-    $_SESSION['error'] =
-    'Consultations can only be rescheduled more than 24 hours before the scheduled time.';
+if (
+    $request['admin_instruction'] !== '__RESCHEDULE_ALLOWED__'
+    &&
+    time() >= ($currentConsultation - (24 * 60 * 60))
+) {
 
-header('Location: ?page=customer-requests');
-exit;
+    $_SESSION['error'] =
+        'Consultations can only be rescheduled more than 24 hours before the scheduled time.';
+
+    header('Location: ?page=customer-requests');
+    exit;
+
 }
 
 // Show available slots

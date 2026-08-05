@@ -176,16 +176,61 @@ if (isset($_POST['continue_consultation'])) {
 
     if ($currentDateTime > $consultationDateTime) {
 
-        // Consultation has expired.
-        // Next step: redirect the customer to the existing
-        // reschedule consultation workflow.
+        $stmt = $pdo->prepare("
+            UPDATE requests
+            SET
+                workflow_stage = 'Needs Admin Review',
+                job_status = 'Pending',
+                admin_instruction = '__RESCHEDULE_ALLOWED__'
+            WHERE id = ?
+        ");
 
-        echo "Consultation has expired.";
+        $stmt->execute([$requestId]);
+
+        addContactHistory(
+
+            $pdo,
+
+            $requestId,
+
+            null,
+
+            $adminId,
+
+            'admin',
+
+            RequestEventHelper::EVENT_CONSULTATION_CONFIRMED,
+
+            'Administrator approved continuation of the consultation. '
+            . 'The previous consultation had expired. '
+            . 'Customer may now reschedule the consultation.'
+
+        );
+
+        RequestEventHelper::add(
+
+            $pdo,
+
+            $requestId,
+
+            RequestEventHelper::EVENT_CONSULTATION_CONFIRMED,
+
+            RequestEventHelper::TYPE_CONSULTATION,
+
+            'Consultation Reschedule Approved',
+
+            'Customer may now reschedule the consultation.',
+
+            RequestEventHelper::SOURCE_ADMINISTRATOR,
+
+            $adminId
+
+        );
+
+        header('Location: ?page=needs-admin-review&success=reschedule-approved');
         exit;
 
     } else {
-
-        // Consultation is still valid.
 
         $stmt = $pdo->prepare("
             UPDATE requests
@@ -201,7 +246,7 @@ if (isset($_POST['continue_consultation'])) {
 
             $pdo,
 
-            $consultation['id'],
+            $requestId,
 
             null,
 
@@ -219,7 +264,7 @@ if (isset($_POST['continue_consultation'])) {
 
             $pdo,
 
-            $consultation['id'],
+            $requestId,
 
             RequestEventHelper::EVENT_CONSULTATION_CONFIRMED,
 
