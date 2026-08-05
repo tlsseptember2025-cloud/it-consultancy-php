@@ -1,6 +1,7 @@
 <?php
 
 require_once APP_PATH . '/helpers/DateHelper.php';
+require_once APP_PATH . '/helpers/consultation_helper.php';
 
 if (!isset($_SESSION['agent'])) {
 
@@ -386,7 +387,7 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
                     <strong>Meeting</strong><br>
 
-                    <?php if (!empty($meetingLink)): ?>
+                   <?php if (!empty($consultation['meeting_link'])): ?>
 
                         <a
                             href="<?= htmlspecialchars($meetingLink) ?>"
@@ -396,6 +397,7 @@ require VIEW_PATH . '/layouts/header-agent.php';
                             Join Meeting
 
                         </a>
+
 
                     <?php else: ?>
 

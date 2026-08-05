@@ -273,28 +273,30 @@ if (
 
 ): ?>
 
-    <?php
+   <?php
 
-   $meetingLink = getMeetingLink(
+$meetingLink = getMeetingLink(
     $request['consultation_method'],
     $request['slot_time']
-    );
+);
 
-    ?>
+?>
 
-    <span class="badge bg-danger">
+<span class="badge bg-danger">
 
-        <?= date('M d, Y', strtotime($request['slot_date'])) ?>
+    <?= date('M d, Y', strtotime($request['slot_date'])) ?>
 
-        @
+    @
 
-        <?= formatTime($request['slot_time']) ?>
+    <?= formatTime($request['slot_time']) ?>
 
-        @
+    @
 
-        <?= htmlspecialchars($request['consultation_method']) ?>
+    <?= htmlspecialchars($request['consultation_method']) ?>
 
-    </span>
+</span>
+
+<?php if (shouldShowMeetingLink($request['slot_date'], $request['slot_time'])): ?>
 
     <a
         href="<?= htmlspecialchars($meetingLink) ?>"
@@ -304,6 +306,17 @@ if (
         Join <?= htmlspecialchars($request['consultation_method']) ?>
 
     </a>
+
+<?php else: ?>
+
+    <div class="small text-muted mt-2">
+
+        Meeting link will be available
+        10 minutes before your consultation.
+
+    </div>
+
+<?php endif; ?>
 
     <?php if ((int)$request['consultation_reschedules'] < 1): ?>
 

@@ -508,34 +508,20 @@ require VIEW_PATH . '/layouts/header-admin.php';
                 <strong>Meeting Link</strong><br>
 
 
-                <?php if (
-                        !empty($consultation['meeting_link'])
-                        &&
-                        shouldShowMeetingLink(
-                            $consultation['slot_date'],
-                            $consultation['slot_time']
-                        )
-                    ): ?>
+                <?php if (!empty($consultation['meeting_link'])): ?>
 
-
-                    <a href="<?= htmlspecialchars($consultation['meeting_link']) ?>"
-                       target="_blank"
-                       class="btn btn-outline-primary btn-sm mt-2">
+                    <a
+                        href="<?= htmlspecialchars($meetingLink) ?>"
+                        target="_blank"
+                        class="btn btn-success btn-sm">
 
                         Join Meeting
 
                     </a>
 
-
                 <?php else: ?>
 
-
-                    <span class="text-muted">
-
-                        Not Available
-
-                    </span>
-
+                    Not Available
 
                 <?php endif; ?>
 

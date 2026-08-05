@@ -1,6 +1,7 @@
 <?php
 
 require_once APP_PATH . '/helpers/DateHelper.php';
+require_once APP_PATH . '/helpers/consultation_helper.php';
 
 if (!isset($_SESSION['user'])) {
 
@@ -317,7 +318,10 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
                 <?php if (!empty($consultation['meeting_link'])): ?>
 
-                    <a href="<?= htmlspecialchars($consultation['meeting_link']) ?>" target="_blank">
+                    <a
+                        href="<?= htmlspecialchars($meetingLink) ?>"
+                        target="_blank"
+                        class="btn btn-success btn-sm">
 
                         Join Meeting
 
