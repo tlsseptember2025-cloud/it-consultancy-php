@@ -88,6 +88,8 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
                         <tr>
 
+                            <th class="text-center" style="width:100px;">Request #</th>
+
                             <th>Date</th>
 
                             <th>Time</th>
@@ -125,6 +127,12 @@ require VIEW_PATH . '/layouts/header-agent.php';
 <?php foreach ($consultations as $consultation): ?>
 
 <tr>
+
+    <td class="text-center">
+
+        <strong>#<?= (int)$consultation['request_id'] ?></strong>
+
+    </td>
 
     <td>
 
@@ -171,10 +179,12 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
         <?php elseif ($consultation['workflow_stage'] === 'Consultation Confirmed'): ?>
 
-            <a href="?page=start-consultation&request_id=<?= $consultation['request_id'] ?>"
-            class="btn btn-success btn-sm">
-                Start Consultation
-            </a>
+            <a href="?page=view-consultation&id=<?= $consultation['request_id'] ?>"
+   class="btn btn-success btn-sm">
+
+    View Consultation
+
+</a>
 
         <?php endif; ?>
 

@@ -1,7 +1,6 @@
 <?php
 
 require_once APP_PATH . '/helpers/DateHelper.php';
-require_once APP_PATH . '/helpers/consultation_helper.php';
 
 if (!isset($_SESSION['user'])) {
 
