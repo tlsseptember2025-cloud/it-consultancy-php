@@ -18,6 +18,7 @@
 
                         <tr>
 
+                            <th class="text-center" style="width:100px;">Request #</th>
                             <th>Customer</th>
                             <th>Service</th>
                             <th>Email #</th>
@@ -48,6 +49,10 @@
 <?php foreach ($requests as $request): ?>
 
 <tr>
+
+    <td class="text-center">
+        <strong>#<?= (int)$request['id'] ?></strong>
+    </td>
 
     <td><?= htmlspecialchars($request['customer_name']) ?></td>
 

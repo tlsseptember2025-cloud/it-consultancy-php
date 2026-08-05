@@ -83,6 +83,10 @@ switch ($page) {
         require APP_PATH . '/controllers/view-awaiting-customer-response.php';
         break;
 
+    case 'review-cancellation-request':
+        require CONTROLLER_PATH . '/review-cancellation-request.php';
+        break;
+
     /*
     |--------------------------------------------------------------------------
     | Authentication

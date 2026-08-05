@@ -147,7 +147,7 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
                 <tr>
 
-                    <th>Request</th>
+                    <th class="text-center" style="width:100px;">Request #</th>
                     <th>Customer</th>
                     <th>Agent</th>
                     <th>Service</th>
@@ -166,7 +166,9 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
                 <tr>
 
-                    <td>#<?= $consultation['id'] ?></td>
+                    <td class="text-center">
+                        <strong>#<?= (int)$consultation['id'] ?></strong>
+                    </td>
 
                     <td><?= htmlspecialchars($consultation['customer_name']) ?></td>
 

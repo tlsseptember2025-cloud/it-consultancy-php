@@ -7,6 +7,7 @@ define('CONFIG_PATH', ROOT_PATH . '/config');
 define('PUBLIC_PATH', ROOT_PATH . '/public');
 define('VIEW_PATH', APP_PATH . '/views');
 define('HELPER_PATH', APP_PATH . '/helpers');
+define('CONTROLLER_PATH', APP_PATH . '/controllers');
 
 require_once CONFIG_PATH . '/settings.php';
 

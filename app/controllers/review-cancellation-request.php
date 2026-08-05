@@ -47,6 +47,19 @@ if (!$consultation) {
     die('Request not found.');
 }
 
+$stmt = $pdo->prepare("
+    SELECT id
+    FROM users
+    WHERE email = ?
+    LIMIT 1
+");
+
+$stmt->execute([$_SESSION['user']]);
+
+$admin = $stmt->fetch(PDO::FETCH_ASSOC);
+
+$adminId = $admin['id'] ?? null;
+
 if (isset($_POST['save_customer_response'])) {
 
     $responseMethod = trim($_POST['response_method']);
@@ -109,19 +122,6 @@ if (isset($_POST['save_customer_response'])) {
         $consultation['id']
     ]);
 
-    $stmt = $pdo->prepare("
-    SELECT id
-    FROM users
-    WHERE email = ?
-    LIMIT 1
-");
-
-$stmt->execute([$_SESSION['user']]);
-
-$admin = $stmt->fetch(PDO::FETCH_ASSOC);
-
-$adminId = $admin['id'] ?? null;
-
 addContactHistory(
 
     $pdo,
@@ -166,4 +166,80 @@ RequestEventHelper::add(
     exit;
 }
 
-require VIEW_PATH . '/admin/view-awaiting-customer-response.php';
+if (isset($_POST['continue_consultation'])) {
+
+    $consultationDateTime = strtotime(
+        $consultation['slot_date'] . ' ' . $consultation['slot_time']
+    );
+
+    $currentDateTime = time();
+
+    if ($currentDateTime > $consultationDateTime) {
+
+        // Consultation has expired.
+        // Next step: redirect the customer to the existing
+        // reschedule consultation workflow.
+
+        echo "Consultation has expired.";
+        exit;
+
+    } else {
+
+        // Consultation is still valid.
+
+        $stmt = $pdo->prepare("
+            UPDATE requests
+            SET
+                workflow_stage = 'Consultation Confirmed',
+                job_status = 'Pending'
+            WHERE id = ?
+        ");
+
+        $stmt->execute([$requestId]);
+
+        addContactHistory(
+
+            $pdo,
+
+            $consultation['id'],
+
+            null,
+
+            $adminId,
+
+            'admin',
+
+            RequestEventHelper::EVENT_CONSULTATION_CONFIRMED,
+
+            'Administrator approved continuation of the consultation.'
+
+        );
+
+        RequestEventHelper::add(
+
+            $pdo,
+
+            $consultation['id'],
+
+            RequestEventHelper::EVENT_CONSULTATION_CONFIRMED,
+
+            RequestEventHelper::TYPE_CONSULTATION,
+
+            'Consultation Continued',
+
+            'Administrator approved continuation of the consultation.',
+
+            RequestEventHelper::SOURCE_ADMINISTRATOR,
+
+            $adminId
+
+        );
+
+        header('Location: ?page=requests&success=consultation-continued');
+        exit;
+
+    }
+
+}
+
+require VIEW_PATH . '/admin/review-cancellation-request.php';
