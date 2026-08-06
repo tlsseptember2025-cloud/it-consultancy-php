@@ -127,7 +127,11 @@ switch ($page) {
         break;
 
     case 'contact-customer':
-        require APP_PATH . '/controllers/contact-customer.php';
+        require CONTROLLER_PATH . '/contact-customer.php';
+        break;
+
+    case 'consultation-closure-agreement':
+        require CONTROLLER_PATH . '/consultation-closure-agreement.php';
         break;
 
     case 'agent-logout':
