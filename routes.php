@@ -87,6 +87,14 @@ switch ($page) {
         require CONTROLLER_PATH . '/review-cancellation-request.php';
         break;
 
+    case 'closure-agreements':
+        require CONTROLLER_PATH . '/closure-agreements.php';
+        break;
+
+    case 'review-closure-agreement':
+        require CONTROLLER_PATH . '/review-closure-agreement.php';
+        break;
+
     /*
     |--------------------------------------------------------------------------
     | Authentication
