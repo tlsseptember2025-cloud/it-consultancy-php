@@ -2,7 +2,19 @@
 
 <div class="container mt-4">
 
-    <h2>Closure Agreements</h2>
+    <h2>Pending Closure Agreements</h2>
+
+    <?php if (isset($_GET['success']) && $_GET['success'] === 'review-saved'): ?>
+
+    <div class="alert alert-success" id="successMessage">
+
+        <strong>Success!</strong>
+
+        The closure agreement review has been completed successfully.
+
+    </div>
+
+<?php endif; ?>
 
     <div class="card">
 
@@ -108,5 +120,29 @@
 </div>
 
 </div>
+
+<script>
+
+setTimeout(function () {
+
+    const message = document.getElementById('successMessage');
+
+    if (message) {
+
+        message.style.transition = 'opacity 0.5s';
+
+        message.style.opacity = '0';
+
+        setTimeout(function () {
+
+            message.remove();
+
+        }, 500);
+
+    }
+
+}, 5000);
+
+</script>
 
 <?php require VIEW_PATH . '/layouts/footer.php'; ?>

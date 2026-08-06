@@ -69,62 +69,85 @@ $needsAdminReviewCount = (int) $stmt->fetch(PDO::FETCH_ASSOC)['total'];
 
             <ul class="navbar-nav ms-auto align-items-lg-center">
 
-                <!-- Needs Admin Review -->
-
-                <li class="nav-item">
-                    <a class="nav-link <?= $needsAdminReviewCount > 0 ? 'text-warning fw-semibold' : '' ?>"
-                    href="?page=needs-admin-review">
-                        Needs Admin Review
-                    </a>
-                </li>
-
                 <!-- Services -->
 
-                <li class="nav-item">
+               <!-- Services -->
 
-                    <a
-                        class="nav-link"
-                        href="?page=services-admin">
+<li class="nav-item dropdown">
 
-                        Services
+    <a
+        class="nav-link dropdown-toggle"
+        href="#"
+        role="button"
+        data-bs-toggle="dropdown"
+        aria-expanded="false">
 
-                    </a>
+        Services
 
+    </a>
 
-                </li>
+    <ul class="dropdown-menu">
 
-                <li class="nav-item">
-                    <a href="?page=pricing" class="nav-link">
-                        Price List
-                    </a> 
-                </li>
+        <li>
+
+            <a
+                class="dropdown-item"
+                href="?page=services-admin">
+
+                Services
+
+            </a>
+
+        </li>
+
+        <li>
+
+            <a
+                class="dropdown-item"
+                href="?page=pricing">
+
+                Price List
+
+            </a>
+
+        </li>
+
+    </ul>
+
+</li>
 
                 <!-- Customers -->
 
-                <li class="nav-item">
+                <li class="nav-item dropdown">
 
-                    <a
-                        class="nav-link"
-                        href="?page=customers">
+    <a
+        class="nav-link dropdown-toggle"
+        href="#"
+        role="button"
+        data-bs-toggle="dropdown"
+        aria-expanded="false">
 
-                        Customers
+        Customers
 
-                    </a>
+    </a>
 
-                </li>
+    <ul class="dropdown-menu">
 
-                <li>
+        <li>
 
-                    <a 
-                     
-                        class="nav-link"
-                        href="?page=awaiting-customer-response">
-                        
-                        Awaiting Customer Response
-                    
-                    </a>
+            <a
+                class="dropdown-item"
+                href="?page=customers">
 
-                </li>
+                Customers
+
+            </a>
+
+        </li>
+
+    </ul>
+
+</li>
 
                 <!-- Agents -->
 
@@ -203,6 +226,30 @@ $needsAdminReviewCount = (int) $stmt->fetch(PDO::FETCH_ASSOC)['total'];
                         <li>
 
                             <a
+                                class="dropdown-item <?= $needsAdminReviewCount > 0 ? 'text-warning fw-semibold' : '' ?>"
+                                href="?page=needs-admin-review">
+
+                                Needs Admin Review
+
+                            </a>
+
+                        </li>
+                        
+                        <li>
+
+                        <a
+                            class="dropdown-item"
+                            href="?page=awaiting-customer-response">
+
+                            Awaiting Customer Response
+
+                        </a>
+
+                    </li>
+
+                        <li>
+
+                            <a
                                 class="dropdown-item"
                                 href="?page=archived-requests">
 
@@ -215,6 +262,51 @@ $needsAdminReviewCount = (int) $stmt->fetch(PDO::FETCH_ASSOC)['total'];
                     </ul>
 
                 </li>
+
+                <!-- Consultations -->
+
+<li class="nav-item dropdown">
+
+    <a
+        class="nav-link dropdown-toggle"
+        href="#"
+        role="button"
+        data-bs-toggle="dropdown"
+        aria-expanded="false">
+
+        Consultations
+
+    </a>
+
+    <ul class="dropdown-menu">
+
+        <li>
+
+            <a
+                class="dropdown-item"
+                href="?page=closure-agreements">
+
+                Pending Closure Agreements
+
+            </a>
+
+        </li>
+
+        <li>
+
+            <a
+                class="dropdown-item"
+                href="?page=approved-closures">
+
+                Approved Closures
+
+            </a>
+
+        </li>
+
+    </ul>
+
+</li>
 
                 <!-- Finance -->
 
@@ -284,7 +376,7 @@ $needsAdminReviewCount = (int) $stmt->fetch(PDO::FETCH_ASSOC)['total'];
                         data-bs-toggle="dropdown"
                         aria-expanded="false">
 
-                        System
+                        Communications
 
                     </a>
 

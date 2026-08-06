@@ -75,6 +75,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $agreementId
     ]);
 
+    $stmt = $pdo->prepare("
+    UPDATE requests
+    SET workflow_stage = ?
+    WHERE id = ?
+");
+
+$stmt->execute([
+    $decision === 'Approved'
+        ? 'Closure Approved'
+        : 'Closure Rejected',
+    $agreement['request_id']
+]);
+
+header('Location: index.php?page=closure-agreements&success=review-saved');
+exit;
+
 }
 
 }

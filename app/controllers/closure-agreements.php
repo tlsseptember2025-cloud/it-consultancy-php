@@ -14,6 +14,7 @@ $stmt = $pdo->query("
         ON c.id = cca.customer_id
     INNER JOIN services s
         ON s.id = r.service_id
+    WHERE cca.status = 'Pending'
     ORDER BY cca.signed_at DESC
 ");
 

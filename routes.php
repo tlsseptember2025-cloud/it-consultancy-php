@@ -162,6 +162,14 @@ switch ($page) {
     require VIEW_PATH . '/admin/delete-pricing.php';
     break;
 
+    case 'approved-closures':
+    require CONTROLLER_PATH . '/approved-closures.php';
+    break;
+
+    case 'complete-consultation-closure':
+    require CONTROLLER_PATH . '/complete-consultation-closure.php';
+    break;
+
     /*
     |--------------------------------------------------------------------------
     | Customer Portal
