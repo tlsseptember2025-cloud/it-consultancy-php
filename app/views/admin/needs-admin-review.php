@@ -16,6 +16,7 @@ $stmt = $pdo->prepare("
     r.id,
 
     r.job_status,
+    r.review_type,
     r.incomplete_reason,
 
     c.name AS customer_name,
@@ -151,7 +152,7 @@ require VIEW_PATH . '/layouts/header-admin.php';
                     <th>Customer</th>
                     <th>Agent</th>
                     <th>Service</th>
-                    <th>Status</th>
+                    <th>Workflow</th>
                     <th>Reason</th>
                     <th>Date</th>
                     <th>Action</th>
@@ -216,15 +217,24 @@ if ($consultation['job_status'] == 'Completed') {
 
 </td>
 
-                    <td>
+                 <td>
 
-                       <a
-    href="?page=admin-review-consultation&id=<?= $consultation['id'] ?>"
-    class="btn btn-primary btn-sm">
+                    <?php
 
-    Review →
+                    $reviewPage =
+                        ($consultation['review_type'] === 'customer_contact')
+                            ? 'admin-contact-customer'
+                            : 'admin-review-consultation';
 
-</a>
+                    ?>
+
+                    <a
+                        href="?page=<?= $reviewPage ?>&id=<?= $consultation['id'] ?>"
+                        class="btn btn-primary btn-sm">
+
+                        Review →
+
+                    </a>
 
                     </td>
 

@@ -63,6 +63,61 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
 </div>
 
+<div class="card shadow-sm mb-3">
+
+    <div class="card-header bg-secondary text-white">
+
+        Current Consultation
+
+    </div>
+
+    <div class="card-body">
+
+        <div class="row">
+
+            <div class="col-md-3">
+
+                <strong>Date</strong><br>
+
+                <?= formatDate($request['slot_date']) ?>
+
+            </div>
+
+            <div class="col-md-3">
+
+                <strong>Time</strong><br>
+
+                <?= formatTime($request['slot_time']) ?>
+
+            </div>
+
+            <div class="col-md-2">
+
+                <strong>Method</strong><br>
+
+                <?= htmlspecialchars($request['consultation_method']) ?>
+
+            </div>
+
+            <div class="col-md-2">
+
+                <strong>Status</strong><br>
+
+                <?= getConsultationStatusBadge(
+                    $request['slot_date'],
+                    $request['slot_time']
+                ) ?>
+
+            </div>
+
+            
+
+        </div>
+
+    </div>
+
+</div>
+
 <div class="card mb-4">
 
     <div class="card-header bg-warning">
@@ -136,13 +191,25 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
                     <label class="form-label">Customer Request</label>
 
+                    <?php
+
+                    $isPassed = strtotime(
+                        $request['slot_date'] . ' ' . $request['slot_time']
+                    ) < time();
+
+                    ?>
+
                     <select name="customer_decision" id="customerDecision" class="form-select">
 
                         <option value="">Select Request</option>
 
-                        <option value="Continue Current Appointment">
-                            Continue with Current Appointment
-                        </option>
+                        <?php if (!$isPassed): ?>
+                        
+                            <option value="Continue Current Appointment">
+                                Continue with Current Appointment
+                            </option>
+
+                        <?php endif ?>
 
                         <option value="Continue New Appointment">
                             Continue with New Appointment

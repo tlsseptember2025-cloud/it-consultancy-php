@@ -91,6 +91,8 @@ if (
     $stmt = $pdo->prepare("
         UPDATE requests
         SET
+            workflow_stage = 'Awaiting Customer Reschedule',
+            job_status = 'Pending',
             admin_instruction = ?
         WHERE id = ?
     ");
@@ -214,7 +216,16 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
                 <p class="mb-0">
                     <strong>Quoted Price:</strong>
-                    AED <?= number_format($consultation['quoted_price'],2) ?>
+
+                    <?php if ((float)$consultation['quoted_price'] > 0): ?>
+
+                        AED <?= number_format($consultation['quoted_price'], 2) ?>
+
+                    <?php else: ?>
+
+                        <span class="text-muted">Pending</span>
+
+                    <?php endif; ?>
                 </p>
 
 
@@ -298,33 +309,6 @@ require VIEW_PATH . '/layouts/header-admin.php';
                     : 'Not Assigned';
 
                 ?>
-
-            </div>
-
-
-
-            <div class="col-md-6">
-
-                <strong>Meeting Link</strong><br>
-
-
-              <?php if (!empty($consultation['meeting_link'])): ?>
-
-                    <a
-                        href="<?= htmlspecialchars($meetingLink) ?>"
-                        target="_blank"
-                        class="btn btn-success btn-sm">
-
-                        Join Meeting
-
-                    </a>
-
-                <?php else: ?>
-
-                    Not Available
-
-                <?php endif; ?>
-
 
             </div>
 

@@ -1,6 +1,8 @@
 <?php
 
 require_once APP_PATH . '/helpers/contact_history_helper.php';
+require_once APP_PATH . '/helpers/DateHelper.php';
+require_once APP_PATH . '/helpers/consultation_helper.php';
 
 if (!isset($_SESSION['agent'])) {
     header('Location: ?page=login');
@@ -15,6 +17,10 @@ $stmt = $pdo->prepare("
     SELECT
         r.*,
         cb.agent_id AS consultation_agent_id,
+        cs.slot_date,
+        cs.slot_time,
+        cs.consultation_method,
+        cs.meeting_link,
         c.name AS customer_name,
         c.email,
         c.phone,
@@ -26,6 +32,8 @@ $stmt = $pdo->prepare("
         ON s.id = r.service_id
     INNER JOIN consultation_bookings cb
         ON cb.request_id = r.id
+    INNER JOIN consultation_slots cs
+        ON cs.id = cb.slot_id
     WHERE
         r.id = ?
         AND cb.agent_id = ?

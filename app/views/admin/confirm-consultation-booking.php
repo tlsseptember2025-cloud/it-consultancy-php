@@ -9,6 +9,7 @@ if (!isset($_SESSION['user'])) {
 require_once HELPER_PATH . '/email.php';
 require_once HELPER_PATH . '/notifications.php';
 require_once HELPER_PATH . '/meeting.php';
+require_once APP_PATH . '/helpers/DateHelper.php';
 
 $id = $_GET['id'] ?? 0;
 
@@ -97,12 +98,12 @@ sendEmail(
 
     <p>
         <strong>Date:</strong><br>
-        {$request['slot_date']}
+        " . formatDate($request['slot_date']) . "
     </p>
 
     <p>
         <strong>Time:</strong><br>
-        {$request['slot_time']}
+        " . formatTime($request['slot_time']) . "
     </p>
 
     <p>
@@ -110,32 +111,42 @@ sendEmail(
         {$request['consultation_method']}
     </p>
 
+    <hr style='border:none;border-top:1px solid #dddddd;margin:20px 0;'>
+
+<h3 style='margin:0 0 12px 0;font-size:20px;'>
+
+    🔒 Secure Meeting Access
+
+</h3>
+
+<p>
+
+    Your secure
+    <strong>{$request['consultation_method']}</strong>
+    meeting link will become available
+    <strong>10 minutes before your scheduled consultation.</strong>
+
+</p>
+
+<p>
+
+Please log in to your customer portal
+and select
+<strong>Join Meeting</strong>
+when it becomes available.
+
+</p>
+
+<hr style='border:none;border-top:1px solid #dddddd;margin:30px 0;'>
+
+
     <p>
-        <strong>Join {$request['consultation_method']}:</strong><br>
-
-        <a
-            href='{$meetingLink}'
-            style='
-                background:#198754;
-                color:white;
-                padding:10px 20px;
-                text-decoration:none;
-                border-radius:5px;
-                display:inline-block;
-            '>
-
-            Join {$request['consultation_method']}
-
-        </a>
+    You can manage your consultation, view updates, and access your meeting from your customer portal.
     </p>
 
     <p>
-        You can also access your consultation from your customer portal.
-    </p>
-
-    <p>
         <a
-            href='localhost/?page=public-login'
+            href='localhost/it-consultancy-php/public/?page=public-login'
             style='
                 background:#0d6efd;
                 color:white;

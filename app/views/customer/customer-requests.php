@@ -332,7 +332,11 @@ $meetingLink = getMeetingLink(
 
 elseif (
 
-    $request['workflow_stage'] === 'Needs Admin Review'
+    (
+        $request['workflow_stage'] === 'Needs Admin Review'
+        ||
+        $request['workflow_stage'] === 'Awaiting Customer Reschedule'
+    )
     &&
     (
         $request['admin_instruction'] === '__RESCHEDULE_ALLOWED__'
@@ -344,7 +348,9 @@ elseif (
         )
     )
 
-): ?>
+):
+
+?>
 
     <?php if (empty($request['admin_instruction'])): ?>
 

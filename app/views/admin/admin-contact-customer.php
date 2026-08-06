@@ -325,7 +325,16 @@ require_once APP_PATH . '/helpers/DateHelper.php';
 
                 <p class="mb-0">
                     <strong>Quoted Price:</strong>
-                    AED <?= number_format($consultation['quoted_price'], 2) ?>
+
+                    <?php if ((float)$consultation['quoted_price'] > 0): ?>
+
+                        AED <?= number_format($consultation['quoted_price'], 2) ?>
+
+                    <?php else: ?>
+
+                        <span class="text-muted">Pending</span>
+
+                    <?php endif; ?>
                 </p>
 
             </div>

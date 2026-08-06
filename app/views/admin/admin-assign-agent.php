@@ -246,7 +246,7 @@ if (isset($_POST['reassign_agent'])) {
     UPDATE requests
     SET
         agent_id = ?,
-        workflow_stage = 'Needs Admin Review',
+        workflow_stage = 'Consultation Confirmed',
 
         status = 'Pending',
         job_status = 'Pending',
@@ -294,17 +294,6 @@ if (isset($_POST['assign_agent'])) {
     if ($agentId <= 0) {
         die('Please select an agent.');
     }
-
-    $stmt = $pdo->prepare("
-        UPDATE requests
-        SET agent_id = ?
-        WHERE id = ?
-    ");
-
-    $stmt->execute([
-        $agentId,
-        $consultation['id']
-    ]);
 
     header('Location: ?page=requests&success=agent-assigned');
     exit;
@@ -413,7 +402,16 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
                 <p class="mb-0">
                     <strong>Quoted Price:</strong>
-                    AED <?= number_format($consultation['quoted_price'],2) ?>
+
+                    <?php if ((float)$consultation['quoted_price'] > 0): ?>
+
+                        AED <?= number_format($consultation['quoted_price'], 2) ?>
+
+                    <?php else: ?>
+
+                        <span class="text-muted">Pending</span>
+
+                    <?php endif; ?>
                 </p>
 
 
@@ -497,33 +495,6 @@ require VIEW_PATH . '/layouts/header-admin.php';
                     : 'Not Assigned';
 
                 ?>
-
-            </div>
-
-
-
-            <div class="col-md-6">
-
-                <strong>Meeting Link</strong><br>
-
-
-                <?php if (!empty($consultation['meeting_link'])): ?>
-
-                    <a
-                        href="<?= htmlspecialchars($meetingLink) ?>"
-                        target="_blank"
-                        class="btn btn-success btn-sm">
-
-                        Join Meeting
-
-                    </a>
-
-                <?php else: ?>
-
-                    Not Available
-
-                <?php endif; ?>
-
 
             </div>
 

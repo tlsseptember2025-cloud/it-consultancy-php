@@ -263,7 +263,15 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
                     <strong>Quoted Price:</strong>
 
-                    AED <?= number_format($consultation['quoted_price'],2) ?>
+                    <?php if ((float)$consultation['quoted_price'] > 0): ?>
+
+                        AED <?= number_format($consultation['quoted_price'], 2) ?>
+
+                    <?php else: ?>
+
+                        <span class="text-muted">Pending</span>
+
+                    <?php endif; ?>
 
                 </p>
 
@@ -311,28 +319,7 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
             </div>
 
-            <div class="col-md-3">
-
-                <strong>Meeting</strong><br>
-
-                <?php if (!empty($consultation['meeting_link'])): ?>
-
-                    <a
-                        href="<?= htmlspecialchars($meetingLink) ?>"
-                        target="_blank"
-                        class="btn btn-success btn-sm">
-
-                        Join Meeting
-
-                    </a>
-
-                <?php else: ?>
-
-                    Not Available
-
-                <?php endif; ?>
-
-            </div>
+            
 
         </div>
 
