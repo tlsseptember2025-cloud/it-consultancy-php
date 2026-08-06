@@ -76,11 +76,11 @@ switch ($page) {
         break;
 
     case 'awaiting-customer-response':
-        require APP_PATH . '/controllers/awaiting-customer-response.php';
+        require CONTROLLER_PATH . '/awaiting-customer-response.php';
         break;
 
     case 'view-awaiting-customer-response':
-        require APP_PATH . '/controllers/view-awaiting-customer-response.php';
+        require CONTROLLER_PATH . '/view-awaiting-customer-response.php';
         break;
 
     case 'review-cancellation-request':
@@ -259,7 +259,7 @@ switch ($page) {
         break;
 
         case 'admin-contact-customer':
-        require APP_PATH  . '/controllers/admin-contact-customer.php';
+        require CONTROLLER_PATH  . '/admin-contact-customer.php';
         break;
 
         case 'admin-close-request':
