@@ -378,6 +378,10 @@ switch ($page) {
     case 'closed-requests':
         require VIEW_PATH . '/admin/closed-requests.php';
         break;
+
+    case 'review-closed-request':
+    require CONTROLLER_PATH . '/review-closed-request.php';
+    break;
     
         /*
     |--------------------------------------------------------------------------

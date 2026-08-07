@@ -63,6 +63,18 @@ if (isset($_POST['save_customer_response'])) {
 
     }
 
+    $decisionText = match ($customerDecision) {
+
+    'continue'   => 'Continue Consultation',
+
+    'reschedule' => 'Reschedule Consultation',
+
+    'cancel'     => 'Cancel Consultation',
+
+    default      => 'Unknown'
+
+};
+
     switch ($customerDecision) {
 
         case 'continue':
@@ -136,9 +148,9 @@ addContactHistory(
 
     RequestEventHelper::EVENT_CUSTOMER_RESPONSE_RECORDED,
 
-    'Customer responded via ' . $responseMethod .
-    '. Decision: Customer Requested Cancellation. ' .
-    'Administrator Notes: ' . $responseNotes
+    'Response Method: ' . ucfirst($responseMethod) .
+'. Customer Decision: ' . $decisionText .
+'. Administrator Notes: ' . $responseNotes
 
 );
 
@@ -154,7 +166,9 @@ RequestEventHelper::add(
 
     $eventTitle,
 
-    $responseNotes,
+    'Response Method: ' . ucfirst($responseMethod) . PHP_EOL .
+    'Customer Decision: ' . $decisionText . PHP_EOL .
+    'Administrator Notes: ' . $responseNotes,
 
     RequestEventHelper::SOURCE_ADMINISTRATOR,
 
