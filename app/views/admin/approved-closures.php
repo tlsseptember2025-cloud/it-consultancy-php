@@ -56,17 +56,17 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
     <td><?= htmlspecialchars($request['service_name']) ?></td>
 
-    <td>
+        <td>
 
-        <button
-            class="btn btn-success btn-sm"
-            disabled>
+            <a
+                href="index.php?page=complete-consultation-closure&request_id=<?= $request['id'] ?>"
+                class="btn btn-success btn-sm">
 
-            Complete Closure
+                Complete Closure
 
-        </button>
+            </a>
 
-    </td>
+        </td>
 
 </tr>
 

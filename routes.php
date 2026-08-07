@@ -375,8 +375,8 @@ switch ($page) {
         require VIEW_PATH . '/admin/delete-request.php';
         break;
 
-    case 'archived-requests':
-        require VIEW_PATH . '/admin/archived-requests.php';
+    case 'closed-requests':
+        require VIEW_PATH . '/admin/closed-requests.php';
         break;
     
         /*

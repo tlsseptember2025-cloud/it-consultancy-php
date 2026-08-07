@@ -251,9 +251,9 @@ $needsAdminReviewCount = (int) $stmt->fetch(PDO::FETCH_ASSOC)['total'];
 
                             <a
                                 class="dropdown-item"
-                                href="?page=archived-requests">
+                                href="?page=closed-requests">
 
-                                Archived Requests
+                                Closed Requests
 
                             </a>
 
