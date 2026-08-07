@@ -188,3 +188,68 @@ Administrator actions:
 - Keeps the administrator responsible only for reviewing and processing customer responses.
 
 ---
+
+## Records Lifecycle & Retention Policy
+
+### Closed Requests
+
+- Requests remain in the **Closed Requests** queue for **90 days**.
+
+↓
+
+### Archived Requests
+
+- After 90 days, eligible requests are automatically moved to the **Archived Requests** queue.
+- Archived requests are read-only.
+- Archived requests remain searchable.
+
+↓
+
+### Minimum Retention Period
+
+- Archived requests are retained for a **minimum of 5 years**.
+
+↓
+
+### Retention Review
+
+When a request reaches **5 years**, it moves to a new queue:
+
+**Retention Review**
+
+The administrator can choose:
+
+- Extend retention by **1 year**
+- Export the record
+- Place the record on Legal Hold
+- Permanently delete the record (if permitted by company policy)
+
+↓
+
+### Annual Review
+
+If retention is extended:
+
+- The request returns to Archived.
+- It is reviewed again every year.
+
+This continues until:
+
+- The administrator deletes the record, or
+- The record reaches **7 years**.
+
+↓
+
+### Final Review (7 Years)
+
+At **7 years**, the administrator performs the final retention review.
+
+Available actions:
+
+- Export the record
+- Place the record on Legal Hold
+- Permanently delete the record
+
+No automatic deletion occurs.
+
+Deletion always requires administrator approval.
