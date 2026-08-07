@@ -382,6 +382,12 @@ switch ($page) {
     case 'review-closed-request':
     require CONTROLLER_PATH . '/review-closed-request.php';
     break;
+
+    case 'test':
+
+    require APP_PATH . '/controllers/test.php';
+
+    break;
     
         /*
     |--------------------------------------------------------------------------

@@ -6,6 +6,7 @@ if (!isset($_SESSION['user'])) {
 }
 
 require_once HELPER_PATH . '/invoice.php';
+require_once CONFIG_PATH . '/retention.php';
 require_once HELPER_PATH . '/email.php';
 require_once HELPER_PATH . '/service_report.php';
 require_once HELPER_PATH . '/notifications.php';
@@ -19,19 +20,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $notes = trim($_POST['completion_notes']);
 
     $stmt = $pdo->prepare("
-        UPDATE requests
-        SET
-            workflow_stage = 'Completed',
-            status = 'Completed',
-            completed_at = NOW(),
-            completion_notes = ?
-        WHERE id = ?
-    ");
+    UPDATE requests
+    SET
+        workflow_stage = ?,
+        status = 'Completed',
+        job_status = 'Completed',
+        completed_at = NOW(),
+        completion_notes = ?
+    WHERE id = ?
+");
 
     $stmt->execute([
-        $notes,
-        $id
-    ]);
+    WORKFLOW_STAGE_CLOSED,
+    $notes,
+    $id
+]);
 
 }
 

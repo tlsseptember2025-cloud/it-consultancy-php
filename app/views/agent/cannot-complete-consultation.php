@@ -3,7 +3,6 @@
 if (!isset($_SESSION['agent'])) {
 
     header('Location: ?page=public-login');
-    exit;
 }
 
 require_once CONFIG_PATH . '/database.php';
@@ -44,8 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             job_status='Could Not Complete',
             workflow_stage='Needs Admin Review',
             incomplete_reason=?,
-            completion_notes=?,
-            completed_at=NOW()
+            completion_notes=?
         WHERE id=?
     ");
 

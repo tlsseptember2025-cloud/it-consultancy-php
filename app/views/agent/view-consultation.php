@@ -172,8 +172,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         SET
             completion_notes = ?,
             job_status = 'Completed',
-            workflow_stage = 'Needs Admin Review',
-            completed_at = NOW()
+            workflow_stage = 'Needs Admin Review'
         WHERE id = ?
     ");
 
