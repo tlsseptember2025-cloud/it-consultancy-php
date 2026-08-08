@@ -383,6 +383,14 @@ switch ($page) {
     require CONTROLLER_PATH . '/review-closed-request.php';
     break;
 
+    case 'archived-requests':
+    require VIEW_PATH . '/admin/archived-requests.php';
+    break;
+
+    case 'view-archived-request':
+    require VIEW_PATH . '/admin/view-archived-request.php';
+    break;
+
     case 'test':
 
     require APP_PATH . '/controllers/test.php';
