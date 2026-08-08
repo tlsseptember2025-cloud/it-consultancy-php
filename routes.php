@@ -399,6 +399,10 @@ switch ($page) {
     require VIEW_PATH . '/admin/review-retention.php';
     break;
 
+    case 'export-retention':
+    require VIEW_PATH . '/admin/export-retention.php';
+    break;
+
     case 'test':
 
     require APP_PATH . '/controllers/test.php';

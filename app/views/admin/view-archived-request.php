@@ -305,7 +305,9 @@ $events = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                                 <?= $display['icon'] ?>
 
-                                <?= htmlspecialchars($display['title']) ?>
+                                <?= htmlspecialchars(
+                                    $event['event_title'] ?: $display['title']
+                                ) ?>
 
                             </strong>
 
