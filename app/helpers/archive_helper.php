@@ -1,6 +1,7 @@
 <?php
 
 require_once CONFIG_PATH . '/retention.php';
+require_once APP_PATH . '/helpers/RequestEventHelper.php';
 
 /*
 |--------------------------------------------------------------------------
@@ -19,7 +20,11 @@ function archiveEligibleRequests(PDO $pdo): int
     }
 
     $stmt = $pdo->prepare("
-        SELECT id
+        SELECT
+            id,
+            customer_id,
+            agent_id,
+            completed_at
         FROM requests
         WHERE workflow_stage = ?
           AND completed_at IS NOT NULL
@@ -33,6 +38,38 @@ function archiveEligibleRequests(PDO $pdo): int
 
     $requests = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    return count($requests);
+    $archivedCount = 0;
 
+    foreach ($requests as $request) {
+
+        $update = $pdo->prepare("
+            UPDATE requests
+            SET
+                workflow_stage = ?,
+                archived_at = NOW()
+            WHERE id = ?
+        ");
+
+        $update->execute([
+            WORKFLOW_STAGE_ARCHIVED,
+            $request['id']
+        ]);
+
+        RequestEventHelper::add(
+            $pdo,
+            $request['id'],
+            'REQUEST_ARCHIVED',
+            RequestEventHelper::TYPE_SYSTEM,
+            'Request Automatically Archived',
+            'Request was automatically archived after '
+                . CLOSED_RETENTION_DAYS
+                . ' days in Closed status.',
+            RequestEventHelper::SOURCE_SYSTEM,
+            null
+        );
+
+        $archivedCount++;
+    }
+
+    return $archivedCount;
 }

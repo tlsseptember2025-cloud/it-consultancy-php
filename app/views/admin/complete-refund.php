@@ -7,6 +7,7 @@ if (!isset($_SESSION['user'])) {
 
 require_once HELPER_PATH . '/email.php';
 require CONFIG_PATH . '/database.php';
+require_once APP_PATH . '/helpers/notifications.php';
 
 $refundId = (int) ($_GET['id'] ?? 0);
 
@@ -123,25 +124,11 @@ IT Consultancy Team
 
 }
 
-$stmt = $pdo->prepare("
-    INSERT INTO notifications (
-        recipient_type,
-        recipient_id,
-        title,
-        message,
-        link,
-        is_read
-    )
-    VALUES (?, ?, ?, ?, ?, 0)
-");
-
-$stmt->execute([
+createNotification(
+    $pdo,
     'customer',
     $customer['customer_id'],
     'Refund Completed',
     'Your refund has been successfully completed. The funds should appear in your account soon.',
     '?page=refund-history'
-]);
-
-header("Location: ?page=refunds");
-exit;
+);
