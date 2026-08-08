@@ -391,6 +391,14 @@ switch ($page) {
     require VIEW_PATH . '/admin/view-archived-request.php';
     break;
 
+    case 'retention-review':
+    require VIEW_PATH . '/admin/retention-review.php';
+    break;
+
+    case 'review-retention':
+    require VIEW_PATH . '/admin/review-retention.php';
+    break;
+
     case 'test':
 
     require APP_PATH . '/controllers/test.php';

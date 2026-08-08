@@ -2,6 +2,7 @@
 
 require_once CONFIG_PATH . '/retention.php';
 require_once APP_PATH . '/helpers/RequestEventHelper.php';
+require_once APP_PATH . '/helpers/retention_helper.php';
 
 /*
 |--------------------------------------------------------------------------

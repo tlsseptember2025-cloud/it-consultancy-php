@@ -264,6 +264,10 @@ $needsAdminReviewCount = (int) $stmt->fetch(PDO::FETCH_ASSOC)['total'];
                                 Archived Requests
 
                             </a>
+                            
+                            <a class="dropdown-item" href="?page=retention-review">
+                                Retention Review
+                            </a>
 
                         </li>
 
