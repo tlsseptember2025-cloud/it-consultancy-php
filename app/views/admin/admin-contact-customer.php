@@ -1,13 +1,23 @@
 <?php
 
-require_once APP_PATH . '/helpers/DateHelper.php';
-
 /** @var array $consultation */
 /** @var string $action */
 
-require VIEW_PATH . '/layouts/header-admin.php';
-require_once CONFIG_PATH . '/database.php';
 require_once APP_PATH . '/helpers/DateHelper.php';
+require_once CONFIG_PATH . '/database.php';
+require VIEW_PATH . '/layouts/header-admin.php';
+
+
+$contactAttempts = (int) (
+    $consultation['contact_attempts'] ?? 0
+);
+
+$canRetryContact =
+    $contactAttempts < MAX_CONTACT_ATTEMPTS;
+
+$maximumAttemptsReached =
+    $contactAttempts >= MAX_CONTACT_ATTEMPTS;
+
 
 ?>
 
@@ -17,34 +27,37 @@ require_once APP_PATH . '/helpers/DateHelper.php';
 
         <h4 class="mb-0">
 
-            <?php
+    <?php
 
-            switch ($action) {
+    switch ($action) {
 
-                case 'wrong-number':
-                    echo 'Incorrect Customer Phone Number';
-                    break;
+        case 'wrong-number':
+            echo 'Incorrect Customer Phone Number';
+            break;
 
-                case 'no-answer':
-                    echo 'Customer Contact Required';
-                    break;
+        case 'no-answer':
+            echo 'Customer Contact Required';
+            break;
 
-                case 'new-consultation':
-                    echo 'Customer Requested New Consultation';
-                    break;
+        case 'new-consultation':
+            echo 'Customer Requested New Consultation';
+            break;
 
-                case 'close-request':
-                    echo 'Customer Requested Closure';
-                    break;
+        case 'close-request':
+            echo 'Customer Requested Closure';
+            break;
 
-                default:
-                    echo 'Approve Customer Contact';
+        default:
+            echo 'Approve Customer Contact';
+    }
 
-            }
+    ?>
 
-            ?>
+</h4>
 
-        </h4>
+<small>
+    Request #<?= (int) $consultation['id'] ?>
+</small>
 
     </div>
 
@@ -278,8 +291,8 @@ require_once APP_PATH . '/helpers/DateHelper.php';
     <div class="col-md-6">
 
         <div
-    class="card shadow-sm"
-    id="contact-attempt-card">
+            class="card shadow-sm"
+            id="contact-attempt-card">
 
             <div class="card-header">
                 Customer Information
@@ -401,73 +414,30 @@ require_once APP_PATH . '/helpers/DateHelper.php';
 
 <div class="row mb-4">
 
+    <!-- Contact Result -->
+
     <div class="col-md-6">
 
         <div class="card shadow-sm h-100">
 
-            <div class="mb-3">
+            <div class="card-header bg-warning">
+                Contact Result
+            </div>
 
-    <strong>Contact Result</strong>
+            <div class="card-body">
 
-    <div class="border rounded p-3 mt-2">
+                <?= !empty($consultation['contact_result'])
+                    ? htmlspecialchars($consultation['contact_result'])
+                    : '<span class="text-muted">No contact result provided.</span>'; ?>
 
-        <?= htmlspecialchars($consultation['contact_result']) ?>
-
-    </div>
-
-</div>
-
-<div class="mb-3">
-
-    <strong>Agent Notes</strong>
-
-    <div class="border rounded p-3 mt-2">
-
-        <?= nl2br(htmlspecialchars($consultation['contact_notes'])) ?>
-
-    </div>
-
-</div>
-
-           <div class="card-header bg-warning">
-    Contact Result
-</div>
-
-<div class="card-body">
-
-    <?= !empty($consultation['contact_result'])
-        ? htmlspecialchars($consultation['contact_result'])
-        : '<span class="text-muted">No contact result provided.</span>'; ?>
-
-</div>
-
-<div class="card-header bg-info text-white">
-    Agent Notes
-</div>
-
-<div class="card-body">
-
-    <?= !empty($consultation['contact_notes'])
-        ? nl2br(htmlspecialchars($consultation['contact_notes']))
-        : '<span class="text-muted">No notes provided.</span>'; ?>
-
-</div>
-
-<div class="card-header bg-secondary text-white">
-    Reason for Review
-</div>
-
-<div class="card-body">
-
-    <?= !empty($consultation['incomplete_reason'])
-        ? nl2br(htmlspecialchars($consultation['incomplete_reason']))
-        : '<span class="text-muted">No reason provided.</span>'; ?>
-
-</div>
+            </div>
 
         </div>
 
     </div>
+
+
+    <!-- Agent Notes -->
 
     <div class="col-md-6">
 
@@ -488,6 +458,28 @@ require_once APP_PATH . '/helpers/DateHelper.php';
         </div>
 
     </div>
+
+</div>
+
+
+<!-- Reason for Review -->
+
+<div class="card shadow-sm mb-4">
+
+    <div class="card-header bg-secondary text-white">
+        Reason for Review
+    </div>
+
+    <div class="card-body">
+
+        <?= !empty($consultation['incomplete_reason'])
+            ? nl2br(htmlspecialchars($consultation['incomplete_reason']))
+            : '<span class="text-muted">No reason provided.</span>'; ?>
+
+    </div>
+
+</div>
+
 
 <?php if ($action === ''): ?>
     <form method="post">

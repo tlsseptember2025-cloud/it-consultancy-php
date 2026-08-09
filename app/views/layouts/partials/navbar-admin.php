@@ -196,84 +196,130 @@ $needsAdminReviewCount = (int) $stmt->fetch(PDO::FETCH_ASSOC)['total'];
 
                 <!-- Requests -->
 
-                <li class="nav-item dropdown">
+<li class="nav-item dropdown">
 
-                    <a
-                        class="nav-link dropdown-toggle"
-                        href="#"
-                        role="button"
-                        data-bs-toggle="dropdown"
-                        aria-expanded="false">
+    <a
+        class="nav-link dropdown-toggle <?= $needsAdminReviewCount > 0 ? 'text-warning fw-semibold' : '' ?>"
+        href="#"
+        role="button"
+        data-bs-toggle="dropdown"
+        aria-expanded="false">
 
-                        Requests
+        Requests
 
-                    </a>
+        <?php if ($needsAdminReviewCount > 0): ?>
 
-                    <ul class="dropdown-menu">
+            <span class="badge bg-warning text-dark ms-1">
+                <?= $needsAdminReviewCount ?>
+            </span>
 
-                        <li>
+        <?php endif; ?>
 
-                            <a
-                                class="dropdown-item"
-                                href="?page=requests">
+    </a>
 
-                                Current Requests
 
-                            </a>
+    <ul class="dropdown-menu">
 
-                        </li>
+        <!-- Current Requests -->
 
-                        <li>
+        <li>
 
-                            <a
-                                class="dropdown-item <?= $needsAdminReviewCount > 0 ? 'text-warning fw-semibold' : '' ?>"
-                                href="?page=needs-admin-review">
+            <a
+                class="dropdown-item"
+                href="?page=requests">
 
-                                Needs Admin Review
+                Current Requests
 
-                            </a>
+            </a>
 
-                        </li>
-                        
-                        <li>
+        </li>
 
-                        <a
-                            class="dropdown-item"
-                            href="?page=awaiting-customer-response">
 
-                            Awaiting Customer Response
+        <!-- Needs Admin Review -->
 
-                        </a>
+        <li>
 
-                    </li>
+            <a
+                class="dropdown-item <?= $needsAdminReviewCount > 0 ? 'text-warning fw-semibold' : '' ?>"
+                href="?page=needs-admin-review">
 
-                        <li>
+                Needs Admin Review
 
-                            <a
-                                class="dropdown-item"
-                                href="?page=closed-requests">
+                <?php if ($needsAdminReviewCount > 0): ?>
 
-                                Closed Requests
+                    <span class="badge bg-warning text-dark float-end">
+                        <?= $needsAdminReviewCount ?>
+                    </span>
 
-                            </a>
+                <?php endif; ?>
 
-                            <a
-                                class="dropdown-item"
-                                href="?page=archived-requests">
+            </a>
 
-                                Archived Requests
+        </li>
 
-                            </a>
-                            
-                            <a class="dropdown-item" href="?page=retention-review">
-                                Retention Review
-                            </a>
 
-                        </li>
+        <!-- Awaiting Customer Response -->
 
-                    </ul>
+        <li>
 
-                </li>
+            <a
+                class="dropdown-item"
+                href="?page=awaiting-customer-response">
+
+                Awaiting Customer Response
+
+            </a>
+
+        </li>
+
+
+        <!-- Closed Requests -->
+
+        <li>
+
+            <a
+                class="dropdown-item"
+                href="?page=closed-requests">
+
+                Closed Requests
+
+            </a>
+
+        </li>
+
+
+        <!-- Archived Requests -->
+
+        <li>
+
+            <a
+                class="dropdown-item"
+                href="?page=archived-requests">
+
+                Archived Requests
+
+            </a>
+
+        </li>
+
+
+        <!-- Retention Review -->
+
+        <li>
+
+            <a
+                class="dropdown-item"
+                href="?page=retention-review">
+
+                Retention Review
+
+            </a>
+
+        </li>
+
+    </ul>
+
+</li>
 
                 <!-- Consultations -->
 

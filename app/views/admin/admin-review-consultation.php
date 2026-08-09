@@ -14,14 +14,13 @@ $requestId = (int)($_GET['id'] ?? 0);
 
 $stmt = $pdo->prepare("
     SELECT
-
         r.*,
 
-        c.name  AS customer_name,
+        c.name AS customer_name,
         c.email,
         c.phone,
 
-        a.name  AS agent_name,
+        a.name AS agent_name,
 
         s.title AS service_name,
 
@@ -56,9 +55,16 @@ $stmt->execute([$requestId]);
 
 $consultation = $stmt->fetch(PDO::FETCH_ASSOC);
 
-/**
- * Customer Contact Workflow
- */
+if (!$consultation) {
+    die('Consultation not found.');
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Customer Contact Workflow
+|--------------------------------------------------------------------------
+*/
 
 $contactAttempts = (int)($consultation['contact_attempts'] ?? 0);
 
@@ -68,27 +74,20 @@ $canRetryContact =
 $maximumAttemptsReached =
     $contactAttempts >= MAX_CONTACT_ATTEMPTS;
 
-if (!$consultation) {
-
-    die('Consultation not found.');
-
-}
 
 /*
 |--------------------------------------------------------------------------
 | Review Type
 |--------------------------------------------------------------------------
-|
-| The Administrative Review page supports multiple workflows.
-| Determine which workflow should be displayed.
-|
 */
 
 $reviewType = $consultation['review_type'] ?? 'consultation';
 
-$isConsultationReview   = ($reviewType === 'consultation');
-$isCustomerContactReview = ($reviewType === 'customer_contact');
+$isConsultationReview =
+    ($reviewType === 'consultation');
 
+$isCustomerContactReview =
+    ($reviewType === 'customer_contact');
 if (
     $_SERVER['REQUEST_METHOD'] === 'POST'
     && isset($_POST['submit_review'])
@@ -676,26 +675,6 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
                 <small class="text-muted">
                     Approve the original agent to contact the customer and continue the consultation.
-                </small>
-            </div>
-        </div>
-    </div>
-
-    <!-- Close -->
-    <div class="col-lg-3 col-md-6">
-        <div class="card h-100 decision-option">
-            <div class="card-body">
-                <input class="form-check-input float-end"
-                       type="radio"
-                       name="decision"
-                       value="close">
-
-                <h5 class="mt-2">
-                    <i class="bi bi-lock-fill me-2"></i>Close Request
-                </h5>
-
-                <small class="text-muted">
-                    Close this consultation permanently.
                 </small>
             </div>
         </div>

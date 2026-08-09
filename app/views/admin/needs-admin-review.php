@@ -11,44 +11,45 @@ if (!isset($_SESSION['user'])) {
 require_once CONFIG_PATH . '/database.php';
 
 $stmt = $pdo->prepare("
-   SELECT
+    SELECT
 
-    r.id,
+        r.id,
+        r.job_status,
+        r.workflow_stage,
+        r.review_type,
+        r.incomplete_reason,
+        r.contact_result,
 
-    r.job_status,
-    r.review_type,
-    r.incomplete_reason,
+        c.name AS customer_name,
 
-    c.name AS customer_name,
+        a.name AS agent_name,
 
-    a.name AS agent_name,
+        s.title AS service_name,
 
-    s.title AS service_name,
+        cs.slot_date,
+        cs.slot_time
 
-    cs.slot_date,
-    cs.slot_time
+    FROM requests r
 
-FROM requests r
+    INNER JOIN customers c
+        ON c.id = r.customer_id
 
-INNER JOIN customers c
-    ON c.id = r.customer_id
+    INNER JOIN agents a
+        ON a.id = r.agent_id
 
-INNER JOIN agents a
-    ON a.id = r.agent_id
+    INNER JOIN services s
+        ON s.id = r.service_id
 
-INNER JOIN services s
-    ON s.id = r.service_id
+    LEFT JOIN consultation_bookings cb
+        ON cb.request_id = r.id
 
-LEFT JOIN consultation_bookings cb
-    ON cb.request_id = r.id
+    LEFT JOIN consultation_slots cs
+        ON cs.id = cb.slot_id
 
-LEFT JOIN consultation_slots cs
-    ON cs.id = cb.slot_id
+    WHERE r.workflow_stage = 'Needs Admin Review'
 
-WHERE r.workflow_stage = 'Needs Admin Review'
-
-ORDER BY cs.slot_date DESC,
-         cs.slot_time DESC
+    ORDER BY cs.slot_date DESC,
+             cs.slot_time DESC
 ");
 
 $stmt->execute();
@@ -221,12 +222,41 @@ if ($consultation['job_status'] == 'Completed') {
 
                     <?php
 
-                    $reviewPage =
-                        ($consultation['review_type'] === 'customer_contact')
-                            ? 'admin-contact-customer'
-                            : 'admin-review-consultation';
+/*
+|--------------------------------------------------------------------------
+| Determine Review Page
+|--------------------------------------------------------------------------
+|
+| Customer Contact reviews normally go to:
+| admin-contact-customer
+|
+| EXCEPTION:
+| Customer Answered + Needs Admin Review means the
+| customer requested closure.
+|
+*/
 
-                    ?>
+if (
+    $consultation['review_type'] === 'customer_contact'
+    && $consultation['workflow_stage'] === 'Needs Admin Review'
+    && $consultation['contact_result'] === 'Customer Answered'
+) {
+
+    $reviewPage = 'admin-close-request';
+
+} elseif (
+    $consultation['review_type'] === 'customer_contact'
+) {
+
+    $reviewPage = 'admin-contact-customer';
+
+} else {
+
+    $reviewPage = 'admin-review-consultation';
+
+}
+
+?>
 
                     <a
                         href="?page=<?= $reviewPage ?>&id=<?= $consultation['id'] ?>"

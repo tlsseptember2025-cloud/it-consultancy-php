@@ -4,14 +4,18 @@ require_once APP_PATH . '/helpers/contact_history_helper.php';
 require_once APP_PATH . '/helpers/DateHelper.php';
 require_once APP_PATH . '/helpers/consultation_helper.php';
 
+
 if (!isset($_SESSION['agent'])) {
     header('Location: ?page=login');
     exit;
 }
 
+
 $agent = $_SESSION['agent'];
 
+
 $requestId = (int) ($_GET['request_id'] ?? 0);
+
 
 $stmt = $pdo->prepare("
     SELECT
@@ -39,30 +43,55 @@ $stmt = $pdo->prepare("
         AND cb.agent_id = ?
 ");
 
+
 $stmt->execute([
     $requestId,
     $agent['id']
 ]);
 
+
 $request = $stmt->fetch(PDO::FETCH_ASSOC);
+
 
 if (!$request) {
     die('Request not found.');
 }
 
+
+/*
+|--------------------------------------------------------------------------
+| Contact Attempt Information
+|--------------------------------------------------------------------------
+*/
+
 $currentAttempt = min(
-    $request['contact_attempts'],
+    (int) $request['contact_attempts'],
     MAX_CONTACT_ATTEMPTS
 );
+
 
 $remainingAttempts = max(
     0,
     MAX_CONTACT_ATTEMPTS - $currentAttempt
 );
 
+
+/*
+|--------------------------------------------------------------------------
+| Validate Workflow
+|--------------------------------------------------------------------------
+*/
+
 if ($request['workflow_stage'] !== 'Customer Contact') {
     die('Invalid workflow.');
 }
+
+
+/*
+|--------------------------------------------------------------------------
+| Save Customer Contact Result
+|--------------------------------------------------------------------------
+*/
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
@@ -70,9 +99,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $agentNotes       = trim($_POST['agent_notes'] ?? '');
     $customerDecision = trim($_POST['customer_decision'] ?? '');
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | Validate Required Fields
+    |--------------------------------------------------------------------------
+    */
+
     if ($contactResult === '' || $agentNotes === '') {
         die('Please complete all required fields.');
     }
+
 
     if (
         $contactResult === 'Customer Answered'
@@ -81,53 +118,145 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         die('Please select the customer decision.');
     }
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | Determine Next Workflow
+    |--------------------------------------------------------------------------
+    */
+
     $workflowStage = $request['workflow_stage'];
-    $jobStatus     = '';
-    $reviewType    = null;
+
+    $jobStatus  = 'In Progress';
+
+    $reviewType = null;
+
 
     switch ($contactResult) {
 
+        /*
+        |--------------------------------------------------------------------------
+        | No Answer
+        |--------------------------------------------------------------------------
+        */
+
         case 'No Answer':
+
+            // Customer could not be reached.
+            // Administrator must review the next contact action.
+
             $workflowStage = 'Needs Admin Review';
-            $jobStatus = 'Could Not Complete';
+
+            $jobStatus = 'In Progress';
+
             $reviewType = 'customer_contact';
+
             break;
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Wrong Number
+        |--------------------------------------------------------------------------
+        */
 
         case 'Wrong Number':
+
+            // Administrator must review the customer's contact information.
+
             $workflowStage = 'Needs Admin Review';
-            $jobStatus = 'Could Not Complete';
+
+            $jobStatus = 'In Progress';
+
             $reviewType = 'customer_contact';
+
             break;
 
+
+        /*
+        |--------------------------------------------------------------------------
+        | Customer Answered
+        |--------------------------------------------------------------------------
+        */
+
         case 'Customer Answered':
+
+            /*
+            |--------------------------------------------------------------------------
+            | Continue Current Appointment
+            |--------------------------------------------------------------------------
+            */
 
             if ($customerDecision === 'Continue Current Appointment') {
 
                 $workflowStage = 'Consultation Confirmed';
+
                 $jobStatus = 'In Progress';
 
-            } elseif (
-                $customerDecision === 'Continue New Appointment'
-                || $customerDecision === 'Close Request'
-            ) {
+                $reviewType = null;
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Continue With New Appointment
+            |--------------------------------------------------------------------------
+            */
+
+            elseif ($customerDecision === 'Continue New Appointment') {
+
+                // Administrator must arrange the new consultation.
 
                 $workflowStage = 'Needs Admin Review';
-                $jobStatus = 'Completed';
-                $reviewType = 'customer_contact';
 
+                $jobStatus = 'In Progress';
+
+                $reviewType = 'customer_contact';
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Customer Requested Closure
+            |--------------------------------------------------------------------------
+            */
+
+            elseif ($customerDecision === 'Close Request') {
+
+                // Customer requested closure.
+                // Administrator must review and confirm closure.
+
+                $workflowStage = 'Needs Admin Review';
+
+                $jobStatus = 'In Progress';
+
+                $reviewType = 'customer_contact';
             }
 
             break;
     }
 
-    $contactAttempts = $request['contact_attempts'];
 
-    if ($contactResult === 'No Answer') {
-        $contactAttempts = min(
-            $contactAttempts + 1,
-            MAX_CONTACT_ATTEMPTS
-        );
-    }
+    /*
+    |--------------------------------------------------------------------------
+    | Record Contact Attempt
+    |--------------------------------------------------------------------------
+    |
+    | Every submitted contact result represents one actual contact attempt.
+    |
+    */
+
+    $contactAttempts = min(
+        (int) $request['contact_attempts'] + 1,
+        MAX_CONTACT_ATTEMPTS
+    );
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Update Request
+    |--------------------------------------------------------------------------
+    */
 
     $stmt = $pdo->prepare("
         UPDATE requests
@@ -141,6 +270,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         WHERE id = ?
     ");
 
+
     $stmt->execute([
         $jobStatus,
         $workflowStage,
@@ -151,18 +281,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $request['id']
     ]);
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | Save Contact History
+    |--------------------------------------------------------------------------
+    */
+
     addContactHistory(
-    $pdo,
-    $request['id'],
-    $request['agent_id'],
-    null,
-    'phone',
-    $contactResult,
-    $agentNotes
-);
+        $pdo,
+        $request['id'],
+        $request['agent_id'],
+        null,
+        'phone',
+        $contactResult,
+        $agentNotes
+    );
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Redirect
+    |--------------------------------------------------------------------------
+    */
 
     header('Location: ?page=agent-consultations&success=contact-saved');
+
     exit;
 }
+
+
+/*
+|--------------------------------------------------------------------------
+| Load Agent Customer Contact View
+|--------------------------------------------------------------------------
+*/
 
 require VIEW_PATH . '/agent/contact-customer.php';

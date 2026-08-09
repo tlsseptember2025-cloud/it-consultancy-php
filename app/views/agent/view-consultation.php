@@ -86,12 +86,12 @@ if (
 
     if ($contactResult === 'No Answer') {
 
-        // Stay in Customer Contact so the agent can try again later.
+        // Agent can try again later.
         $workflowStage = 'Customer Contact';
 
     } elseif ($contactResult === 'Wrong Number') {
 
-        // Administrator intervention required.
+        // Administrator must review.
         $workflowStage = 'Needs Admin Review';
 
     } elseif ($contactResult === 'Customer Requested Reschedule') {
@@ -107,10 +107,10 @@ if (
 
         } elseif ($customerDecision === 'Close Request') {
 
-            $workflowStage = 'Closed';
-
+            // Customer requested closure.
+            // Administrator must review and confirm.
+            $workflowStage = 'Needs Admin Review';
         }
-
     }
 
     /*
@@ -119,19 +119,29 @@ if (
     |--------------------------------------------------------------------------
     */
 
-    $stmt = $pdo->prepare("
-    UPDATE requests
-    SET
-        contact_notes = ?,
-        workflow_stage = ?
-    WHERE id = ?
-");
+    $update = $pdo->prepare("
+        UPDATE requests
+        SET
+            contact_result = ?,
+            contact_notes = ?,
+            contact_attempts = contact_attempts + 1,
+            job_status = 'In Progress',
+            workflow_stage = ?,
+            review_type = CASE
+                WHEN ? = 'Needs Admin Review'
+                    THEN 'customer_contact'
+                ELSE review_type
+            END
+        WHERE id = ?
+    ");
 
-$stmt->execute([
-    $contactNotes,
-    $workflowStage,
-    $consultation['id']
-]);
+    $update->execute([
+        $contactResult,
+        $contactNotes,
+        $workflowStage,
+        $workflowStage,
+        $consultation['id']
+    ]);
 
     header('Location: ?page=agent-consultations&success=contact-saved');
     exit;
@@ -165,25 +175,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     elseif (isset($_POST['complete_consultation'])) {
 
-    $notes = trim($_POST['agent_notes']);
+        // Customer Contact requests must not be completed from this form.
+        if ($consultation['workflow_stage'] === 'Customer Contact') {
+            die('This request is currently in Customer Contact and cannot be completed from the consultation form.');
+        }
 
-    $update = $pdo->prepare("
-        UPDATE requests
-        SET
-            completion_notes = ?,
-            job_status = 'Completed',
-            workflow_stage = 'Needs Admin Review'
-        WHERE id = ?
-    ");
+        $notes = trim($_POST['agent_notes'] ?? '');
 
-    $update->execute([
-        $notes,
-        $requestId
-    ]);
+        $update = $pdo->prepare("
+            UPDATE requests
+            SET
+                completion_notes = ?,
+                job_status = 'Completed',
+                completed_at = NOW(),
+                workflow_stage = 'Needs Admin Review'
+            WHERE id = ?
+        ");
 
-    header("Location: ?page=view-consultation&id=".$requestId);
-    exit;
-}
+        $update->execute([
+            $notes,
+            $requestId
+        ]);
+
+        header("Location: ?page=view-consultation&id=" . $requestId);
+        exit;
+    }
 
     elseif (isset($_POST['start_consultation'])) {
 
@@ -668,7 +684,10 @@ require VIEW_PATH . '/layouts/header-agent.php';
         <?php endif; ?>
 
 
-        <?php if ($consultation['job_status'] === 'In Progress'): ?>
+        <?php if (
+            $consultation['job_status'] === 'In Progress'
+            && $consultation['workflow_stage'] !== 'Customer Contact'
+        ): ?>
 
     <button type="submit" name="save_notes" class="btn btn-primary">
         💾 Save Notes
