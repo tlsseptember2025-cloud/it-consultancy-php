@@ -399,6 +399,20 @@ elseif (
 
 <?php endif; ?>
 
+<?php if (
+    $request['workflow_stage'] === 'Closure Agreement Sent'
+): ?>
+
+    <a
+        href="?page=consultation-closure-agreement&request_id=<?= (int) $request['id'] ?>"
+        class="btn btn-primary btn-sm">
+
+        Review Closure Agreement
+
+    </a>
+
+<?php endif; ?>
+
     <?php if (
     $request['workflow_stage'] === 'Proposal Sent' ||
     $request['workflow_stage'] === 'Proposal Viewed'

@@ -1,112 +1,273 @@
-<?php require VIEW_PATH . '/layouts/header-admin.php'; ?>
+<?php 
+require dirname(__DIR__) . '/layouts/header-admin.php'; 
+require_once APP_PATH . '/helpers/WorkflowHelper.php';
 
-<div class="container py-4">
+$hasVerificationRows = false;
 
-    <h2 class="mb-4">
-        Awaiting Customer Response
-    </h2>
+foreach ($requests as $request) {
 
-    <div class="card shadow-sm">
+    if (
+        ($request['workflow_stage'] ?? '')
+        !== 'Closure Agreement Sent'
+    ) {
+        $hasVerificationRows = true;
+        break;
+    }
+}
 
-        <div class="card-body">
+?>
 
-            <div class="table-responsive">
+<h2 class="mb-4">
+    Awaiting Customer Response
+</h2>
 
-                <table class="table table-hover align-middle">
+<div class="card shadow-sm">
 
-                    <thead class="table-dark">
+    <div class="card-body">
+
+        <div class="table-responsive">
+
+            <table class="table table-hover align-middle">
+
+                <thead class="table-dark">
+
+                    <tr>
+
+                        <th
+                            class="text-center"
+                            style="width:100px;">
+
+                            Request #
+
+                        </th>
+
+                        <th>
+                            Customer
+                        </th>
+
+                        <th>
+                            Service
+                        </th>
+
+
+                        <?php if ($hasVerificationRows): ?>
+
+                            <th>
+                                Email #
+                            </th>
+
+                            <th>
+                                Response Deadline
+                            </th>
+
+                        <?php endif; ?>
+
+
+                        <th>
+                            Status
+                        </th>
+
+                        <th width="180">
+                            Action
+                        </th>
+
+                    </tr>
+
+                </thead>
+
+
+                <tbody>
+
+
+                    <?php if (empty($requests)): ?>
 
                         <tr>
 
-                            <th class="text-center" style="width:100px;">Request #</th>
-                            <th>Customer</th>
-                            <th>Service</th>
-                            <th>Email #</th>
-                            <th>Response Deadline</th>
-                            <th>Status</th>
-                            <th width="140">Action</th>
+                            <td
+                                colspan="<?= $hasVerificationRows ? 7 : 5 ?>"
+                                class="text-center text-muted py-4">
+
+                                No requests awaiting customer response.
+
+                            </td>
 
                         </tr>
 
-                    </thead>
 
-                    <tbody>
+                    <?php else: ?>
 
-<?php if (empty($requests)): ?>
 
-<tr>
+                        <?php foreach ($requests as $request): ?>
 
-    <td colspan="6" class="text-center text-muted py-4">
+                            <?php
 
-        No requests awaiting customer response.
+                            $isClosureAgreement =
+                                (
+                                    ($request['workflow_stage'] ?? '')
+                                    === 'Closure Agreement Sent'
+                                );
 
-    </td>
+                            ?>
 
-</tr>
 
-<?php else: ?>
+                            <tr>
 
-<?php foreach ($requests as $request): ?>
 
-<tr>
+                                <!-- Request -->
 
-    <td class="text-center">
-        <strong>#<?= (int)$request['id'] ?></strong>
-    </td>
+                                <td class="text-center">
 
-    <td><?= htmlspecialchars($request['customer_name']) ?></td>
+                                    <strong>
+                                        #<?= (int) $request['id'] ?>
+                                    </strong>
 
-    <td><?= htmlspecialchars($request['service_name']) ?></td>
+                                </td>
 
-    <td>
 
-        <span class="badge bg-primary">
+                                <!-- Customer -->
 
-            <?= $request['verification_email_count'] ?>
+                                <td>
 
-        </span>
+                                    <?= htmlspecialchars(
+                                        $request['customer_name']
+                                    ) ?>
 
-    </td>
+                                </td>
 
-    <td>
 
-        <?= htmlspecialchars($request['customer_response_deadline']) ?>
+                                <!-- Service -->
 
-    </td>
+                                <td>
 
-    <td>
+                                    <?= htmlspecialchars(
+                                        $request['service_name']
+                                    ) ?>
 
-        <span class="badge bg-warning text-dark">
+                                </td>
 
-            <?= htmlspecialchars($request['job_status']) ?>
 
-        </span>
+                                <?php if ($hasVerificationRows): ?>
 
-    </td>
 
-    <td>
+                                    <!-- Email Number -->
 
-        <a
-            href="?page=view-awaiting-customer-response&id=<?= $request['id'] ?>"
-            class="btn btn-primary btn-sm">
+                                    <td>
 
-            View
+                                        <?php if ($isClosureAgreement): ?>
 
-        </a>
+                                            <span class="text-muted">
+                                                —
+                                            </span>
 
-    </td>
+                                        <?php else: ?>
 
-</tr>
+                                            <span class="badge bg-primary">
 
-<?php endforeach; ?>
+                                                <?= (int) (
+                                                    $request[
+                                                        'verification_email_count'
+                                                    ] ?? 0
+                                                ) ?>
 
-<?php endif; ?>
+                                            </span>
 
-                    </tbody>
+                                        <?php endif; ?>
 
-                </table>
+                                    </td>
 
-            </div>
+
+                                    <!-- Response Deadline -->
+
+                                    <td>
+
+                                        <?php if (
+                                            $isClosureAgreement
+                                        ): ?>
+
+                                            <span class="text-muted">
+                                                —
+                                            </span>
+
+                                        <?php elseif (
+                                            !empty(
+                                                $request[
+                                                    'customer_response_deadline'
+                                                ]
+                                            )
+                                        ): ?>
+
+                                            <?= htmlspecialchars(
+                                                $request[
+                                                    'customer_response_deadline'
+                                                ]
+                                            ) ?>
+
+                                        <?php else: ?>
+
+                                            <span class="text-muted">
+                                                —
+                                            </span>
+
+                                        <?php endif; ?>
+
+                                    </td>
+
+
+                                <?php endif; ?>
+
+
+                                <!-- Workflow Status -->
+
+                                <td>
+
+                                    <?= workflowBadge(
+                                        $request['workflow_stage']
+                                    ) ?>
+
+                                </td>
+
+
+                                <!-- Action -->
+
+                                <td>
+
+                                    <?php if ($isClosureAgreement): ?>
+
+                                        <a
+                                            href="?page=admin-close-request&id=<?= (int) $request['id'] ?>"
+                                            class="btn btn-primary btn-sm">
+
+                                            View / Resend
+
+                                        </a>
+
+                                    <?php else: ?>
+
+                                        <a
+                                            href="?page=view-awaiting-customer-response&id=<?= (int) $request['id'] ?>"
+                                            class="btn btn-primary btn-sm">
+
+                                            View
+
+                                        </a>
+
+                                    <?php endif; ?>
+
+                                </td>
+
+
+                            </tr>
+
+
+                        <?php endforeach; ?>
+
+
+                    <?php endif; ?>
+
+
+                </tbody>
+
+            </table>
 
         </div>
 
@@ -114,4 +275,4 @@
 
 </div>
 
-<?php require VIEW_PATH . '/layouts/footer.php'; ?>
+<?php require dirname(__DIR__) . '/layouts/footer.php'; ?>

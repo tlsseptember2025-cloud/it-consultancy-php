@@ -486,18 +486,29 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
     <div class="d-flex justify-content-between align-items-center mb-4">
 
-        <div>
+        <?php if ($agreementSent): ?>
 
-            <h2 class="mb-1">
-                Customer Requested Closure
-            </h2>
+    <h2 class="mb-1">
+        Closure Agreement — Awaiting Customer
+    </h2>
 
-            <p class="text-muted mb-0">
-                Review the customer's request before sending
-                the Closure Agreement.
-            </p>
+    <p class="text-muted mb-0">
+        The Closure Agreement has been sent to the customer.
+        We are now waiting for the customer to complete it.
+    </p>
 
-        </div>
+<?php else: ?>
+
+    <h2 class="mb-1">
+        Customer Requested Closure
+    </h2>
+
+    <p class="text-muted mb-0">
+        Review the customer's request before sending
+        the Closure Agreement.
+    </p>
+
+<?php endif; ?>
 
         <div>
 
@@ -643,8 +654,18 @@ require VIEW_PATH . '/layouts/header-admin.php';
         <div class="card-header bg-danger text-white">
 
             <h5 class="mb-0">
-                Customer Requested Closure
-            </h5>
+
+    <?php if ($agreementSent): ?>
+
+        Closure Agreement Status
+
+    <?php else: ?>
+
+        Customer Requested Closure
+
+    <?php endif; ?>
+
+</h5>
 
         </div>
 
@@ -690,33 +711,33 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
             <?php elseif ($agreementSent): ?>
 
-                <div class="alert alert-warning">
+                <div class="alert alert-info">
 
-                    <strong>
-                        Closure Agreement Sent
-                    </strong>
+    <strong>
+        ✓ Closure Agreement Sent
+    </strong>
 
-                    <br><br>
+    <hr>
 
-                    The Closure Agreement has already been sent
-                    to the customer.
+    The Consultation Closure Agreement has already been
+    sent to:
 
-                    <br><br>
+    <strong>
+        <?= htmlspecialchars($request['email']) ?>
+    </strong>
 
-                    If the customer has not received it, you may
-                    resend the agreement using the button below.
+    <br><br>
 
-                    <br><br>
+    <strong>Current status:</strong>
+    Awaiting Customer Response.
 
-                    The request will remain:
+    <br><br>
 
-                    <strong>
-                        Closure Agreement Sent
-                    </strong>
+    The request will remain
+    <strong>Closure Agreement Sent</strong>
+    until the customer submits the agreement.
 
-                    until the customer submits the agreement.
-
-                </div>
+</div>
 
 
                 <form method="post">
@@ -754,7 +775,7 @@ require VIEW_PATH . '/layouts/header-admin.php';
                     <div class="d-flex justify-content-between">
 
                         <a
-                            href="?page=needs-admin-review"
+                            href="?page="
                             class="btn btn-secondary">
 
                             ← Back
@@ -782,28 +803,33 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
             <?php else: ?>
 
-                <div class="alert alert-warning">
+                <div class="alert alert-info">
 
-                    <strong>
-                        Important:
-                    </strong>
+    <strong>
+        ✓ Closure Agreement Sent
+    </strong>
 
-                    The customer has requested closure of this
-                    consultation request.
+    <hr>
 
-                    <br><br>
+    The Consultation Closure Agreement has already been
+    sent to:
 
-                    <strong>
-                        Do not close the request at this stage.
-                    </strong>
+    <strong>
+        <?= htmlspecialchars($request['email']) ?>
+    </strong>
 
-                    The administrator must first contact the
-                    customer and confirm the request by telephone.
+    <br><br>
 
-                    After the call, the customer must receive and
-                    complete the existing Consultation Closure Agreement.
+    <strong>Current status:</strong>
+    Awaiting Customer Response.
 
-                </div>
+    <br><br>
+
+    The request will remain
+    <strong>Closure Agreement Sent</strong>
+    until the customer submits the agreement.
+
+</div>
 
 
                 <form method="post">
