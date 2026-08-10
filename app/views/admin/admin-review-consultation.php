@@ -119,15 +119,13 @@ if (
 ]);
 
 
-RequestEventHelper::add(
+RequestEventHelper::addCurrentUser(
     $pdo,
     $consultation['id'],
     'CONSULTATION_APPROVED',
     RequestEventHelper::TYPE_CONSULTATION,
     'Consultation Approved',
     'The administrator approved the completed consultation.',
-    RequestEventHelper::SOURCE_ADMINISTRATOR,
-    null,
     true
 );
 

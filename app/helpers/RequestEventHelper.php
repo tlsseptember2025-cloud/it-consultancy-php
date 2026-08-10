@@ -137,6 +137,63 @@ return (int)$pdo->lastInsertId();
     
 }
 
+/**
+ * Add a request event using the currently logged-in user role.
+ */
+public static function addCurrentUser(
+    PDO $pdo,
+    int $requestId,
+    string $eventCode,
+    string $eventType,
+    string $eventTitle,
+    ?string $eventDescription,
+    bool $customerVisible = false
+): int {
+
+    $eventSource = self::SOURCE_SYSTEM;
+    $sourceId = null;
+
+    if (isset($_SESSION['user'])) {
+
+        $eventSource = self::SOURCE_ADMINISTRATOR;
+
+    } elseif (isset($_SESSION['agent'])) {
+
+        $eventSource = self::SOURCE_AGENT;
+
+        if (is_array($_SESSION['agent']) && isset($_SESSION['agent']['id'])) {
+            $sourceId = (int) $_SESSION['agent']['id'];
+        } elseif (is_numeric($_SESSION['agent'])) {
+            $sourceId = (int) $_SESSION['agent'];
+        }
+
+    } elseif (isset($_SESSION['customer'])) {
+
+        $eventSource = self::SOURCE_CUSTOMER;
+
+        if (
+            is_array($_SESSION['customer'])
+            && isset($_SESSION['customer']['id'])
+        ) {
+            $sourceId = (int) $_SESSION['customer']['id'];
+        } elseif (is_numeric($_SESSION['customer'])) {
+            $sourceId = (int) $_SESSION['customer'];
+        }
+    }
+
+    return self::add(
+        $pdo,
+        $requestId,
+        $eventCode,
+        $eventType,
+        $eventTitle,
+        $eventDescription,
+        $eventSource,
+        $sourceId,
+        $customerVisible
+    );
+}
+
     /**
      * Get all events for a request.
      */
