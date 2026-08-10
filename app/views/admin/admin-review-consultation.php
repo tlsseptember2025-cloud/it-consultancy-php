@@ -1,6 +1,7 @@
 <?php
 
 require_once APP_PATH . '/helpers/DateHelper.php';
+require_once APP_PATH . '/helpers/RequestEventHelper.php';
 
 if (!isset($_SESSION['user'])) {
 
@@ -113,12 +114,26 @@ if (
     ");
 
     $update->execute([
-        $comments,
-        $consultation['id']
-    ]);
+    $comments,
+    $consultation['id']
+]);
 
-    header("Location: ?page=needs-admin-review&success=consultation-approved");
-    exit;
+
+RequestEventHelper::add(
+    $pdo,
+    $consultation['id'],
+    'CONSULTATION_APPROVED',
+    RequestEventHelper::TYPE_CONSULTATION,
+    'Consultation Approved',
+    'The administrator approved the completed consultation.',
+    RequestEventHelper::SOURCE_ADMINISTRATOR,
+    null,
+    true
+);
+
+
+header("Location: ?page=needs-admin-review&success=consultation-approved");
+exit;
 
 }
 

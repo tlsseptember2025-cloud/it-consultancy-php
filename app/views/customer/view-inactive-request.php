@@ -8,6 +8,7 @@ if (!isset($_SESSION['customer'])) {
 require_once CONFIG_PATH . '/database.php';
 require_once APP_PATH . '/helpers/DateHelper.php';
 require_once APP_PATH . '/helpers/WorkflowHelper.php';
+require_once APP_PATH . '/helpers/RequestEventHelper.php';
 
 $customerId = (int) $_SESSION['customer']['id'];
 $requestId = (int) ($_GET['request_id'] ?? 0);
@@ -47,6 +48,7 @@ if (!$request) {
 }
 
 
+
 /*
 |--------------------------------------------------------------------------
 | Only Closed / Archived Requests
@@ -60,6 +62,42 @@ if (
     die('This request is not an inactive request.');
 }
 
+/*
+|--------------------------------------------------------------------------
+| Only Closed / Archived Requests
+|--------------------------------------------------------------------------
+*/
+
+if (
+    $request['workflow_stage'] !== 'Closed'
+    && $request['workflow_stage'] !== 'Archived'
+) {
+    die('This request is not an inactive request.');
+}
+
+/*
+|--------------------------------------------------------------------------
+| Customer-Visible Request History
+|--------------------------------------------------------------------------
+*/
+
+$events = RequestEventHelper::getCustomerVisible(
+    $pdo,
+    $requestId
+);
+
+/*
+|--------------------------------------------------------------------------
+| Customer-Visible Request History
+|--------------------------------------------------------------------------
+*/
+
+/*
+$events = RequestEventHelper::getCustomerVisible(
+    $pdo,
+    $requestId
+);
+*/
 
 /*
 |--------------------------------------------------------------------------
@@ -239,6 +277,60 @@ $isArchived = ($request['workflow_stage'] === 'Archived');
         <?php endif; ?>
 
     </div>
+
+    <?php if (!empty($events)): ?>
+
+    <div class="card mt-4">
+
+        <div class="card-header bg-primary text-white">
+            <strong>Request History</strong>
+        </div>
+
+        <div class="card-body">
+
+            <?php foreach ($events as $event): ?>
+
+                <div class="border-bottom pb-3 mb-3">
+
+                    <div class="fw-bold">
+                        <?= htmlspecialchars($event['event_title']) ?>
+                    </div>
+
+                    <div class="small text-muted">
+                        <?= date('d M Y h:i A', strtotime($event['created_at'])) ?>
+                    </div>
+
+                    <?php
+$customerDescription = match ($event['event_code']) {
+
+    'CLOSURE_AGREEMENT_SENT' =>
+        'The Consultation Closure Agreement was sent for your review.',
+
+    'CLOSURE_AGREEMENT_RESENT' =>
+        'The Consultation Closure Agreement was resent for your review.',
+
+    default =>
+        $event['event_description'] ?? ''
+};
+?>
+
+<?php if ($customerDescription !== ''): ?>
+
+    <div class="mt-2">
+        <?= nl2br(htmlspecialchars($customerDescription)) ?>
+    </div>
+
+<?php endif; ?>
+
+                </div>
+
+            <?php endforeach; ?>
+
+        </div>
+
+    </div>
+
+<?php endif; ?>
 
 
     <!-- Customer Actions -->

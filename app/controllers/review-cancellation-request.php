@@ -158,7 +158,8 @@ RequestEventHelper::add(
 
     RequestEventHelper::SOURCE_ADMINISTRATOR,
 
-    $adminId
+    $adminId,
+    true
 
 );
 
@@ -223,7 +224,8 @@ if (isset($_POST['continue_consultation'])) {
 
             RequestEventHelper::SOURCE_ADMINISTRATOR,
 
-            $adminId
+            $adminId,
+            true
 
         );
 
@@ -276,7 +278,8 @@ if (isset($_POST['continue_consultation'])) {
 
             RequestEventHelper::SOURCE_ADMINISTRATOR,
 
-            $adminId
+            $adminId,
+            true
 
         );
 

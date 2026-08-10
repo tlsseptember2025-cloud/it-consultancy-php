@@ -172,7 +172,8 @@ RequestEventHelper::add(
 
     RequestEventHelper::SOURCE_ADMINISTRATOR,
 
-    $adminId
+    $adminId,
+    true
 
 );
 
