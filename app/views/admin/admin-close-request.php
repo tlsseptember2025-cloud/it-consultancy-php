@@ -803,95 +803,88 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
             <?php else: ?>
 
-                <div class="alert alert-info">
+    <div class="alert alert-warning">
 
-    <strong>
-        ✓ Closure Agreement Sent
-    </strong>
+        <strong>
+            Customer Requested Closure
+        </strong>
 
-    <hr>
+        <hr>
 
-    The Consultation Closure Agreement has already been
-    sent to:
+        The customer has requested closure of this consultation request.
 
-    <strong>
-        <?= htmlspecialchars($request['email']) ?>
-    </strong>
+        <br><br>
 
-    <br><br>
+        <strong>
+            Important:
+        </strong>
 
-    <strong>Current status:</strong>
-    Awaiting Customer Response.
+        The administrator must confirm the request with the customer
+        by telephone before sending the Closure Agreement.
 
-    <br><br>
-
-    The request will remain
-    <strong>Closure Agreement Sent</strong>
-    until the customer submits the agreement.
-
-</div>
+    </div>
 
 
-                <form method="post">
+    <form method="post">
 
-                    <div class="mb-4">
+        <div class="mb-4">
 
-                        <label
-                            for="closure_notes"
-                            class="form-label fw-bold">
+            <label
+                for="closure_notes"
+                class="form-label fw-bold">
 
-                            Closure Notes
-                            <span class="text-danger">*</span>
+                Closure Notes
+                <span class="text-danger">*</span>
 
-                        </label>
+            </label>
 
-                        <textarea
-                            name="closure_notes"
-                            id="closure_notes"
-                            class="form-control"
-                            rows="5"
-                            required
-                            placeholder="Record the details of the conversation with the customer and any relevant administrative notes."></textarea>
+            <textarea
+                name="closure_notes"
+                id="closure_notes"
+                class="form-control"
+                rows="5"
+                required
+                placeholder="Record the details of the conversation with the customer and any relevant administrative notes."></textarea>
 
-                        <div class="form-text">
+            <div class="form-text">
 
-                            These notes are saved with the request
-                            and remain available during the closure review.
+                These notes are saved with the request
+                and remain available during the closure review.
 
-                        </div>
+            </div>
 
-                    </div>
-
-
-                    <div class="d-flex justify-content-between">
-
-                        <a
-                            href="?page=needs-admin-review"
-                            class="btn btn-secondary">
-
-                            ← Cancel
-
-                        </a>
+        </div>
 
 
-                        <button
-                            type="submit"
-                            name="send_closure_agreement"
-                            value="1"
-                            class="btn btn-danger"
-                            onclick="return confirm(
-                                'Have you contacted the customer and confirmed the closure request?'
-                            );">
+        <div class="d-flex justify-content-between">
 
-                            ✉️ Send Closure Agreement
+            <a
+                href="?page=needs-admin-review"
+                class="btn btn-secondary">
 
-                        </button>
+                ← Cancel
 
-                    </div>
+            </a>
 
-                </form>
 
-            <?php endif; ?>
+            <button
+                type="submit"
+                name="send_closure_agreement"
+                value="1"
+                class="btn btn-danger"
+                onclick="return confirm(
+                    'Have you contacted the customer and confirmed the closure request?'
+                );">
+
+                ✉️ Send Closure Agreement
+
+            </button>
+
+        </div>
+
+    </form>
+
+<?php endif; ?>
 
         </div>
 

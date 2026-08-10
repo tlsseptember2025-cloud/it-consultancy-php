@@ -166,16 +166,17 @@ require VIEW_PATH . '/layouts/header-customer.php';
 
                     </label>
 
-                    <input
+                   <input
                         type="text"
                         class="form-control"
                         id="typed_name"
                         name="typed_name"
-                        value="<?= htmlspecialchars($typedName) ?>"
+                        value=""
                         placeholder="Type the customer name exactly as shown"
                         onpaste="return false"
                         oncopy="return false"
                         oncut="return false"
+                        autocomplete="off"
                         ondrop="return false">
 
                     

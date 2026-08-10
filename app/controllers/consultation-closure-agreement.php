@@ -29,7 +29,9 @@ $typedName = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    $typedName = trim($_POST['typed_name'] ?? '');
+    $typedName = trim(
+    $_POST['closure_confirmation_name'] ?? ''
+);
 
     $agreementAccepted = isset($_POST['agreement_accepted']);
 
@@ -48,74 +50,87 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (
-    $typedName !== '' &&
-    $typedName !== strtoupper($request['customer_name'])
-) {
+        $typedName !== '' &&
+        $typedName !== strtoupper($request['customer_name'])
+    ) {
 
- $errors[] = 'Please type the customer name exactly as shown.';
-
-}
-
-if (empty($errors)) {
-
-    $stmt = $pdo->prepare("
-        SELECT id
-        FROM consultation_closure_agreements
-        WHERE request_id = ?
-        LIMIT 1
-    ");
-
-    $stmt->execute([$request['id']]);
-
-    $existingAgreement = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    if ($existingAgreement) {
-
-        $errors[] = 'A closure agreement has already been submitted for this request.';
+        $errors[] = 'Please type the customer name exactly as shown.';
 
     }
 
     if (empty($errors)) {
 
-    $stmt = $pdo->prepare("
-        INSERT INTO consultation_closure_agreements
-        (
-            request_id,
-            customer_id,
-            typed_name,
-            agreement_accepted,
-            signed_at,
-            ip_address
-        )
-        VALUES
-        (
-            ?, ?, ?, ?, NOW(), ?
-        )
-    ");
+        $stmt = $pdo->prepare("
+            SELECT id
+            FROM consultation_closure_agreements
+            WHERE request_id = ?
+            LIMIT 1
+        ");
 
-    $stmt->execute([
-        $request['id'],
-        $request['customer_id'],
-        $typedName,
-        1,
-        $_SERVER['REMOTE_ADDR']
-    ]);
+        $stmt->execute([$request['id']]);
 
-    $stmt = $pdo->prepare("
-        UPDATE requests
-        SET workflow_stage = ?
-        WHERE id = ?
-    ");
+        $existingAgreement = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    $stmt->execute([
-        'Closure Agreement Submitted',
-        $request['id']
-    ]);
+        if ($existingAgreement) {
 
-}
+            $errors[] =
+                'A closure agreement has already been submitted for this request.';
 
-}
+        }
 
+        if (empty($errors)) {
+
+            $stmt = $pdo->prepare("
+                INSERT INTO consultation_closure_agreements
+                (
+                    request_id,
+                    customer_id,
+                    typed_name,
+                    agreement_accepted,
+                    signed_at,
+                    ip_address
+                )
+                VALUES
+                (
+                    ?, ?, ?, ?, NOW(), ?
+                )
+            ");
+
+            $stmt->execute([
+                $request['id'],
+                $request['customer_id'],
+                $typedName,
+                1,
+                $_SERVER['REMOTE_ADDR']
+            ]);
+
+            $stmt = $pdo->prepare("
+                UPDATE requests
+                SET workflow_stage = ?
+                WHERE id = ?
+            ");
+
+            $stmt->execute([
+                'Closure Agreement Submitted',
+                $request['id']
+            ]);
+
+            /*
+             * PRG REDIRECT
+             *
+             * Submission was successful.
+             * Redirect the customer to My Requests instead of
+             * rendering the agreement page again.
+             */
+            $_SESSION['success'] =
+    'Closure Agreement submitted successfully.';
+
+header(
+    'Location: ?page=customer-requests'
+);
+exit;
+        }
+    }
 }
 
 require VIEW_PATH . '/customer/consultation-closure-agreement.php';
