@@ -89,14 +89,15 @@ class RequestEventHelper
     public const EVENT_RESTORED = 'RESTORED';
 
     public static function add(
-        PDO $pdo,
-        int $requestId,
-        string $eventCode,
-        string $eventType,
-        string $eventTitle,
-        ?string $eventDescription,
-        string $eventSource,
-        ?int $sourceId = null
+    PDO $pdo,
+    int $requestId,
+    string $eventCode,
+    string $eventType,
+    string $eventTitle,
+    ?string $eventDescription,
+    string $eventSource,
+    ?int $sourceId = null,
+    bool $customerVisible = false
     ): int {
 
         $stmt = $pdo->prepare("
@@ -108,23 +109,25 @@ class RequestEventHelper
                 event_title,
                 event_description,
                 event_source,
-                source_id
+                source_id,
+                customer_visible
             )
             VALUES
             (
-                ?, ?, ?, ?, ?, ?, ?
+                ?, ?, ?, ?, ?, ?, ?, ?
             )
         ");
 
       if (!$stmt->execute([
-    $requestId,
-    $eventCode,
-    $eventType,
-    $eventTitle,
-    $eventDescription,
-    $eventSource,
-    $sourceId
-])) {
+        $requestId,
+        $eventCode,
+        $eventType,
+        $eventTitle,
+        $eventDescription,
+        $eventSource,
+        $sourceId,
+        $customerVisible ? 1 : 0
+    ])) {
 
     return 0;
 
@@ -154,6 +157,27 @@ return (int)$pdo->lastInsertId();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     }
+
+    /**
+ * Get customer-visible events for a request.
+ */
+public static function getCustomerVisible(
+    PDO $pdo,
+    int $requestId
+): array {
+
+    $stmt = $pdo->prepare("
+        SELECT *
+        FROM request_events
+        WHERE request_id = ?
+          AND customer_visible = 1
+        ORDER BY created_at DESC, id DESC
+    ");
+
+    $stmt->execute([$requestId]);
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
 
     /**
      * Get the latest event.

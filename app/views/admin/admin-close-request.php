@@ -446,7 +446,8 @@ if (
             ? 'The administrator resent the Consultation Closure Agreement to the customer.'
             : 'The administrator contacted the customer and sent the Consultation Closure Agreement.',
         RequestEventHelper::SOURCE_ADMINISTRATOR,
-        $adminId
+        $adminId,
+        true
     );
 
 

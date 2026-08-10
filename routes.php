@@ -180,6 +180,10 @@ switch ($page) {
         require VIEW_PATH . '/customer/customer-dashboard.php';
         break;
 
+    case 'customer-view-inactive-request':
+        require VIEW_PATH . '/customer/view-inactive-request.php';
+        break;
+
     case 'customer-requests':
         require VIEW_PATH . '/customer/customer-requests.php';
         break;

@@ -572,6 +572,19 @@ elseif (
 
     </div>
 
+<?php elseif (
+    $request['workflow_stage'] === 'Closed'
+    || $request['workflow_stage'] === 'Archived'
+): ?>
+
+    <a
+        href="?page=customer-view-inactive-request&request_id=<?= (int) $request['id'] ?>"
+        class="btn btn-secondary btn-sm">
+
+        View
+
+    </a>
+
 <?php endif; ?>
 
 
