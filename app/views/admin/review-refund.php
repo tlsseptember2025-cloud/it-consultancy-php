@@ -1,6 +1,7 @@
 <?php
 
 require_once APP_PATH . '/helpers/DateHelper.php';
+require_once HELPER_PATH . '/RequestEventHelper.php';
 
 if (!isset($_SESSION['user'])) {
     header('Location: ?page=login');
@@ -116,6 +117,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $decision == 'approve' ? 'Processing' : null,
         $refundId
         ]);
+
+        /*
+|--------------------------------------------------------------------------
+| Record Refund Decision Event
+|--------------------------------------------------------------------------
+*/
+
+if ($decision === 'approve') {
+
+    RequestEventHelper::addCurrentUser(
+        $pdo,
+        (int) $refund['request_id'],
+        'REFUND_APPROVED',
+        RequestEventHelper::TYPE_REFUND,
+        'Refund Approved',
+        'The administrator approved the refund request.',
+        true
+    );
+
+} elseif ($decision === 'reject') {
+
+    RequestEventHelper::addCurrentUser(
+        $pdo,
+        (int) $refund['request_id'],
+        'REFUND_REJECTED',
+        RequestEventHelper::TYPE_REFUND,
+        'Refund Rejected',
+        'The administrator rejected the refund request.',
+        true
+    );
+
+}
 
         createNotification(
             $pdo,

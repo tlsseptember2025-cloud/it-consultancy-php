@@ -1,6 +1,7 @@
 <?php
 
 require_once APP_PATH . '/helpers/DateHelper.php';
+require_once APP_PATH . '/helpers/RequestEventHelper.php';
 
 if (!isset($_SESSION['user'])) {
     header('Location: ?page=login');
@@ -294,6 +295,39 @@ if (isset($_POST['assign_agent'])) {
     if ($agentId <= 0) {
         die('Please select an agent.');
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Assign Agent to Request
+    |--------------------------------------------------------------------------
+    */
+
+    $stmt = $pdo->prepare("
+        UPDATE requests
+        SET agent_id = ?
+        WHERE id = ?
+    ");
+
+    $stmt->execute([
+        $agentId,
+        $consultation['id']
+    ]);
+
+    /*
+    |--------------------------------------------------------------------------
+    | Record Agent Assigned Event
+    |--------------------------------------------------------------------------
+    */
+
+    RequestEventHelper::addCurrentUser(
+        $pdo,
+        (int) $consultation['id'],
+        'AGENT_ASSIGNED',
+        RequestEventHelper::TYPE_SYSTEM,
+        'Agent Assigned',
+        'The administrator assigned an agent to the consultation.',
+        true
+    );
 
     header('Location: ?page=requests&success=agent-assigned');
     exit;
