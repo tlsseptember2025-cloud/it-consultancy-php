@@ -10,6 +10,7 @@ require_once CONFIG_PATH . '/retention.php';
 require_once HELPER_PATH . '/email.php';
 require_once HELPER_PATH . '/service_report.php';
 require_once HELPER_PATH . '/notifications.php';
+require_once APP_PATH . '/helpers/RequestEventHelper.php';
 
 $id = $_GET['id'] ?? 0;
 
@@ -35,6 +36,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $notes,
     $id
 ]);
+
+/*
+|--------------------------------------------------------------------------
+| Record Service Completed Event
+|--------------------------------------------------------------------------
+*/
+
+RequestEventHelper::addCurrentUser(
+    $pdo,
+    (int) $id,
+    'SERVICE_COMPLETED',
+    RequestEventHelper::TYPE_SERVICE,
+    'Service Completed',
+    'The service has been completed successfully.',
+    true
+);
 
 }
 
