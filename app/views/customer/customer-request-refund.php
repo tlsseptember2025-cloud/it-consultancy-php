@@ -148,6 +148,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $reasonDetails
     ]);
 
+    /*
+|--------------------------------------------------------------------------
+| Record Refund Requested Event
+|--------------------------------------------------------------------------
+*/
+
+RequestEventHelper::addCurrentUser(
+    $pdo,
+    (int) $requestId,
+    'REFUND_REQUESTED',
+    RequestEventHelper::TYPE_REFUND,
+    'Refund Requested',
+    'The customer requested a refund for the service.',
+    true
+);
+
     
     createNotification(
     $pdo,

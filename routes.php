@@ -431,14 +431,6 @@ switch ($page) {
         require VIEW_PATH . '/admin/refund-requests.php';
         break;
 
-    case 'process-refund-request':
-        require VIEW_PATH . '/admin/process-refund-request.php';
-        break;
-
-    case 'approve-refund-request':
-        require VIEW_PATH . '/admin/approve-refund-request.php';
-        break;
-
     case 'complete-refund':
         require VIEW_PATH . '/admin/complete-refund.php';
         break;
