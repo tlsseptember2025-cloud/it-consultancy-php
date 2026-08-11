@@ -9,6 +9,7 @@ if (!isset($_SESSION['customer'])) {
 require_once HELPER_PATH . '/payment_request.php';
 require_once HELPER_PATH . '/email.php';
 require_once HELPER_PATH . '/notifications.php';
+require_once APP_PATH . '/helpers/RequestEventHelper.php';
 
 $requestId = $_GET['request_id'] ?? 0;
 
@@ -69,6 +70,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 ");
 
 $stmt->execute([$requestId]);
+
+/*
+|--------------------------------------------------------------------------
+| Record Proposal Accepted Event
+|--------------------------------------------------------------------------
+*/
+
+RequestEventHelper::addCurrentUser(
+    $pdo,
+    $requestId,
+    'PROPOSAL_ACCEPTED',
+    RequestEventHelper::TYPE_PROPOSAL,
+    'Proposal Accepted',
+    'The customer accepted the proposal.',
+    true
+);
 
 generatePaymentRequestPdf(
     $request,

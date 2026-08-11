@@ -99,11 +99,11 @@ if (
 
     if ($decision === '') {
 
-        die('Please select a decision.');
+    die('Please select a decision.');
 
-    }
+}
 
-    if ($decision === 'approve') {
+if ($decision === 'approve') {
 
     $update = $pdo->prepare("
         UPDATE requests
@@ -114,37 +114,33 @@ if (
     ");
 
     $update->execute([
-    $comments,
-    $consultation['id']
-]);
+        $comments,
+        $consultation['id']
+    ]);
 
+    RequestEventHelper::addCurrentUser(
+        $pdo,
+        $consultation['id'],
+        'CONSULTATION_APPROVED',
+        RequestEventHelper::TYPE_CONSULTATION,
+        'Consultation Approved',
+        'The administrator approved the completed consultation.',
+        true
+    );
 
-RequestEventHelper::addCurrentUser(
-    $pdo,
-    $consultation['id'],
-    'CONSULTATION_APPROVED',
-    RequestEventHelper::TYPE_CONSULTATION,
-    'Consultation Approved',
-    'The administrator approved the completed consultation.',
-    true
-);
+    header("Location: ?page=needs-admin-review&success=consultation-approved");
+    exit;
 
-
-header("Location: ?page=needs-admin-review&success=consultation-approved");
-exit;
-
-}
-
-    if ($decision === 'return') {
+} elseif ($decision === 'return') {
 
     $update = $pdo->prepare("
-    UPDATE requests
-    SET
-        admin_review_comments = ?,
-        workflow_stage = 'Consultation Confirmed',
-        job_status = 'In Progress'
-    WHERE id = ?
-");
+        UPDATE requests
+        SET
+            admin_review_comments = ?,
+            workflow_stage = 'Consultation Confirmed',
+            job_status = 'In Progress'
+        WHERE id = ?
+    ");
 
     $update->execute([
         $comments,

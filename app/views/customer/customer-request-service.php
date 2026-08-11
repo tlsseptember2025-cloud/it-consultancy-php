@@ -1,5 +1,7 @@
 <?php
 
+require_once APP_PATH . '/helpers/RequestEventHelper.php';
+
 if (!isset($_SESSION['customer'])) {
 
     header('Location: ?page=public-login');
@@ -35,6 +37,24 @@ $stmt->execute([
     $_POST['service_id'],
     $_POST['description']
 ]);
+
+$requestId = (int) $pdo->lastInsertId();
+
+/*
+|--------------------------------------------------------------------------
+| Record Request Created Event
+|--------------------------------------------------------------------------
+*/
+
+RequestEventHelper::addCurrentUser(
+    $pdo,
+    $requestId,
+    'REQUEST_CREATED',
+    RequestEventHelper::TYPE_REQUEST,
+    'Request Created',
+    'The customer submitted a new service request.',
+    true
+);
 
 $_SESSION['success'] = 'Service request submitted successfully.';
 

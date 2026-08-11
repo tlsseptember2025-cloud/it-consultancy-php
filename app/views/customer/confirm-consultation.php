@@ -1,6 +1,7 @@
 <?php
 
 require_once APP_PATH . '/helpers/DateHelper.php';
+require_once APP_PATH . '/helpers/RequestEventHelper.php';
 
 if (!isset($_SESSION['customer'])) {
 
@@ -168,6 +169,22 @@ $stmt->execute([
         ");
 
         $stmt->execute([$requestId]);
+
+    /*
+|--------------------------------------------------------------------------
+| Record Consultation Scheduled Event
+|--------------------------------------------------------------------------
+*/
+
+RequestEventHelper::addCurrentUser(
+    $pdo,
+    $requestId,
+    'CONSULTATION_SCHEDULED',
+    RequestEventHelper::TYPE_CONSULTATION,
+    'Consultation Scheduled',
+    'The customer scheduled a consultation appointment.',
+    true
+);
 
         if ($customer && !empty($customer['email'])) {
 

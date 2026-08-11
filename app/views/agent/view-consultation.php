@@ -143,6 +143,27 @@ if (
         $consultation['id']
     ]);
 
+   /*
+|--------------------------------------------------------------------------
+| Record Consultation In Progress Event
+|--------------------------------------------------------------------------
+*/
+
+if (
+    $contactResult === 'Customer Answered' &&
+    $customerDecision === 'Continue Consultation'
+) {
+    RequestEventHelper::addCurrentUser(
+        $pdo,
+        $consultation['id'],
+        'CONSULTATION_IN_PROGRESS',
+        RequestEventHelper::TYPE_CONSULTATION,
+        'Consultation In Progress',
+        'The customer was contacted and chose to continue with the consultation.',
+        true
+    );
+}
+
     header('Location: ?page=agent-consultations&success=contact-saved');
     exit;
 }

@@ -9,6 +9,7 @@ if (!isset($_SESSION['user'])) {
 require_once HELPER_PATH . '/email.php';
 require_once HELPER_PATH . '/notifications.php';
 require_once HELPER_PATH . '/proposal.php';
+require_once APP_PATH . '/helpers/RequestEventHelper.php';
 
 $id = $_GET['id'] ?? 0;
 
@@ -158,6 +159,22 @@ $update = $pdo->prepare("
 ");
 
 $update->execute([$id]);
+
+/*
+|--------------------------------------------------------------------------
+| Record Proposal Sent Event
+|--------------------------------------------------------------------------
+*/
+
+RequestEventHelper::addCurrentUser(
+    $pdo,
+    $id,
+    'PROPOSAL_SENT',
+    RequestEventHelper::TYPE_PROPOSAL,
+    'Proposal Sent',
+    'The proposal has been sent to the customer for review.',
+    true
+);
 
 $_SESSION['success'] = 'Proposal sent successfully.';
 

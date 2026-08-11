@@ -8,6 +8,7 @@ if (!isset($_SESSION['user'])) {
 
 require_once HELPER_PATH . '/email.php';
 require_once HELPER_PATH . '/notifications.php';
+require_once APP_PATH . '/helpers/RequestEventHelper.php';
 
 $id = $_GET['id'];
 
@@ -111,6 +112,22 @@ $stmt = $pdo->prepare("
 $stmt->execute([
     $requestId
 ]);
+
+/*
+|--------------------------------------------------------------------------
+| Record Payment Approved Event
+|--------------------------------------------------------------------------
+*/
+
+RequestEventHelper::addCurrentUser(
+    $pdo,
+    $requestId,
+    'PAYMENT_APPROVED',
+    RequestEventHelper::TYPE_PAYMENT,
+    'Payment Approved',
+    'The administrator approved the customer payment receipt.',
+    true
+);
 
 /*
 |--------------------------------------------------------------------------

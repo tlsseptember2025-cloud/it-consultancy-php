@@ -1,5 +1,7 @@
 <?php
 
+require_once APP_PATH . '/helpers/RequestEventHelper.php';
+
 if (!isset($_SESSION['customer'])) {
 
     header('Location: ?page=public-login');
@@ -125,6 +127,22 @@ move_uploaded_file(
 ");
 
 $update->execute([$requestId]);
+
+/*
+|--------------------------------------------------------------------------
+| Record Payment Receipt Uploaded Event
+|--------------------------------------------------------------------------
+*/
+
+RequestEventHelper::addCurrentUser(
+    $pdo,
+    $requestId,
+    'PAYMENT_RECEIPT_UPLOADED',
+    RequestEventHelper::TYPE_PAYMENT,
+    'Payment Receipt Uploaded',
+    'The customer uploaded a payment receipt for review.',
+    true
+);
 
         $success =
             'Deposit slip uploaded successfully.';

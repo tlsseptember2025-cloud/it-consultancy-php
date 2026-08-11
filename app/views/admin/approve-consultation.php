@@ -32,6 +32,16 @@ $stmt = $pdo->prepare("
 
 $stmt->execute([$id]);
 
+RequestEventHelper::addCurrentUser(
+    $pdo,
+    (int) $id,
+    'CONSULTATION_REQUEST_APPROVED',
+    RequestEventHelper::TYPE_CONSULTATION,
+    'Consultation Request Approved',
+    'The administrator approved the consultation request. The customer may now schedule the consultation.',
+    true
+);
+
 if ($customer && !empty($customer['email'])) {
 
     sendEmail(

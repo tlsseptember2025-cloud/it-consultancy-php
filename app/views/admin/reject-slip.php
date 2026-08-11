@@ -7,6 +7,7 @@ if (!isset($_SESSION['user'])) {
 
 require_once HELPER_PATH . '/email.php';
 require_once HELPER_PATH . '/notifications.php';
+require_once APP_PATH . '/helpers/RequestEventHelper.php';
 
 $id = $_GET['id'] ?? 0;
 
@@ -108,6 +109,22 @@ $stmt = $pdo->prepare("
 $stmt->execute([
     $data['request_id']
 ]);
+
+/*
+|--------------------------------------------------------------------------
+| Record Payment Rejected Event
+|--------------------------------------------------------------------------
+*/
+
+RequestEventHelper::addCurrentUser(
+    $pdo,
+    (int) $data['request_id'],
+    'PAYMENT_REJECTED',
+    RequestEventHelper::TYPE_PAYMENT,
+    'Payment Rejected',
+    'The administrator rejected the customer payment receipt.',
+    true
+);
 
 
 /*

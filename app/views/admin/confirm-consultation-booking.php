@@ -10,6 +10,7 @@ require_once HELPER_PATH . '/email.php';
 require_once HELPER_PATH . '/notifications.php';
 require_once HELPER_PATH . '/meeting.php';
 require_once APP_PATH . '/helpers/DateHelper.php';
+require_once APP_PATH . '/helpers/RequestEventHelper.php';
 
 $id = $_GET['id'] ?? 0;
 
@@ -26,6 +27,23 @@ $stmt = $pdo->prepare("
 ");
 
 $stmt->execute([$id]);
+
+/*
+|--------------------------------------------------------------------------
+| Record Audit Event
+|--------------------------------------------------------------------------
+*/
+
+RequestEventHelper::add(
+    $pdo,
+    $id,
+    'CONSULTATION_CONFIRMED',
+    RequestEventHelper::TYPE_SYSTEM,
+    'Consultation Confirmed',
+    'The consultation appointment was confirmed by the administrator.',
+    RequestEventHelper::SOURCE_ADMINISTRATOR,
+    null
+);
 
 /*
 |--------------------------------------------------------------------------
@@ -61,7 +79,6 @@ $stmt = $pdo->prepare("
 ");
 
 $stmt->execute([$id]);
-
 $request = $stmt->fetch();
 
 /*
