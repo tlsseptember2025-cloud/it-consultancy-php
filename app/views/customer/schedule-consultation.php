@@ -74,19 +74,35 @@ if (!empty($selectedDate)) {
 
     $stmt = $pdo->prepare("
     SELECT
-        id,
-        slot_date,
-        slot_time
-    FROM consultation_slots
-    WHERE agent_id = ?
-      AND slot_date = ?
-      AND is_booked = 0
-    ORDER BY slot_time
+        cs.id,
+        cs.slot_date,
+        cs.slot_time
+    FROM consultation_slots cs
+    WHERE cs.agent_id = ?
+      AND cs.slot_date = ?
+      AND cs.is_booked = 0
+
+      AND NOT EXISTS (
+          SELECT 1
+          FROM consultation_bookings cb
+          INNER JOIN consultation_slots booked_slot
+              ON booked_slot.id = cb.slot_id
+          WHERE booked_slot.agent_id = ?
+            AND booked_slot.slot_date = cs.slot_date
+            AND ABS(
+                TIME_TO_SEC(
+                    TIMEDIFF(booked_slot.slot_time, cs.slot_time)
+                )
+            ) <= 1800
+      )
+
+    ORDER BY cs.slot_time
 ");
 
 $stmt->execute([
     $assignedAgentId,
-    $selectedDate
+    $selectedDate,
+    $assignedAgentId
 ]);
 
 $slots = $stmt->fetchAll(PDO::FETCH_ASSOC);

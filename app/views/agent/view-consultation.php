@@ -422,24 +422,28 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
                     <strong>Meeting</strong><br>
 
-                   <?php if (!empty($consultation['meeting_link'])): ?>
+                   <?php if (shouldShowMeetingLink(
+    $consultation['slot_date'],
+    $consultation['slot_time']
+)): ?>
 
-                        <a
-                            href="<?= htmlspecialchars($meetingLink) ?>"
-                            target="_blank"
-                            class="btn btn-success btn-sm mt-2">
+    <a
+        href="<?= htmlspecialchars($meetingLink) ?>"
+        target="_blank"
+        class="btn btn-success btn-sm mt-2">
 
-                            Join Meeting
+        Join <?= htmlspecialchars($consultation['consultation_method']) ?>
 
-                        </a>
+    </a>
 
+<?php else: ?>
 
-                    <?php else: ?>
+    <div class="small text-muted mt-2">
+        Meeting link will be available
+        10 minutes before your consultation.
+    </div>
 
-                        Not Available
-
-                    <?php endif; ?>
-
+<?php endif; ?>
                 </div>
 
             </div>
