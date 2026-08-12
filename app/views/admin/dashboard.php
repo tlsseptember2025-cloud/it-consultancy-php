@@ -10,12 +10,31 @@ if (!isset($_SESSION['user'])) {
 require_once HELPER_PATH . '/auth.php';
 require dirname(__DIR__) . '/layouts/header-admin.php';
 require_once CONFIG_PATH . '/database.php';
+require_once APP_PATH . '/helpers/retention_review_helper.php';
 
 /*
 |--------------------------------------------------------------------------
-| Statistics
+| Pending Payments
 |--------------------------------------------------------------------------
 */
+
+$pendingPayments = $pdo->query("
+    SELECT
+        p.id,
+        p.request_id,
+        p.amount,
+        p.status,
+        p.payment_date,
+        p.created_at,
+        c.name AS customer_name
+    FROM payments p
+    JOIN requests r
+        ON r.id = p.request_id
+    JOIN customers c
+        ON c.id = r.customer_id
+    WHERE p.status = 'Pending'
+    ORDER BY p.created_at ASC
+")->fetchAll(PDO::FETCH_ASSOC);
 
 $newLeads = $pdo->query("
     SELECT COUNT(*)
@@ -41,27 +60,6 @@ $closedLeads = $pdo->query("
     WHERE status = 'Closed'
 ")->fetchColumn();
 
-$totalCustomers = $pdo->query("
-    SELECT COUNT(*)
-    FROM customers
-")->fetchColumn();
-
-$totalRequests = $pdo->query("
-    SELECT COUNT(*)
-    FROM requests
-")->fetchColumn();
-
-$totalServices = $pdo->query("
-    SELECT COUNT(*)
-    FROM services
-")->fetchColumn();
-
-$unreadMessages = $pdo->query("
-    SELECT COUNT(*)
-    FROM messages
-    WHERE status = 'unread'
-")->fetchColumn();
-
 $totalPayments = $pdo->query("
     SELECT COALESCE(SUM(amount), 0)
     FROM payments
@@ -82,318 +80,408 @@ $totalRefunded = $pdo->query("
     FROM refunds
 ")->fetchColumn();
 
-$consultations = $pdo->query("
-    SELECT
-        c.name,
-        cs.slot_date,
-        cs.slot_time
-
-    FROM consultation_bookings cb
-
-    JOIN consultation_slots cs
-        ON cb.slot_id = cs.id
-
-    JOIN requests r
-        ON cb.request_id = r.id
-
-    JOIN customers c
-        ON r.customer_id = c.id
-
-    ORDER BY
-        cs.slot_date,
-        cs.slot_time
-
-    LIMIT 5
-")->fetchAll();
-
 $netRevenue = $totalRevenue - $totalRefunded;
 $totalRevenue = $totalPayments - $totalRefunded;
 $outstandingBalance = $totalQuoted - $totalRevenue;
 
-
-
 /*
 |--------------------------------------------------------------------------
-| Recent Activity
+| Retention Review
 |--------------------------------------------------------------------------
 */
 
-$latestRefund = $pdo->query("
-    SELECT
-        refunds.*,
-        customers.name,
-        services.title
-    FROM refunds
-    JOIN requests
-        ON requests.id = refunds.request_id
-    JOIN customers
-        ON customers.id = requests.customer_id
-    JOIN services
-        ON services.id = requests.service_id
-    ORDER BY refunds.id DESC
-    LIMIT 1
-")->fetch();
+$retentionReviewRequests = getRetentionReviewRequests($pdo);
+$retentionReviewCount = count($retentionReviewRequests);
+$retentionReviewLatest = array_slice(
+    $retentionReviewRequests,
+    0,
+    3
+);
 
-$latestRequest = $pdo->query("
-    SELECT
-         customers.name,
-    services.title,
-    requests.status,
-    requests.quoted_price
-    FROM requests
-    JOIN customers
-        ON customers.id = requests.customer_id
-    JOIN services
-        ON services.id = requests.service_id
-    ORDER BY requests.id DESC
-    LIMIT 1
-")->fetch();
+/*
+|--------------------------------------------------------------------------
+| Needs Admin Review
+|--------------------------------------------------------------------------
+*/
 
-$latestPayment = $pdo->query("
+$needsAdminReview = $pdo->query("
     SELECT
-         customers.name,
-    payments.amount,
-    payments.status,
-    payments.payment_date
-    FROM payments
-    JOIN requests
-        ON requests.id = payments.request_id
-    JOIN customers
-        ON customers.id = requests.customer_id
-    ORDER BY payments.id DESC
-    LIMIT 1
-")->fetch();
+        r.id,
+        r.created_at,
+        c.name AS customer_name,
+        s.title AS service_title
+    FROM requests r
+    JOIN customers c
+        ON c.id = r.customer_id
+    JOIN services s
+        ON s.id = r.service_id
+    WHERE r.workflow_stage = 'Needs Admin Review'
+    ORDER BY r.id DESC
+    LIMIT 3
+")->fetchAll(PDO::FETCH_ASSOC);
 
-$latestMessage = $pdo->query("
-    SELECT *
+/*
+|--------------------------------------------------------------------------
+| Agent Assignment Needed
+|--------------------------------------------------------------------------
+*/
+
+$agentAssignmentNeeded = $pdo->query("
+    SELECT
+        r.id,
+        r.created_at,
+        c.name AS customer_name,
+        s.title AS service_title
+    FROM requests r
+    JOIN customers c
+        ON c.id = r.customer_id
+    JOIN services s
+        ON s.id = r.service_id
+    WHERE r.workflow_stage = 'Submitted'
+      AND r.agent_id IS NULL
+    ORDER BY r.id DESC
+    LIMIT 3
+")->fetchAll(PDO::FETCH_ASSOC);
+
+/*
+|--------------------------------------------------------------------------
+| Awaiting Customer Response
+|--------------------------------------------------------------------------
+*/
+
+$awaitingCustomerResponse = $pdo->query("
+    SELECT
+        r.id,
+        r.created_at,
+        c.name AS customer_name,
+        s.title AS service_title,
+        r.workflow_stage
+    FROM requests r
+    JOIN customers c
+        ON c.id = r.customer_id
+    JOIN services s
+        ON s.id = r.service_id
+    WHERE r.workflow_stage IN (
+        'Waiting Customer Response',
+        'Closure Agreement Sent'
+    )
+    ORDER BY r.id DESC
+    LIMIT 3
+")->fetchAll(PDO::FETCH_ASSOC);
+
+/*
+|--------------------------------------------------------------------------
+| Pending Closure Agreements
+|--------------------------------------------------------------------------
+*/
+
+$pendingClosureAgreements = $pdo->query("
+    SELECT
+        ca.id AS agreement_id,
+        ca.request_id,
+        ca.customer_id,
+        ca.typed_name,
+        ca.created_at,
+        c.name AS customer_name,
+        s.title AS service_title
+    FROM consultation_closure_agreements ca
+    JOIN customers c
+        ON c.id = ca.customer_id
+    JOIN requests r
+        ON r.id = ca.request_id
+    JOIN services s
+        ON s.id = r.service_id
+    WHERE ca.status = 'Pending'
+    ORDER BY ca.id DESC
+    LIMIT 3
+")->fetchAll(PDO::FETCH_ASSOC);
+
+/*
+|--------------------------------------------------------------------------
+| Refund Requests
+|--------------------------------------------------------------------------
+*/
+
+$refundRequests = $pdo->query("
+    SELECT
+        rr.id,
+        rr.request_id,
+        rr.created_at,
+        c.name AS customer_name,
+        s.title AS service_title,
+        rr.refund_amount
+    FROM refund_requests rr
+    JOIN requests r
+        ON r.id = rr.request_id
+    JOIN customers c
+        ON c.id = r.customer_id
+    JOIN services s
+        ON s.id = r.service_id
+    WHERE rr.status = 'Pending'
+    ORDER BY rr.id DESC
+    LIMIT 3
+")->fetchAll(PDO::FETCH_ASSOC);
+
+/*
+|--------------------------------------------------------------------------
+| Messages Needing Attention
+|--------------------------------------------------------------------------
+*/
+
+$messagesNeedingAttention = $pdo->query("
+    SELECT
+        id,
+        name,
+        email,
+        message,
+        created_at
     FROM messages
+    WHERE status = 'unread'
     ORDER BY created_at DESC
-    LIMIT 1
-")->fetch();
-
-$servicesScheduled = [];
-
-$awaitingPayment = $pdo->query("
-    SELECT COUNT(*)
-    FROM requests
-    WHERE workflow_stage = 'Proposal Accepted'
-")->fetchColumn();
+    LIMIT 3
+")->fetchAll(PDO::FETCH_ASSOC);
 
 ?>
 
-<div class="row mb-4">
+<style>
+.dashboard-layout {
+    width: 100vw;
+    max-width: none;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    padding-left: 15px;
+    padding-right: 15px;
+}
 
-    <div class="col-md-3">
-        <div class="card border-primary text-center">
-            <div class="card-body">
-                <h6>Total Customers</h6>
-                <h2 class="text-primary"><?= $totalCustomers ?></h2>
-            </div>
-        </div>
-    </div>
+.dashboard-action-item {
+    transition: background-color 0.15s ease;
+}
 
-    <div class="col-md-3">
-        <div class="card border-success text-center">
-            <div class="card-body">
-                <h6>Total Requests</h6>
-                <h2 class="text-success"><?= $totalRequests ?></h2>
-            </div>
-        </div>
-    </div>
+.dashboard-action-item:hover {
+    background-color: #f8f9fa;
+}
 
-    <div class="col-md-3">
-        <div class="card text-center" style="border-color: var(--bs-orange);">
-            <div class="card-body">
-                <h6>Total Services</h6>
-                <h2 class="text-warning"><?= $totalServices ?></h2>
-            </div>
-        </div>
-    </div>
+.container-fluid {
+    background: transparent !important;
+}
 
-    <div class="col-md-3">
-        <div class="card border-danger text-center">
-            <div class="card-body">
-                <h6>Unread Messages</h6>
-                <h2 class="text-danger"><?= $unreadMessages ?></h2>
-            </div>
-        </div>
-    </div>
+.container {
+    background: transparent !important;
+}
 
-</div>
+</style>
 
- <div class="row g-4">
+<div class="container-fluid mt-4 dashboard-layout">
 
-    <div class="col-md-3">
-        <div class="card bg-info text-white shadow-sm">
-            <div class="card-body">
-                <h4>Total Payments</h4>
-                <h1>AED <?= number_format($totalPayments, 2) ?></h1>
-            </div>
-        </div>
-    </div>
+    <div class="row g-4">
 
-    <div class="col-md-3">
+        <!-- LEFT SIDEBAR -->
+        <div class="col-lg-2">
 
-        <div class="card bg-danger text-white shadow-sm">
+            <!-- Financial Summary -->
+            <div class="card shadow-sm mb-4">
 
-            <div class="card-body">
+                <div class="card-header bg-dark text-white">
+                    <strong>💰 Financial Summary</strong>
+                </div>
 
-                <h4>Total Refunded</h4>
+                <div class="card-body p-3">
 
-                <h1>
-                    AED <?= number_format($totalRefunded, 2) ?>
-                </h1>
+                    <div class="card bg-info text-white shadow-sm mb-3">
+                        <div class="card-body">
+                            <h5>Total Payments</h5>
+                            <h3>
+                                AED <?= number_format($totalPayments, 2) ?>
+                            </h3>
+                        </div>
+                    </div>
 
-            </div>
+                    <div class="card bg-danger text-white shadow-sm mb-3">
+                        <div class="card-body">
+                            <h5>Total Refunded</h5>
+                            <h3>
+                                AED <?= number_format($totalRefunded, 2) ?>
+                            </h3>
+                        </div>
+                    </div>
 
-        </div>
+                    <div class="card bg-success text-white shadow-sm mb-3">
+                        <div class="card-body">
+                            <h5>Net Revenue</h5>
+                            <h3>
+                                AED <?= number_format($netRevenue, 2) ?>
+                            </h3>
+                        </div>
+                    </div>
 
-    </div>
+                    <div class="card shadow-sm"
+                         style="background-color: var(--bs-orange); color: white;">
+                        <div class="card-body">
+                            <h5>Outstanding Balance</h5>
+                            <h3>
+                                AED <?= number_format($outstandingBalance, 2) ?>
+                            </h3>
+                        </div>
+                    </div>
 
-    <div class="col-md-3">
-        <div class="card bg-success text-white shadow-sm">
-            <div class="card-body">
-                <h4>Net Revenue</h4>
-                <h1>AED <?= number_format($netRevenue, 2) ?></h1>
-            </div>
-        </div>
-    </div>
+                </div>
 
-    <div class="col-md-3">
-        <div class="card text-white shadow-sm" style="background-color: var(--bs-orange);">
-            <div class="card-body">
-                <h4>Outstanding Balance</h4>
-                <h1>AED <?= number_format($outstandingBalance, 2) ?></h1>
-            </div>
-        </div>
-    </div>
-
- </div>
-
-</div>
-
-
-    <div class="row mt-4">
-
-      <div class="row justify-content-center mt-4">
-
-    <!-- Upcoming Consultations -->
-
-    <div class="col-lg-3 col-md-6 mb-3">
-
-        <div class="card shadow-sm h-100">
-
-            <div class="card-header">
-                Upcoming Consultations
             </div>
 
-            <div class="card-body">
 
-                <?php if (empty($consultations)): ?>
+            <!-- Company Support Leads -->
+            <div class="card shadow-sm border-success">
 
-                    <p class="text-muted">
-                        No consultations scheduled.
+                <div class="card-header bg-success text-white">
+                    <strong>🏢 Company Support Leads</strong>
+                </div>
+
+                <div class="card-body text-center">
+
+                    <p class="mb-2">
+                        🆕 New:
+                        <strong><?= $newLeads ?></strong>
                     </p>
 
-                <?php else: ?>
+                    <p class="mb-2">
+                        📞 Contacted:
+                        <strong><?= $contactedLeads ?></strong>
+                    </p>
 
-                    <?php foreach ($consultations as $c): ?>
+                    <p class="mb-2">
+                        🤝 Converted:
+                        <strong><?= $convertedLeads ?></strong>
+                    </p>
 
-                        <div class="border-bottom mb-2 pb-2">
+                    <p class="mb-3">
+                        📁 Closed:
+                        <strong><?= $closedLeads ?></strong>
+                    </p>
 
-                            <strong>
-                                <?= htmlspecialchars($c['name']) ?>
-                            </strong>
+                    <a
+                        href="?page=contract-leads"
+                        class="btn btn-success">
 
-                            <br>
+                        View Leads
 
-                            <?= formatDate($c['slot_date']) ?>
+                    </a>
 
-                            <br>
+                </div>
 
-                            <?= formatTime($c['slot_time']) ?>
+            </div>
+
+        </div>
+
+
+        <!-- RIGHT: ACTIVE DASHBOARD -->
+        <div class="col-lg-10">
+
+            <!-- Needs Admin Review -->
+
+                <div class="row g-4">
+
+                    <!-- Needs Admin Review -->
+                    <div class="col-lg-6">
+
+                        <div class="card shadow-sm border-danger h-100">
+
+                            <div class="card-header bg-danger text-white">
+                                <strong>🔴 Needs Admin Review</strong>
+                            </div>
+
+                            <div class="card-body p-0">
+
+                                <?php if (empty($needsAdminReview)): ?>
+
+                                    <div class="p-4 text-muted text-center">
+                                        No requests currently need admin review.
+                                    </div>
+
+                                <?php else: ?>
+
+                                    <?php foreach ($needsAdminReview as $item): ?>
+
+                                        <a
+                                            href="?page=needs-admin-review"
+                                            class="text-decoration-none text-dark d-block"
+                                        >
+
+                                            <div class="p-3 border-bottom dashboard-action-item">
+
+                                                <div class="fw-bold">
+                                                    Request #<?= (int) $item['id'] ?>
+                                                </div>
+
+                                                <div>
+                                                    <?= htmlspecialchars($item['customer_name']) ?>
+                                                </div>
+
+                                                <div class="small text-muted">
+                                                    <?= htmlspecialchars($item['service_title']) ?>
+                                                </div>
+
+                                            </div>
+
+                                        </a>
+
+                                    <?php endforeach; ?>
+
+                                <?php endif; ?>
+
+                            </div>
 
                         </div>
 
-                    <?php endforeach; ?>
+                    </div>
 
-                <?php endif; ?>
 
-            </div>
+                        <!-- Agent Assignment Needed -->
+<div class="col-lg-6">
 
+    <div class="card shadow-sm border-success h-100">
+
+        <div class="card-header bg-success text-white">
+            <strong>👤 Agent Assignment Needed</strong>
         </div>
 
-    </div>
+        <div class="card-body p-0">
 
-    <!-- Upcoming Services -->
+            <?php if (empty($agentAssignmentNeeded)): ?>
 
-    <div class="col-lg-3 col-md-6 mb-3">
+                <div class="p-4 text-muted text-center">
+                    No requests are currently waiting for agent assignment.
+                </div>
 
-        <div class="card shadow-sm h-100">
+            <?php else: ?>
 
-            <div class="card-header">
-                Upcoming Services
-            </div>
+                <?php foreach ($agentAssignmentNeeded as $item): ?>
 
-            <div class="card-body">
+                    <a
+                        href="?page=assign-agent&request_id=<?= (int)$item['id'] ?>"
+                        class="text-decoration-none text-dark d-block"
+                    >
 
-                <?php if (empty($servicesScheduled)): ?>
+                        <div class="p-3 border-bottom dashboard-action-item">
 
-                    <p class="text-muted">
-                        No services scheduled.
-                    </p>
+                            <div class="fw-bold">
+                                Request #<?= (int)$item['id'] ?>
+                            </div>
 
-                <?php else: ?>
+                            <div>
+                                <?= htmlspecialchars($item['customer_name']) ?>
+                            </div>
 
-                    <?php foreach ($servicesScheduled as $service): ?>
-
-                        <div class="border-bottom mb-2 pb-2">
-
-                            <strong>
-                                <?= htmlspecialchars($service['name']) ?>
-                            </strong>
-
-                            <br>
-
-                            <?= date('M d, Y', strtotime($service['service_date'])) ?>
-
-                            <br>
-
-                            <?= date('h:i A', strtotime($service['service_time'])) ?>
+                            <div class="small text-muted">
+                                <?= htmlspecialchars($item['service_title']) ?>
+                            </div>
 
                         </div>
 
-                    <?php endforeach; ?>
+                    </a>
 
-                <?php endif; ?>
+                <?php endforeach; ?>
 
-            </div>
-
-        </div>
-
-    </div>
-
-    <!-- Awaiting Payment -->
-
-    <div class="col-lg-3 col-md-6 mb-3">
-
-        <div class="card shadow-sm h-100">
-
-            <div class="card-header">
-                Awaiting Payment
-            </div>
-
-            <div class="card-body text-center">
-
-                <h1 class="text-warning">
-                    <?= $awaitingPayment ?>
-                </h1>
-
-                <p class="mb-0">
-                    Requests awaiting payment
-                </p>
-
-            </div>
+            <?php endif; ?>
 
         </div>
 
@@ -401,207 +489,421 @@ $awaitingPayment = $pdo->query("
 
 </div>
 
-<!-- Recent Activity -->
+<!-- Awaiting Customer Response -->
+<div class="col-lg-6">
 
-<div class="card mt-4 shadow-sm">
+    <div class="card shadow-sm border-warning h-100">
 
-    <div class="card-body">
+        <div class="card-header bg-warning text-dark">
+            <strong>🟡 Awaiting Customer Response</strong>
+        </div>
 
-        <h3 class="text-center mb-4">
-            Recent Activity
-        </h3>
+        <div class="card-body p-0">
 
-        <div class="row justify-content-center g-4">
+            <?php if (empty($awaitingCustomerResponse)): ?>
 
-            <!-- Latest Request -->
-
-            <div class="col-lg-3 col-md-6 mb-3">
-
-                <div class="border-start border-4 border-primary rounded p-3 h-100">
-
-                    <h5 class="text-primary">
-                        Latest Request
-                    </h5>
-
-                    <?php if ($latestRequest): ?>
-
-                        <strong>
-                            <?= htmlspecialchars($latestRequest['name']) ?>
-                        </strong>
-
-                        <br>
-
-                        <?= htmlspecialchars($latestRequest['title']) ?>
-
-                        <br>
-
-                        <strong class="text-success">
-                            AED <?= number_format($latestRequest['quoted_price'], 2) ?>
-                        </strong>
-
-                    <?php else: ?>
-
-                        No requests found.
-
-                    <?php endif; ?>
-
+                <div class="p-4 text-muted text-center">
+                    No requests are currently awaiting customer response.
                 </div>
 
-            </div>
+            <?php else: ?>
 
-            <!-- Latest Payment -->
+                <?php foreach ($awaitingCustomerResponse as $item): ?>
 
-            <div class="col-lg-2 col-md-4">
-                
+                    <a
+                        href="?page=view-request&id=<?= (int)$item['id'] ?>"
+                        class="text-decoration-none text-dark d-block"
+                    >
 
-                <div class="border-start border-4 border-success rounded p-3 h-100">
+                        <div class="p-3 border-bottom dashboard-action-item">
 
-                    <h5 class="text-success">
-                        Latest Payment
-                    </h5>
+                            <div class="fw-bold">
+                                Request #<?= (int)$item['id'] ?>
+                            </div>
 
-                    <?php if ($latestPayment): ?>
+                            <div>
+                                <?= htmlspecialchars($item['customer_name']) ?>
+                            </div>
 
-                        <strong>
-                            <?= htmlspecialchars($latestPayment['name']) ?>
-                        </strong>
+                            <div class="small text-muted">
+                                <?= htmlspecialchars($item['service_title']) ?>
+                            </div>
 
-                        <br>
+                        </div>
 
-                        AED <?= number_format($latestPayment['amount'], 2) ?>
+                    </a>
 
-                        <br>
+                <?php endforeach; ?>
 
-                        <?= htmlspecialchars($latestPayment['status']) ?>
-
-                    <?php else: ?>
-
-                        No payments found.
-
-                    <?php endif; ?>
-
-                </div>
-
-            </div>
-
-            <!-- Latest Message -->
-
-            <div class="col-lg-2 col-md-4">
-
-                <div class="border-start border-4 border-danger rounded p-3 h-100">
-
-                    <h5 class="text-danger">
-                        Latest Message
-                    </h5>
-
-                    <?php if ($latestMessage): ?>
-
-                        <strong>
-                            <?= htmlspecialchars($latestMessage['name']) ?>
-                        </strong>
-
-                        <br>
-
-                        <?= htmlspecialchars(substr($latestMessage['message'], 0, 60)) ?>...
-
-                    <?php else: ?>
-
-                        No messages found.
-
-                    <?php endif; ?>
-
-                </div>
-
-            </div>
-
-            <!-- Latest Refund -->
-
-            <div class="col-lg-2 col-md-4">
-
-                <div class="border-start border-4 border-warning rounded p-3 h-100">
-
-                    <h5 style="color: orange;">
-                        Latest Refund
-                    </h5>
-
-                    <?php if ($latestRefund): ?>
-
-                        <strong>
-                            <?= htmlspecialchars($latestRefund['name']) ?>
-                        </strong>
-
-                        <br>
-
-                        AED <?= number_format($latestRefund['amount'], 2) ?>
-
-                    <?php else: ?>
-
-                        No refunds found.
-
-                    <?php endif; ?>
-
-                </div>
-
-            </div>
+            <?php endif; ?>
 
         </div>
 
     </div>
 
 </div>
+
+<!-- Pending Closure Agreements -->
+<div class="col-lg-6">
+
+    <div class="card shadow-sm border-danger">
+
+        <div class="card-header bg-danger text-white">
+            <strong>📄 Pending Closure Agreements</strong>
+        </div>
+
+        <div class="card-body p-0">
+
+            <?php if (empty($pendingClosureAgreements)): ?>
+
+                <div class="p-4 text-muted text-center">
+                    No closure agreements are currently pending review.
+                </div>
+
+            <?php else: ?>
+
+                <?php foreach ($pendingClosureAgreements as $agreement): ?>
+
+                    <a
+                        href="?page=review-closure-agreement&agreement_id=<?= (int)$agreement['agreement_id'] ?>"
+                        class="text-decoration-none text-dark d-block"
+                    >
+
+                        <div class="p-3 border-bottom">
+
+                            <div class="fw-bold">
+                                Agreement #<?= (int)$agreement['agreement_id'] ?>
+                            </div>
+
+                            <div>
+                                Request #<?= (int)$agreement['request_id'] ?>
+                                —
+                                <?= htmlspecialchars($agreement['customer_name']) ?>
+                            </div>
+
+                            <div class="small text-muted">
+                                <?= htmlspecialchars($agreement['service_title']) ?>
+                            </div>
+
+                            <div class="mt-2">
+                                <span class="badge bg-danger">
+                                    Pending Review
+                                </span>
+                            </div>
+
+                        </div>
+
+                    </a>
+
+                <?php endforeach; ?>
+
+            <?php endif; ?>
+
+        </div>
+
+    </div>
+
 </div>
 
-<div class="row mt-4">
+<!-- Pending Payments -->
+<div class="col-lg-6">
 
-    <div class="col-md-6 mx-auto">
+    <div class="card shadow-sm border-info">
 
-        <div class="card shadow-sm border-success">
+        <div class="card-header bg-info text-white">
+            <strong>💳 Payment Review</strong>
+        </div>
 
-            <div class="card-header bg-success text-white">
+        <div class="card-body p-0">
 
-                <h5 class="mb-0">
-                    🏢 Company Support Leads
-                </h5>
+            <?php if (empty($pendingPayments)): ?>
 
-            </div>
+                <div class="p-4 text-muted text-center">
+                    No payments are currently pending review.
+                </div>
 
-            <div class="card-body text-center">
+            <?php else: ?>
 
-                <p class="mb-2">
-                    🆕 New:
-                    <strong><?= $newLeads ?></strong>
-                </p>
+                <?php foreach ($pendingPayments as $payment): ?>
 
-                <p class="mb-2">
-                    📞 Contacted:
-                    <strong><?= $contactedLeads ?></strong>
-                </p>
+                    <a
+                        href="?page=payments&payment_id=<?= (int)$payment['id'] ?>"
+                        class="text-decoration-none text-dark d-block"
+                    >
 
-                <p class="mb-2">
-                    🤝 Converted:
-                    <strong><?= $convertedLeads ?></strong>
-                </p>
+                        <div class="p-3 border-bottom">
 
-                <p class="mb-3">
-                    📁 Closed:
-                    <strong><?= $closedLeads ?></strong>
-                </p>
+                            <div class="fw-bold">
+                                Payment #<?= (int)$payment['id'] ?>
+                            </div>
+
+                            <div>
+                                <?= htmlspecialchars($payment['customer_name']) ?>
+                            </div>
+
+                            <div class="small text-muted">
+                                Request #<?= (int)$payment['request_id'] ?>
+                            </div>
+
+                            <div class="mt-2">
+
+                                <span class="badge bg-info text-dark">
+                                    AED <?= number_format(
+                                        (float)$payment['amount'],
+                                        2
+                                    ) ?>
+                                </span>
+
+                                <span class="badge bg-warning text-dark">
+                                    Pending
+                                </span>
+
+                            </div>
+
+                        </div>
+
+                    </a>
+
+                <?php endforeach; ?>
+
+            <?php endif; ?>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- Refund Requests -->
+<div class="col-lg-6">
+
+    <div class="card shadow-sm border-warning">
+
+        <div class="card-header bg-warning text-dark">
+            <strong>💰 Refund Requests</strong>
+        </div>
+
+        <div class="card-body p-0">
+
+            <?php if (empty($refundRequests)): ?>
+
+                <div class="p-4 text-muted text-center">
+                    No refund requests are currently pending review.
+                </div>
+
+            <?php else: ?>
+
+                <?php foreach ($refundRequests as $refund): ?>
+
+                    <a
+                        href="?page=review-refund&id=<?= (int)$refund['id'] ?>"
+                        class="text-decoration-none text-dark d-block"
+                    >
+
+                        <div class="p-3 border-bottom">
+
+                            <div class="fw-bold">
+                                Refund #<?= (int)$refund['id'] ?>
+                            </div>
+
+                            <div>
+                                <?= htmlspecialchars($refund['customer_name']) ?>
+                            </div>
+
+                            <div class="small text-muted">
+                                <?= htmlspecialchars($refund['service_title']) ?>
+                            </div>
+
+                            <div class="mt-2">
+
+                                <span class="badge bg-warning text-dark">
+                                    AED <?= number_format(
+                                        (float)$refund['refund_amount'],
+                                        2
+                                    ) ?>
+                                </span>
+
+                                <span class="badge bg-danger">
+                                    Pending Review
+                                </span>
+
+                            </div>
+
+                        </div>
+
+                    </a>
+
+                <?php endforeach; ?>
+
+            <?php endif; ?>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- Messages Needing Attention -->
+<div class="col-lg-6">
+
+    <div class="card shadow-sm border-danger">
+
+        <div class="card-header bg-danger text-white">
+            <strong>✉️ Messages Needing Attention</strong>
+        </div>
+
+        <div class="card-body p-0">
+
+            <?php if (empty($messagesNeedingAttention)): ?>
+
+                <div class="p-4 text-muted text-center">
+                    No messages currently need attention.
+                </div>
+
+            <?php else: ?>
+
+                <?php foreach ($messagesNeedingAttention as $message): ?>
+
+                    <a
+                        href="?page=messages"
+                        class="text-decoration-none text-dark d-block"
+                    >
+
+                        <div class="p-3 border-bottom dashboard-action-item">
+
+                            <div class="fw-bold">
+                                <?= htmlspecialchars($message['name']) ?>
+                            </div>
+
+                            <div class="small text-muted">
+                                <?= htmlspecialchars($message['email']) ?>
+                            </div>
+
+                            <div class="mt-2">
+                                <?= htmlspecialchars(
+                                    mb_substr($message['message'], 0, 80)
+                                ) ?>
+
+                                <?php if (mb_strlen($message['message']) > 80): ?>
+                                    ...
+                                <?php endif; ?>
+                            </div>
+
+                            <div class="mt-2">
+
+                                <span class="badge bg-danger">
+                                    Unread
+                                </span>
+
+                            </div>
+
+                        </div>
+
+                    </a>
+
+                <?php endforeach; ?>
+
+            <?php endif; ?>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- Retention Review -->
+<div class="col-lg-6">
+
+    <div class="card shadow-sm border-warning h-100">
+
+        <div class="card-header bg-warning text-dark">
+            <strong>📁 Retention Review</strong>
+
+            <?php if ($retentionReviewCount > 0): ?>
+                <span class="badge bg-dark float-end">
+                    <?= $retentionReviewCount ?> Due
+                </span>
+            <?php endif; ?>
+        </div>
+
+        <div class="card-body p-0">
+
+            <?php if (empty($retentionReviewLatest)): ?>
+
+                <div class="p-4 text-muted text-center">
+                    No requests are currently due for retention review.
+                </div>
+
+            <?php else: ?>
+
+                <?php foreach ($retentionReviewLatest as $request): ?>
+
+                    <a
+                        href="?page=review-retention&id=<?= (int)$request['id'] ?>"
+                        class="text-decoration-none text-dark d-block"
+                    >
+
+                        <div class="p-3 border-bottom">
+
+                            <div class="fw-bold">
+                                Request #<?= (int)$request['id'] ?>
+                            </div>
+
+                            <div>
+                                <?= htmlspecialchars(
+                                    $request['customer_name']
+                                ) ?>
+                            </div>
+
+                            <div class="small text-muted">
+                                <?= htmlspecialchars(
+                                    $request['service_title']
+                                ) ?>
+                            </div>
+
+                            <?php if (!empty($request['retention_review_at'])): ?>
+
+                                <div class="small text-warning fw-semibold mt-1">
+                                    Review Due:
+                                    <?= date(
+                                        'd M Y',
+                                        strtotime(
+                                            $request['retention_review_at']
+                                        )
+                                    ) ?>
+                                </div>
+
+                            <?php endif; ?>
+
+                        </div>
+
+                    </a>
+
+                <?php endforeach; ?>
+
+            <?php endif; ?>
+
+        </div>
+
+        <?php if ($retentionReviewCount > 3): ?>
+
+            <div class="card-footer text-center">
 
                 <a
-                    href="?page=contract-leads"
-                    class="btn btn-success">
-
-                    View Leads
-
+                    href="?page=retention-review"
+                    class="text-decoration-none fw-semibold"
+                >
+                    View all <?= $retentionReviewCount ?> reviews →
                 </a>
 
             </div>
 
-        </div>
+        <?php endif; ?>
 
     </div>
 
 </div>
 
-
+</div>
+ 
 <?php require dirname(__DIR__) . '/layouts/footer.php'; ?>

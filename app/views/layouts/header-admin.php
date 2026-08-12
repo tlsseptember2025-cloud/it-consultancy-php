@@ -30,6 +30,12 @@
 
 <body>
 
+<style>
+body {
+    background: url('uploads/assets/background.png') center center / cover fixed no-repeat !important;
+}
+</style>
+
 <?php require __DIR__ . '/partials/demo-banner.php'; ?>
 <?php require __DIR__ . '/partials/navbar-admin.php'; ?>
 
