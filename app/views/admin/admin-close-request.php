@@ -425,6 +425,18 @@ if (
             : 'Administrator contacted the customer and sent the Consultation Closure Agreement.'
     );
 
+    RequestEventHelper::add(
+    $pdo,
+    $requestId,
+    RequestEventHelper::EVENT_CLOSURE_REQUEST_CONFIRMED,
+    RequestEventHelper::TYPE_CONTACT,
+    'Closure Request Confirmed',
+    'The administrator contacted the customer and confirmed the customer’s request to close the consultation.',
+    RequestEventHelper::SOURCE_ADMINISTRATOR,
+    $adminId,
+    false
+);
+
 
     /*
     |--------------------------------------------------------------------------

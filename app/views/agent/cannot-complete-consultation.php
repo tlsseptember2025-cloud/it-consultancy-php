@@ -6,6 +6,7 @@ if (!isset($_SESSION['agent'])) {
 }
 
 require_once CONFIG_PATH . '/database.php';
+require_once APP_PATH . '/helpers/RequestEventHelper.php';
 
 $requestId = (int)($_GET['id'] ?? 0);
 
@@ -52,6 +53,22 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $notes,
         $requestId
     ]);
+
+    /*
+|--------------------------------------------------------------------------
+| Record Consultation Incomplete Event
+|--------------------------------------------------------------------------
+*/
+
+RequestEventHelper::addCurrentUser(
+    $pdo,
+    (int) $requestId,
+    RequestEventHelper::EVENT_CONSULTATION_INCOMPLETE,
+    RequestEventHelper::TYPE_CONSULTATION,
+    'Consultation Could Not Be Completed',
+    'The assigned agent could not complete the consultation. Reason: ' . $reason,
+    false
+);
 
     header("Location:?page=view-consultation&id=".$requestId);
     exit;

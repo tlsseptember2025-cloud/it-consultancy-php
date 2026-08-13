@@ -169,7 +169,7 @@ $update->execute([$id]);
 RequestEventHelper::addCurrentUser(
     $pdo,
     $id,
-    'PROPOSAL_SENT',
+    RequestEventHelper::EVENT_PROPOSAL_SENT,
     RequestEventHelper::TYPE_PROPOSAL,
     'Proposal Sent',
     'The proposal has been sent to the customer for review.',

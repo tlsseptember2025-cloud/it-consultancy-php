@@ -79,27 +79,57 @@ if (isset($_POST['save_customer_response'])) {
 
         case 'continue':
 
-            $workflowStage = 'Consultation Confirmed';
-            $jobStatus = 'Pending';
-            $eventTitle = 'Customer Responded - Continue Consultation';
+    $workflowStage = 'Consultation Confirmed';
+    $jobStatus = 'Pending';
+    $eventTitle = 'Customer Responded - Continue Consultation';
 
-            break;
+    RequestEventHelper::addCurrentUser(
+        $pdo,
+        (int) $consultation['id'],
+        RequestEventHelper::EVENT_CUSTOMER_CONTINUED_CONSULTATION,
+        RequestEventHelper::TYPE_CONTACT,
+        'Customer Continued Consultation',
+        'The customer responded and confirmed that they want to continue with the consultation.',
+        true
+    );
+
+    break;
 
         case 'reschedule':
 
-            $workflowStage = 'Needs Admin Review';
-            $jobStatus = 'Pending';
-            $eventTitle = 'Customer Requested Reschedule';
+    $workflowStage = 'Needs Admin Review';
+    $jobStatus = 'Pending';
+    $eventTitle = 'Customer Requested Reschedule';
 
-            break;
+    RequestEventHelper::addCurrentUser(
+        $pdo,
+        (int) $consultation['id'],
+        RequestEventHelper::EVENT_CUSTOMER_REQUESTED_RESCHEDULE,
+        RequestEventHelper::TYPE_CONTACT,
+        'Customer Requested Reschedule',
+        'The customer responded and requested that the consultation be rescheduled.',
+        true
+    );
+
+    break;
 
         case 'cancel':
 
-            $workflowStage = 'Needs Admin Review';
-            $jobStatus = 'Pending';
-            $eventTitle = 'Customer Requested Cancellation';
+    $workflowStage = 'Needs Admin Review';
+    $jobStatus = 'Pending';
+    $eventTitle = 'Customer Requested Cancellation';
 
-            break;
+    RequestEventHelper::addCurrentUser(
+        $pdo,
+        (int) $consultation['id'],
+        RequestEventHelper::EVENT_CUSTOMER_REQUESTED_CANCELLATION,
+        RequestEventHelper::TYPE_CONTACT,
+        'Customer Requested Cancellation',
+        'The customer responded and requested cancellation of the consultation.',
+        true
+    );
+
+    break;
 
         default:
 

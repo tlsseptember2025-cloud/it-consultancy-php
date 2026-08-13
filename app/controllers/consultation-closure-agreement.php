@@ -1,6 +1,7 @@
 <?php
 
 $pageTitle = 'Consultation Closure Agreement';
+require_once APP_PATH . '/helpers/RequestEventHelper.php';
 $requestId = (int) ($_GET['request_id'] ?? 0);
 if ($requestId <= 0) {
     die('Invalid request.');
@@ -102,7 +103,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $typedName,
                 1,
                 $_SERVER['REMOTE_ADDR']
-            ]);
+            ]);/*
+|--------------------------------------------------------------------------
+| Record Customer Closure Agreement Submitted Event
+|--------------------------------------------------------------------------
+*/
+
+RequestEventHelper::addCurrentUser(
+    $pdo,
+    (int) $request['id'],
+    RequestEventHelper::EVENT_CUSTOMER_CLOSURE_AGREEMENT_SUBMITTED,
+    RequestEventHelper::TYPE_CONTACT,
+    'Customer Closure Agreement Submitted',
+    'The customer submitted and accepted the consultation closure agreement.',
+    true
+);
+
+            
 
             $stmt = $pdo->prepare("
                 UPDATE requests

@@ -211,7 +211,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $jobStatus = 'In Progress';
 
-                $reviewType = null;
+                $reviewType = null;/*
+|--------------------------------------------------------------------------
+| Record Customer Continued Current Appointment Event
+|--------------------------------------------------------------------------
+*/
+
+RequestEventHelper::addCurrentUser(
+    $pdo,
+    (int) $request['id'],
+    RequestEventHelper::EVENT_CUSTOMER_CONTINUED_CURRENT_APPOINTMENT,
+    RequestEventHelper::TYPE_CONSULTATION,
+    'Customer Continued Current Appointment',
+    'After contacting the customer regarding closure, the customer decided to continue with the current consultation appointment.',
+    true
+);
+
+
             }
 
 
