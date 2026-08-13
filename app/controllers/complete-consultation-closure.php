@@ -2,6 +2,8 @@
 
 $pageTitle = 'Complete Consultation Closure';
 
+require_once APP_PATH . '/helpers/RequestEventHelper.php';
+
 $requestId = (int) ($_GET['request_id'] ?? 0);
 
 if ($requestId <= 0) {
@@ -70,6 +72,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'Completed',
         $requestId
     ]);
+
+    /*
+|--------------------------------------------------------------------------
+| Record Consultation Closed Event
+|--------------------------------------------------------------------------
+*/
+
+RequestEventHelper::addCurrentUser(
+    $pdo,
+    (int) $requestId,
+    RequestEventHelper::EVENT_CONSULTATION_CLOSED,
+    RequestEventHelper::TYPE_CONSULTATION,
+    'Consultation Closed',
+    'The consultation request was permanently closed after the approved closure agreement was completed.',
+    false
+);
 
     $pdo->commit();
 

@@ -261,15 +261,13 @@ if (isset($_POST['reassign_agent'])) {
     WHERE id = ?
 ");
 
-       $stmt->execute([
+      $stmt->execute([
     $newAgentId,
     $adminInstruction,
     $consultation['id']
 ]);
 
-        $pdo->commit();
-
-        /*
+/*
 |--------------------------------------------------------------------------
 | Record Agent Reassigned Event
 |--------------------------------------------------------------------------
@@ -285,7 +283,11 @@ RequestEventHelper::addCurrentUser(
     false
 );
 
-        header('Location: ?page=requests&success=agent-reassigned');
+$pdo->commit();
+
+header('Location: ?page=requests&success=agent-reassigned');
+
+        
         exit;
 
     } catch (Exception $e) {

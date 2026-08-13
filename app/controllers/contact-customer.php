@@ -241,15 +241,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             elseif ($customerDecision === 'Close Request') {
 
-                // Customer requested closure.
-                // Administrator must review and confirm closure.
+    // Customer requested closure.
+    // Administrator must review and confirm closure.
 
-                $workflowStage = 'Needs Admin Review';
+    $workflowStage = 'Needs Admin Review';
 
-                $jobStatus = 'In Progress';
+    $jobStatus = 'In Progress';
 
-                $reviewType = 'customer_contact';
-            }
+    $reviewType = 'customer_contact';
+
+    /*
+    |--------------------------------------------------------------------------
+    | Record Customer Requested Closure Event
+    |--------------------------------------------------------------------------
+    */
+
+    RequestEventHelper::addCurrentUser(
+        $pdo,
+        (int) $request['id'],
+        RequestEventHelper::EVENT_CUSTOMER_REQUESTED_CLOSURE,
+        RequestEventHelper::TYPE_CONTACT,
+        'Customer Requested Closure',
+        'The customer requested that the request be closed.',
+        false
+    );
+}
 
             break;
     }
@@ -317,6 +333,28 @@ if ($contactResult === 'Customer Answered') {
         $contactAttempts,
         $request['id']
     ]);
+
+    /*
+|--------------------------------------------------------------------------
+| Record Customer Requested New Consultation Event
+|--------------------------------------------------------------------------
+*/
+
+if (
+    $contactResult === 'Customer Answered'
+    && $customerDecision === 'Continue New Appointment'
+) {
+
+    RequestEventHelper::addCurrentUser(
+        $pdo,
+        (int) $request['id'],
+        RequestEventHelper::EVENT_CUSTOMER_REQUESTED_NEW_CONSULTATION,
+        RequestEventHelper::TYPE_CONSULTATION,
+        'Customer Requested New Consultation',
+        'The customer requested a new consultation appointment.',
+        true
+    );
+}
 
 
     /*

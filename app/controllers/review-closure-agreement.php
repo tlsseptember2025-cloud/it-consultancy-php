@@ -2,6 +2,8 @@
 
 $pageTitle = 'Review Closure Agreement';
 
+require_once APP_PATH . '/helpers/RequestEventHelper.php';
+
 $agreementId = (int) ($_GET['agreement_id'] ?? 0);
 
 if ($agreementId <= 0) {
@@ -87,6 +89,38 @@ $stmt->execute([
         : 'Closure Rejected',
     $agreement['request_id']
 ]);
+
+/*
+|--------------------------------------------------------------------------
+| Record Closure Agreement Review Event
+|--------------------------------------------------------------------------
+*/
+
+if ($decision === 'Approved') {
+
+    RequestEventHelper::addCurrentUser(
+        $pdo,
+        (int) $agreement['request_id'],
+        RequestEventHelper::EVENT_CLOSURE_AGREEMENT_APPROVED,
+        RequestEventHelper::TYPE_CONSULTATION,
+        'Closure Agreement Approved',
+        'The administrator approved the customer’s Consultation Closure Agreement.',
+        false
+    );
+
+} else {
+
+    RequestEventHelper::addCurrentUser(
+        $pdo,
+        (int) $agreement['request_id'],
+        RequestEventHelper::EVENT_CLOSURE_AGREEMENT_REJECTED,
+        RequestEventHelper::TYPE_CONSULTATION,
+        'Closure Agreement Rejected',
+        'The administrator rejected the customer’s Consultation Closure Agreement.',
+        false
+    );
+
+}
 
 header('Location: index.php?page=closure-agreements&success=review-saved');
 exit;

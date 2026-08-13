@@ -43,7 +43,7 @@ $stmt->execute([$id]);
 RequestEventHelper::addCurrentUser(
     $pdo,
     $id,
-    'CONSULTATION_COMPLETED',
+    RequestEventHelper::EVENT_CONSULTATION_COMPLETED,
     RequestEventHelper::TYPE_CONSULTATION,
     'Consultation Completed',
     'The consultation has been completed.',
