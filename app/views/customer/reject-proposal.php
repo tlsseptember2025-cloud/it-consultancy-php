@@ -1,5 +1,7 @@
 <?php
 
+require_once APP_PATH . '/helpers/RequestEventHelper.php';
+
 if (!isset($_SESSION['customer'])) {
 
     header('Location: ?page=public-login');
@@ -16,6 +18,22 @@ $stmt = $pdo->prepare("
 ");
 
 $stmt->execute([$requestId]);
+
+/*
+|--------------------------------------------------------------------------
+| Record Proposal Rejected Event
+|--------------------------------------------------------------------------
+*/
+
+RequestEventHelper::addCurrentUser(
+    $pdo,
+    (int) $requestId,
+    RequestEventHelper::EVENT_PROPOSAL_REJECTED,
+    RequestEventHelper::TYPE_PROPOSAL,
+    'Proposal Rejected',
+    'The customer rejected the proposal.',
+    true
+);
 
 header('Location: ?page=customer-requests');
 exit;

@@ -80,7 +80,7 @@ $stmt->execute([$requestId]);
 RequestEventHelper::addCurrentUser(
     $pdo,
     $requestId,
-    'PROPOSAL_ACCEPTED',
+    RequestEventHelper::EVENT_PROPOSAL_ACCEPTED,
     RequestEventHelper::TYPE_PROPOSAL,
     'Proposal Accepted',
     'The customer accepted the proposal.',
