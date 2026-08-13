@@ -197,32 +197,6 @@ if (isset($_POST['approve_contact'])) {
 
     $consultation['id'],
 
-    'CONTACT_ATTEMPT_APPROVED',
-
-    RequestEventHelper::TYPE_CONTACT,
-
-    'Administrator Approved Customer Contact',
-
-    'The administrator approved another customer contact attempt.',
-
-    RequestEventHelper::SOURCE_ADMINISTRATOR,
-
-    $adminId
-
-    );
-
-    /*
-    |--------------------------------------------------------------------------
-    | Log Request Event
-    |--------------------------------------------------------------------------
-    */
-
-    RequestEventHelper::add(
-
-    $pdo,
-
-    $consultation['id'],
-
     RequestEventHelper::EVENT_CONTACT_ATTEMPT_APPROVED,
 
     RequestEventHelper::TYPE_CONTACT,

@@ -8,7 +8,7 @@ if (!isset($_SESSION['customer'])) {
 
 require_once HELPER_PATH . '/auth.php';
 require_once HELPER_PATH . '/security.php';
-
+require_once APP_PATH . '/helpers/RequestEventHelper.php';
 
 $customerId = (int) $_SESSION['customer']['id'];
 
@@ -148,6 +148,22 @@ $stmt = $pdo->prepare("
 ");
 
 $stmt->execute([$requestId]);
+
+/*
+|--------------------------------------------------------------------------
+| Record Service Rescheduled Event
+|--------------------------------------------------------------------------
+*/
+
+RequestEventHelper::addCurrentUser(
+    $pdo,
+    $requestId,
+    RequestEventHelper::EVENT_SERVICE_RESCHEDULED,
+    RequestEventHelper::TYPE_SERVICE,
+    'Service Rescheduled',
+    'The customer successfully rescheduled the service appointment.',
+    true
+);
 
 $_SESSION['success'] =
     'Your service has been successfully rescheduled.';

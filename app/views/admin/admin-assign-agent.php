@@ -269,6 +269,22 @@ if (isset($_POST['reassign_agent'])) {
 
         $pdo->commit();
 
+        /*
+|--------------------------------------------------------------------------
+| Record Agent Reassigned Event
+|--------------------------------------------------------------------------
+*/
+
+RequestEventHelper::addCurrentUser(
+    $pdo,
+    (int) $requestId,
+    RequestEventHelper::EVENT_AGENT_REASSIGNED,
+    RequestEventHelper::TYPE_REQUEST,
+    'Agent Reassigned',
+    'The administrator reassigned the request to another agent.',
+    false
+);
+
         header('Location: ?page=requests&success=agent-reassigned');
         exit;
 

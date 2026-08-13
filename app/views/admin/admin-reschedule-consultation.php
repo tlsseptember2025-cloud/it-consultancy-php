@@ -1,6 +1,7 @@
 <?php
 
 require_once APP_PATH . '/helpers/DateHelper.php';
+require_once APP_PATH . '/helpers/RequestEventHelper.php';
 
 if (!isset($_SESSION['user'])) {
 
@@ -101,6 +102,22 @@ if (
         $adminInstruction,
         $consultation['id']
     ]);
+
+    /*
+|--------------------------------------------------------------------------
+| Record Consultation Reschedule Approval Event
+|--------------------------------------------------------------------------
+*/
+
+RequestEventHelper::addCurrentUser(
+    $pdo,
+    (int) $consultation['id'],
+    RequestEventHelper::EVENT_CONSULTATION_RESCHEDULE_APPROVED,
+    RequestEventHelper::TYPE_CONSULTATION,
+    'Consultation Reschedule Approved',
+    'The administrator approved the customer to schedule a new consultation appointment.',
+    false
+);
 
     header(
         'Location: ?page=needs-admin-review&success=The customer has been invited to schedule a new consultation.'

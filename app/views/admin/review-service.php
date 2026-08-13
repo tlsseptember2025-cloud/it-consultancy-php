@@ -1,5 +1,7 @@
 <?php
 
+require_once APP_PATH . '/helpers/RequestEventHelper.php';
+
 if (!isset($_SESSION['user'])) {
     header('Location: ?page=login');
     exit;
@@ -66,6 +68,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $notes,
         $id
     ]);
+
+    /*
+|--------------------------------------------------------------------------
+| Record Service Started Event
+|--------------------------------------------------------------------------
+*/
+
+RequestEventHelper::addCurrentUser(
+    $pdo,
+    (int) $id,
+    RequestEventHelper::EVENT_SERVICE_STARTED,
+    RequestEventHelper::TYPE_SERVICE,
+    'Service Started',
+    'The administrator approved the service appointment and the service is now active.',
+    true
+);
 
     header('Location: ?page=requests');
     exit;

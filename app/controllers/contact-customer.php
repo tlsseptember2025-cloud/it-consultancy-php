@@ -3,7 +3,7 @@
 require_once APP_PATH . '/helpers/contact_history_helper.php';
 require_once APP_PATH . '/helpers/DateHelper.php';
 require_once APP_PATH . '/helpers/consultation_helper.php';
-
+require_once APP_PATH . '/helpers/RequestEventHelper.php';
 
 if (!isset($_SESSION['agent'])) {
     header('Location: ?page=login');
@@ -134,12 +134,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     switch ($contactResult) {
 
-        /*
-        |--------------------------------------------------------------------------
-        | No Answer
-        |--------------------------------------------------------------------------
-        */
-
         case 'No Answer':
 
             // Customer could not be reached.
@@ -151,27 +145,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $reviewType = 'customer_contact';
 
-            break;
+            /*
+            |--------------------------------------------------------------------------
+            | Record No Answer Event
+            |--------------------------------------------------------------------------
+            */
 
+            RequestEventHelper::addCurrentUser(
+                $pdo,
+                (int) $request['id'],
+                RequestEventHelper::EVENT_NO_ANSWER,
+                RequestEventHelper::TYPE_CONTACT,
+                'No Answer',
+                'The assigned agent attempted to contact the customer, but there was no answer.',
+                false
+            );
 
-        /*
-        |--------------------------------------------------------------------------
-        | Wrong Number
-        |--------------------------------------------------------------------------
-        */
+            break;    
 
         case 'Wrong Number':
 
-            // Administrator must review the customer's contact information.
+    // Administrator must review the customer's contact information.
 
-            $workflowStage = 'Needs Admin Review';
+    $workflowStage = 'Needs Admin Review';
 
-            $jobStatus = 'In Progress';
+    $jobStatus = 'In Progress';
 
-            $reviewType = 'customer_contact';
+    $reviewType = 'customer_contact';
 
-            break;
+    /*
+    |--------------------------------------------------------------------------
+    | Record Wrong Number Event
+    |--------------------------------------------------------------------------
+    */
 
+    RequestEventHelper::addCurrentUser(
+        $pdo,
+        (int) $request['id'],
+        RequestEventHelper::EVENT_WRONG_NUMBER,
+        RequestEventHelper::TYPE_CONTACT,
+        'Wrong Number',
+        'The assigned agent attempted to contact the customer, but the telephone number was incorrect.',
+        false
+    );
+
+    break;
 
         /*
         |--------------------------------------------------------------------------
@@ -236,6 +254,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             break;
     }
 
+   /*
+|--------------------------------------------------------------------------
+| Record Customer Answered Event
+|--------------------------------------------------------------------------
+*/
+
+if ($contactResult === 'Customer Answered') {
+
+    RequestEventHelper::addCurrentUser(
+        $pdo,
+        (int) $request['id'],
+        RequestEventHelper::EVENT_CUSTOMER_ANSWERED,
+        RequestEventHelper::TYPE_CONTACT,
+        'Customer Answered',
+        'The customer answered the contact attempt.',
+        false
+    );
+}
+
 
     /*
     |--------------------------------------------------------------------------
@@ -297,6 +334,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $contactResult,
         $agentNotes
     );
+
+    /*
+|--------------------------------------------------------------------------
+| Record Contact Attempt Event
+|--------------------------------------------------------------------------
+*/
+
+RequestEventHelper::addCurrentUser(
+    $pdo,
+    (int) $request['id'],
+    RequestEventHelper::EVENT_CONTACT_ATTEMPT,
+    RequestEventHelper::TYPE_CONTACT,
+    'Customer Contact Attempt',
+    'The assigned agent attempted to contact the customer.',
+    false
+);
 
 
     /*

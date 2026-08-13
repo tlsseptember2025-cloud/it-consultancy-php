@@ -8,6 +8,7 @@ if (!isset($_SESSION['customer'])) {
 
 require_once HELPER_PATH . '/auth.php';
 require_once HELPER_PATH . '/security.php';
+require_once APP_PATH . '/helpers/RequestEventHelper.php';
 
 $customerId = (int) $_SESSION['customer']['id'];
 
@@ -161,6 +162,22 @@ $stmt = $pdo->prepare("
 ");
 
 $stmt->execute([$requestId]);
+
+/*
+|--------------------------------------------------------------------------
+| Record Consultation Rescheduled Event
+|--------------------------------------------------------------------------
+*/
+
+RequestEventHelper::addCurrentUser(
+    $pdo,
+    $requestId,
+    RequestEventHelper::EVENT_CONSULTATION_RESCHEDULED,
+    RequestEventHelper::TYPE_CONSULTATION,
+    'Consultation Rescheduled',
+    'The customer successfully rescheduled the consultation appointment.',
+    true
+);
 
 header('Location: ?page=customer-requests');
 exit;
