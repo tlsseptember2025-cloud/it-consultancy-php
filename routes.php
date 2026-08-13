@@ -41,6 +41,10 @@ switch ($page) {
         require VIEW_PATH . '/public/home.php';
         break;
 
+    case 'demo':
+        require VIEW_PATH . '/public/demo.php';
+        break;
+
     case 'services':
         require VIEW_PATH . '/public/services.php';
         break;

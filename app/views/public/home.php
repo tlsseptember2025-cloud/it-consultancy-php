@@ -1,5 +1,5 @@
 <?php 
-require dirname(__DIR__) . '/layouts/header-public.php';
+
 require_once HELPER_PATH . '/email.php';
 
 if (
@@ -46,7 +46,25 @@ if (
         'Thank you for your interest! We will contact you shortly.';
 }
 
+require dirname(__DIR__) . '/layouts/header-public.php';
+
 ?>
+
+<?php if (!empty($success)): ?>
+
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+
+        <?= htmlspecialchars($success) ?>
+
+        <button
+            type="button"
+            class="btn-close"
+            data-bs-dismiss="alert">
+        </button>
+
+    </div>
+
+<?php endif; ?>
 
 <div class="p-5 mb-4 bg-light rounded-3">
 
@@ -62,7 +80,7 @@ if (
         </p>
 
         <a class="btn btn-primary btn-lg"
-           href="?page=services">
+           href="?page=demo">
 
             Explore Demo
 
@@ -72,151 +90,7 @@ if (
 
 </div>
 
-<?php if (isDemo()): ?>
 
-<div id="demo" class="card border-primary shadow-sm mb-5">
-
-    <div class="card-body">
-
-        <h3 class="text-primary mb-3">
-            🖥 Welcome to the Demo Portal
-        </h3>
-
-        <p>
-            Explore the complete IT Consultancy Management System using the demo accounts below.
-        </p>
-
-        <div class="row">
-
-            <div class="col-md-6">
-
-                <div class="border rounded p-3 mb-3">
-
-                    <h5>🛠 Administrator Portal</h5>
-
-                    <p class="mb-1">
-
-                        <strong>Username:</strong> administrator
-
-                    </p>
-
-                    <p>
-
-                        <strong>Password:</strong> demo
-
-                    </p>
-
-                    <a
-                        href="?page=public-login"
-                        class="btn btn-primary">
-
-                        Admin Login
-
-                    </a>
-
-                </div>
-
-            </div>
-
-            <div class="col-md-6">
-
-                <div class="border rounded p-3 mb-3">
-
-                    <h5>👤 Customer Portal</h5>
-
-                    <p class="mb-1">
-
-                        <strong>Email:</strong>
-                        customer@demo.ramiphp.com
-
-                    </p>
-
-                    <p>
-
-                        <strong>Password:</strong> demo
-
-                    </p>
-
-                    <a
-                        href="?page=public-login"
-                        class="btn btn-success">
-
-                        Customer Login
-
-                    </a>
-
-                </div>
-
-            </div>
-
-        </div>
-
-        <hr>
-
-        <h5>What You Can Explore</h5>
-
-<div class="row">
-
-    <div class="col-md-6">
-
-        <ul class="list-unstyled">
-
-            <li>✅ Customer Registration</li>
-
-            <li>✅ Customer Dashboard</li>
-
-            <li>✅ Service Management</li>
-
-            <li>✅ Consultation Booking</li>
-
-        </ul>
-
-    </div>
-
-    <div class="col-md-6">
-
-        <ul class="list-unstyled">
-
-            <li>✅ Request Management</li>
-
-            <li>✅ Payments & Refunds</li>
-
-            <li>✅ Notifications</li>
-
-            <li>✅ Reports & Administration</li>
-
-        </ul>
-
-    </div>
-
-</div>
-        
-
-    <div class="alert alert-info mb-0">
-
-    <strong>Demo Information</strong>
-
-    <br><br>
-
-    This online demonstration includes most features of the
-    IT Consultancy Management System.
-
-    <br><br>
-
-    For security reasons, some actions such as deleting records,
-    sending live emails, and changing system settings are disabled.
-
-    <br><br>
-
-    Demo data may be refreshed periodically.
-
-</div>
-
-    </div>
-
-</div>
-
-<?php endif; ?>
 
 <div class="mt-5 mb-5">
 
@@ -469,16 +343,6 @@ $leadCount = $pdo->query("
 ")->fetchColumn();
 
 ?>
-
-<?php if (!empty($success)): ?>
-
-    <div class="alert alert-success">
-
-        <?= htmlspecialchars($success) ?>
-
-    </div>
-
-<?php endif; ?>
 
 <div class="card shadow-sm mt-5">
 
