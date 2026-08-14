@@ -278,7 +278,7 @@ RequestEventHelper::addCurrentUser(
     (int) $requestId,
     RequestEventHelper::EVENT_AGENT_REASSIGNED,
     RequestEventHelper::TYPE_REQUEST,
-    'Agent Reassigned',
+    RequestEventHelper::EVENT_AGENT_ASSIGNED,
     'The administrator reassigned the request to another agent.',
     false
 );

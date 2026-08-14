@@ -87,6 +87,127 @@ $requestEventDisplay = [
         'badge' => 'success'
     ],
 
+    EVENT_CUSTOMER_REQUESTED_NEW_CONSULTATION => [
+    'title' => 'Customer Requested New Consultation',
+    'icon' => '🔄',
+    'class' => 'bg-warning text-dark',
+],
+
+EVENT_CUSTOMER_REQUESTED_CLOSURE => [
+    'title' => 'Customer Requested Closure',
+    'icon' => '⚠️',
+    'class' => 'bg-warning text-dark',
+],
+
+EVENT_CUSTOMER_REQUESTED_RESCHEDULE => [
+    'title' => 'Customer Requested Reschedule',
+    'icon' => '🔄',
+    'class' => 'bg-warning text-dark',
+],
+
+EVENT_CUSTOMER_REQUESTED_CANCELLATION => [
+    'title' => 'Customer Requested Cancellation',
+    'icon' => '⚠️',
+    'class' => 'bg-warning text-dark',
+],
+
+EVENT_CUSTOMER_CONTINUED_CONSULTATION => [
+    'title' => 'Customer Continued Consultation',
+    'icon' => '▶️',
+    'class' => 'bg-success text-white',
+],
+
+EVENT_CONSULTATION_INCOMPLETE => [
+    'title' => 'Consultation Incomplete',
+    'icon' => '⚠️',
+    'class' => 'bg-warning text-dark',
+],
+
+EVENT_NO_ANSWER => [
+    'title' => 'No Answer',
+    'icon' => '📞',
+    'class' => 'bg-warning text-dark',
+],
+
+EVENT_WRONG_NUMBER => [
+    'title' => 'Wrong Number',
+    'icon' => '📞',
+    'class' => 'bg-warning text-dark',
+],
+
+EVENT_CONSULTATION_CLOSED => [
+    'title' => 'Consultation Closed',
+    'icon' => '🔒',
+    'class' => 'bg-secondary text-white',
+],
+
+EVENT_CONSULTATION_RESCHEDULE_APPROVED => [
+    'title' => 'Consultation Reschedule Approved',
+    'icon' => '🔄',
+    'class' => 'bg-info text-white',
+],
+
+EVENT_CUSTOMER_RESPONSE_RECORDED => [
+    'title' => 'Customer Response Recorded',
+    'icon' => '📝',
+    'class' => 'bg-info text-white',
+],
+
+EVENT_CONSULTATION_CONFIRMED => [
+    'title' => 'Consultation Confirmed',
+    'icon' => '✅',
+    'class' => 'bg-success text-white',
+],
+
+EVENT_CONTACT_ATTEMPT => [
+    'title' => 'Customer Contact Attempt',
+    'icon' => '📞',
+    'class' => 'bg-info text-white',
+],
+
+EVENT_REQUEST_CREATED => [
+    'title' => 'Request Created',
+    'icon' => '📝',
+    'class' => 'bg-primary text-white',
+],
+
+EVENT_AGENT_ASSIGNED => [
+    'title' => 'Agent Assigned',
+    'icon' => '👤',
+    'class' => 'bg-info text-white',
+],
+
+EVENT_AGENT_REASSIGNED => [
+    'title' => 'Agent Reassigned',
+    'icon' => '🔄',
+    'class' => 'bg-info text-white',
+],
+
+EVENT_PAYMENT_RECEIVED => [
+    'title' => 'Payment Received',
+    'icon' => '💰',
+    'class' => 'bg-success text-white',
+],
+
+EVENT_CUSTOMER_ANSWERED => [
+    'title' => 'Customer Answered',
+    'icon' => '💬',
+    'class' => 'bg-success text-white',
+],
+
+EVENT_CUSTOMER_CLOSURE_AGREEMENT_SUBMITTED => [
+    'title' => 'Closure Agreement Submitted',
+    'icon' => '📄',
+    'class' => 'bg-info text-white',
+],
+
+EVENT_CLOSURE_REQUEST_CONFIRMED => [
+    'title' => 'Closure Request Confirmed',
+    'icon' => '🔒',
+    'class' => 'bg-secondary text-white',
+],
+
+
 
     /*
     |--------------------------------------------------------------------------

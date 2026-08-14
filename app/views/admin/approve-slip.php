@@ -138,7 +138,7 @@ $stmt->execute([
 RequestEventHelper::addCurrentUser(
     $pdo,
     $requestId,
-    'PAYMENT_APPROVED',
+    RequestEventHelper::EVENT_PAYMENT_APPROVED,
     RequestEventHelper::TYPE_PAYMENT,
     'Payment Approved',
     'The administrator approved the customer payment receipt.',

@@ -122,46 +122,46 @@ if (isset($_POST['save_customer_response'])) {
         $consultation['id']
     ]);
 
-addContactHistory(
+    addContactHistory(
 
-    $pdo,
+        $pdo,
 
-    $consultation['id'],
+        $consultation['id'],
 
-    null,
+        null,
 
-    $adminId,
+        $adminId,
 
-    'admin',
+        'admin',
 
-    RequestEventHelper::EVENT_CUSTOMER_RESPONSE_RECORDED,
+        RequestEventHelper::EVENT_CUSTOMER_RESPONSE_RECORDED,
 
-    'Customer responded via ' . $responseMethod .
-    '. Decision: Customer Requested Cancellation. ' .
-    'Administrator Notes: ' . $responseNotes
+        'Customer responded via ' . $responseMethod .
+        '. Decision: Customer Requested Cancellation. ' .
+        'Administrator Notes: ' . $responseNotes
 
-);
+    );
 
-RequestEventHelper::add(
+    RequestEventHelper::add(
 
-    $pdo,
+        $pdo,
 
-    $consultation['id'],
+        $consultation['id'],
 
-    'CUSTOMER_RESPONSE_RECORDED',
+        'CUSTOMER_RESPONSE_RECORDED',
 
-    RequestEventHelper::TYPE_CONTACT,
+        RequestEventHelper::TYPE_CONTACT,
 
-    $eventTitle,
+        $eventTitle,
 
-    $responseNotes,
+        $responseNotes,
 
-    RequestEventHelper::SOURCE_ADMINISTRATOR,
+        RequestEventHelper::SOURCE_ADMINISTRATOR,
 
-    $adminId,
-    true
+        $adminId,
+        true
 
-);
+    );
 
     header('Location: ?page=awaiting-customer-response&success=response-recorded');
     exit;
@@ -200,7 +200,7 @@ if (isset($_POST['continue_consultation'])) {
 
             'admin',
 
-            RequestEventHelper::EVENT_CONSULTATION_CONFIRMED,
+            RequestEventHelper::EVENT_CONSULTATION_RESCHEDULE_APPROVED,
 
             'Administrator approved continuation of the consultation. '
             . 'The previous consultation had expired. '
@@ -214,7 +214,7 @@ if (isset($_POST['continue_consultation'])) {
 
             $requestId,
 
-            RequestEventHelper::EVENT_CONSULTATION_CONFIRMED,
+            RequestEventHelper::EVENT_CONSULTATION_RESCHEDULE_APPROVED,
 
             RequestEventHelper::TYPE_CONSULTATION,
 
@@ -256,7 +256,7 @@ if (isset($_POST['continue_consultation'])) {
 
             'admin',
 
-            RequestEventHelper::EVENT_CONSULTATION_CONFIRMED,
+            RequestEventHelper::EVENT_CUSTOMER_CONTINUED_CURRENT_APPOINTMENT,
 
             'Administrator approved continuation of the consultation.'
 
@@ -268,7 +268,7 @@ if (isset($_POST['continue_consultation'])) {
 
             $requestId,
 
-            RequestEventHelper::EVENT_CONSULTATION_CONFIRMED,
+            RequestEventHelper::EVENT_CUSTOMER_CONTINUED_CURRENT_APPOINTMENT,
 
             RequestEventHelper::TYPE_CONSULTATION,
 

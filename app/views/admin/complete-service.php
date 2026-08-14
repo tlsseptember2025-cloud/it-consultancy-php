@@ -46,7 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 RequestEventHelper::addCurrentUser(
     $pdo,
     (int) $id,
-    'SERVICE_COMPLETED',
+    RequestEventHelper::EVENT_SERVICE_COMPLETED,
     RequestEventHelper::TYPE_SERVICE,
     'Service Completed',
     'The service has been completed successfully.',

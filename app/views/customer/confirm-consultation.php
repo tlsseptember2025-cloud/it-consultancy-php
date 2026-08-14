@@ -179,7 +179,7 @@ $stmt->execute([
 RequestEventHelper::addCurrentUser(
     $pdo,
     $requestId,
-    'CONSULTATION_SCHEDULED',
+    RequestEventHelper::EVENT_CONSULTATION_SCHEDULED,
     RequestEventHelper::TYPE_CONSULTATION,
     'Consultation Scheduled',
     'The customer scheduled a consultation appointment.',

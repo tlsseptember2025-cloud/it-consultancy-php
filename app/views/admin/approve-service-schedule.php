@@ -36,7 +36,7 @@ $stmt->execute([$id]);
 RequestEventHelper::addCurrentUser(
     $pdo,
     $id,
-    'SERVICE_SCHEDULED',
+    RequestEventHelper::EVENT_SERVICE_SCHEDULED,
     RequestEventHelper::TYPE_SERVICE,
     'Service Scheduled',
     'The administrator approved and confirmed the service appointment.',
