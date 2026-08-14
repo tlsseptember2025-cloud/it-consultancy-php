@@ -222,25 +222,108 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    elseif (isset($_POST['start_consultation'])) {
+    elseif (
+    isset($_POST['action'])
+    && $_POST['action'] === 'start'
+) {
 
-        $update = $pdo->prepare("
-            UPDATE requests
-            SET job_status = 'In Progress'
-            WHERE id = ?
-        ");
+    /*
+    |--------------------------------------------------------------------------
+    | Verify Consultation Start Window
+    |--------------------------------------------------------------------------
+    */
 
-        $update->execute([$requestId]);
+    if ($consultation['job_status'] !== 'Pending') {
 
-        header("Location: ?page=view-consultation&id=" . $requestId);
-        exit;
+        die('This consultation cannot be started from its current status.');
     }
+
+    $consultationStart = new DateTimeImmutable(
+        $consultation['slot_date'] . ' ' . $consultation['slot_time'],
+        new DateTimeZone('Asia/Dubai')
+    );
+
+    $consultationEnd = $consultationStart->modify('+1 hour');
+
+    $now = new DateTimeImmutable(
+        'now',
+        new DateTimeZone('Asia/Dubai')
+    );
+
+    if ($now < $consultationStart) {
+
+        die('This consultation has not started yet.');
+
+    }
+
+    if ($now >= $consultationEnd) {
+
+        die('The consultation start window has expired.');
+
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Start Consultation
+    |--------------------------------------------------------------------------
+    */
+
+    $update = $pdo->prepare("
+        UPDATE requests
+        SET job_status = 'In Progress'
+        WHERE id = ?
+    ");
+
+    $update->execute([$requestId]);
+
+    header("Location: ?page=view-consultation&id=" . $requestId);
+    exit;
+}
 
 }
 
 if (!$consultation) {
 
     die('Consultation not found.');
+}
+
+/*
+|--------------------------------------------------------------------------
+| Consultation Time Window
+|--------------------------------------------------------------------------
+| The 1-hour consultation window applies only while
+| the consultation is still Pending.
+|--------------------------------------------------------------------------
+*/
+
+$consultationTimeStatus = 'not_applicable';
+
+if ($consultation['job_status'] === 'Pending') {
+
+    $consultationStart = new DateTimeImmutable(
+        $consultation['slot_date'] . ' ' . $consultation['slot_time'],
+        new DateTimeZone('Asia/Dubai')
+    );
+
+    $consultationEnd = $consultationStart->modify('+1 hour');
+
+    $now = new DateTimeImmutable(
+        'now',
+        new DateTimeZone('Asia/Dubai')
+    );
+
+    if ($now < $consultationStart) {
+
+        $consultationTimeStatus = 'future';
+
+    } elseif ($now < $consultationEnd) {
+
+        $consultationTimeStatus = 'active';
+
+    } else {
+
+        $consultationTimeStatus = 'expired';
+    }
 }
 
 $status = $consultation['job_status'];
@@ -695,18 +778,64 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
     <div>
 
-        <?php if ($consultation['job_status'] == 'Pending'): ?>
+        <?php if ($status === 'Pending'): ?>
+
+    <?php if ($consultationTimeStatus === 'active'): ?>
+
+        <form method="POST">
+
+            <input
+                type="hidden"
+                name="action"
+                value="start">
 
             <button
                 type="submit"
-                name="start_consultation"
-                class="btn btn-success">
+                class="btn btn-primary">
 
                 ▶ Start Consultation
 
             </button>
 
-        <?php endif; ?>
+        </form>
+
+    <?php elseif ($consultationTimeStatus === 'future'): ?>
+
+        <button
+            type="button"
+            class="btn btn-secondary"
+            disabled>
+
+            🔒 Start Consultation
+
+        </button>
+
+        <div class="text-muted small mt-2">
+
+            The consultation has not started yet.
+
+        </div>
+
+    <?php elseif ($consultationTimeStatus === 'expired'): ?>
+
+        <button
+            type="button"
+            class="btn btn-secondary"
+            disabled>
+
+            🔒 Start Consultation
+
+        </button>
+
+        <div class="text-danger small mt-2">
+
+            This consultation time has expired.
+
+        </div>
+
+    <?php endif; ?>
+
+<?php endif; ?>
 
 
         <?php if (
