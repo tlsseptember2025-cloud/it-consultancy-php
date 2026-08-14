@@ -97,6 +97,22 @@ $stmt->execute([
 
 /*
 |--------------------------------------------------------------------------
+| Record Payment Received Event
+|--------------------------------------------------------------------------
+*/
+
+RequestEventHelper::addCurrentUser(
+    $pdo,
+    $requestId,
+    RequestEventHelper::EVENT_PAYMENT_RECEIVED,
+    RequestEventHelper::TYPE_PAYMENT,
+    'Payment Received',
+    'The customer payment was received and approved by the administrator.',
+    true
+);
+
+/*
+|--------------------------------------------------------------------------
 | Update Request Workflow
 |--------------------------------------------------------------------------
 */

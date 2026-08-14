@@ -8,6 +8,7 @@ if (!isset($_SESSION['customer'])) {
 
 require_once HELPER_PATH . '/email.php';
 require_once HELPER_PATH . '/security.php';
+require_once APP_PATH . '/helpers/RequestEventHelper.php';
 
 $requestId = $_GET['request_id'] ?? 0;
 $slotId = $_GET['slot_id'] ?? 0;
@@ -89,6 +90,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ");
 
         $stmt->execute([$requestId]);
+
+        /*
+|--------------------------------------------------------------------------
+| Record Service Scheduled Event
+|--------------------------------------------------------------------------
+*/
+
+RequestEventHelper::addCurrentUser(
+    $pdo,
+    (int) $requestId,
+    RequestEventHelper::EVENT_SERVICE_SCHEDULED,
+    RequestEventHelper::TYPE_SERVICE,
+    'Service Scheduled',
+    'The customer successfully scheduled the service appointment.',
+    true
+);
 
         $stmt = $pdo->prepare("
         SELECT
