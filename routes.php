@@ -553,6 +553,10 @@ switch ($page) {
         require VIEW_PATH . '/agent/cannot-complete-consultation.php';
         break;
 
+    case 'explain-missed-consultation':
+        require VIEW_PATH . '/agent/explain-missed-consultation.php';
+        break;
+
     /*
     |--------------------------------------------------------------------------
     | Service Scheduling
