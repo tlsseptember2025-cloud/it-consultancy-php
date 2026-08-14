@@ -15,6 +15,8 @@
  */
 define('APP_MODE', 'demo');
 
+date_default_timezone_set('Asia/Dubai');
+
 /*
 |--------------------------------------------------------------------------
 | Company Configuration
