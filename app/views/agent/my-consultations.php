@@ -48,7 +48,8 @@ $stmt = $pdo->prepare("
     cb.agent_id = ?
     AND r.workflow_stage IN (
         'Consultation Confirmed',
-        'Customer Contact'
+        'Customer Contact',
+        'Missed Consultation'
     )
 
     ORDER BY
@@ -102,7 +103,7 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
                             <th>Job Status</th>
 
-                            <th width="200">Action</th>
+                            <th style="width:260px;">Action</th>
 
                         </tr>
 
@@ -172,22 +173,35 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
         <?php if ($consultation['workflow_stage'] === 'Customer Contact'): ?>
 
-            <a href="?page=contact-customer&request_id=<?= $consultation['request_id'] ?>"
-            class="btn btn-primary btn-sm">
-                Contact Customer
-            </a>
+    <a href="?page=contact-customer&request_id=<?= $consultation['request_id'] ?>"
+       class="btn btn-primary btn-sm">
 
-        <?php elseif ($consultation['workflow_stage'] === 'Consultation Confirmed'): ?>
+        Contact Customer
 
-            <a href="?page=view-consultation&id=<?= $consultation['request_id'] ?>"
-   class="btn btn-success btn-sm">
+    </a>
 
-    View Consultation
+<?php elseif ($consultation['workflow_stage'] === 'Missed Consultation'): ?>
+
+    <a
+    href="?page=explain-missed-consultation&id=<?= $consultation['request_id'] ?>"
+    class="btn btn-danger btn-sm text-nowrap">
+
+    Explain Missed Consultation
 
 </a>
 
-        <?php endif; ?>
+<?php elseif ($consultation['workflow_stage'] === 'Consultation Confirmed'): ?>
 
+    <a
+        href="?page=view-consultation&id=<?= $consultation['request_id'] ?>"
+        class="btn btn-success btn-sm">
+
+        View Consultation
+
+    </a>
+
+<?php endif; ?>
+        
     </td>
 
 </tr>

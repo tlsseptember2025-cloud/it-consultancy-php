@@ -82,7 +82,13 @@ $currentConsultation = strtotime(
     $request['slot_date'] . ' ' . $request['slot_time']
 );
 
+$isMissedConsultation = (
+    $request['workflow_stage'] === 'Missed Consultation'
+);
+
 if (
+    !$isMissedConsultation
+    &&
     $request['admin_instruction'] !== '__RESCHEDULE_ALLOWED__'
     &&
     time() >= ($currentConsultation - (24 * 60 * 60))

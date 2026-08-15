@@ -6,69 +6,206 @@ if (!isset($_SESSION['agent'])) {
     exit;
 }
 
-
 require_once CONFIG_PATH . '/database.php';
 
-$agentId = $_SESSION['agent']['id'];
+$agentId = (int) $_SESSION['agent']['id'];
 
-$totalConsultations = $pdo->prepare("
+/*
+|--------------------------------------------------------------------------
+| CONSULTATIONS
+|--------------------------------------------------------------------------
+*/
+
+/*
+|--------------------------------------------------------------------------
+| Assigned Consultations
+|--------------------------------------------------------------------------
+|
+| Includes consultations still assigned to the agent, including
+| missed consultations.
+|
+*/
+
+$stmt = $pdo->prepare("
     SELECT COUNT(*)
     FROM consultation_bookings cb
+
     INNER JOIN requests r
         ON r.id = cb.request_id
-    WHERE cb.agent_id = ?
-      AND r.workflow_stage = 'Consultation Confirmed'
+
+    WHERE
+        cb.agent_id = ?
+
+        AND r.workflow_stage IN (
+            'Consultation Confirmed',
+            'Customer Contact',
+            'Missed Consultation'
+        )
 ");
 
-$totalConsultations->execute([$agentId]);
+$stmt->execute([$agentId]);
 
-$totalConsultations = $totalConsultations->fetchColumn();
+$assignedConsultations = (int) $stmt->fetchColumn();
 
-$totalServices = $pdo->prepare("
+
+/*
+|--------------------------------------------------------------------------
+| Completed Consultations
+|--------------------------------------------------------------------------
+*/
+
+$stmt = $pdo->prepare("
     SELECT COUNT(*)
-    FROM requests
-    WHERE agent_id = ?
-      AND workflow_stage = 'Consultation Completed'
+    FROM consultation_bookings cb
+
+    INNER JOIN requests r
+        ON r.id = cb.request_id
+
+    WHERE
+        cb.agent_id = ?
+        AND r.workflow_stage = 'Consultation Completed'
 ");
 
-$totalServices->execute([$agentId]);
+$stmt->execute([$agentId]);
 
-$totalServices = $totalServices->fetchColumn();
+$completedConsultations = (int) $stmt->fetchColumn();
 
-$jobsInProgress = $pdo->prepare("
+
+/*
+|--------------------------------------------------------------------------
+| Missed Consultations
+|--------------------------------------------------------------------------
+*/
+
+$stmt = $pdo->prepare("
     SELECT COUNT(*)
-    FROM requests
-    WHERE agent_id = ?
-    AND job_status = 'In Progress'
+    FROM consultation_bookings cb
+
+    INNER JOIN requests r
+        ON r.id = cb.request_id
+
+    WHERE
+        cb.agent_id = ?
+        AND r.workflow_stage = 'Missed Consultation'
 ");
 
-$jobsInProgress->execute([$agentId]);
+$stmt->execute([$agentId]);
 
-$jobsInProgress = $jobsInProgress->fetchColumn();
+$missedConsultations = (int) $stmt->fetchColumn();
 
-$completedServices = $pdo->prepare("
-    SELECT COUNT(*)
-    FROM requests
-    WHERE agent_id = ?
-    AND job_status = 'Completed'
+
+/*
+|--------------------------------------------------------------------------
+| Last 3 Completed Consultations
+|--------------------------------------------------------------------------
+*/
+
+$stmt = $pdo->prepare("
+    SELECT
+        r.id AS request_id,
+        c.name AS customer_name,
+        s.title AS service_name,
+        cs.slot_date,
+        cs.slot_time
+
+    FROM consultation_bookings cb
+
+    INNER JOIN requests r
+        ON r.id = cb.request_id
+
+    INNER JOIN customers c
+        ON c.id = r.customer_id
+
+    INNER JOIN services s
+        ON s.id = r.service_id
+
+    INNER JOIN consultation_slots cs
+        ON cs.id = cb.slot_id
+
+    WHERE
+        cb.agent_id = ?
+        AND r.workflow_stage = 'Consultation Completed'
+
+    ORDER BY
+        r.completed_at DESC,
+        r.id DESC
+
+    LIMIT 3
 ");
 
-$completedServices->execute([$agentId]);
+$stmt->execute([$agentId]);
 
-$completedServices = $completedServices->fetchColumn();
+$recentCompletedConsultations = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 
-$totalNotifications = $pdo->prepare("
-    SELECT COUNT(*)
-    FROM notifications
-    WHERE recipient_type = 'agent'
-    AND recipient_id = ?
-    AND is_read = 0
+/*
+|--------------------------------------------------------------------------
+| Last 3 Missed Consultations
+|--------------------------------------------------------------------------
+*/
+
+$stmt = $pdo->prepare("
+    SELECT
+        r.id AS request_id,
+        c.name AS customer_name,
+        s.title AS service_name,
+        cs.slot_date,
+        cs.slot_time
+
+    FROM consultation_bookings cb
+
+    INNER JOIN requests r
+        ON r.id = cb.request_id
+
+    INNER JOIN customers c
+        ON c.id = r.customer_id
+
+    INNER JOIN services s
+        ON s.id = r.service_id
+
+    INNER JOIN consultation_slots cs
+        ON cs.id = cb.slot_id
+
+    WHERE
+        cb.agent_id = ?
+        AND r.workflow_stage = 'Missed Consultation'
+
+    ORDER BY
+        cs.slot_date DESC,
+        cs.slot_time DESC,
+        r.id DESC
+
+    LIMIT 3
 ");
 
-$totalNotifications->execute([$agentId]);
+$stmt->execute([$agentId]);
 
-$totalNotifications = $totalNotifications->fetchColumn();
+$recentMissedConsultations = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+
+/*
+|--------------------------------------------------------------------------
+| SERVICE JOBS
+|--------------------------------------------------------------------------
+|
+| Service Jobs have not yet been implemented for Agents.
+| Keep these at zero until the Service Jobs workflow is built.
+|
+*/
+
+$assignedServiceJobs = 0;
+$completedServiceJobs = 0;
+$missedServiceJobs = 0;
+
+$recentCompletedServiceJobs = [];
+$recentMissedServiceJobs = [];
+
+
+/*
+|--------------------------------------------------------------------------
+| Header
+|--------------------------------------------------------------------------
+*/
 
 require VIEW_PATH . '/layouts/header-agent.php';
 
@@ -76,64 +213,276 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
 <div class="container py-4">
 
-    <h2 class="mb-2">
-        Welcome,
-        <?= htmlspecialchars($_SESSION['agent']['name']) ?>
-    </h2>
+    <!--
+    |--------------------------------------------------------------------------
+    | Welcome
+    |--------------------------------------------------------------------------
+    -->
 
-    <p class="text-muted mb-1">
-        Position:
-        <?= htmlspecialchars($_SESSION['agent']['position']) ?>
-    </p>
+    <div class="mb-4">
 
-    <p class="text-success mb-4">
-        Status:
-        <?= htmlspecialchars($_SESSION['agent']['status']) ?>
-    </p>
+        <h2 class="mb-2">
+
+            Welcome,
+            <?= htmlspecialchars($_SESSION['agent']['name']) ?>
+
+        </h2>
+
+        <p class="text-muted mb-1">
+
+            Position:
+            <?= htmlspecialchars($_SESSION['agent']['position']) ?>
+
+        </p>
+
+        <p class="text-success mb-0">
+
+            Status:
+            <?= htmlspecialchars($_SESSION['agent']['status']) ?>
+
+        </p>
+
+    </div>
+
+
+    <!--
+    |--------------------------------------------------------------------------
+    | CONSULTATIONS
+    |--------------------------------------------------------------------------
+    -->
+
+    <h4 class="mb-3">
+
+        Consultations
+
+    </h4>
+
+    <div class="row g-4 mb-5">
+
+
+        <!-- Assigned Consultations -->
+
+        <div class="col-md-4">
+
+            <div class="card border-primary shadow-sm h-100">
+
+                <div class="card-body">
+
+                    <h5 class="text-primary">
+
+                        Assigned Consultations
+
+                    </h5>
+
+                    <div class="display-5 fw-bold mb-3">
+
+                        <?= $assignedConsultations ?>
+
+                    </div>
+
+                    <p class="text-muted mb-0">
+
+                        Current consultations assigned to you.
+
+                    </p>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- Completed Consultations -->
+
+        <div class="col-md-4">
+
+            <div class="card border-success shadow-sm h-100">
+
+                <div class="card-body">
+
+                    <h5 class="text-success">
+
+                        Completed Consultations
+
+                    </h5>
+
+                    <div class="display-5 fw-bold mb-3">
+
+                        <?= $completedConsultations ?>
+
+                    </div>
+
+
+                    <?php if (empty($recentCompletedConsultations)): ?>
+
+                        <p class="text-muted mb-0">
+
+                            No completed consultations yet.
+
+                        </p>
+
+                    <?php else: ?>
+
+                        <div class="list-group list-group-flush">
+
+                            <?php foreach ($recentCompletedConsultations as $consultation): ?>
+
+                                <a
+                                    href="?page=view-consultation&id=<?= (int) $consultation['request_id'] ?>"
+                                    class="list-group-item list-group-item-action px-0">
+
+                                    <div class="fw-semibold">
+
+                                        #<?= (int) $consultation['request_id'] ?>
+
+                                        —
+
+                                        <?= htmlspecialchars($consultation['customer_name']) ?>
+
+                                    </div>
+
+                                    <small class="text-muted">
+
+                                        <?= htmlspecialchars($consultation['service_name']) ?>
+
+                                        ·
+
+                                        <?= htmlspecialchars($consultation['slot_date']) ?>
+
+                                    </small>
+
+                                </a>
+
+                            <?php endforeach; ?>
+
+                        </div>
+
+                    <?php endif; ?>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- Missed Consultations -->
+
+        <div class="col-md-4">
+
+            <div class="card border-danger shadow-sm h-100">
+
+                <div class="card-body">
+
+                    <h5 class="text-danger">
+
+                        Missed Consultations
+
+                    </h5>
+
+                    <div class="display-5 fw-bold mb-3">
+
+                        <?= $missedConsultations ?>
+
+                    </div>
+
+
+                    <?php if (empty($recentMissedConsultations)): ?>
+
+                        <p class="text-muted mb-0">
+
+                            No missed consultations.
+
+                        </p>
+
+                    <?php else: ?>
+
+                        <div class="list-group list-group-flush">
+
+                            <?php foreach ($recentMissedConsultations as $consultation): ?>
+
+                                <a
+                                    href="?page=explain-missed-consultation&id=<?= (int) $consultation['request_id'] ?>"
+                                    class="list-group-item list-group-item-action px-0">
+
+                                    <div class="fw-semibold">
+
+                                        #<?= (int) $consultation['request_id'] ?>
+
+                                        —
+
+                                        <?= htmlspecialchars($consultation['customer_name']) ?>
+
+                                    </div>
+
+                                    <small class="text-muted">
+
+                                        <?= htmlspecialchars($consultation['service_name']) ?>
+
+                                        ·
+
+                                        <?= htmlspecialchars($consultation['slot_date']) ?>
+
+                                    </small>
+
+                                </a>
+
+                            <?php endforeach; ?>
+
+                        </div>
+
+                    <?php endif; ?>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!--
+    |--------------------------------------------------------------------------
+    | SERVICE JOBS
+    |--------------------------------------------------------------------------
+    -->
+
+    <h4 class="mb-3">
+
+        Service Jobs
+
+    </h4>
 
     <div class="row g-4">
 
-        <div class="col-md-3">
 
-            <div class="card border-primary shadow-sm">
+        <!-- Assigned Service Jobs -->
 
-                <div class="card-body text-center">
+        <div class="col-md-4">
 
-                    <h5>Assigned Consultations</h5>
+            <div class="card border-primary shadow-sm h-100">
 
-                    <h2><?= $totalConsultations ?></h2>
+                <div class="card-body">
 
-                </div>
+                    <h5 class="text-primary">
 
-            </div>
+                        Assigned Service Jobs
 
-        </div>
+                    </h5>
 
-        <div class="col-md-3">
+                    <div class="display-5 fw-bold mb-3">
 
-            <div class="card border-info shadow-sm">
+                        <?= $assignedServiceJobs ?>
 
-                <div class="card-body text-center">
+                    </div>
 
-                    <h5>Assigned Service Jobs</h5>
+                    <p class="text-muted mb-0">
 
-                    <h2><?= $totalServices ?></h2>
+                        Service Jobs will appear here once the Agent Service Jobs workflow is implemented.
 
-                </div>
-
-            </div>
-
-        </div>
-
-        <div class="col-md-3">
-
-            <div class="card border-success shadow-sm">
-
-                <div class="card-body text-center">
-
-                    <h5>Completed Jobs</h5>
-
-                    <h2><?= $completedServices ?></h2>
+                    </p>
 
                 </div>
 
@@ -141,15 +490,75 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
         </div>
 
-        <div class="col-md-3">
 
-            <div class="card border-warning shadow-sm">
+        <!-- Completed Service Jobs -->
 
-                <div class="card-body text-center">
+        <div class="col-md-4">
 
-                    <h5>Notifications</h5>
+            <div class="card border-success shadow-sm h-100">
 
-                    <h2><?= $totalNotifications ?></h2>
+                <div class="card-body">
+
+                    <h5 class="text-success">
+
+                        Completed Assigned Jobs
+
+                    </h5>
+
+                    <div class="display-5 fw-bold mb-3">
+
+                        <?= $completedServiceJobs ?>
+
+                    </div>
+
+
+                    <?php if (empty($recentCompletedServiceJobs)): ?>
+
+                        <p class="text-muted mb-0">
+
+                            No completed service jobs yet.
+
+                        </p>
+
+                    <?php endif; ?>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- Missed Service Jobs -->
+
+        <div class="col-md-4">
+
+            <div class="card border-danger shadow-sm h-100">
+
+                <div class="card-body">
+
+                    <h5 class="text-danger">
+
+                        Missed Service Jobs
+
+                    </h5>
+
+                    <div class="display-5 fw-bold mb-3">
+
+                        <?= $missedServiceJobs ?>
+
+                    </div>
+
+
+                    <?php if (empty($recentMissedServiceJobs)): ?>
+
+                        <p class="text-muted mb-0">
+
+                            No missed service jobs.
+
+                        </p>
+
+                    <?php endif; ?>
 
                 </div>
 

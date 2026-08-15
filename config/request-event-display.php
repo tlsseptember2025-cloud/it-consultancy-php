@@ -207,6 +207,11 @@ EVENT_CLOSURE_REQUEST_CONFIRMED => [
     'class' => 'bg-secondary text-white',
 ],
 
+EVENT_MISSED_CONSULTATION_EXPLAINED => [
+    'title' => 'Missed Consultation Explained',
+    'icon' => '📝',
+    'class' => 'bg-warning text-dark',
+],
 
 
     /*
