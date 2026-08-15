@@ -24,6 +24,8 @@ $stmt = $pdo->prepare("
 
         cs.slot_date,
         cs.slot_time,
+        pending_cs.slot_date AS pending_slot_date,
+        pending_cs.slot_time AS pending_slot_time,
         cs.consultation_method,
         ss.service_date,
         ss.service_time
@@ -38,6 +40,9 @@ $stmt = $pdo->prepare("
 
     LEFT JOIN consultation_slots cs
         ON cs.id = cb.slot_id
+
+    LEFT JOIN consultation_slots pending_cs
+        ON pending_cs.id = r.pending_reschedule_slot_id
 
     LEFT JOIN service_bookings sb
         ON sb.request_id = r.id
@@ -379,6 +384,46 @@ elseif (
     </a>
 
 <?php endif; ?>
+
+<?php elseif (
+    $request['workflow_stage'] === 'Awaiting Reschedule Approval'
+): ?>
+
+    <div>
+
+        <?php if (
+            !empty($request['pending_slot_date']) &&
+            !empty($request['pending_slot_time'])
+        ): ?>
+
+            <span class="badge bg-warning text-dark">
+
+                <?= date(
+                    'M d, Y',
+                    strtotime($request['pending_slot_date'])
+                ) ?>
+
+                @
+
+                <?= formatTime(
+                    $request['pending_slot_time']
+                ) ?>
+
+            </span>
+
+            <div class="small text-muted mt-2">
+                Waiting for administrator approval.
+            </div>
+
+        <?php else: ?>
+
+            <span class="badge bg-warning text-dark">
+                Awaiting Administrator Approval
+            </span>
+
+        <?php endif; ?>
+
+    </div>
 
 
 <?php elseif ($request['workflow_stage'] === 'Consultation Rejected'): ?>

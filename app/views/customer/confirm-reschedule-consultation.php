@@ -48,17 +48,7 @@ if (!$current) {
 
 // Unlimited reschedules when approved by the administrator
 $isAdminReschedule = (
-    $current['workflow_stage'] === 'Needs Admin Review'
-    &&
-    (
-        $current['admin_instruction'] === '__RESCHEDULE_ALLOWED__'
-        ||
-        (
-            $current['admin_instruction'] !== null
-            &&
-            trim($current['admin_instruction']) !== ''
-        )
-    )
+    $current['admin_instruction'] === '__RESCHEDULE_ALLOWED__'
 );
 
 // Normal customer reschedule: only one allowed

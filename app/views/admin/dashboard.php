@@ -122,6 +122,29 @@ $needsAdminReview = $pdo->query("
 
 /*
 |--------------------------------------------------------------------------
+| Awaiting Reschedule Approval
+|--------------------------------------------------------------------------
+*/
+
+$awaitingRescheduleApproval = $pdo->query("
+    SELECT
+        r.id,
+        r.pending_reschedule_requested_at,
+        c.name AS customer_name,
+        s.title AS service_title
+    FROM requests r
+    JOIN customers c
+        ON c.id = r.customer_id
+    JOIN services s
+        ON s.id = r.service_id
+    WHERE r.workflow_stage = 'Awaiting Reschedule Approval'
+      AND r.pending_reschedule_slot_id IS NOT NULL
+    ORDER BY r.pending_reschedule_requested_at ASC
+    LIMIT 3
+")->fetchAll(PDO::FETCH_ASSOC);
+
+/*
+|--------------------------------------------------------------------------
 | Agent Assignment Needed
 |--------------------------------------------------------------------------
 */
@@ -433,6 +456,69 @@ $messagesNeedingAttention = $pdo->query("
                         </div>
 
                     </div>
+
+
+                    <!-- Awaiting Reschedule Approval -->
+<div class="col-lg-6">
+
+    <div class="card shadow-sm border-warning h-100">
+
+        <div class="card-header bg-warning text-dark">
+            <strong>🔄 Awaiting Reschedule Approval</strong>
+        </div>
+
+        <div class="card-body p-0">
+
+            <?php if (empty($awaitingRescheduleApproval)): ?>
+
+                <div class="p-4 text-muted text-center">
+                    No consultation reschedules are awaiting approval.
+                </div>
+
+            <?php else: ?>
+
+                <?php foreach ($awaitingRescheduleApproval as $item): ?>
+
+                    <a
+                        href="?page=review-reschedule-consultation&id=<?= (int)$item['id'] ?>"
+                        class="text-decoration-none text-dark d-block"
+                    >
+
+                        <div class="p-3 border-bottom dashboard-action-item">
+
+                            <div class="fw-bold">
+                                Request #<?= (int)$item['id'] ?>
+                            </div>
+
+                            <div>
+                                <?= htmlspecialchars($item['customer_name']) ?>
+                            </div>
+
+                            <div class="small text-muted">
+                                <?= htmlspecialchars($item['service_title']) ?>
+                            </div>
+
+                            <div class="mt-2">
+
+                                <span class="badge bg-warning text-dark">
+                                    Awaiting Approval
+                                </span>
+
+                            </div>
+
+                        </div>
+
+                    </a>
+
+                <?php endforeach; ?>
+
+            <?php endif; ?>
+
+        </div>
+
+    </div>
+
+</div>
 
 
                         <!-- Agent Assignment Needed -->

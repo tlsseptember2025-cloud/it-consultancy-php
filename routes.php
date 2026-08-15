@@ -126,6 +126,10 @@ switch ($page) {
         header('Location: ?page=public-login');
         exit;
 
+    case 'review-reschedule-consultation':
+        require VIEW_PATH . '/admin/review-reschedule-consultation.php';
+        break;
+
     case 'customer-forgot-password':
         require VIEW_PATH . '/public/customer-forgot-password.php';
         break;
@@ -560,6 +564,10 @@ switch ($page) {
     case 'review-missed-consultation':
         require VIEW_PATH . '/admin/review-missed-consultation.php';
         break;
+
+    case 'missed-consultation-approvals':
+    require VIEW_PATH . '/admin/missed-consultation-approvals.php';
+    break;
 
     /*
     |--------------------------------------------------------------------------

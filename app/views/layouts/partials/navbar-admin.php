@@ -362,6 +362,16 @@ $needsAdminReviewCount = (int) $stmt->fetch(PDO::FETCH_ASSOC)['total'];
 
         </li>
 
+        <li>
+            <a
+                class="dropdown-item"
+                href="?page=missed-consultation-approvals">
+
+                Missed Consultation Approvals
+
+            </a>
+        </li>
+
     </ul>
 
 </li>
