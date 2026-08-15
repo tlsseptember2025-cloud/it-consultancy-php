@@ -569,6 +569,10 @@ switch ($page) {
     require VIEW_PATH . '/admin/missed-consultation-approvals.php';
     break;
 
+    case 'agent-profile':
+    require VIEW_PATH . '/agent/agent-profile.php';
+    break;
+
     /*
     |--------------------------------------------------------------------------
     | Service Scheduling
