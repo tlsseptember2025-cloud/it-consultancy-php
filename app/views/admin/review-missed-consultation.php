@@ -7,6 +7,7 @@ if (!isset($_SESSION['user'])) {
 }
 
 require_once CONFIG_PATH . '/database.php';
+require_once APP_PATH . '/helpers/RequestEventHelper.php';
 
 $requestId = (int) ($_GET['id'] ?? 0);
 
@@ -75,6 +76,83 @@ if (!$consultation) {
     die('Missed consultation review not found.');
 }
 
+
+/*
+|--------------------------------------------------------------------------
+| Admin Decision
+|--------------------------------------------------------------------------
+*/
+
+if (
+    $_SERVER['REQUEST_METHOD'] === 'POST'
+    && isset($_POST['missed_consultation_decision'])
+) {
+
+    $decision = $_POST['missed_consultation_decision'];
+
+    /*
+    |--------------------------------------------------------------------------
+    | Keep Same Agent
+    |--------------------------------------------------------------------------
+    */
+
+    if ($decision === 'keep_agent') {
+
+        $update = $pdo->prepare("
+            UPDATE requests
+            SET
+                workflow_stage = 'Consultation Confirmed',
+                job_status = 'Pending',
+                status = 'Pending',
+                admin_instruction = '__RESCHEDULE_ALLOWED__'
+            WHERE
+                id = ?
+                AND workflow_stage = 'Missed Consultation Review'
+        ");
+
+        $update->execute([
+            $requestId
+        ]);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Audit
+        |--------------------------------------------------------------------------
+        */
+
+        RequestEventHelper::addCurrentUser(
+            $pdo,
+            $requestId,
+            'MISSED_CONSULTATION_APPROVED',
+            RequestEventHelper::TYPE_CONSULTATION,
+            'Missed Consultation Approved',
+            'The administrator reviewed the missed consultation and approved rescheduling with the same agent.',
+            true
+        );
+
+        header(
+            'Location: ?page=customer-requests'
+        );
+
+        exit;
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Reassign Agent
+    |--------------------------------------------------------------------------
+    */
+
+    if ($decision === 'reassign_agent') {
+
+        header(
+            'Location: ?page=admin-assign-agent&id=' . $requestId
+        );
+
+        exit;
+    }
+}
 
 require VIEW_PATH . '/layouts/header-admin.php';
 
@@ -353,6 +431,84 @@ require VIEW_PATH . '/layouts/header-admin.php';
         </div>
 
     </div>
+
+
+    <div class="card shadow-sm mb-4">
+
+    <div class="card-header bg-primary text-white">
+
+        <strong>
+            Administrator Decision
+        </strong>
+
+    </div>
+
+    <div class="card-body">
+
+        <p class="text-muted">
+
+            Choose how this missed consultation should proceed.
+
+            The customer will be allowed to reschedule in either case.
+
+        </p>
+
+
+        <div class="row g-3">
+
+
+            <!-- Keep Same Agent -->
+
+            <div class="col-md-6">
+
+                <form method="POST">
+
+                    <input
+                        type="hidden"
+                        name="missed_consultation_decision"
+                        value="keep_agent">
+
+                    <button
+                        type="submit"
+                        class="btn btn-success w-100">
+
+                        ✓ Keep Same Agent & Allow Reschedule
+
+                    </button>
+
+                </form>
+
+            </div>
+
+
+            <!-- Reassign Agent -->
+
+            <div class="col-md-6">
+
+                <form method="POST">
+
+                    <input
+                        type="hidden"
+                        name="missed_consultation_decision"
+                        value="reassign_agent">
+
+                    <button
+                        type="submit"
+                        class="btn btn-primary w-100">
+
+                        Reassign Agent
+
+                    </button>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
 
 
     <div class="d-flex justify-content-between">

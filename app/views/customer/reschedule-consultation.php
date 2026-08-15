@@ -49,17 +49,7 @@ exit;
 
 // Unlimited reschedules when approved by the administrator
 $isAdminReschedule = (
-    $request['workflow_stage'] === 'Needs Admin Review'
-    &&
-    (
-        $request['admin_instruction'] === '__RESCHEDULE_ALLOWED__'
-        ||
-        (
-            $request['admin_instruction'] !== null
-            &&
-            trim($request['admin_instruction']) !== ''
-        )
-    )
+    $request['admin_instruction'] === '__RESCHEDULE_ALLOWED__'
 );
 
 // Normal customer reschedule: only one allowed

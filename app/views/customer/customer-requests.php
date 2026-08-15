@@ -318,10 +318,18 @@ $meetingLink = getMeetingLink(
 
 <?php endif; ?>
 
-    <?php if ((int)$request['consultation_reschedules'] < 1): ?>
+    <?php
+$isRescheduleAllowed =
+    $request['admin_instruction'] === '__RESCHEDULE_ALLOWED__';
+
+$hasNormalRescheduleAvailable =
+    (int)$request['consultation_reschedules'] < 1;
+?>
+
+<?php if ($isRescheduleAllowed || $hasNormalRescheduleAvailable): ?>
 
 <a
-    href="?page=reschedule-consultation&request_id=<?= $request['id'] ?>"
+    href="?page=reschedule-consultation&request_id=<?= (int)$request['id'] ?>"
     class="btn btn-warning btn-sm ms-2">
 
     Reschedule

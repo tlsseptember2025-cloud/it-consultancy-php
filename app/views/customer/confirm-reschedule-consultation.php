@@ -105,79 +105,102 @@ if ($stmt->fetchColumn()) {
     die('Sorry, this slot is no longer available.');
 }
 
-// Free the old slot
+/*
+|--------------------------------------------------------------------------
+| Customer Requested Reschedule
+|--------------------------------------------------------------------------
+|
+| IMPORTANT:
+| The customer has selected a new slot, but the administrator
+| must approve it before the booking is changed.
+|
+*/
+
+
+/*
+|--------------------------------------------------------------------------
+| Verify New Slot
+|--------------------------------------------------------------------------
+*/
+
 $stmt = $pdo->prepare("
-    UPDATE consultation_slots
-    SET
-        is_booked = 0,
-        consultation_method = NULL,
-        meeting_link = NULL
+    SELECT
+        id,
+        is_booked,
+        slot_date,
+        slot_time
+    FROM consultation_slots
     WHERE id = ?
 ");
 
 $stmt->execute([
-    $current['slot_id']
-]);
-
-// Book the new slot
-$stmt = $pdo->prepare("
-    UPDATE consultation_slots
-    SET
-        is_booked = 1,
-        consultation_method = ?,
-        meeting_link = ?
-    WHERE id = ?
-");
-
-$stmt->execute([
-    $current['consultation_method'],
-    $current['meeting_link'],
     $newSlotId
 ]);
 
-// Update the booking to point to the new slot
+$newSlot = $stmt->fetch(PDO::FETCH_ASSOC);
+
+if (!$newSlot) {
+
+    die('Invalid consultation slot.');
+}
+
+if ((int)$newSlot['is_booked'] === 1) {
+
+    die('Sorry, this slot is no longer available.');
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Store Pending Reschedule
+|--------------------------------------------------------------------------
+*/
+
 $stmt = $pdo->prepare("
-    UPDATE consultation_bookings
-    SET slot_id = ?
-    WHERE request_id = ?
+    UPDATE requests
+    SET
+        pending_reschedule_slot_id = ?,
+        pending_reschedule_reason = NULL,
+        pending_reschedule_requested_at = NOW(),
+        workflow_stage = 'Awaiting Reschedule Approval',
+        job_status = 'Pending'
+    WHERE
+        id = ?
+        AND customer_id = ?
 ");
 
 $stmt->execute([
     $newSlotId,
-    $requestId
+    $requestId,
+    $customerId
 ]);
 
-// Increment reschedule counter and reset consultation workflow
-$stmt = $pdo->prepare("
-    UPDATE requests
-    SET
-        consultation_reschedules = consultation_reschedules + 1,
-        workflow_stage = 'Consultation Scheduled',
-        job_status = 'Pending',
-        consultation_rejection_reason = NULL,
-        admin_instruction = NULL,
-        consultation_rejected_at = NULL,
-        consultation_rejected_by = NULL
-    WHERE id = ?
-");
-
-$stmt->execute([$requestId]);
 
 /*
 |--------------------------------------------------------------------------
-| Record Consultation Rescheduled Event
+| Record Audit Event
 |--------------------------------------------------------------------------
 */
 
 RequestEventHelper::addCurrentUser(
     $pdo,
     $requestId,
-    RequestEventHelper::EVENT_CONSULTATION_RESCHEDULED,
+    'CONSULTATION_RESCHEDULE_REQUESTED',
     RequestEventHelper::TYPE_CONSULTATION,
-    'Consultation Rescheduled',
-    'The customer successfully rescheduled the consultation appointment.',
+    'Consultation Reschedule Requested',
+    'The customer selected a new consultation date and time. The request is awaiting administrator approval.',
     true
 );
+
+
+/*
+|--------------------------------------------------------------------------
+| Return to Customer Requests
+|--------------------------------------------------------------------------
+*/
+
+$_SESSION['success'] =
+    'Your new consultation time has been submitted and is awaiting administrator approval.';
 
 header('Location: ?page=customer-requests');
 exit;
