@@ -32,6 +32,34 @@ if (!$agent) {
     exit;
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_profile'])) {
+
+    $name = trim($_POST['name'] ?? '');
+
+    if ($name === '') {
+
+        $error = 'Name cannot be empty.';
+
+    } else {
+
+        $stmt = $pdo->prepare("
+            UPDATE agents
+            SET name = ?
+            WHERE id = ?
+        ");
+
+        $stmt->execute([
+            $name,
+            $agentId
+        ]);
+
+        $_SESSION['agent']['name'] = $name;
+
+        header('Location: ?page=agent-dashboard&success=profile-updated');
+        exit;
+    }
+}
+
 require VIEW_PATH . '/layouts/header-agent.php';
 
 ?>
@@ -54,6 +82,8 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
                 <div class="card-body">
 
+                <form method="POST">
+
                     <div class="mb-3">
 
                         <label class="form-label fw-bold">
@@ -62,9 +92,10 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
                         <input
                             type="text"
+                            name="name"
                             class="form-control"
                             value="<?= htmlspecialchars($agent['name']) ?>"
-                            readonly>
+                            required>
 
                     </div>
 
@@ -98,7 +129,7 @@ require VIEW_PATH . '/layouts/header-agent.php';
                             type="text"
                             class="form-control"
                             value="<?= htmlspecialchars($agent['position']) ?>"
-                            readonly>
+                            disabled>
 
                     </div>
 
@@ -113,10 +144,20 @@ require VIEW_PATH . '/layouts/header-agent.php';
                             type="text"
                             class="form-control"
                             value="<?= htmlspecialchars($agent['status']) ?>"
-                            readonly>
+                            disabled>
 
                     </div>
 
+                    <button
+                        type="submit"
+                        name="save_profile"
+                        class="btn btn-success">
+
+                        💾 Save Changes
+
+                    </button>
+
+                </form>
 
                     <hr>
 
