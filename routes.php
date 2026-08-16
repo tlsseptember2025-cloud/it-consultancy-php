@@ -190,6 +190,14 @@ switch ($page) {
     require VIEW_PATH . '/agent/agent-jobs.php';
     break;
 
+    case 'customer-profile':
+    require VIEW_PATH . '/customer/customer-profile.php';
+    break;
+
+    case 'customer-rate-agent':
+    require VIEW_PATH . '/customer/customer-rate-agent.php';
+    break;
+
     /*
     |--------------------------------------------------------------------------
     | Customer Portal

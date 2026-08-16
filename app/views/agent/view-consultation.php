@@ -15,15 +15,11 @@ $requestId = (int) ($_GET['id'] ?? 0);
 
 $stmt = $pdo->prepare("
     SELECT
-
         r.*,
-
         c.name  AS customer_name,
         c.email,
         c.phone,
-
         s.title AS service_name,
-
         cs.slot_date,
         cs.slot_time,
         cs.consultation_method,
@@ -56,6 +52,13 @@ $stmt->execute([
 
 $consultation = $stmt->fetch(PDO::FETCH_ASSOC);
 
+
+/*
+|--------------------------------------------------------------------------
+| Customer Contact Result
+|--------------------------------------------------------------------------
+*/
+
 if (
     $_SERVER['REQUEST_METHOD'] === 'POST'
     && isset($_POST['save_contact_result'])
@@ -66,15 +69,20 @@ if (
     $customerDecision = trim($_POST['customer_decision'] ?? '');
 
     if ($contactResult === '' || $contactNotes === '') {
+
         die('Please complete all required fields.');
+
     }
 
     if (
         $contactResult === 'Customer Answered'
         && $customerDecision === ''
     ) {
+
         die('Please select the customer decision.');
+
     }
+
 
     /*
     |--------------------------------------------------------------------------
@@ -113,6 +121,7 @@ if (
         }
     }
 
+
     /*
     |--------------------------------------------------------------------------
     | Update Request
@@ -143,37 +152,54 @@ if (
         $consultation['id']
     ]);
 
-   /*
-|--------------------------------------------------------------------------
-| Record Consultation In Progress Event
-|--------------------------------------------------------------------------
-*/
 
-if (
-    $contactResult === 'Customer Answered' &&
-    $customerDecision === 'Continue Consultation'
-) {
-    RequestEventHelper::addCurrentUser(
-        $pdo,
-        $consultation['id'],
-        'CONSULTATION_IN_PROGRESS',
-        RequestEventHelper::TYPE_CONSULTATION,
-        'Consultation In Progress',
-        'The customer was contacted and chose to continue with the consultation.',
-        true
-    );
-}
+    /*
+    |--------------------------------------------------------------------------
+    | Record Consultation In Progress Event
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+        $contactResult === 'Customer Answered'
+        && $customerDecision === 'Continue Consultation'
+    ) {
+
+        RequestEventHelper::addCurrentUser(
+            $pdo,
+            $consultation['id'],
+            'CONSULTATION_IN_PROGRESS',
+            RequestEventHelper::TYPE_CONSULTATION,
+            'Consultation In Progress',
+            'The customer was contacted and chose to continue with the consultation.',
+            true
+        );
+    }
 
     header('Location: ?page=agent-consultations&success=contact-saved');
     exit;
 }
+
 
 $meetingLink = getMeetingLink(
     $consultation['consultation_method'],
     $consultation['slot_time']
 );
 
+
+/*
+|--------------------------------------------------------------------------
+| POST Actions
+|--------------------------------------------------------------------------
+*/
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Save Consultation Notes
+    |--------------------------------------------------------------------------
+    */
 
     if (isset($_POST['save_notes'])) {
 
@@ -190,15 +216,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $requestId
         ]);
 
-        header("Location: ?page=view-consultation&id=".$requestId);
+        header("Location: ?page=view-consultation&id=" . $requestId);
         exit;
     }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Agent Completes Consultation
+    |--------------------------------------------------------------------------
+    */
 
     elseif (isset($_POST['complete_consultation'])) {
 
         // Customer Contact requests must not be completed from this form.
         if ($consultation['workflow_stage'] === 'Customer Contact') {
-            die('This request is currently in Customer Contact and cannot be completed from the consultation form.');
+
+            die(
+                'This request is currently in Customer Contact and cannot be completed from the consultation form.'
+            );
         }
 
         $notes = trim($_POST['agent_notes'] ?? '');
@@ -209,7 +245,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 completion_notes = ?,
                 job_status = 'Completed',
                 completed_at = NOW(),
-                workflow_stage = 'Needs Admin Review'
+                workflow_stage = 'Needs Admin Review',
+                incomplete_reason = NULL
             WHERE id = ?
         ");
 
@@ -222,45 +259,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    elseif (
-    isset($_POST['action'])
-    && $_POST['action'] === 'start'
-) {
-
-    /*
-    |--------------------------------------------------------------------------
-    | Verify Consultation Start Window
-    |--------------------------------------------------------------------------
-    */
-
-    if ($consultation['job_status'] !== 'Pending') {
-
-        die('This consultation cannot be started from its current status.');
-    }
-
-    $consultationStart = new DateTimeImmutable(
-        $consultation['slot_date'] . ' ' . $consultation['slot_time'],
-        new DateTimeZone('Asia/Dubai')
-    );
-
-    $consultationEnd = $consultationStart->modify('+1 hour');
-
-    $now = new DateTimeImmutable(
-        'now',
-        new DateTimeZone('Asia/Dubai')
-    );
-
-    if ($now < $consultationStart) {
-
-        die('This consultation has not started yet.');
-
-    }
-
-    if ($now >= $consultationEnd) {
-
-        die('The consultation start window has expired.');
-
-    }
 
     /*
     |--------------------------------------------------------------------------
@@ -268,31 +266,113 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     |--------------------------------------------------------------------------
     */
 
-    $update = $pdo->prepare("
-        UPDATE requests
-        SET job_status = 'In Progress'
-        WHERE id = ?
-    ");
+    elseif (
+        isset($_POST['action'])
+        && $_POST['action'] === 'start'
+    ) {
 
-    $update->execute([$requestId]);
+        /*
+        |--------------------------------------------------------------------------
+        | Verify Consultation Start Window
+        |--------------------------------------------------------------------------
+        |
+        | Consultation can start:
+        |
+        | 10 minutes before scheduled time
+        |
+        | until
+        |
+        | 50 minutes after scheduled time.
+        |
+        | Example:
+        |
+        | Scheduled: 5:00 PM
+        | Opens:     4:50 PM
+        | Expires:   5:50 PM
+        |
+        |--------------------------------------------------------------------------
+        */
 
-    header("Location: ?page=view-consultation&id=" . $requestId);
-    exit;
+        if ($consultation['job_status'] !== 'Pending') {
+
+            die('This consultation cannot be started from its current status.');
+
+        }
+
+        $consultationStart = new DateTimeImmutable(
+            $consultation['slot_date'] . ' ' . $consultation['slot_time'],
+            new DateTimeZone('Asia/Dubai')
+        );
+
+        $consultationWindowStart = $consultationStart->modify('-10 minutes');
+
+        $consultationEnd = $consultationStart->modify('+50 minutes');
+
+        $now = new DateTimeImmutable(
+            'now',
+            new DateTimeZone('Asia/Dubai')
+        );
+
+
+        if ($now < $consultationWindowStart) {
+
+            die('The consultation start window has not opened yet.');
+
+        }
+
+
+        if ($now >= $consultationEnd) {
+
+            die('The consultation start window has expired.');
+
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Start Consultation
+        |--------------------------------------------------------------------------
+        */
+
+        $update = $pdo->prepare("
+            UPDATE requests
+            SET job_status = 'In Progress'
+            WHERE id = ?
+        ");
+
+        $update->execute([
+            $requestId
+        ]);
+
+        header("Location: ?page=view-consultation&id=" . $requestId);
+        exit;
+    }
 }
 
-}
 
 if (!$consultation) {
 
     die('Consultation not found.');
 }
 
+
 /*
 |--------------------------------------------------------------------------
 | Consultation Time Window
 |--------------------------------------------------------------------------
-| The 1-hour consultation window applies only while
-| the consultation is still Pending.
+|
+| The consultation can be started:
+|
+| 10 minutes before scheduled time
+| until
+| 50 minutes after scheduled time.
+|
+| Example:
+|
+| Scheduled: 5:00 PM
+| Opens:     4:50 PM
+| Expires:   5:50 PM
+|
 |--------------------------------------------------------------------------
 */
 
@@ -305,14 +385,17 @@ if ($consultation['job_status'] === 'Pending') {
         new DateTimeZone('Asia/Dubai')
     );
 
-    $consultationEnd = $consultationStart->modify('+1 hour');
+    $consultationWindowStart = $consultationStart->modify('-10 minutes');
+
+    $consultationEnd = $consultationStart->modify('+50 minutes');
 
     $now = new DateTimeImmutable(
         'now',
         new DateTimeZone('Asia/Dubai')
     );
 
-    if ($now < $consultationStart) {
+
+    if ($now < $consultationWindowStart) {
 
         $consultationTimeStatus = 'future';
 
@@ -323,8 +406,10 @@ if ($consultation['job_status'] === 'Pending') {
     } else {
 
         $consultationTimeStatus = 'expired';
+
     }
 }
+
 
 $status = $consultation['job_status'];
 
@@ -349,6 +434,7 @@ switch ($status) {
         break;
 }
 
+
 require VIEW_PATH . '/layouts/header-agent.php';
 
 ?>
@@ -357,63 +443,69 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
     <div class="d-flex justify-content-between align-items-start mb-4">
 
-    <div>
+        <div>
 
-        <h2 class="mb-1">
+            <h2 class="mb-1">
 
-            Consultation Details
+                Consultation Details
 
-        </h2>
+            </h2>
 
-        <p class="text-muted mb-0">
+            <p class="text-muted mb-0">
 
-            Request #<?= $consultation['id'] ?>
+                Request #<?= $consultation['id'] ?>
 
-        </p>
+            </p>
+
+        </div>
+
+
+        <div class="text-end">
+
+            <span class="badge bg-<?= $badge ?> fs-5 px-4 py-2">
+
+                <?= htmlspecialchars($status) ?>
+
+            </span>
+
+
+            <?php if (
+                $consultation['job_status'] == 'Completed' ||
+                $consultation['job_status'] == 'Could Not Complete'
+            ): ?>
+
+                <small class="text-muted d-block mt-2">
+
+                    Completed on<br>
+
+                    <?= date(
+                        'd M Y h:i A',
+                        strtotime($consultation['completed_at'])
+                    ) ?>
+
+                </small>
+
+            <?php endif; ?>
+
+
+            <?php if ($consultation['job_status'] == 'Could Not Complete'): ?>
+
+                <small class="text-danger d-block mt-2">
+
+                    Reason
+
+                    <br>
+
+                    <?= htmlspecialchars($consultation['incomplete_reason']) ?>
+
+                </small>
+
+            <?php endif; ?>
+
+        </div>
 
     </div>
 
-    <div class="text-end">
-
-
-    <span class="badge bg-<?= $badge ?> fs-5 px-4 py-2">
-
-        <?= htmlspecialchars($status) ?>
-
-    </span>
-
-    <?php if (
-    $consultation['job_status'] == 'Completed' ||
-    $consultation['job_status'] == 'Could Not Complete'
-): ?>
-
-        <small class="text-muted d-block mt-2">
-
-            Completed on<br>
-
-            <?= date('d M Y h:i A', strtotime($consultation['completed_at'])) ?>
-
-        </small>
-
-    <?php endif; ?>
-
-    <?php if ($consultation['job_status'] == 'Could Not Complete'): ?>
-
-        <small class="text-danger d-block mt-2">
-
-            Reason
-
-            <br>
-
-            <?= htmlspecialchars($consultation['incomplete_reason']) ?>
-
-        </small>
-
-    <?php endif; ?>
-
-</div>
-
-</div>
 
     <div class="row">
 
@@ -429,17 +521,27 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
                 <div class="card-body">
 
-                    <p><strong>Name:</strong> <?= htmlspecialchars($consultation['customer_name']) ?></p>
+                    <p>
+                        <strong>Name:</strong>
+                        <?= htmlspecialchars($consultation['customer_name']) ?>
+                    </p>
 
-                    <p><strong>Email:</strong> <?= htmlspecialchars($consultation['email']) ?></p>
+                    <p>
+                        <strong>Email:</strong>
+                        <?= htmlspecialchars($consultation['email']) ?>
+                    </p>
 
-                    <p><strong>Phone:</strong> <?= htmlspecialchars($consultation['phone']) ?></p>
+                    <p>
+                        <strong>Phone:</strong>
+                        <?= htmlspecialchars($consultation['phone']) ?>
+                    </p>
 
                 </div>
 
             </div>
 
         </div>
+
 
         <div class="col-lg-6">
 
@@ -453,9 +555,18 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
                 <div class="card-body">
 
-                    <p><strong>Service:</strong> <?= htmlspecialchars($consultation['service_name']) ?></p>
+                    <p>
+                        <strong>Service:</strong>
+                        <?= htmlspecialchars($consultation['service_name']) ?>
+                    </p>
 
-                    <p><strong>Quoted Price:</strong> AED <?= number_format($consultation['quoted_price'],2) ?></p>
+                    <p>
+                        <strong>Quoted Price:</strong>
+                        AED <?= number_format(
+                            $consultation['quoted_price'],
+                            2
+                        ) ?>
+                    </p>
 
                 </div>
 
@@ -464,6 +575,7 @@ require VIEW_PATH . '/layouts/header-agent.php';
         </div>
 
     </div>
+
 
     <div class="card shadow-sm mb-4">
 
@@ -485,6 +597,7 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
                 </div>
 
+
                 <div class="col-md-3">
 
                     <strong>Time</strong><br>
@@ -493,40 +606,52 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
                 </div>
 
+
                 <div class="col-md-3">
 
                     <strong>Method</strong><br>
 
-                    <?= $consultation['consultation_method'] ?: 'Not Assigned' ?>
+                    <?= $consultation['consultation_method']
+                        ?: 'Not Assigned'
+                    ?>
 
                 </div>
+
 
                 <div class="col-md-3">
 
                     <strong>Meeting</strong><br>
 
-                   <?php if (shouldShowMeetingLink(
-    $consultation['slot_date'],
-    $consultation['slot_time']
-)): ?>
+                    <?php if (
+                        shouldShowMeetingLink(
+                            $consultation['slot_date'],
+                            $consultation['slot_time']
+                        )
+                    ): ?>
 
-    <a
-        href="<?= htmlspecialchars($meetingLink) ?>"
-        target="_blank"
-        class="btn btn-success btn-sm mt-2">
+                        <a
+                            href="<?= htmlspecialchars($meetingLink) ?>"
+                            target="_blank"
+                            class="btn btn-success btn-sm mt-2">
 
-        Join <?= htmlspecialchars($consultation['consultation_method']) ?>
+                            Join
+                            <?= htmlspecialchars(
+                                $consultation['consultation_method']
+                            ) ?>
 
-    </a>
+                        </a>
 
-<?php else: ?>
+                    <?php else: ?>
 
-    <div class="small text-muted mt-2">
-        Meeting link will be available
-        10 minutes before your consultation.
-    </div>
+                        <div class="small text-muted mt-2">
 
-<?php endif; ?>
+                            Meeting link will be available
+                            10 minutes before your consultation.
+
+                        </div>
+
+                    <?php endif; ?>
+
                 </div>
 
             </div>
@@ -535,134 +660,172 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
     </div>
 
-   <?php if ($consultation['workflow_stage'] === 'Customer Contact'): ?>
 
-<div class="card shadow-sm mb-4">
+    <?php if ($consultation['workflow_stage'] === 'Customer Contact'): ?>
 
-    <div class="card-header bg-success text-white">
-        Administrator Instructions
-    </div>
+        <div class="card shadow-sm mb-4">
 
-    <div class="card-body">
+            <div class="card-header bg-success text-white">
 
-        <div class="border rounded bg-light p-3">
-            <?= nl2br(htmlspecialchars($consultation['admin_instruction'])) ?>
+                Administrator Instructions
+
+            </div>
+
+            <div class="card-body">
+
+                <div class="border rounded bg-light p-3">
+
+                    <?= nl2br(
+                        htmlspecialchars(
+                            $consultation['admin_instruction']
+                        )
+                    ) ?>
+
+                </div>
+
+            </div>
+
         </div>
 
-    </div>
+    <?php endif; ?>
 
-</div>
 
-<?php endif; ?>
+    <?php if ($consultation['workflow_stage'] === 'Customer Contact'): ?>
 
-<?php if ($consultation['workflow_stage'] === 'Customer Contact'): ?>
+        <div class="card shadow-sm mb-4">
 
-<div class="card shadow-sm mb-4">
+            <div class="card-header bg-primary text-white">
 
-    <div class="card-header bg-primary text-white">
-        Contact Customer
-    </div>
-
-    <div class="card-body">
-
-        <form method="POST">
-
-            <div class="mb-3">
-
-                <label class="form-label">
-                    Contact Result
-                </label>
-
-                <select
-                    name="contact_result"
-                    id="contact_result"
-                    class="form-select"
-                    required>
-
-                    <option value="">
-                        Select Result
-                    </option>
-
-                    <option value="Customer Answered">
-                        Customer Answered
-                    </option>
-
-                    <option value="No Answer">
-                        No Answer
-                    </option>
-
-                    <option value="Wrong Number">
-                        Wrong Number
-                    </option>
-
-                    <option value="Customer Requested Reschedule">
-                        Customer Requested Reschedule
-                    </option>
-
-                </select>
+                Contact Customer
 
             </div>
 
-            <div
-                id="customerDecisionSection"
-                class="mb-3"
-                style="display:none;">
+            <div class="card-body">
 
-                <label class="form-label">
-                    Customer Decision
-                </label>
+                <form method="POST">
 
-                <select
-                    name="customer_decision"
-                    id="customerDecision"
-                    class="form-select">
+                    <div class="mb-3">
 
-                    <option value="">
-                        Select Decision
-                    </option>
+                        <label class="form-label">
 
-                    <option value="Continue Consultation">
-                        Continue Consultation
-                    </option>
+                            Contact Result
 
-                    <option value="Close Request">
-                        Close Request
-                    </option>
+                        </label>
 
-                </select>
+                        <select
+                            name="contact_result"
+                            id="contact_result"
+                            class="form-select"
+                            required>
+
+                            <option value="">
+
+                                Select Result
+
+                            </option>
+
+                            <option value="Customer Answered">
+
+                                Customer Answered
+
+                            </option>
+
+                            <option value="No Answer">
+
+                                No Answer
+
+                            </option>
+
+                            <option value="Wrong Number">
+
+                                Wrong Number
+
+                            </option>
+
+                            <option value="Customer Requested Reschedule">
+
+                                Customer Requested Reschedule
+
+                            </option>
+
+                        </select>
+
+                    </div>
+
+
+                    <div
+                        id="customerDecisionSection"
+                        class="mb-3"
+                        style="display:none;">
+
+                        <label class="form-label">
+
+                            Customer Decision
+
+                        </label>
+
+                        <select
+                            name="customer_decision"
+                            id="customerDecision"
+                            class="form-select">
+
+                            <option value="">
+
+                                Select Decision
+
+                            </option>
+
+                            <option value="Continue Consultation">
+
+                                Continue Consultation
+
+                            </option>
+
+                            <option value="Close Request">
+
+                                Close Request
+
+                            </option>
+
+                        </select>
+
+                    </div>
+
+
+                    <div class="mb-3">
+
+                        <label class="form-label">
+
+                            Agent Notes
+
+                        </label>
+
+                        <textarea
+                            name="contact_notes"
+                            class="form-control"
+                            rows="5"
+                            required></textarea>
+
+                    </div>
+
+
+                    <button
+                        type="submit"
+                        name="save_contact_result"
+                        class="btn btn-success">
+
+                        Save Contact Result
+
+                    </button>
+
+                </form>
 
             </div>
 
-            <div class="mb-3">
+        </div>
 
-                <label class="form-label">
-                    Agent Notes
-                </label>
+    <?php endif; ?>
 
-                <textarea
-                    name="contact_notes"
-                    class="form-control"
-                    rows="5"
-                    required></textarea>
-
-            </div>
-
-            <button
-                type="submit"
-                name="save_contact_result"
-                class="btn btn-success">
-
-                Save Contact Result
-
-            </button>
-
-        </form>
-
-    </div>
-
-</div>
-
-<?php endif; ?>
 
     <div class="card shadow-sm mb-4">
 
@@ -676,7 +839,11 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
             <div class="bg-light border rounded p-3">
 
-                <?= nl2br(htmlspecialchars($consultation['description'])) ?>
+                <?= nl2br(
+                    htmlspecialchars(
+                        $consultation['description']
+                    )
+                ) ?>
 
             </div>
 
@@ -684,61 +851,71 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
     </div>
 
+
     <?php if ($consultation['job_status'] == 'Could Not Complete'): ?>
 
-<div class="card shadow-sm mb-4">
+        <div class="card shadow-sm mb-4">
 
-    <div class="card-header bg-danger text-white">
+            <div class="card-header bg-danger text-white">
 
-        Incomplete Reason
+                Incomplete Reason
 
-    </div>
+            </div>
 
-    <div class="card-body">
+            <div class="card-body">
 
-        <p>
+                <p>
 
-            <strong>Reason:</strong>
+                    <strong>Reason:</strong>
 
-            <?= htmlspecialchars($consultation['incomplete_reason']) ?>
+                    <?= htmlspecialchars(
+                        $consultation['incomplete_reason']
+                    ) ?>
 
-        </p>
+                </p>
 
-    </div>
-
-</div>
-
-<?php endif; ?>
-
-<?php if (!empty($consultation['admin_review_comments'])): ?>
-
-<div class="card shadow-sm mb-4 border-warning">
-
-    <div class="card-header bg-warning">
-
-        Administrator Review
-
-    </div>
-
-    <div class="card-body">
-
-        <p class="mb-2">
-
-            The administrator has requested changes before approving this consultation.
-
-        </p>
-
-        <div class="border rounded bg-light p-3">
-
-            <?= nl2br(htmlspecialchars($consultation['admin_review_comments'])) ?>
+            </div>
 
         </div>
 
-    </div>
+    <?php endif; ?>
 
-</div>
 
-<?php endif; ?>
+    <?php if (!empty($consultation['admin_review_comments'])): ?>
+
+        <div class="card shadow-sm mb-4 border-warning">
+
+            <div class="card-header bg-warning">
+
+                Administrator Review
+
+            </div>
+
+            <div class="card-body">
+
+                <p class="mb-2">
+
+                    The administrator has requested changes
+                    before approving this consultation.
+
+                </p>
+
+                <div class="border rounded bg-light p-3">
+
+                    <?= nl2br(
+                        htmlspecialchars(
+                            $consultation['admin_review_comments']
+                        )
+                    ) ?>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    <?php endif; ?>
+
 
     <div class="card shadow-sm mb-4">
 
@@ -750,132 +927,156 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
         <div class="card-body">
 
-           <form method="POST">
+            <form method="POST">
 
                 <textarea
                     class="form-control"
                     rows="8"
-                    name="agent_notes"
-                    >
+                    name="agent_notes">
 
-                <?= htmlspecialchars($consultation['completion_notes']) ?>
+                    <?= htmlspecialchars(
+                        $consultation['completion_notes']
+                    ) ?>
 
                 </textarea>
 
+                <div class="d-flex justify-content-between mt-4">
+
+                    <a
+                        href="?page=agent-consultations"
+                        class="btn btn-secondary px-4">
+
+                        ← Back
+
+                    </a>
+
+
+                    <div>
+
+                        <?php if ($status === 'Pending'): ?>
+
+                            <?php if (
+                                $consultationTimeStatus === 'active'
+                            ): ?>
+
+                                <button
+                                    type="submit"
+                                    name="action"
+                                    value="start"
+                                    class="btn btn-primary">
+
+                                    ▶ Start Consultation
+
+                                </button>
+
+                            <?php elseif (
+                                $consultationTimeStatus === 'future'
+                            ): ?>
+
+                                <button
+                                    type="button"
+                                    class="btn btn-secondary"
+                                    disabled>
+
+                                    🔒 Start Consultation
+
+                                </button>
+
+                                <div class="text-muted small mt-2">
+
+                                    The consultation has not started yet.
+
+                                </div>
+
+                            <?php elseif (
+                                $consultationTimeStatus === 'expired'
+                            ): ?>
+
+                                <button
+                                    type="button"
+                                    class="btn btn-secondary"
+                                    disabled>
+
+                                    🔒 Start Consultation
+
+                                </button>
+
+                                <div class="text-danger small mt-2">
+
+                                    This consultation time has expired.
+
+                                </div>
+
+                            <?php endif; ?>
+
+                        <?php endif; ?>
+
+
+                        <?php if (
+                            $consultation['job_status'] === 'In Progress'
+                            && $consultation['workflow_stage'] !== 'Customer Contact'
+                        ): ?>
+
+                            <button
+                                type="submit"
+                                name="save_notes"
+                                class="btn btn-primary">
+
+                                💾 Save Notes
+
+                            </button>
+
+                            <button
+                                type="submit"
+                                name="complete_consultation"
+                                class="btn btn-success">
+
+                                ✅ Complete Consultation
+
+                            </button>
+
+                            <a
+                                href="?page=cannot-complete-consultation&id=<?= $consultation['id'] ?>"
+                                class="btn btn-danger">
+
+                                ❌ Could Not Complete
+
+                            </a>
+
+                        <?php endif; ?>
+
+                    </div>
+
+                </div>
+
+            </form>
+
         </div>
-
-    </div>
-
-   <div class="d-flex justify-content-between mt-4">
-
-    <a
-        href="?page=agent-consultations"
-        class="btn btn-secondary px-4">
-
-        ← Back
-
-    </a>
-
-    <div>
-
-        <?php if ($status === 'Pending'): ?>
-
-    <?php if ($consultationTimeStatus === 'active'): ?>
-
-        <form method="POST">
-
-            <input
-                type="hidden"
-                name="action"
-                value="start">
-
-            <button
-                type="submit"
-                class="btn btn-primary">
-
-                ▶ Start Consultation
-
-            </button>
-
-        </form>
-
-    <?php elseif ($consultationTimeStatus === 'future'): ?>
-
-        <button
-            type="button"
-            class="btn btn-secondary"
-            disabled>
-
-            🔒 Start Consultation
-
-        </button>
-
-        <div class="text-muted small mt-2">
-
-            The consultation has not started yet.
-
-        </div>
-
-    <?php elseif ($consultationTimeStatus === 'expired'): ?>
-
-        <button
-            type="button"
-            class="btn btn-secondary"
-            disabled>
-
-            🔒 Start Consultation
-
-        </button>
-
-        <div class="text-danger small mt-2">
-
-            This consultation time has expired.
-
-        </div>
-
-    <?php endif; ?>
-
-<?php endif; ?>
-
-
-        <?php if (
-            $consultation['job_status'] === 'In Progress'
-            && $consultation['workflow_stage'] !== 'Customer Contact'
-        ): ?>
-
-    <button type="submit" name="save_notes" class="btn btn-primary">
-        💾 Save Notes
-    </button>
-
-    <button type="submit" name="complete_consultation" class="btn btn-success">
-        ✅ Complete Consultation
-    </button>
-
-    <a href="?page=cannot-complete-consultation&id=<?= $consultation['id'] ?>"
-       class="btn btn-danger">
-        ❌ Could Not Complete
-    </a>
-
-<?php endif; ?>
 
     </div>
 
 </div>
 
-</form>
-
-</div>
 
 <script>
 
-const contactResult = document.getElementById('contact_result');
-const customerDecisionSection = document.getElementById('customerDecisionSection');
+const contactResult =
+    document.getElementById('contact_result');
+
+const customerDecisionSection =
+    document.getElementById('customerDecisionSection');
+
 
 function toggleCustomerDecision() {
 
-    if (!contactResult || !customerDecisionSection) {
+    if (
+        !contactResult ||
+        !customerDecisionSection
+    ) {
+
         return;
     }
+
 
     if (contactResult.value === 'Customer Answered') {
 
@@ -889,14 +1090,26 @@ function toggleCustomerDecision() {
 
 }
 
-document.addEventListener('DOMContentLoaded', function () {
 
-    toggleCustomerDecision();
+document.addEventListener(
+    'DOMContentLoaded',
+    function () {
 
-    contactResult.addEventListener('change', toggleCustomerDecision);
+        toggleCustomerDecision();
 
-});
+        if (contactResult) {
+
+            contactResult.addEventListener(
+                'change',
+                toggleCustomerDecision
+            );
+
+        }
+
+    }
+);
 
 </script>
+
 
 <?php require VIEW_PATH . '/layouts/footer.php'; ?>

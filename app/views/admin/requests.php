@@ -221,11 +221,9 @@ $requests = $stmt->fetchAll();
 
 <?php elseif ($request['workflow_stage'] === 'Consultation Confirmed'): ?>
 
-    <a
-        href="?page=complete-consultation&id=<?= $request['id'] ?>"
-        class="btn btn-success btn-sm">
-        Complete Consultation
-    </a>
+    <span class="ms-2 text-muted fw-semibold">
+        Awaiting Agent Outcome
+    </span>
 
 <?php endif; ?>
 

@@ -2,6 +2,7 @@
 
 require_once APP_PATH . '/helpers/DateHelper.php';
 require_once APP_PATH . '/helpers/RequestEventHelper.php';
+require_once HELPER_PATH . '/email.php';
 
 if (!isset($_SESSION['user'])) {
 
@@ -22,9 +23,8 @@ $stmt = $pdo->prepare("
         c.phone,
 
         a.name AS agent_name,
-
         s.title AS service_name,
-
+        cb.id AS booking_id,
         cs.slot_date,
         cs.slot_time,
         cs.consultation_method,
@@ -118,6 +118,13 @@ if ($decision === 'approve') {
         $consultation['id']
     ]);
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | Record Consultation Approved Event
+    |--------------------------------------------------------------------------
+    */
+
     RequestEventHelper::addCurrentUser(
         $pdo,
         $consultation['id'],
@@ -128,7 +135,78 @@ if ($decision === 'approve') {
         true
     );
 
-    header("Location: ?page=needs-admin-review&success=consultation-approved");
+
+    /*
+    |--------------------------------------------------------------------------
+    | Send Consultation Completed Email
+    |--------------------------------------------------------------------------
+    */
+
+    $ratingLink =
+        'http://localhost/it-consultancy-php/public/index.php?page=customer-rate-agent&booking_id='
+        . (int) $consultation['booking_id']
+        . '&type=consultation';
+
+
+    sendEmail(
+        $consultation['email'],
+        'Consultation Completed',
+        "
+        <h2>Hello {$consultation['customer_name']},</h2>
+
+        <p>
+            Your consultation has been completed successfully.
+        </p>
+
+        <p>
+            Our team is now preparing your quotation/proposal.
+        </p>
+
+        <p>
+            You will receive another email once your proposal is ready
+            for review.
+        </p>
+
+        <hr>
+
+        <p>
+            <strong>How was your consultation?</strong>
+        </p>
+
+        <p>
+            We would appreciate your feedback about the consultation
+            provided by your consultant.
+        </p>
+
+        <p>
+            <a
+                href='{$ratingLink}'
+                style='
+                    display:inline-block;
+                    padding:10px 18px;
+                    background:#0d6efd;
+                    color:#ffffff;
+                    text-decoration:none;
+                    border-radius:5px;
+                '>
+                ⭐ Rate Your Consultation
+            </a>
+        </p>
+
+        <br>
+
+        <p>
+            Kind regards,<br>
+            <strong>IT Consultancy Team</strong>
+        </p>
+        "
+    );
+
+
+    header(
+        "Location: ?page=needs-admin-review&success=consultation-approved"
+    );
+
     exit;
 
 } elseif ($decision === 'return') {
@@ -180,21 +258,47 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
     <div class="col-md-4 text-end">
 
-        <small class="text-muted">
+    <small class="text-muted">
 
-            Current Status
+        Current Status
+
+    </small>
+
+    <br>
+
+    <span class="badge bg-warning text-dark fs-6 px-4 py-2">
+
+        <?= htmlspecialchars($consultation['job_status']) ?>
+
+    </span>
+
+
+    <?php if (!empty($consultation['completed_at'])): ?>
+
+        <?php
+
+        $completedAt = new DateTimeImmutable(
+            $consultation['completed_at'],
+            new DateTimeZone('UTC')
+        );
+
+        $completedAt = $completedAt->setTimezone(
+            new DateTimeZone('Asia/Dubai')
+        );
+
+        ?>
+
+        <small class="text-muted d-block mt-2">
+
+            Completed on<br>
+
+            <?= $completedAt->format('d M Y h:i A') ?>
 
         </small>
 
-        <br>
+    <?php endif; ?>
 
-        <span class="badge bg-warning text-dark fs-6 px-4 py-2">
-
-            <?= htmlspecialchars($consultation['job_status']) ?>
-
-        </span>
-
-    </div>
+</div>
 
 </div>
 
@@ -357,6 +461,7 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
 <?php if (
     $consultation['workflow_stage'] === 'Needs Admin Review'
+    && $consultation['job_status'] === 'Could Not Complete'
     && ($isConsultationReview || $isCustomerContactReview)
 ): ?>
 
@@ -579,8 +684,10 @@ require VIEW_PATH . '/layouts/header-admin.php';
         <div class="text-end mt-4">
 
             <button
-                type="button"
-                id="continueBtn"
+
+                type="submit"
+                name="submit_review"
+                id="finalReviewBtn"
                 class="btn btn-success btn-lg px-4"
                 disabled>
 
@@ -814,10 +921,8 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
             <button
 
-                id="continueBtn"
-
+                id="workflowContinueBtn"
                 class="btn btn-success btn-lg px-4"
-
                 disabled>
 
                 Continue →
@@ -834,84 +939,196 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
 <script>
 
-const options = document.querySelectorAll('.decision-option');
-const button = document.getElementById('continueBtn');
+/*
+|--------------------------------------------------------------------------
+| Final Review
+|--------------------------------------------------------------------------
+| Approve Consultation / Return to Agent
+|--------------------------------------------------------------------------
+*/
 
-console.log(options.length);
+const finalReviewButton =
+    document.getElementById('finalReviewBtn');
 
-options.forEach(option => {
+const adminDecisionOptions =
+    document.querySelectorAll(
+        'input[name="admin_decision"]'
+    );
 
-    option.addEventListener('click', function () {
 
-        options.forEach(o => {
-            o.classList.remove('border-primary', 'shadow', 'bg-light');
-        });
+adminDecisionOptions.forEach(function (option) {
 
-        this.classList.add('border-primary', 'shadow', 'bg-light');
+    option.addEventListener('change', function () {
 
-        this.querySelector('input').checked = true;
+        if (finalReviewButton) {
 
-        button.disabled = false;
+            finalReviewButton.disabled = false;
+
+        }
 
     });
 
 });
 
-button.addEventListener('click', function () {
 
-    const selected = document.querySelector('input[name="decision"]:checked');
+/*
+|--------------------------------------------------------------------------
+| Other Administrator Workflow Decisions
+|--------------------------------------------------------------------------
+*/
 
-    if (!selected) return;
+const workflowOptions =
+    document.querySelectorAll('.decision-option');
 
-    const id = <?= (int)$consultation['id']; ?>;
+const workflowButton =
+    document.getElementById('workflowContinueBtn');
 
-    switch (selected.value) {
 
-        // Consultation Review
-        case 'reschedule':
-            window.location =
-                '?page=admin-reschedule-consultation&id=' + id;
-            break;
+workflowOptions.forEach(function (option) {
 
-        case 'reassign':
-            window.location =
-                '?page=admin-assign-agent&id=' + id;
-            break;
+    option.addEventListener('click', function () {
 
-        case 'contact':
-            window.location =
-                '?page=admin-contact-customer&id=' + id;
-            break;
+        workflowOptions.forEach(function (item) {
 
-        case 'close':
-            window.location =
-                '?page=admin-close-request&id=' + id;
-            break;
+            item.classList.remove(
+                'border-primary',
+                'shadow',
+                'bg-light'
+            );
 
-        // Customer Contact Review
-        case 'no-answer':
-            window.location =
-                '?page=admin-contact-customer&id=' + id + '&action=no-answer';
-            break;
+        });
 
-        case 'wrong-number':
-            window.location =
-                '?page=admin-contact-customer&id=' + id + '&action=wrong-number';
-            break;
 
-        case 'new-consultation':
-            window.location =
-                '?page=admin-reschedule-consultation&id=' + id;
-            break;
+        this.classList.add(
+            'border-primary',
+            'shadow',
+            'bg-light'
+        );
 
-        case 'close-request':
-            window.location =
-                '?page=admin-close-request&id=' + id;
-            break;
 
-    }
+        const input =
+            this.querySelector('input[name="decision"]');
+
+
+        if (input) {
+
+            input.checked = true;
+
+        }
+
+
+        if (workflowButton) {
+
+            workflowButton.disabled = false;
+
+        }
+
+    });
 
 });
+
+
+if (workflowButton) {
+
+    workflowButton.addEventListener('click', function () {
+
+        const selected =
+            document.querySelector(
+                'input[name="decision"]:checked'
+            );
+
+
+        if (!selected) {
+
+            return;
+
+        }
+
+
+        const id =
+            <?= (int)$consultation['id']; ?>;
+
+
+        switch (selected.value) {
+
+            case 'reschedule':
+
+                window.location =
+                    '?page=admin-reschedule-consultation&id='
+                    + id;
+
+                break;
+
+
+            case 'reassign':
+
+                window.location =
+                    '?page=admin-assign-agent&id='
+                    + id;
+
+                break;
+
+
+            case 'contact':
+
+                window.location =
+                    '?page=admin-contact-customer&id='
+                    + id;
+
+                break;
+
+
+            case 'close':
+
+                window.location =
+                    '?page=admin-close-request&id='
+                    + id;
+
+                break;
+
+
+            case 'no-answer':
+
+                window.location =
+                    '?page=admin-contact-customer&id='
+                    + id
+                    + '&action=no-answer';
+
+                break;
+
+
+            case 'wrong-number':
+
+                window.location =
+                    '?page=admin-contact-customer&id='
+                    + id
+                    + '&action=wrong-number';
+
+                break;
+
+
+            case 'new-consultation':
+
+                window.location =
+                    '?page=admin-reschedule-consultation&id='
+                    + id;
+
+                break;
+
+
+            case 'close-request':
+
+                window.location =
+                    '?page=admin-close-request&id='
+                    + id;
+
+                break;
+
+        }
+
+    });
+
+}
 
 </script>
 

@@ -131,7 +131,8 @@ sendServiceCompletedEmail(
     $request['customer_name'],
     $request['service_title'],
     $invoicePath,
-    $reportPath
+    $reportPath,
+    (int) $request['id']
 );
 
 createNotification(

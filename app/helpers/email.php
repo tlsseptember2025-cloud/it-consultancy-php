@@ -132,10 +132,16 @@ function sendServiceCompletedEmail(
     string $name,
     string $service,
     string $invoicePath,
-    ?string $reportPath = null
+    ?string $reportPath = null,
+    int $requestId = 0
 ): bool {
 
     $subject = 'Your IT Service Has Been Successfully Completed';
+
+    $ratingLink =
+    'http://localhost/it-consultancy-php/public/index.php?page=customer-rate-agent&request_id='
+    . $requestId
+    . '&type=service';
 
     $body = "
     <h2>Hello {$name},</h2>
@@ -166,6 +172,31 @@ function sendServiceCompletedEmail(
         We appreciate your trust and look forward to assisting
         you again in the future.
     </p>
+
+    <hr>
+
+    <p>
+    <strong>How was your service?</strong>
+</p>
+
+<p>
+    We would appreciate your feedback about the service provided by your consultant.
+</p>
+
+<p>
+    <a
+        href='{$ratingLink}'
+        style='
+            display:inline-block;
+            padding:10px 18px;
+            background:#0d6efd;
+            color:#ffffff;
+            text-decoration:none;
+            border-radius:5px;
+        '>
+        ⭐ Rate Your Service
+    </a>
+</p>
 
     <br>
 

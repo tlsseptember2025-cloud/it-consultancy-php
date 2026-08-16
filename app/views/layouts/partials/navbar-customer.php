@@ -113,6 +113,20 @@ if (isset($_SESSION['customer'])) {
 
                 </li>
 
+                <!-- Profile -->
+
+                    <li class="nav-item">
+
+                        <a
+                            class="nav-link"
+                            href="?page=customer-profile">
+
+                            My Profile
+
+                        </a>
+
+                    </li>
+
                                 <!-- Notifications -->
 
                 <li class="nav-item dropdown">

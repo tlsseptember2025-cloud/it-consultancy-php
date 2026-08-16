@@ -52,6 +52,13 @@ $assignedConsultations = (int) $stmt->fetchColumn();
 |--------------------------------------------------------------------------
 | Completed Consultations
 |--------------------------------------------------------------------------
+|
+| Counts consultations that the assigned agent has completed.
+| After administrator approval, the workflow moves forward to
+| Proposal Draft, so we must not depend only on the
+| 'Consultation Completed' workflow stage.
+|
+|--------------------------------------------------------------------------
 */
 
 $stmt = $pdo->prepare("
@@ -63,7 +70,8 @@ $stmt = $pdo->prepare("
 
     WHERE
         cb.agent_id = ?
-        AND r.workflow_stage = 'Consultation Completed'
+        AND r.job_status = 'Completed'
+        AND r.completed_at IS NOT NULL
 ");
 
 $stmt->execute([$agentId]);
@@ -124,7 +132,8 @@ $stmt = $pdo->prepare("
 
     WHERE
         cb.agent_id = ?
-        AND r.workflow_stage = 'Consultation Completed'
+        AND r.job_status = 'Completed'
+        AND r.completed_at IS NOT NULL
 
     ORDER BY
         r.completed_at DESC,
