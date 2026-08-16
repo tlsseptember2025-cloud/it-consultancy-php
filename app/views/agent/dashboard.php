@@ -12,6 +12,55 @@ $agentId = (int) $_SESSION['agent']['id'];
 
 /*
 |--------------------------------------------------------------------------
+| AGENT PERFORMANCE
+|--------------------------------------------------------------------------
+*/
+
+$stmt = $pdo->prepare("
+    SELECT
+        COUNT(*) AS total_ratings,
+        AVG(rating) AS average_rating
+    FROM agent_ratings
+    WHERE agent_id = ?
+");
+
+$stmt->execute([$agentId]);
+
+$agentPerformance = $stmt->fetch(PDO::FETCH_ASSOC);
+
+$totalRatings = (int) ($agentPerformance['total_ratings'] ?? 0);
+
+$averageRating = (float) ($agentPerformance['average_rating'] ?? 0);
+
+/*
+|--------------------------------------------------------------------------
+| SERVICE PERFORMANCE
+|--------------------------------------------------------------------------
+*/
+
+$stmt = $pdo->prepare("
+    SELECT
+        COUNT(*) AS total_service_ratings,
+        AVG(rating) AS average_service_rating
+    FROM agent_ratings
+    WHERE agent_id = ?
+      AND rating_type = 'service'
+");
+
+$stmt->execute([$agentId]);
+
+$servicePerformance = $stmt->fetch(PDO::FETCH_ASSOC);
+
+$totalServiceRatings = (int) (
+    $servicePerformance['total_service_ratings'] ?? 0
+);
+
+$averageServiceRating = (float) (
+    $servicePerformance['average_service_rating'] ?? 0
+);
+
+/*
+|--------------------------------------------------------------------------
 | CONSULTATIONS
 |--------------------------------------------------------------------------
 */
@@ -253,6 +302,164 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
     </div>
 
+<!-- Performance -->
+
+<h4 class="mb-3">
+    Performance
+</h4>
+
+<div class="row g-4 mb-5">
+
+    <!-- Consultation Performance -->
+
+    <div class="col-md-6">
+
+        <div class="card border-dark shadow-sm h-100">
+
+            <div class="card-body text-center">
+
+                <h5 class="text-dark mb-3">
+                    Consultation Performance
+                </h5>
+
+                <?php if ($totalRatings > 0): ?>
+
+                    <?php
+                    $filledConsultationStars =
+                        (int) round($averageRating);
+                    ?>
+
+                    <div class="fs-2 mb-2">
+
+                        <?php for (
+                            $i = 1;
+                            $i <= 5;
+                            $i++
+                        ): ?>
+
+                            <?= $i <= $filledConsultationStars
+                                ? '⭐'
+                                : '☆' ?>
+
+                        <?php endfor; ?>
+
+                    </div>
+
+                    <div class="fw-bold fs-5">
+
+                        <?= number_format(
+                            $averageRating,
+                            1
+                        ) ?>
+
+                        / 5
+
+                    </div>
+
+                    <p class="text-muted mb-0">
+
+                        Based on <?= $totalRatings ?>
+
+                        <?= $totalRatings === 1
+                            ? 'rating'
+                            : 'ratings' ?>
+
+                    </p>
+
+                <?php else: ?>
+
+                    <div class="fs-2 mb-2">
+                        ☆☆☆☆☆
+                    </div>
+
+                    <p class="text-muted mb-0">
+                        No consultation ratings yet.
+                    </p>
+
+                <?php endif; ?>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- Service Performance -->
+
+    <div class="col-md-6">
+
+        <div class="card border-dark shadow-sm h-100">
+
+            <div class="card-body text-center">
+
+                <h5 class="text-dark mb-3">
+                    Service Performance
+                </h5>
+
+                <?php if ($totalServiceRatings > 0): ?>
+
+                    <?php
+                    $filledServiceStars =
+                        (int) round($averageServiceRating);
+                    ?>
+
+                    <div class="fs-2 mb-2">
+
+                        <?php for (
+                            $i = 1;
+                            $i <= 5;
+                            $i++
+                        ): ?>
+
+                            <?= $i <= $filledServiceStars
+                                ? '⭐'
+                                : '☆' ?>
+
+                        <?php endfor; ?>
+
+                    </div>
+
+                    <div class="fw-bold fs-5">
+
+                        <?= number_format(
+                            $averageServiceRating,
+                            1
+                        ) ?>
+
+                        / 5
+
+                    </div>
+
+                    <p class="text-muted mb-0">
+
+                        Based on <?= $totalServiceRatings ?>
+
+                        <?= $totalServiceRatings === 1
+                            ? 'rating'
+                            : 'ratings' ?>
+
+                    </p>
+
+                <?php else: ?>
+
+                    <div class="fs-2 mb-2">
+                        ☆☆☆☆☆
+                    </div>
+
+                    <p class="text-muted mb-0">
+                        No service ratings yet.
+                    </p>
+
+                <?php endif; ?>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
 
     <!--
     |--------------------------------------------------------------------------
