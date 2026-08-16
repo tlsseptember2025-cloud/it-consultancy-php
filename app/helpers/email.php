@@ -133,14 +133,15 @@ function sendServiceCompletedEmail(
     string $service,
     string $invoicePath,
     ?string $reportPath = null,
-    int $requestId = 0
-): bool {
+    int $requestId = 0,
+    int $serviceBookingId = 0
+    ): bool {
 
     $subject = 'Your IT Service Has Been Successfully Completed';
 
     $ratingLink =
-    'http://localhost/it-consultancy-php/public/index.php?page=customer-rate-agent&request_id='
-    . $requestId
+    'http://localhost/it-consultancy-php/public/index.php?page=customer-rate-agent&service_booking_id='
+    . $serviceBookingId
     . '&type=service';
 
     $body = "

@@ -11,9 +11,29 @@ require_once CONFIG_PATH . '/database.php';
 
 $bookingId = (int) ($_GET['booking_id'] ?? 0);
 
+$serviceBookingId = (int) ($_GET['service_booking_id'] ?? 0);
+
 $requestId = (int) ($_GET['request_id'] ?? 0);
 
 $type = $_GET['type'] ?? '';
+
+if (!in_array($type, ['consultation', 'service'], true)) {
+
+    die('Invalid rating request.');
+
+}
+
+if ($type === 'consultation' && $bookingId <= 0) {
+
+    die('Invalid consultation rating request.');
+
+}
+
+if ($type === 'service' && $serviceBookingId <= 0) {
+
+    die('Invalid service rating request.');
+
+}
 
 if (!in_array($type, ['consultation', 'service'], true)) {
 
@@ -40,50 +60,102 @@ $customerId = (int) $_SESSION['customer']['id'];
  * Get the request and verify that it belongs
  * to the logged-in customer.
  */
-$stmt = $pdo->prepare("
-    SELECT
-        r.id,
-        r.customer_id,
-        r.agent_id,
-        r.workflow_stage,
-        r.job_status,
-        r.completed_at,
 
-        cb.id AS consultation_booking_id,
-        cb.agent_id AS booking_agent_id,
+if ($type === 'consultation') {
 
-        c.name AS customer_name,
-        c.email,
+    $stmt = $pdo->prepare("
+        SELECT
+            r.id,
+            r.customer_id,
+            r.agent_id,
+            r.workflow_stage,
+            r.job_status,
+            r.completed_at,
 
-        s.title AS service_name,
+            cb.id AS consultation_booking_id,
+            cb.agent_id AS booking_agent_id,
 
-        a.name AS agent_name
+            c.name AS customer_name,
+            c.email,
 
-    FROM consultation_bookings cb
+            s.title AS service_name,
 
-    INNER JOIN requests r
-        ON r.id = cb.request_id
+            a.name AS agent_name
 
-    INNER JOIN customers c
-        ON c.id = r.customer_id
+        FROM consultation_bookings cb
 
-    INNER JOIN services s
-        ON s.id = r.service_id
+        INNER JOIN requests r
+            ON r.id = cb.request_id
 
-    LEFT JOIN agents a
-        ON a.id = cb.agent_id
+        INNER JOIN customers c
+            ON c.id = r.customer_id
 
-    WHERE
-        cb.id = ?
-        AND r.customer_id = ?
+        INNER JOIN services s
+            ON s.id = r.service_id
 
-    LIMIT 1
-");
+        LEFT JOIN agents a
+            ON a.id = cb.agent_id
 
-$stmt->execute([
-    $bookingId,
-    $customerId
-]);
+        WHERE
+            cb.id = ?
+            AND r.customer_id = ?
+
+        LIMIT 1
+    ");
+
+    $stmt->execute([
+        $bookingId,
+        $customerId
+    ]);
+
+} else {
+
+    $stmt = $pdo->prepare("
+        SELECT
+            r.id,
+            r.customer_id,
+            r.agent_id,
+            r.workflow_stage,
+            r.job_status,
+            r.completed_at,
+
+            sb.id AS service_booking_id,
+            sb.agent_id AS booking_agent_id,
+
+            c.name AS customer_name,
+            c.email,
+
+            s.title AS service_name,
+
+            a.name AS agent_name
+
+        FROM service_bookings sb
+
+        INNER JOIN requests r
+            ON r.id = sb.request_id
+
+        INNER JOIN customers c
+            ON c.id = r.customer_id
+
+        INNER JOIN services s
+            ON s.id = r.service_id
+
+        LEFT JOIN agents a
+            ON a.id = sb.agent_id
+
+        WHERE
+            sb.id = ?
+            AND r.customer_id = ?
+
+        LIMIT 1
+    ");
+
+    $stmt->execute([
+        $serviceBookingId,
+        $customerId
+    ]);
+
+}
 
 $request = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -97,14 +169,13 @@ if (!$request) {
 
 if (empty($request['booking_agent_id'])) {
 
-    die('No agent is assigned to this consultation.');
+    die(
+        $type === 'consultation'
+            ? 'No agent is assigned to this consultation.'
+            : 'No agent is assigned to this service.'
+    );
 
 }
-
-
-/*
- * Make sure the relevant work has actually been completed.
- */
 
 /*
  * Make sure the relevant work has actually been completed.
@@ -112,7 +183,8 @@ if (empty($request['booking_agent_id'])) {
 if ($type === 'consultation') {
 
     if (
-        $request['job_status'] !== 'Completed'
+        empty($request['consultation_booking_id'])
+        || $request['job_status'] !== 'Completed'
         || empty($request['completed_at'])
     ) {
 
@@ -122,15 +194,17 @@ if ($type === 'consultation') {
 
 } elseif ($type === 'service') {
 
-    if ($request['job_status'] !== 'Completed') {
+    if (
+        empty($request['service_booking_id'])
+        || $request['job_status'] !== 'Completed'
+        || empty($request['completed_at'])
+    ) {
 
         die('This service is not available for rating yet.');
 
     }
 
 }
-
-
 
 /*
  * Check whether the customer has already rated
@@ -157,13 +231,13 @@ if ($type === 'consultation') {
     $stmt = $pdo->prepare("
         SELECT rating
         FROM agent_ratings
-        WHERE request_id = ?
+        WHERE service_booking_id = ?
           AND rating_type = ?
         LIMIT 1
     ");
 
     $stmt->execute([
-        $requestId,
+        $serviceBookingId,
         $type
     ]);
 }
@@ -224,28 +298,57 @@ if (
              * Save the rating.
              */
             
-            $stmt = $pdo->prepare("
-    INSERT INTO agent_ratings
-    (
-        request_id,
-        consultation_booking_id,
-        customer_id,
-        agent_id,
-        rating_type,
-        rating
-    )
-    VALUES (?, ?, ?, ?, ?, ?)
-");
+            if ($type === 'consultation') {
 
-$stmt->execute([
-    $request['id'],
-    $request['consultation_booking_id'],
-    $customerId,
-    $request['booking_agent_id'],
-    $type,
-    $submittedRating
-]);
+    $stmt = $pdo->prepare("
+        INSERT INTO agent_ratings
+        (
+            request_id,
+            consultation_booking_id,
+            service_booking_id,
+            customer_id,
+            agent_id,
+            rating_type,
+            rating
+        )
+        VALUES (?, ?, NULL, ?, ?, ?, ?)
+    ");
 
+    $stmt->execute([
+        $request['id'],
+        $request['consultation_booking_id'],
+        $customerId,
+        $request['booking_agent_id'],
+        $type,
+        $submittedRating
+    ]);
+
+} else {
+
+    $stmt = $pdo->prepare("
+        INSERT INTO agent_ratings
+        (
+            request_id,
+            consultation_booking_id,
+            service_booking_id,
+            customer_id,
+            agent_id,
+            rating_type,
+            rating
+        )
+        VALUES (?, NULL, ?, ?, ?, ?, ?)
+    ");
+
+    $stmt->execute([
+        $request['id'],
+        $request['service_booking_id'],
+        $customerId,
+        $request['booking_agent_id'],
+        $type,
+        $submittedRating
+    ]);
+}
+            
             $success = 'Thank you for your rating.';
 
         }

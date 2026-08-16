@@ -57,13 +57,19 @@ RequestEventHelper::addCurrentUser(
 
 $stmt = $pdo->prepare("
     SELECT
-        r.id, r.quoted_price, 
+        r.id,
+        r.quoted_price,
         r.completed_at,
-        r.completion_notes, 
-        c.id AS customer_id, 
-        c.name AS customer_name, 
+        r.completion_notes,
+
+        c.id AS customer_id,
+        c.name AS customer_name,
         c.email,
+
         s.title AS service_title,
+
+        sb.id AS service_booking_id,
+
         p.payment_date
 
     FROM requests r
@@ -73,6 +79,9 @@ $stmt = $pdo->prepare("
 
     JOIN services s
         ON s.id = r.service_id
+
+    LEFT JOIN service_bookings sb
+        ON sb.request_id = r.id
 
     LEFT JOIN payments p
         ON p.request_id = r.id
@@ -132,7 +141,8 @@ sendServiceCompletedEmail(
     $request['service_title'],
     $invoicePath,
     $reportPath,
-    (int) $request['id']
+    (int) $request['id'],
+    (int) $request['service_booking_id']
 );
 
 createNotification(
