@@ -178,6 +178,14 @@ switch ($page) {
     require CONTROLLER_PATH . '/complete-consultation-closure.php';
     break;
 
+    case 'agent-change-password':
+    require VIEW_PATH . '/agent/agent-change-password.php';
+    break;
+
+    case 'agent-reset-password':
+    require VIEW_PATH . '/agent/agent-reset-password.php';
+    break;
+
     /*
     |--------------------------------------------------------------------------
     | Customer Portal

@@ -274,7 +274,7 @@ function sendPasswordResetEmail(
     string $to,
     string $customerName,
     string $token
-): bool {
+    ): bool {
 
     $subject = 'Reset Your Password';
 
@@ -307,6 +307,63 @@ function sendPasswordResetEmail(
 
         <p>
             If you did not request a password reset, you can safely ignore this email.
+        </p>
+
+        <br>
+
+        <p>
+            Regards,<br>
+            IT Consultancy
+        </p>
+    ";
+
+    return sendEmail(
+        $to,
+        $subject,
+        $body
+    );
+}
+
+function sendAgentPasswordResetEmail(
+    string $to,
+    string $agentName,
+    string $token
+): bool {
+
+    $subject = 'Change Your Agent Password';
+
+    $resetLink =
+        'http://localhost/it-consultancy-php/public/index.php?page=agent-reset-password&token='
+        . urlencode($token);
+
+    $body = "
+        <h2>Agent Password Change</h2>
+
+        <p>Hello {$agentName},</p>
+
+        <p>
+            We received a request to change the password for your
+            agent account.
+        </p>
+
+        <p>
+            Click the link below to create a new password:
+        </p>
+
+        <p>
+            <a href='{$resetLink}'>
+                Change My Password
+            </a>
+        </p>
+
+        <p>
+            This secure link will expire in
+            <strong>1 hour</strong>.
+        </p>
+
+        <p>
+            If you did not request a password change, you can safely
+            ignore this email.
         </p>
 
         <br>
