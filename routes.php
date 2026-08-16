@@ -186,6 +186,10 @@ switch ($page) {
     require VIEW_PATH . '/agent/agent-reset-password.php';
     break;
 
+    case 'agent-jobs':
+    require VIEW_PATH . '/agent/agent-jobs.php';
+    break;
+
     /*
     |--------------------------------------------------------------------------
     | Customer Portal

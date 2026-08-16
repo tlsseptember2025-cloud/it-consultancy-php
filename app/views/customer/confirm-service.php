@@ -62,17 +62,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
 
         $stmt = $pdo->prepare("
+            SELECT agent_id
+            FROM service_slots
+            WHERE id = ?
+            LIMIT 1
+        ");
+
+        $stmt->execute([$slotId]);
+
+        $slot = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$slot) {
+
+            $_SESSION['error'] = 'Selected service slot was not found.';
+            header('Location: ?page=confirm-service&request_id=' . $requestId);
+            exit;
+        }
+
+        $agentId = (int) $slot['agent_id'];
+
+        $stmt = $pdo->prepare("
             INSERT INTO service_bookings
             (
                 request_id,
-                slot_id
+                slot_id,
+                agent_id
             )
-            VALUES (?, ?)
+            VALUES (?, ?, ?)
         ");
 
         $stmt->execute([
             $requestId,
-            $slotId
+            $slotId,
+            $agentId
         ]);
 
         $stmt = $pdo->prepare("
