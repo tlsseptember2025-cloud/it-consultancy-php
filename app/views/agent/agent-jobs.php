@@ -193,13 +193,14 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
     <td>
 
-        <a
-            href="?page=view-service-job&id=<?= (int)$job['request_id'] ?>"
-            class="btn btn-success btn-sm">
+       <a
+       
+        href="?page=view-service-job&id=<?= (int)$job['id'] ?>"
+        class="btn btn-success btn-sm">
 
-            View Job
+        View Job
 
-        </a>
+    </a>
 
     </td>
 

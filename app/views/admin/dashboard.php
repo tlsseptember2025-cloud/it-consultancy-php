@@ -81,8 +81,15 @@ $totalRefunded = $pdo->query("
 ")->fetchColumn();
 
 $netRevenue = $totalRevenue - $totalRefunded;
+//$totalRevenue = $totalPayments - $totalRefunded;
+//$outstandingBalance = $totalQuoted - $totalRevenue;
+
+
 $totalRevenue = $totalPayments - $totalRefunded;
-$outstandingBalance = $totalQuoted - $totalRevenue;
+$outstandingBalance = max(
+    0,
+    $totalQuoted - $totalRevenue
+);
 
 /*
 |--------------------------------------------------------------------------
