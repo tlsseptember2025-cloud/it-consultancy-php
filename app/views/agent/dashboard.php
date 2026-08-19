@@ -245,18 +245,173 @@ $recentMissedConsultations = $stmt->fetchAll(PDO::FETCH_ASSOC);
 |--------------------------------------------------------------------------
 | SERVICE JOBS
 |--------------------------------------------------------------------------
+*/
+
+/*
+|--------------------------------------------------------------------------
+| Assigned Service Jobs
+|--------------------------------------------------------------------------
 |
-| Service Jobs have not yet been implemented for Agents.
-| Keep these at zero until the Service Jobs workflow is built.
+| Only active jobs are counted here.
+| Completed and failed jobs are excluded.
 |
 */
 
-$assignedServiceJobs = 0;
-$completedServiceJobs = 0;
-$missedServiceJobs = 0;
+$stmt = $pdo->prepare("
+    SELECT COUNT(*)
+    FROM service_bookings sb
 
-$recentCompletedServiceJobs = [];
-$recentMissedServiceJobs = [];
+    INNER JOIN requests r
+        ON r.id = sb.request_id
+
+    WHERE
+        sb.agent_id = ?
+        AND r.job_status IN (
+            'Pending',
+            'In Progress'
+        )
+");
+
+$stmt->execute([$agentId]);
+
+$assignedServiceJobs = (int) $stmt->fetchColumn();
+
+
+/*
+|--------------------------------------------------------------------------
+| Completed Service Jobs
+|--------------------------------------------------------------------------
+*/
+
+$stmt = $pdo->prepare("
+    SELECT COUNT(*)
+    FROM service_bookings sb
+
+    INNER JOIN requests r
+        ON r.id = sb.request_id
+
+    WHERE
+        sb.agent_id = ?
+        AND r.job_status = 'Completed'
+        AND r.completed_at IS NOT NULL
+");
+
+$stmt->execute([$agentId]);
+
+$completedServiceJobs = (int) $stmt->fetchColumn();
+
+
+/*
+|--------------------------------------------------------------------------
+| Missed / Could Not Complete Service Jobs
+|--------------------------------------------------------------------------
+*/
+
+$stmt = $pdo->prepare("
+    SELECT COUNT(*)
+    FROM service_bookings sb
+
+    INNER JOIN requests r
+        ON r.id = sb.request_id
+
+    WHERE
+        sb.agent_id = ?
+        AND r.job_status = 'Could Not Complete'
+");
+
+$stmt->execute([$agentId]);
+
+$missedServiceJobs = (int) $stmt->fetchColumn();
+
+
+/*
+|--------------------------------------------------------------------------
+| Last 3 Completed Service Jobs
+|--------------------------------------------------------------------------
+*/
+
+$stmt = $pdo->prepare("
+    SELECT
+        r.id AS request_id,
+        c.name AS customer_name,
+        s.title AS service_name,
+        ss.service_date,
+        ss.service_time
+
+    FROM service_bookings sb
+
+    INNER JOIN requests r
+        ON r.id = sb.request_id
+
+    INNER JOIN customers c
+        ON c.id = r.customer_id
+
+    INNER JOIN services s
+        ON s.id = r.service_id
+
+    INNER JOIN service_slots ss
+        ON ss.id = sb.slot_id
+
+    WHERE
+        sb.agent_id = ?
+        AND r.job_status = 'Completed'
+        AND r.completed_at IS NOT NULL
+
+    ORDER BY
+        r.completed_at DESC,
+        r.id DESC
+
+    LIMIT 3
+");
+
+$stmt->execute([$agentId]);
+
+$recentCompletedServiceJobs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+
+/*
+|--------------------------------------------------------------------------
+| Last 3 Missed Service Jobs
+|--------------------------------------------------------------------------
+*/
+
+$stmt = $pdo->prepare("
+    SELECT
+        r.id AS request_id,
+        c.name AS customer_name,
+        s.title AS service_name,
+        ss.service_date,
+        ss.service_time
+
+    FROM service_bookings sb
+
+    INNER JOIN requests r
+        ON r.id = sb.request_id
+
+    INNER JOIN customers c
+        ON c.id = r.customer_id
+
+    INNER JOIN services s
+        ON s.id = r.service_id
+
+    INNER JOIN service_slots ss
+        ON ss.id = sb.slot_id
+
+    WHERE
+        sb.agent_id = ?
+        AND r.job_status = 'Could Not Complete'
+
+    ORDER BY
+        ss.service_date DESC,
+        ss.service_time DESC,
+        r.id DESC
+
+    LIMIT 3
+");
+
+$stmt->execute([$agentId]);
+
+$recentMissedServiceJobs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 
 /*

@@ -142,6 +142,10 @@ switch ($page) {
         require VIEW_PATH . '/agent/dashboard.php';
         break;
 
+    case 'view-service-job':
+        require VIEW_PATH . '/agent/view-service-job.php';
+        break;
+
     case 'contact-customer':
         require CONTROLLER_PATH . '/contact-customer.php';
         break;
@@ -188,6 +192,10 @@ switch ($page) {
 
     case 'agent-jobs':
     require VIEW_PATH . '/agent/agent-jobs.php';
+    break;
+
+    case 'explain-overdue-consultation':
+    require VIEW_PATH . '/agent/explain-overdue-consultation.php';
     break;
 
     case 'customer-profile':
