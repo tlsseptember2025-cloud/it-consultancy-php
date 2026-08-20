@@ -206,6 +206,10 @@ switch ($page) {
     require VIEW_PATH . '/admin/admin-review-service-job.php';
     break;
 
+    case 'respond-service-review':
+    require VIEW_PATH . '/agent/respond-service-review.php';
+    break;
+
     case 'customer-profile':
     require VIEW_PATH . '/customer/customer-profile.php';
     break;

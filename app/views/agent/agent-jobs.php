@@ -194,38 +194,50 @@ require VIEW_PATH . '/layouts/header-agent.php';
    <td>
 
     <?php if (
-        $job['workflow_stage'] === 'Missed Service'
-        || $job['job_status'] === 'Missed Service'
-    ): ?>
+    $job['workflow_stage'] === 'Service Explanation Required'
+): ?>
 
-        <a
-            href="?page=explain-missed-service&id=<?= (int) $job['id'] ?>"
-            class="btn btn-danger btn-sm text-nowrap">
+    <a
+        href="?page=respond-service-review&id=<?= (int) $job['id'] ?>"
+        class="btn btn-warning btn-sm text-nowrap">
 
-            Explain Missed Service
+        Respond to Admin Review
 
-        </a>
+    </a>
 
-    <?php elseif (
-        $job['workflow_stage'] === 'Needs Admin Review'
-        && $job['job_status'] === 'Needs Admin Review'
-    ): ?>
+<?php elseif (
+    $job['workflow_stage'] === 'Missed Service'
+    || $job['job_status'] === 'Missed Service'
+): ?>
 
-        <span class="badge bg-warning text-dark">
-            Submitted for Admin Review
-        </span>
+    <a
+        href="?page=explain-missed-service&id=<?= (int) $job['id'] ?>"
+        class="btn btn-danger btn-sm text-nowrap">
 
-    <?php else: ?>
+        Explain Missed Service
 
-        <a
-            href="?page=view-service-job&id=<?= (int) $job['id'] ?>"
-            class="btn btn-success btn-sm">
+    </a>
 
-            View Job
+<?php elseif (
+    $job['workflow_stage'] === 'Needs Admin Review'
+    && $job['job_status'] === 'Needs Admin Review'
+): ?>
 
-        </a>
+    <span class="badge bg-warning text-dark">
+        Submitted for Admin Review
+    </span>
 
-    <?php endif; ?>
+<?php else: ?>
+
+    <a
+        href="?page=view-service-job&id=<?= (int) $job['id'] ?>"
+        class="btn btn-success btn-sm">
+
+        View Job
+
+    </a>
+
+<?php endif; ?>
 
 </td>
 
