@@ -379,6 +379,115 @@ if ($decision === 'accept') {
     exit;
 }
 
+/*
+|--------------------------------------------------------------------------
+| Reschedule Service
+|--------------------------------------------------------------------------
+*/
+
+if ($decision === 'reschedule') {
+
+    /*
+    |--------------------------------------------------------------------------
+    | Save Admin Reschedule Decision to Review History
+    |--------------------------------------------------------------------------
+    */
+
+    $history = $pdo->prepare("
+        INSERT INTO service_review_history
+        (
+            request_id,
+            actor_type,
+            admin_id,
+            action_type,
+            decision_type,
+            message
+        )
+        VALUES
+        (
+            ?,
+            'admin',
+            ?,
+            'admin_decision',
+            'reschedule',
+            ?
+        )
+    ");
+
+    $history->execute([
+        $serviceJob['request_id'],
+        (int) $_SESSION['user'],
+        $comments
+    ]);
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Send Service to Customer Rescheduling Workflow
+    |--------------------------------------------------------------------------
+    */
+
+    $update = $pdo->prepare("
+        UPDATE requests
+        SET
+            workflow_stage = 'Service Rejected',
+            job_status = 'Pending',
+            review_type = NULL,
+            service_rejection_reason = ?,
+            service_rejected_at = NOW(),
+            service_rejected_by = ?
+        WHERE
+            id = ?
+            AND workflow_stage = 'Needs Admin Review'
+            AND review_type IN ('service_missed', 'service_overdue')
+    ");
+
+    $update->execute([
+        $comments,
+        (int) $_SESSION['user'],
+        $serviceJob['request_id']
+    ]);
+
+
+    if ($update->rowCount() !== 1) {
+
+        die(
+            'The service could not be sent for rescheduling because its review status changed.'
+        );
+
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Audit Event
+    |--------------------------------------------------------------------------
+    */
+
+    RequestEventHelper::addCurrentUser(
+        $pdo,
+        (int) $serviceJob['request_id'],
+        'SERVICE_RESCHEDULE_REQUIRED',
+        RequestEventHelper::TYPE_SERVICE,
+        'Service Reschedule Required',
+        'The administrator determined that the service must be rescheduled. Administrator reason: ' . $comments,
+        true
+    );
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Return to Admin Review List
+    |--------------------------------------------------------------------------
+    */
+
+    header(
+        'Location: ?page=needs-admin-review&success=service-reschedule-required'
+    );
+
+    exit;
+}
+
 }
 
 require VIEW_PATH . '/layouts/header-admin.php';
