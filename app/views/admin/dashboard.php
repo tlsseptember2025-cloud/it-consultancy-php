@@ -115,6 +115,7 @@ $needsAdminReview = $pdo->query("
     SELECT
         r.id,
         r.created_at,
+        r.review_type,
         c.name AS customer_name,
         s.title AS service_title
     FROM requests r
@@ -431,30 +432,92 @@ $messagesNeedingAttention = $pdo->query("
 
                                     <?php foreach ($needsAdminReview as $item): ?>
 
-                                        <a
-                                            href="?page=needs-admin-review"
-                                            class="text-decoration-none text-dark d-block"
-                                        >
+    <?php
 
-                                            <div class="p-3 border-bottom dashboard-action-item">
+if ($item['review_type'] === 'consultation_overdue') {
 
-                                                <div class="fw-bold">
-                                                    Request #<?= (int) $item['id'] ?>
-                                                </div>
+    $reviewLabel = 'Consultation Overdue';
 
-                                                <div>
-                                                    <?= htmlspecialchars($item['customer_name']) ?>
-                                                </div>
+    $reviewDescription =
+        'Consultation exceeded the scheduled one-hour session.';
 
-                                                <div class="small text-muted">
-                                                    <?= htmlspecialchars($item['service_title']) ?>
-                                                </div>
+} elseif ($item['review_type'] === 'service_missed') {
 
-                                            </div>
+    $reviewLabel = 'Missed Service';
 
-                                        </a>
+    $reviewDescription =
+        'Service was not started within the one-hour start window.';
 
-                                    <?php endforeach; ?>
+} elseif ($item['review_type'] === 'service_overdue') {
+
+    $reviewLabel = 'Service Overdue';
+
+    $reviewDescription =
+        'Service remained In Progress after the scheduled one-hour session.';
+
+} elseif ($item['review_type'] === 'customer_contact') {
+
+    $reviewLabel = 'Customer Contact Review';
+
+    $reviewDescription =
+        'Customer contact requires administrator action.';
+
+} else {
+
+    $reviewLabel = 'Consultation Review';
+
+    $reviewDescription =
+        'Consultation requires administrator review.';
+}
+
+?>
+
+    <a
+    href="<?=
+        in_array(
+            $item['review_type'],
+            ['service_missed', 'service_overdue'],
+            true
+        )
+            ? '?page=admin-review-service-job&id=' . (int)$item['id']
+            : '?page=admin-review-consultation&id=' . (int)$item['id']
+    ?>"
+    class="text-decoration-none text-dark d-block"
+>
+
+        <div class="p-3 border-bottom dashboard-action-item">
+
+            <div class="fw-bold">
+                Request #<?= (int)$item['id'] ?>
+            </div>
+
+            <div>
+                <?= htmlspecialchars($item['customer_name']) ?>
+            </div>
+
+            <div class="small text-muted">
+                <?= htmlspecialchars($item['service_title']) ?>
+            </div>
+
+            <div class="mt-2">
+
+                <span class="badge bg-danger">
+                    <?= htmlspecialchars($reviewLabel) ?>
+                </span>
+
+            </div>
+
+            <div class="small text-muted mt-1">
+
+                <?= htmlspecialchars($reviewDescription) ?>
+
+            </div>
+
+        </div>
+
+    </a>
+
+<?php endforeach; ?>
 
                                 <?php endif; ?>
 

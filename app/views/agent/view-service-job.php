@@ -78,11 +78,112 @@ $stmt->execute([
 
 $job = $stmt->fetch(PDO::FETCH_ASSOC);
 
-
 if (!$job) {
 
     die('Service job not found.');
 
+}
+
+
+
+/*
+|--------------------------------------------------------------------------
+| Start Service
+|--------------------------------------------------------------------------
+*/
+
+if (
+    $_SERVER['REQUEST_METHOD'] === 'POST'
+    && isset($_POST['start_service'])
+) {
+
+    /*
+    |--------------------------------------------------------------------------
+    | Only Pending service jobs can be started
+    |--------------------------------------------------------------------------
+    */
+
+    if ($job['job_status'] !== 'Pending') {
+
+        die(
+            'This service job cannot be started from its current status.'
+        );
+
+    }
+
+
+    $serviceStart = new DateTimeImmutable(
+    $job['service_date'] . ' ' . $job['service_time'],
+    new DateTimeZone('Asia/Dubai')
+);
+
+$serviceEnd = $serviceStart->modify('+1 hour');
+
+$now = new DateTimeImmutable(
+    'now',
+    new DateTimeZone('Asia/Dubai')
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| Too early
+|--------------------------------------------------------------------------
+*/
+
+if ($now < $serviceStart) {
+
+    die(
+        'This service job has not started yet.'
+    );
+
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Start window expired
+|--------------------------------------------------------------------------
+*/
+
+if ($now >= $serviceEnd) {
+
+    die(
+        'The one-hour service start window has expired.'
+    );
+
+}
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Start Service
+    |--------------------------------------------------------------------------
+    */
+
+    $update = $pdo->prepare("
+        UPDATE requests
+
+        SET
+            job_status = 'In Progress'
+
+        WHERE
+            id = ?
+
+            AND job_status = 'Pending'
+    ");
+
+    $update->execute([
+        $job['request_id']
+    ]);
+
+
+    header(
+        'Location: ?page=view-service-job&id='
+        . (int) $job['service_booking_id']
+    );
+
+    exit;
 }
 
 
@@ -114,6 +215,37 @@ switch ($status) {
         $badge = 'danger';
         break;
 
+}
+
+$serviceTimeStatus = 'not_applicable';
+
+if ($status === 'Pending') {
+
+    $serviceStart = new DateTimeImmutable(
+        $job['service_date'] . ' ' . $job['service_time'],
+        new DateTimeZone('Asia/Dubai')
+    );
+
+    $serviceEnd = $serviceStart->modify('+1 hour');
+
+    $now = new DateTimeImmutable(
+        'now',
+        new DateTimeZone('Asia/Dubai')
+    );
+
+    if ($now < $serviceStart) {
+
+        $serviceTimeStatus = 'future';
+
+    } elseif ($now < $serviceEnd) {
+
+        $serviceTimeStatus = 'active';
+
+    } else {
+
+        $serviceTimeStatus = 'expired';
+
+    }
 }
 
 
@@ -364,6 +496,109 @@ require VIEW_PATH . '/layouts/header-agent.php';
         </div>
 
     </div>
+
+    <?php if (
+        $status === 'Pending'
+        && $serviceTimeStatus === 'active'
+    ): ?>
+
+    <div class="card shadow-sm mb-4 border-primary">
+
+        <div class="card-header bg-primary text-white">
+
+            Service Action
+
+        </div>
+
+        <div class="card-body">
+
+            <p class="mb-3">
+
+                This service job is ready to be started
+                at the scheduled service time.
+
+            </p>
+
+            <form method="POST">
+
+                <button
+                    type="submit"
+                    name="start_service"
+                    class="btn btn-primary">
+
+                    ▶ Start Service
+
+                </button>
+
+            </form>
+
+        </div>
+
+    </div>
+
+<?php endif; ?>
+
+<?php if (
+    $status === 'Pending'
+    && $serviceTimeStatus === 'active'
+): ?>
+
+    <div class="card shadow-sm mb-4 border-primary">
+
+        <div class="card-header bg-primary text-white">
+            Service Action
+        </div>
+
+        <div class="card-body">
+
+            <p class="mb-3">
+                This service job is ready to be started
+                at the scheduled service time.
+            </p>
+
+            <form method="POST">
+
+                <button
+                    type="submit"
+                    name="start_service"
+                    class="btn btn-primary">
+
+                    ▶ Start Service
+
+                </button>
+
+            </form>
+
+        </div>
+
+    </div>
+
+<?php endif; ?>
+
+<?php if (
+    $status === 'Pending'
+    && $serviceTimeStatus === 'expired'
+): ?>
+
+    <div class="card shadow-sm mb-4 border-danger">
+
+        <div class="card-header bg-danger text-white">
+            Service Start Window Expired
+        </div>
+
+        <div class="card-body">
+
+            <p class="mb-0">
+                The one-hour window to start this service has expired.
+                The service will be handled by the missed-service workflow
+                and may require administrator review.
+            </p>
+
+        </div>
+
+    </div>
+
+<?php endif; ?>
 
 
     <?php if ($status === 'Completed'): ?>

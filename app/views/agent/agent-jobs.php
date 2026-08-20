@@ -191,18 +191,43 @@ require VIEW_PATH . '/layouts/header-agent.php';
     </td>
 
 
-    <td>
+   <td>
 
-       <a
-       
-        href="?page=view-service-job&id=<?= (int)$job['id'] ?>"
-        class="btn btn-success btn-sm">
+    <?php if (
+        $job['workflow_stage'] === 'Missed Service'
+        || $job['job_status'] === 'Missed Service'
+    ): ?>
 
-        View Job
+        <a
+            href="?page=explain-missed-service&id=<?= (int) $job['id'] ?>"
+            class="btn btn-danger btn-sm text-nowrap">
 
-    </a>
+            Explain Missed Service
 
-    </td>
+        </a>
+
+    <?php elseif (
+        $job['workflow_stage'] === 'Needs Admin Review'
+        && $job['job_status'] === 'Needs Admin Review'
+    ): ?>
+
+        <span class="badge bg-warning text-dark">
+            Submitted for Admin Review
+        </span>
+
+    <?php else: ?>
+
+        <a
+            href="?page=view-service-job&id=<?= (int) $job['id'] ?>"
+            class="btn btn-success btn-sm">
+
+            View Job
+
+        </a>
+
+    <?php endif; ?>
+
+</td>
 
 </tr>
 

@@ -26,8 +26,13 @@ $stmt = $pdo->prepare("
 
         s.title AS service_name,
 
-        cs.slot_date,
-        cs.slot_time
+        /* Consultation schedule */
+        cs.slot_date AS consultation_date,
+        cs.slot_time AS consultation_time,
+
+        /* Service schedule */
+        ss.service_date,
+        ss.service_time
 
     FROM requests r
 
@@ -40,16 +45,50 @@ $stmt = $pdo->prepare("
     INNER JOIN services s
         ON s.id = r.service_id
 
+    /* Consultation booking */
     LEFT JOIN consultation_bookings cb
         ON cb.request_id = r.id
 
     LEFT JOIN consultation_slots cs
         ON cs.id = cb.slot_id
 
-    WHERE r.workflow_stage = 'Needs Admin Review'
+    /* Service booking */
+    LEFT JOIN service_bookings sb
+        ON sb.request_id = r.id
 
-    ORDER BY cs.slot_date DESC,
-             cs.slot_time DESC
+    LEFT JOIN service_slots ss
+        ON ss.id = sb.slot_id
+
+    WHERE
+        r.workflow_stage = 'Needs Admin Review'
+
+    ORDER BY
+
+        CASE
+
+            WHEN r.review_type IN (
+                'service_missed',
+                'service_overdue'
+            )
+
+            THEN ss.service_date
+
+            ELSE cs.slot_date
+
+        END DESC,
+
+        CASE
+
+            WHEN r.review_type IN (
+                'service_missed',
+                'service_overdue'
+            )
+
+            THEN ss.service_time
+
+            ELSE cs.slot_time
+
+        END DESC
 ");
 
 $stmt->execute();
@@ -125,7 +164,7 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
     <p class="text-muted mb-4">
 
-        Consultations that require an administrator's decision.
+        Requests that require an administrator's decision.
 
     </p>
 
@@ -133,7 +172,7 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
     <div class="alert alert-success">
 
-        There are currently no consultations waiting for administrator review.
+        There are currently no requests waiting for administrator review.
 
     </div>
 
@@ -153,10 +192,10 @@ require VIEW_PATH . '/layouts/header-admin.php';
                     <th>Customer</th>
                     <th>Agent</th>
                     <th>Service</th>
-                    <th>Workflow</th>
+                    <th>Review Purpose</th>
                     <th>Reason</th>
-                    <th>Date</th>
-                    <th>Action</th>
+                    <th style="width:150px; white-space:nowrap;">Date</th>
+                    <th style="width:150px; white-space:nowrap;">Action</th>
 
                 </tr>
 
@@ -180,21 +219,57 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
 <td>
 
-<?php
+    <?php if ($consultation['review_type'] === 'consultation_overdue'): ?>
 
-$statusClass = 'bg-warning text-dark';
+        <span class="badge bg-danger">
+            Consultation Overdue
+        </span>
 
-if ($consultation['job_status'] == 'Completed') {
-    $statusClass = 'bg-success';
-}
+        <div class="small text-muted mt-1">
+            Consultation exceeded the scheduled one-hour session.
+        </div>
 
-?>
+    <?php elseif ($consultation['review_type'] === 'service_missed'): ?>
 
-<span class="badge <?= $statusClass ?>">
+    <span class="badge bg-danger">
+        Missed Service
+    </span>
 
-    <?= htmlspecialchars($consultation['job_status']) ?>
+    <div class="small text-muted mt-1">
+        Service was not started within the one-hour start window.
+    </div>
 
-</span>
+<?php elseif ($consultation['review_type'] === 'service_overdue'): ?>
+
+    <span class="badge bg-danger">
+        Service Overdue
+    </span>
+
+    <div class="small text-muted mt-1">
+        Service remained In Progress after the scheduled one-hour session.
+    </div>
+
+<?php elseif ($consultation['review_type'] === 'customer_contact'): ?>
+
+        <span class="badge bg-warning text-dark">
+            Customer Contact Review
+        </span>
+
+        <div class="small text-muted mt-1">
+            Customer contact requires administrator action.
+        </div>
+
+    <?php else: ?>
+
+        <span class="badge bg-secondary">
+            Consultation Review
+        </span>
+
+        <div class="small text-muted mt-1">
+            Consultation requires administrator review.
+        </div>
+
+    <?php endif; ?>
 
 </td>
 
@@ -204,69 +279,79 @@ if ($consultation['job_status'] == 'Completed') {
 
 </td>
 
-<td>
+<td style="width:150px; white-space:nowrap;">
 
-    <?= formatDate($consultation['slot_date']) ?>
+    <?php
+
+        if (
+            in_array(
+                $consultation['review_type'],
+                ['service_missed', 'service_overdue'],
+                true
+            )
+        ) {
+
+            $reviewDate = $consultation['service_date'];
+            $reviewTime = $consultation['service_time'];
+
+        } else {
+
+            $reviewDate = $consultation['consultation_date'];
+            $reviewTime = $consultation['consultation_time'];
+
+        }
+
+    ?>
+
+    <?= $reviewDate
+        ? formatDate($reviewDate)
+        : '<span class="text-muted">N/A</span>'
+    ?>
 
     <br>
 
     <small class="text-muted">
 
-        <?= formatTime($consultation['slot_time']) ?>
+        <?= $reviewTime
+            ? formatTime($reviewTime)
+            : ''
+        ?>
 
     </small>
 
 </td>
 
-                 <td>
+                 <td style="width:150px; white-space:nowrap;">
 
-                    <?php
+   <?php if (
+    in_array(
+        $consultation['review_type'],
+        ['service_missed', 'service_overdue'],
+        true
+    )
+): ?>
 
-/*
-|--------------------------------------------------------------------------
-| Determine Review Page
-|--------------------------------------------------------------------------
-|
-| Customer Contact reviews normally go to:
-| admin-contact-customer
-|
-| EXCEPTION:
-| Customer Answered + Needs Admin Review means the
-| customer requested closure.
-|
-*/
+    <a
+        href="?page=admin-review-service-job&id=<?= (int)$consultation['id'] ?>"
+        class="btn btn-danger btn-sm">
 
-if (
-    $consultation['review_type'] === 'customer_contact'
-    && $consultation['workflow_stage'] === 'Needs Admin Review'
-    && $consultation['contact_result'] === 'Customer Answered'
-) {
+        Review Service Job →
 
-    $reviewPage = 'admin-close-request';
+    </a>
 
-} elseif (
-    $consultation['review_type'] === 'customer_contact'
-) {
+<?php else: ?>
 
-    $reviewPage = 'admin-contact-customer';
+        <a
+            href="?page=admin-review-consultation&id=<?= (int)$consultation['id'] ?>"
+            class="btn btn-primary btn-sm">
 
-} else {
+            Review Consultation →
 
-    $reviewPage = 'admin-review-consultation';
+        </a>
 
-}
+    <?php endif; ?>
 
-?>
-
-                    <a
-                        href="?page=<?= $reviewPage ?>&id=<?= $consultation['id'] ?>"
-                        class="btn btn-primary btn-sm">
-
-                        Review →
-
-                    </a>
-
-                    </td>
+</td>
 
                 </tr>
 

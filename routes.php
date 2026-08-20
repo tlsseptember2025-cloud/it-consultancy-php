@@ -198,6 +198,14 @@ switch ($page) {
     require VIEW_PATH . '/agent/explain-overdue-consultation.php';
     break;
 
+    case 'explain-missed-service':
+    require VIEW_PATH . '/agent/explain-missed-service.php';
+    break;
+
+    case 'admin-review-service-job':
+    require VIEW_PATH . '/admin/admin-review-service-job.php';
+    break;
+
     case 'customer-profile':
     require VIEW_PATH . '/customer/customer-profile.php';
     break;
