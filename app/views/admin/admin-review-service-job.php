@@ -179,30 +179,30 @@ if ($decision === 'reject') {
 
     $history = $pdo->prepare("
         INSERT INTO service_review_history
-(
+    (
     request_id,
     actor_type,
     admin_id,
     action_type,
     decision_type,
     message
-)
-VALUES
-(
+    )
+    VALUES
+    (
     ?,
     'admin',
     ?,
     'admin_rejection',
     'reject',
     ?
-)
+    )
     ");
 
     $history->execute([
     $serviceJob['request_id'],
     (int) $_SESSION['user'],
     $comments
-]);
+    ]);
 
 
     /*
@@ -268,6 +268,112 @@ VALUES
 
     header(
         'Location: ?page=needs-admin-review&success=service-explanation-rejected'
+    );
+
+    exit;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Accept Explanation & Close Service
+|--------------------------------------------------------------------------
+*/
+
+if ($decision === 'accept') {
+
+    /*
+    |--------------------------------------------------------------------------
+    | Save Admin Acceptance to Review History
+    |--------------------------------------------------------------------------
+    */
+
+    $history = $pdo->prepare("
+        INSERT INTO service_review_history
+        (
+            request_id,
+            actor_type,
+            admin_id,
+            action_type,
+            decision_type,
+            message
+        )
+        VALUES
+        (
+            ?,
+            'admin',
+            ?,
+            'admin_decision',
+            'accept',
+            ?
+        )
+    ");
+
+    $history->execute([
+        $serviceJob['request_id'],
+        (int) $_SESSION['user'],
+        $comments
+    ]);
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Close Service
+    |--------------------------------------------------------------------------
+    */
+
+    $update = $pdo->prepare("
+        UPDATE requests
+        SET
+            workflow_stage = 'Service Completed',
+            job_status = 'Completed',
+            review_type = NULL,
+            admin_review_comments = ?
+        WHERE
+            id = ?
+            AND workflow_stage = 'Needs Admin Review'
+            AND review_type IN ('service_missed', 'service_overdue')
+    ");
+
+    $update->execute([
+        $comments,
+        $serviceJob['request_id']
+    ]);
+
+
+    if ($update->rowCount() !== 1) {
+
+        die(
+            'The service could not be closed because its review status changed.'
+        );
+
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Audit Event
+    |--------------------------------------------------------------------------
+    */
+
+    RequestEventHelper::addCurrentUser(
+        $pdo,
+        (int) $serviceJob['request_id'],
+        'SERVICE_REVIEW_ACCEPTED',
+        RequestEventHelper::TYPE_SERVICE,
+        'Service Explanation Accepted',
+        'The administrator accepted the agent explanation and closed the service. Administrator comments: ' . $comments,
+        true
+    );
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Return to Admin Review List
+    |--------------------------------------------------------------------------
+    */
+
+    header(
+        'Location: ?page=needs-admin-review&success=service-explanation-accepted'
     );
 
     exit;
