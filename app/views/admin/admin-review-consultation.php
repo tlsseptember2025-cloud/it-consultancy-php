@@ -89,6 +89,10 @@ $isConsultationReview =
 
 $isCustomerContactReview =
     ($reviewType === 'customer_contact');
+
+$isOverdueConsultationReview =
+    ($reviewType === 'consultation_overdue');
+
 if (
     $_SERVER['REQUEST_METHOD'] === 'POST'
     && isset($_POST['submit_review'])
@@ -242,9 +246,23 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
         <h2>
 
-<?= $isConsultationReview
-        ? 'Review Consultation'
-        : 'Review Customer Contact'; ?>
+<h2>
+
+<?php if ($isOverdueConsultationReview): ?>
+
+    Review Overdue Consultation
+
+<?php elseif ($isConsultationReview): ?>
+
+    Review Consultation
+
+<?php else: ?>
+
+    Review Customer Contact
+
+<?php endif; ?>
+
+</h2>
 
 </h2>
 
@@ -458,6 +476,104 @@ require VIEW_PATH . '/layouts/header-admin.php';
     </div>
 
 </div>
+
+<?php if ($isOverdueConsultationReview): ?>
+
+    <div class="card shadow-sm mb-4 border-danger">
+
+        <div class="card-header bg-danger text-white">
+
+            <strong>
+                Overdue Consultation Investigation
+            </strong>
+
+        </div>
+
+        <div class="card-body">
+
+            <div class="alert alert-warning">
+
+                <strong>Consultation Session Expired</strong>
+
+                <br>
+
+                The consultation was started by the assigned agent,
+                but it remained open after the scheduled one-hour
+                consultation session ended.
+
+            </div>
+
+
+            <div class="mb-4">
+
+                <h5>
+                    Agent Explanation
+                </h5>
+
+                <div class="border rounded bg-light p-3">
+
+                    <?php if (!empty($consultation['incomplete_reason'])): ?>
+
+                        <?= nl2br(
+                            htmlspecialchars(
+                                $consultation['incomplete_reason']
+                            )
+                        ) ?>
+
+                    <?php else: ?>
+
+                        <span class="text-muted">
+                            No explanation was submitted.
+                        </span>
+
+                    <?php endif; ?>
+
+                </div>
+
+            </div>
+
+
+            <div class="row">
+
+                <div class="col-md-4">
+
+                    <strong>Agent</strong><br>
+
+                    <?= htmlspecialchars(
+                        $consultation['agent_name']
+                    ) ?>
+
+                </div>
+
+
+                <div class="col-md-4">
+
+                    <strong>Scheduled Date</strong><br>
+
+                    <?= formatDate(
+                        $consultation['slot_date']
+                    ) ?>
+
+                </div>
+
+
+                <div class="col-md-4">
+
+                    <strong>Scheduled Time</strong><br>
+
+                    <?= formatTime(
+                        $consultation['slot_time']
+                    ) ?>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+<?php endif; ?>
 
 <?php if (
     $consultation['workflow_stage'] === 'Needs Admin Review'
@@ -708,6 +824,7 @@ require VIEW_PATH . '/layouts/header-admin.php';
 <?php if (
     $consultation['workflow_stage'] === 'Needs Admin Review'
     && $consultation['job_status'] !== 'Completed'
+    && !$isOverdueConsultationReview
 ): ?>
 
 <div class="card shadow-sm mb-4">

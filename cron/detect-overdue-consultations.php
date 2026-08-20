@@ -122,18 +122,18 @@ foreach ($consultations as $consultation) {
     */
 
     $update = $pdo->prepare("
-        UPDATE requests
+    UPDATE requests
 
-        SET
-            job_status = 'Needs Admin Review',
-            workflow_stage = 'Needs Admin Review',
-            incomplete_reason = NULL
+    SET
+        job_status = 'Needs Admin Review',
+        workflow_stage = 'Needs Admin Review',
+        review_type = 'consultation_overdue'
 
-        WHERE
-            id = ?
+    WHERE
+        id = ?
 
-            AND job_status = 'In Progress'
-    ");
+        AND job_status = 'In Progress'
+");
 
     $update->execute([
         $requestId
