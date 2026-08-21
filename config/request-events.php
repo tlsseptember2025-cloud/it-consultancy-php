@@ -104,6 +104,157 @@ define(
     'MISSED_CONSULTATION_EXPLAINED'
 );
 
+define(
+    'EVENT_SERVICE_RESCHEDULE_REQUESTED',
+    'SERVICE_RESCHEDULE_REQUESTED'
+);
+
+define(
+    'EVENT_SERVICE_RESCHEDULE_REJECTED',
+    'SERVICE_RESCHEDULE_REJECTED'
+);
+
+define(
+    'EVENT_SERVICE_RESCHEDULE_APPROVED',
+    'SERVICE_RESCHEDULE_APPROVED'
+);
+
+/*
+|--------------------------------------------------------------------------
+| Service Review / Missed / Overdue
+|--------------------------------------------------------------------------
+*/
+
+define('EVENT_SERVICE_MISSED', 'SERVICE_MISSED');
+
+define(
+    'EVENT_SERVICE_MISSED_EXPLANATION',
+    'SERVICE_MISSED_EXPLANATION'
+);
+
+define('EVENT_SERVICE_OVERDUE', 'SERVICE_OVERDUE');
+
+define(
+    'EVENT_SERVICE_EXPLANATION_REJECTED',
+    'SERVICE_EXPLANATION_REJECTED'
+);
+
+define(
+    'EVENT_SERVICE_EXPLANATION_RESUBMITTED',
+    'SERVICE_EXPLANATION_RESUBMITTED'
+);
+
+define(
+    'EVENT_SERVICE_REVIEW_ACCEPTED',
+    'SERVICE_REVIEW_ACCEPTED'
+);
+
+define(
+    'EVENT_SERVICE_RESCHEDULE_REQUIRED',
+    'SERVICE_RESCHEDULE_REQUIRED'
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| Consultation Approval
+|--------------------------------------------------------------------------
+*/
+
+define(
+    'EVENT_CONSULTATION_APPROVED',
+    'CONSULTATION_APPROVED'
+);
+
+/*
+|--------------------------------------------------------------------------
+| Consultation Review
+|--------------------------------------------------------------------------
+*/
+
+define(
+    'EVENT_CONSULTATION_MISSED',
+    'CONSULTATION_MISSED'
+);
+
+define(
+    'EVENT_CONSULTATION_OVERDUE_EXPLANATION',
+    'CONSULTATION_OVERDUE_EXPLANATION'
+);
+
+define(
+    'EVENT_CONSULTATION_RESCHEDULE_REQUESTED',
+    'CONSULTATION_RESCHEDULE_REQUESTED'
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| Closure Agreement
+|--------------------------------------------------------------------------
+*/
+
+define(
+    'EVENT_CLOSURE_AGREEMENT_SENT',
+    'CLOSURE_AGREEMENT_SENT'
+);
+
+define(
+    'EVENT_CLOSURE_AGREEMENT_RESENT',
+    'CLOSURE_AGREEMENT_RESENT'
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| Retention
+|--------------------------------------------------------------------------
+*/
+
+define(
+    'EVENT_RETENTION_EXTENDED',
+    'RETENTION_EXTENDED'
+);
+
+define(
+    'EVENT_RETENTION_EXPORTED',
+    'RETENTION_EXPORTED'
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| Legal Hold
+|--------------------------------------------------------------------------
+*/
+
+define(
+    'EVENT_LEGAL_HOLD_PLACED',
+    'LEGAL_HOLD_PLACED'
+);
+
+define(
+    'EVENT_LEGAL_HOLD_RELEASED',
+    'LEGAL_HOLD_RELEASED'
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| Verification Emails
+|--------------------------------------------------------------------------
+*/
+
+define(
+    'EVENT_VERIFICATION_EMAIL_2_SENT',
+    'VERIFICATION_EMAIL_2_SENT'
+);
+
+define(
+    'EVENT_SERVICE_RESCHEDULED',
+    'SERVICE_RESCHEDULED'
+);
+
 define('EVENT_CUSTOMER_REQUESTED_NEW_CONSULTATION', 'CUSTOMER_REQUESTED_NEW_CONSULTATION');
 define('EVENT_CUSTOMER_REQUESTED_CLOSURE', 'CUSTOMER_REQUESTED_CLOSURE');
 

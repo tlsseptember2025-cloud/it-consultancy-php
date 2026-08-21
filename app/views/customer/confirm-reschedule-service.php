@@ -105,49 +105,65 @@ if ($stmt->fetchColumn()) {
 
 }
 
-// Release old slot
+/*
+|--------------------------------------------------------------------------
+| Store Pending Service Reschedule
+|--------------------------------------------------------------------------
+|
+| The customer has selected a new service slot.
+| The appointment is NOT changed yet.
+| The administrator must approve the requested slot first.
+|
+*/
+
 $stmt = $pdo->prepare("
-    UPDATE service_slots
-    SET is_booked = 0
-    WHERE id = ?
-");
-
-$stmt->execute([$current['slot_id']]);
-
-// Book new slot
-$stmt = $pdo->prepare("
-    UPDATE service_slots
-    SET is_booked = 1
-    WHERE id = ?
-");
-
-$stmt->execute([$newSlotId]);
-
-// Update booking
-$stmt = $pdo->prepare("
-    UPDATE service_bookings
-    SET slot_id = ?
-    WHERE request_id = ?
+    UPDATE requests
+    SET
+        pending_reschedule_slot_id = ?,
+        pending_reschedule_reason = NULL,
+        pending_reschedule_requested_at = NOW(),
+        workflow_stage = 'Awaiting Reschedule Approval',
+        job_status = 'Pending'
+    WHERE
+        id = ?
+        AND customer_id = ?
 ");
 
 $stmt->execute([
     $newSlotId,
-    $requestId
+    $requestId,
+    $customerId
 ]);
 
-// Increment counter and reset workflow
-$stmt = $pdo->prepare("
-    UPDATE requests
-    SET
-        service_reschedules = service_reschedules + 1,
-        workflow_stage = 'Service Scheduled',
-        service_rejection_reason = NULL,
-        service_rejected_at = NULL,
-        service_rejected_by = NULL
-    WHERE id = ?
-");
 
-$stmt->execute([$requestId]);
+/*
+|--------------------------------------------------------------------------
+| Record Audit Event
+|--------------------------------------------------------------------------
+*/
+
+RequestEventHelper::addCurrentUser(
+    $pdo,
+    $requestId,
+    'SERVICE_RESCHEDULE_REQUESTED',
+    RequestEventHelper::TYPE_SERVICE,
+    'Service Reschedule Requested',
+    'The customer selected a new service date and time. The request is awaiting administrator approval.',
+    true
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| Return to Customer Requests
+|--------------------------------------------------------------------------
+*/
+
+$_SESSION['success'] =
+    'Your new service time has been submitted and is awaiting administrator approval.';
+
+header('Location: ?page=customer-requests');
+exit;
 
 /*
 |--------------------------------------------------------------------------

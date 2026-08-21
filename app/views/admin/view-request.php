@@ -119,11 +119,14 @@ $events = RequestEventHelper::get(
 
                             <?php
 
-$display = $requestEventDisplay[$event['event_code']] ?? [
-    'title' => 'Unknown Event',
-    'icon'  => '📝',
-    'badge' => 'secondary'
-];
+$display = array_merge(
+    [
+        'title' => 'Unknown Event',
+        'icon'  => '📝',
+        'badge' => 'secondary'
+    ],
+    $requestEventDisplay[$event['event_code']] ?? []
+);
 
 ?>
 

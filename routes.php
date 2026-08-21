@@ -194,6 +194,9 @@ switch ($page) {
     require VIEW_PATH . '/agent/agent-jobs.php';
     break;
 
+    case 'review-reschedule-service':
+    require VIEW_PATH . '/admin/review-reschedule-service.php';
+
     case 'explain-overdue-consultation':
     require VIEW_PATH . '/agent/explain-overdue-consultation.php';
     break;
