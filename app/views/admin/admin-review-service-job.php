@@ -97,6 +97,8 @@ if (!$serviceJob) {
 }
 
 
+
+
 /*
 |--------------------------------------------------------------------------
 | Make sure this is a Service Review
@@ -124,6 +126,27 @@ $isServiceMissed =
 $isServiceOverdue =
     $serviceJob['review_type'] === 'service_overdue';
 
+
+/*
+|--------------------------------------------------------------------------
+| Load Available Agents for Reassignment
+|--------------------------------------------------------------------------
+*/
+
+$agentsStmt = $pdo->prepare("
+    SELECT
+        id,
+        name
+    FROM agents
+    WHERE id != ?
+    ORDER BY name ASC
+");
+
+$agentsStmt->execute([
+    (int) $serviceJob['agent_id']
+]);
+
+$availableAgents = $agentsStmt->fetchAll(PDO::FETCH_ASSOC);
 
 /*
 |--------------------------------------------------------------------------
@@ -486,6 +509,232 @@ if ($decision === 'reschedule') {
     );
 
     exit;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Reassign Service
+|--------------------------------------------------------------------------
+*/
+
+if ($decision === 'reassign') {
+
+    $newAgentId = (int) ($_POST['new_agent_id'] ?? 0);
+
+    if ($newAgentId <= 0) {
+
+        die('Please select a new agent.');
+
+    }
+
+    if ($newAgentId === (int) $serviceJob['agent_id']) {
+
+        die('Please select a different agent.');
+
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Make Sure New Agent Exists
+    |--------------------------------------------------------------------------
+    */
+
+    $agentStmt = $pdo->prepare("
+        SELECT id
+        FROM agents
+        WHERE id = ?
+        LIMIT 1
+    ");
+
+    $agentStmt->execute([
+        $newAgentId
+    ]);
+
+    if (!$agentStmt->fetch()) {
+
+        die('The selected agent does not exist.');
+
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Start Transaction
+    |--------------------------------------------------------------------------
+    */
+
+    $pdo->beginTransaction();
+
+    try {
+
+        /*
+        |--------------------------------------------------------------------------
+        | Save Reassignment History
+        |--------------------------------------------------------------------------
+        */
+
+        $stmt = $pdo->prepare("
+            INSERT INTO service_agent_reassignments
+            (
+                request_id,
+                booking_id,
+                old_agent_id,
+                new_agent_id,
+                reassigned_by,
+                reason
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+        ");
+
+        $stmt->execute([
+            $serviceJob['request_id'],
+            $serviceJob['service_booking_id'],
+            $serviceJob['agent_id'],
+            $newAgentId,
+            (int) $_SESSION['user'],
+            $comments
+        ]);
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Update Service Booking
+        |--------------------------------------------------------------------------
+        */
+
+        $stmt = $pdo->prepare("
+            UPDATE service_bookings
+            SET agent_id = ?
+            WHERE id = ?
+        ");
+
+        $stmt->execute([
+            $newAgentId,
+            $serviceJob['service_booking_id']
+        ]);
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Update Request
+        |--------------------------------------------------------------------------
+        */
+
+        $stmt = $pdo->prepare("
+            UPDATE requests
+            SET
+                agent_id = ?,
+                workflow_stage = 'Service Scheduled',
+                job_status = 'Pending',
+                review_type = NULL,
+                admin_review_comments = ?,
+                incomplete_reason = NULL
+            WHERE
+                id = ?
+                AND workflow_stage = 'Needs Admin Review'
+                AND review_type IN ('service_missed', 'service_overdue')
+        ");
+
+        $stmt->execute([
+            $newAgentId,
+            $comments,
+            $serviceJob['request_id']
+        ]);
+
+        if ($stmt->rowCount() !== 1) {
+
+            throw new Exception(
+                'The service could not be reassigned because its review status changed.'
+            );
+
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Record Review History
+        |--------------------------------------------------------------------------
+        */
+
+        $history = $pdo->prepare("
+            INSERT INTO service_review_history
+            (
+                request_id,
+                actor_type,
+                admin_id,
+                action_type,
+                decision_type,
+                message
+            )
+            VALUES
+            (
+                ?,
+                'admin',
+                ?,
+                'admin_decision',
+                'reassign',
+                ?
+            )
+        ");
+
+        $history->execute([
+            $serviceJob['request_id'],
+            (int) $_SESSION['user'],
+            $comments
+        ]);
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Audit Event
+        |--------------------------------------------------------------------------
+        */
+
+        RequestEventHelper::addCurrentUser(
+            $pdo,
+            (int) $serviceJob['request_id'],
+            RequestEventHelper::EVENT_AGENT_REASSIGNED,
+            RequestEventHelper::TYPE_SERVICE,
+            'Agent Reassigned',
+            'The administrator reassigned the unfinished service to another agent. Administrator reason: ' . $comments,
+            true
+        );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Commit Transaction
+        |--------------------------------------------------------------------------
+        */
+
+        $pdo->commit();
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Return to Admin Review List
+        |--------------------------------------------------------------------------
+        */
+
+        header(
+            'Location: ?page=needs-admin-review&success=service-reassigned'
+        );
+
+        exit;
+
+    } catch (Exception $e) {
+
+        if ($pdo->inTransaction()) {
+
+            $pdo->rollBack();
+
+        }
+
+        die($e->getMessage());
+
+    }
+
 }
 
 }
@@ -1110,7 +1359,16 @@ $reviewHistory = $historyStmt->fetchAll(PDO::FETCH_ASSOC);
 
                             </div>
 
-                            <p class="text-muted small mt-2 mb-0">
+                            <p class="text-muted small mt-2 mb-3">
+
+    Assign the unfinished service to
+    another agent.
+
+    This records an agent-performance
+    issue without treating the customer
+    service itself as a failure.
+
+</p>
 
                                 Accept the agent's explanation and
                                 close the service, only when the
@@ -1171,100 +1429,156 @@ $reviewHistory = $historyStmt->fetchAll(PDO::FETCH_ASSOC);
 
                 <!-- Reassign -->
 
-                <div class="col-md-6">
+<div class="col-md-6">
 
-                    <div class="card h-100 border-primary">
+    <div class="card h-100 border-primary">
 
-                        <div class="card-body">
+        <div class="card-body">
 
-                            <div class="form-check">
+            <div class="form-check">
 
-                                <input
-                                    class="form-check-input"
-                                    type="radio"
-                                    name="admin_decision"
-                                    id="decisionReassign"
-                                    value="reassign">
+                <input
+                    class="form-check-input"
+                    type="radio"
+                    name="admin_decision"
+                    id="decisionReassign"
+                    value="reassign"
+                >
 
-                                <label
-                                    class="form-check-label"
-                                    for="decisionReassign">
+                <label
+                    class="form-check-label"
+                    for="decisionReassign"
+                >
 
-                                    <strong>
-                                        👤 Reassign Service
-                                    </strong>
+                    <strong>
+                        👤 Reassign Service
+                    </strong>
 
-                                </label>
-
-                            </div>
-
-                            <p class="text-muted small mt-2 mb-0">
-
-                                Assign the unfinished service to
-                                another agent.
-
-                                This records an agent-performance
-                                issue without treating the customer
-                                service itself as a failure.
-
-                            </p>
-
-                        </div>
-
-                    </div>
-
-                </div>
-
-
-                <!-- Reject -->
-
-                <div class="col-md-6">
-
-                    <div class="card h-100 border-danger">
-
-                        <div class="card-body">
-
-                            <div class="form-check">
-
-                                <input
-                                    class="form-check-input"
-                                    type="radio"
-                                    name="admin_decision"
-                                    id="decisionReject"
-                                    value="reject">
-
-                                <label
-                                    class="form-check-label"
-                                    for="decisionReject">
-
-                                    <strong>
-                                        ❌ Reject Explanation
-                                    </strong>
-
-                                </label>
-
-                            </div>
-
-                            <p class="text-muted small mt-2 mb-0">
-
-                                Reject the explanation and send the
-                                case back to the agent for another
-                                explanation.
-
-                                This does not close the review.
-
-                            </p>
-
-                        </div>
-
-                    </div>
-
-                </div>
+                </label>
 
             </div>
 
+            <p class="text-muted small mt-2 mb-0">
 
-            <!-- Admin Comments -->
+                Assign the unfinished service to another agent.
+
+                This records an agent-performance issue without
+                treating the customer service itself as a failure.
+
+            </p>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- Reject -->
+
+<div class="col-md-6">
+
+    <div class="card h-100 border-danger">
+
+        <div class="card-body">
+
+            <div class="form-check">
+
+                <input
+                    class="form-check-input"
+                    type="radio"
+                    name="admin_decision"
+                    id="decisionReject"
+                    value="reject"
+                >
+
+                <label
+                    class="form-check-label"
+                    for="decisionReject"
+                >
+
+                    <strong>
+                        ❌ Reject Explanation
+                    </strong>
+
+                </label>
+
+            </div>
+
+            <p class="text-muted small mt-2 mb-0">
+
+                Reject the explanation and send the case back
+                to the agent for another explanation.
+
+                This does not close the review.
+
+            </p>
+
+        </div>
+
+    </div>
+
+</div>
+
+</div>
+<!-- End .row -->
+
+
+<!-- Reassign Agent Selection -->
+
+<div
+    id="reassignAgentSection"
+    class="mt-4"
+    style="display: none;"
+>
+
+    <div class="card border-primary">
+
+        <div class="card-body">
+
+            <h5 class="mb-3">
+                👤 Select New Agent
+            </h5>
+
+            <p class="text-muted small">
+
+                Select the agent who will take over this
+                unfinished service.
+
+            </p>
+
+            <select
+                name="new_agent_id"
+                id="newAgentId"
+                class="form-select"
+            >
+
+                <option value="">
+                    -- Select an agent --
+                </option>
+
+                <?php foreach ($availableAgents as $agent): ?>
+
+                    <option
+                        value="<?= (int) $agent['id'] ?>"
+                    >
+
+                        <?= htmlspecialchars($agent['name']) ?>
+
+                    </option>
+
+                <?php endforeach; ?>
+
+            </select>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- Admin Comments -->
 
             <div class="mt-4">
 
@@ -1339,40 +1653,145 @@ $reviewHistory = $historyStmt->fetchAll(PDO::FETCH_ASSOC);
 </div>
 
 <script>
-document.querySelectorAll('.card.border-success, .card.border-warning, .card.border-primary, .card.border-danger')
-    .forEach(function (card) {
 
-        card.addEventListener('click', function (event) {
+document.querySelectorAll(
+    '.card.border-success, .card.border-warning, .card.border-primary, .card.border-danger'
+).forEach(function (card) {
 
-            const radio = this.querySelector(
-                'input[type="radio"][name="admin_decision"]'
-            );
+    card.addEventListener('click', function (event) {
 
-            if (!radio) {
-                return;
-            }
+        const radio = this.querySelector(
+            'input[type="radio"][name="admin_decision"]'
+        );
 
-            radio.checked = true;
+        if (!radio) {
+            return;
+        }
 
-            document.querySelectorAll(
-                'input[name="admin_decision"]'
-            ).forEach(function (input) {
+        /*
+        |----------------------------------------------------------------------
+        | Select Decision
+        |----------------------------------------------------------------------
+        */
 
-                input.closest('.card').classList.remove(
+        radio.checked = true;
+
+        /*
+        |----------------------------------------------------------------------
+        | Trigger Change Event
+        |----------------------------------------------------------------------
+        */
+
+        radio.dispatchEvent(
+            new Event('change', {
+                bubbles: true
+            })
+        );
+
+        /*
+        |----------------------------------------------------------------------
+        | Remove Active Style From All Decision Cards
+        |----------------------------------------------------------------------
+        */
+
+        document.querySelectorAll(
+            'input[name="admin_decision"]'
+        ).forEach(function (input) {
+
+            const decisionCard = input.closest('.card');
+
+            if (decisionCard) {
+
+                decisionCard.classList.remove(
                     'border-dark',
                     'shadow'
                 );
 
-            });
-
-            this.classList.add(
-                'border-dark',
-                'shadow'
-            );
+            }
 
         });
 
+        /*
+        |----------------------------------------------------------------------
+        | Highlight Selected Decision Card
+        |----------------------------------------------------------------------
+        */
+
+        this.classList.add(
+            'border-dark',
+            'shadow'
+        );
+
     });
+
+});
+
+
+/*
+|--------------------------------------------------------------------------
+| Show / Hide Reassign Agent Selection
+|--------------------------------------------------------------------------
+*/
+
+document.addEventListener('change', function (event) {
+
+    if (
+        !event.target.matches(
+            'input[name="admin_decision"]'
+        )
+    ) {
+        return;
+    }
+
+
+    const reassignSection = document.getElementById(
+        'reassignAgentSection'
+    );
+
+    const newAgentSelect = document.getElementById(
+        'newAgentId'
+    );
+
+
+    if (
+        !reassignSection ||
+        !newAgentSelect
+    ) {
+        return;
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Reassign Selected
+    |--------------------------------------------------------------------------
+    */
+
+    if (event.target.value === 'reassign') {
+
+        reassignSection.style.display = 'block';
+
+        newAgentSelect.required = true;
+
+        return;
+
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Any Other Decision Selected
+    |--------------------------------------------------------------------------
+    */
+
+    reassignSection.style.display = 'none';
+
+    newAgentSelect.required = false;
+
+    newAgentSelect.value = '';
+
+});
+
 </script>
 
 
