@@ -21,6 +21,7 @@ verifyCustomerRequest($pdo, $requestId);
 $stmt = $pdo->prepare("
     SELECT
         r.service_reschedules,
+        r.service_rejected_by,
         sb.slot_id,
         ss.service_date,
         ss.service_time
@@ -45,8 +46,13 @@ if (!$current) {
 
 }
 
-// Only one reschedule allowed
-if ((int) $current['service_reschedules'] >= 1) {
+// Only one normal customer-initiated reschedule allowed.
+// Administrator-triggered reassignment/rescheduling is allowed.
+
+if (
+    (int) $current['service_reschedules'] >= 1
+    && empty($current['service_rejected_by'])
+) {
 
     $_SESSION['error'] =
         'You have already used your one allowed service reschedule.';

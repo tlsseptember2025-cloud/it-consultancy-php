@@ -298,7 +298,7 @@ if ($decision === 'reject') {
 
 /*
 |--------------------------------------------------------------------------
-| Accept Explanation & Close Service
+| Accept Explanation
 |--------------------------------------------------------------------------
 */
 
@@ -340,66 +340,130 @@ if ($decision === 'accept') {
 
     /*
     |--------------------------------------------------------------------------
-    | Close Service
+    | Service Missed
+    |
+    | Accept Explanation & Reschedule Service
     |--------------------------------------------------------------------------
     */
 
-    $update = $pdo->prepare("
-        UPDATE requests
-        SET
-            workflow_stage = 'Service Completed',
-            job_status = 'Completed',
-            review_type = NULL,
-            admin_review_comments = ?
-        WHERE
-            id = ?
-            AND workflow_stage = 'Needs Admin Review'
-            AND review_type IN ('service_missed', 'service_overdue')
-    ");
+    if ($isServiceMissed) {
 
-    $update->execute([
-        $comments,
-        $serviceJob['request_id']
-    ]);
+        $update = $pdo->prepare("
+            UPDATE requests
+            SET
+                workflow_stage = 'Service Rejected',
+                job_status = 'Pending',
+                review_type = NULL,
+                service_rejection_reason = ?,
+                service_rejected_at = NOW(),
+                service_rejected_by = ?
+            WHERE
+                id = ?
+                AND workflow_stage = 'Needs Admin Review'
+                AND review_type = 'service_missed'
+        ");
+
+        $update->execute([
+            $comments,
+            (int) $_SESSION['user'],
+            $serviceJob['request_id']
+        ]);
 
 
-    if ($update->rowCount() !== 1) {
+        if ($update->rowCount() !== 1) {
 
-        die(
-            'The service could not be closed because its review status changed.'
+            die(
+                'The missed service could not be sent for rescheduling because its review status changed.'
+            );
+
+        }
+
+
+        RequestEventHelper::addCurrentUser(
+            $pdo,
+            (int) $serviceJob['request_id'],
+            'SERVICE_REVIEW_ACCEPTED',
+            RequestEventHelper::TYPE_SERVICE,
+            'Service Explanation Accepted',
+            'The administrator accepted the agent explanation. The missed service must now be rescheduled. Administrator comments: ' . $comments,
+            true
         );
 
+
+        RequestEventHelper::addCurrentUser(
+            $pdo,
+            (int) $serviceJob['request_id'],
+            'SERVICE_RESCHEDULE_REQUIRED',
+            RequestEventHelper::TYPE_SERVICE,
+            'Service Reschedule Required',
+            'The missed service was not completed and must be rescheduled.',
+            true
+        );
+
+
+        header(
+            'Location: ?page=needs-admin-review&success=missed-service-explanation-accepted'
+        );
+
+        exit;
     }
 
 
     /*
     |--------------------------------------------------------------------------
-    | Audit Event
+    | Service Overdue
+    |
+    | Accept Explanation & Close Service
     |--------------------------------------------------------------------------
     */
 
-    RequestEventHelper::addCurrentUser(
-        $pdo,
-        (int) $serviceJob['request_id'],
-        'SERVICE_REVIEW_ACCEPTED',
-        RequestEventHelper::TYPE_SERVICE,
-        'Service Explanation Accepted',
-        'The administrator accepted the agent explanation and closed the service. Administrator comments: ' . $comments,
-        true
-    );
+    if ($isServiceOverdue) {
+
+        $update = $pdo->prepare("
+            UPDATE requests
+            SET
+                workflow_stage = 'Service Completed',
+                job_status = 'Completed',
+                review_type = NULL,
+                admin_review_comments = ?
+            WHERE
+                id = ?
+                AND workflow_stage = 'Needs Admin Review'
+                AND review_type = 'service_overdue'
+        ");
+
+        $update->execute([
+            $comments,
+            $serviceJob['request_id']
+        ]);
 
 
-    /*
-    |--------------------------------------------------------------------------
-    | Return to Admin Review List
-    |--------------------------------------------------------------------------
-    */
+        if ($update->rowCount() !== 1) {
 
-    header(
-        'Location: ?page=needs-admin-review&success=service-explanation-accepted'
-    );
+            die(
+                'The overdue service could not be closed because its review status changed.'
+            );
 
-    exit;
+        }
+
+
+        RequestEventHelper::addCurrentUser(
+            $pdo,
+            (int) $serviceJob['request_id'],
+            'SERVICE_REVIEW_ACCEPTED',
+            RequestEventHelper::TYPE_SERVICE,
+            'Service Explanation Accepted',
+            'The administrator accepted the agent explanation and closed the service. Administrator comments: ' . $comments,
+            true
+        );
+
+
+        header(
+            'Location: ?page=needs-admin-review&success=service-explanation-accepted'
+        );
+
+        exit;
+    }
 }
 
 /*
@@ -511,6 +575,26 @@ if ($decision === 'reschedule') {
     exit;
 }
 
+
+$adminStmt = $pdo->prepare("
+    SELECT id
+    FROM users
+    WHERE email = ?
+    LIMIT 1
+");
+
+$adminStmt->execute([
+    $_SESSION['user']
+]);
+
+$currentAdmin = $adminStmt->fetch(PDO::FETCH_ASSOC);
+
+if (!$currentAdmin) {
+    die('Unable to identify the current administrator.');
+}
+
+$currentAdminId = (int) $currentAdmin['id'];
+
 /*
 |--------------------------------------------------------------------------
 | Reassign Service
@@ -518,6 +602,25 @@ if ($decision === 'reschedule') {
 */
 
 if ($decision === 'reassign') {
+
+    $adminStmt = $pdo->prepare("
+        SELECT id
+        FROM users
+        WHERE email = ?
+        LIMIT 1
+    ");
+
+    $adminStmt->execute([
+        $_SESSION['user']
+    ]);
+
+    $currentAdmin = $adminStmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$currentAdmin) {
+        die('Unable to identify the current administrator.');
+    }
+
+    $currentAdminId = (int) $currentAdmin['id'];
 
     $newAgentId = (int) ($_POST['new_agent_id'] ?? 0);
 
@@ -592,7 +695,7 @@ if ($decision === 'reassign') {
             $serviceJob['service_booking_id'],
             $serviceJob['agent_id'],
             $newAgentId,
-            (int) $_SESSION['user'],
+            $currentAdminId,
             $comments
         ]);
 
@@ -625,9 +728,12 @@ if ($decision === 'reassign') {
             UPDATE requests
             SET
                 agent_id = ?,
-                workflow_stage = 'Service Scheduled',
+                workflow_stage = 'Service Rejected',
                 job_status = 'Pending',
                 review_type = NULL,
+                service_rejection_reason = ?,
+                service_rejected_at = NOW(),
+                service_rejected_by = ?,
                 admin_review_comments = ?,
                 incomplete_reason = NULL
             WHERE
@@ -636,8 +742,10 @@ if ($decision === 'reassign') {
                 AND review_type IN ('service_missed', 'service_overdue')
         ");
 
-        $stmt->execute([
+       $stmt->execute([
             $newAgentId,
+            $comments,
+            $currentAdminId,
             $comments,
             $serviceJob['request_id']
         ]);
@@ -680,7 +788,7 @@ if ($decision === 'reassign') {
 
         $history->execute([
             $serviceJob['request_id'],
-            (int) $_SESSION['user'],
+            $currentAdminId,
             $comments
         ]);
 
@@ -697,7 +805,7 @@ if ($decision === 'reassign') {
             RequestEventHelper::EVENT_AGENT_REASSIGNED,
             RequestEventHelper::TYPE_SERVICE,
             'Agent Reassigned',
-            'The administrator reassigned the unfinished service to another agent. Administrator reason: ' . $comments,
+            'The administrator reassigned the unfinished service to another agent. The customer must now reschedule the service. Administrator reason: ' . $comments,
             true
         );
 
@@ -1306,23 +1414,28 @@ $reviewHistory = $historyStmt->fetchAll(PDO::FETCH_ASSOC);
     <div class="card shadow-sm mb-4">
 
     <div class="card-header bg-primary text-white">
-
         Administrator Decision
-
     </div>
 
     <div class="card-body">
 
-        <p class="text-muted">
+        <?php if ($isServiceMissed): ?>
 
-            Select the action that should be taken for this
-            service-overdue case.
+            <p>
+                Select the action that should be taken for this
+                <strong>missed service case</strong>.
+                <strong>Administrator comments are required.</strong>
+            </p>
 
-            <strong>
-                Administrator comments are required.
-            </strong>
+        <?php elseif ($isServiceOverdue): ?>
 
-        </p>
+            <p>
+                Select the action that should be taken for this
+                <strong>service-overdue case</strong>.
+                <strong>Administrator comments are required.</strong>
+            </p>
+
+        <?php endif; ?>
 
 
         <form method="POST">
@@ -1351,28 +1464,38 @@ $reviewHistory = $historyStmt->fetchAll(PDO::FETCH_ASSOC);
                                     class="form-check-label"
                                     for="decisionAccept">
 
-                                    <strong>
-                                        ✅ Accept Explanation & Close Service
+                                   <strong>
+
+                                        <?php if ($isServiceMissed): ?>
+
+                                            ✅ Accept Explanation & Reschedule Service
+
+                                        <?php else: ?>
+
+                                            ✅ Accept Explanation & Close Service
+
+                                        <?php endif; ?>
+
                                     </strong>
 
                                 </label>
 
                             </div>
 
-                            <p class="text-muted small mt-2 mb-3">
+                            <p class="text-muted small mt-2 mb-0">
 
-    Assign the unfinished service to
-    another agent.
+                                <?php if ($isServiceMissed): ?>
 
-    This records an agent-performance
-    issue without treating the customer
-    service itself as a failure.
+                                    Accept the agent's explanation and send the
+                                    missed service into the service rescheduling workflow.
 
-</p>
+                                <?php else: ?>
 
-                                Accept the agent's explanation and
-                                close the service, only when the
-                                service work has actually been completed.
+                                    Accept the agent's explanation and close the
+                                    service, only when the service work has actually
+                                    been completed.
+
+                                <?php endif; ?>
 
                             </p>
 
@@ -1412,11 +1535,12 @@ $reviewHistory = $historyStmt->fetchAll(PDO::FETCH_ASSOC);
 
                             </div>
 
-                            <p class="text-muted small mt-2 mb-0">
+                           <p class="mt-2 mb-0">
 
-                                The service was not completed within
-                                the allocated session and must be
-                                scheduled again.
+                                Reschedule the service without accepting the
+                                agent's explanation. The service must be scheduled
+                                again, and the agent-performance issue remains
+                                recorded.
 
                             </p>
 

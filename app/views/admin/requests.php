@@ -310,13 +310,33 @@ $requests = $stmt->fetchAll();
     <?php endif; ?>
 
 
-    <?php if ($request['workflow_stage'] === 'Service Scheduled'): ?>
+    <?php if ($request['workflow_stage'] === 'Needs Admin Review'): ?>
 
-        <a href="?page=review-service&id=<?= $request['id'] ?>" class="btn btn-success btn-sm">
-            Review
+    <?php if (
+        in_array(
+            $request['review_type'] ?? '',
+            ['service_missed', 'service_overdue'],
+            true
+        )
+    ): ?>
+
+        <a
+            href="?page=admin-review-service-job&id=<?= (int)$request['id'] ?>"
+            class="btn btn-success btn-sm">
+            Review Service
+        </a>
+
+    <?php else: ?>
+
+        <a
+            href="?page=admin-review-consultation&id=<?= (int)$request['id'] ?>"
+            class="btn btn-success btn-sm">
+            Review Consultation
         </a>
 
     <?php endif; ?>
+
+<?php endif; ?>
 
 
     <?php if ($request['workflow_stage'] === 'Service Active'): ?>

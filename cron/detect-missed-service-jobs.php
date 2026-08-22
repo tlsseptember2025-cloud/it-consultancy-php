@@ -112,19 +112,20 @@ foreach ($jobs as $job) {
     |--------------------------------------------------------------------------
     */
 
-    $update = $pdo->prepare("
-        UPDATE requests
+$update = $pdo->prepare("
+    UPDATE requests
 
-        SET
-            workflow_stage = 'Missed Service',
-            job_status = 'Missed Service'
+    SET
+        workflow_stage = 'Needs Admin Review',
+        job_status = 'Pending',
+        review_type = 'service_missed'
 
-        WHERE
-            id = ?
+    WHERE
+        id = ?
 
-            AND job_status = 'Pending'
-    ");
-
+        AND job_status = 'Pending'
+        AND workflow_stage = 'Service Scheduled'
+");
     $update->execute([
         $requestId
     ]);
@@ -150,7 +151,7 @@ foreach ($jobs as $job) {
         'SERVICE_MISSED',
         RequestEventHelper::TYPE_SERVICE,
         'Service Missed',
-        'The service was automatically marked as missed because the scheduled one-hour start window expired without the service being started.',
+        'The service was automatically sent for administrator review because the scheduled one-hour start window expired without the service being started.',
         RequestEventHelper::SOURCE_SYSTEM,
         null,
         true

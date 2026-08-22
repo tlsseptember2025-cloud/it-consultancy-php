@@ -45,7 +45,11 @@ $stmt = $pdo->prepare("
         ON s.id = r.service_id
 
     WHERE
-        sb.agent_id = ?
+    sb.agent_id = ?
+    AND r.workflow_stage IN (
+        'Service Scheduled',
+        'Service Active'
+    )
 
     ORDER BY
         ss.service_date,

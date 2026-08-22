@@ -14,11 +14,12 @@ verifyCustomerRequest($pdo, $requestId);
 
 $stmt = $pdo->prepare("
     SELECT
-        workflow_stage,
-        service_reschedules,
-        service_rejection_reason
-    FROM requests
-    WHERE id = ?
+    workflow_stage,
+    service_reschedules,
+    service_rejection_reason,
+    service_rejected_by
+FROM requests
+WHERE id = ?
 ");
 
 $stmt->execute([$requestId]);
@@ -35,7 +36,20 @@ if ($request['workflow_stage'] !== 'Service Rejected') {
     exit;
 }
 
-if ($request['service_reschedules'] >= 1) {
+/*
+|--------------------------------------------------------------------------
+| Customer Reschedule Limit
+|--------------------------------------------------------------------------
+|
+| Do not apply the customer reschedule limit when the administrator
+| reassigned the service and the customer must select a new slot.
+|
+*/
+
+if (
+    empty($request['service_rejected_by'])
+    && $request['service_reschedules'] >= 1
+) {
 
     die('You have already used your service reschedule.');
 
@@ -75,23 +89,43 @@ require dirname(__DIR__) . '/layouts/header-customer.php';
 
 ?>
 
-<div class="card shadow-sm">
+<?php if (!empty($request['service_rejected_by'])): ?>
 
-    <div class="card-body">
+    <div class="alert alert-warning">
+
+        <h5 class="mb-2">
+            Service Rescheduling Required
+        </h5>
+
+        <p class="mb-0">
+
+            Your service has been reassigned to another agent
+            and needs to be scheduled again. Please select a new
+            date and time.
+
+        </p>
+
+    </div>
+
+<?php else: ?>
 
     <div class="alert alert-danger">
 
-    <h5 class="mb-2">
-        Service Rejected
-    </h5>
+        <h5 class="mb-2">
+            Service Rejected
+        </h5>
 
-    <p class="mb-0">
+        <p class="mb-0">
 
-        <?= nl2br(htmlspecialchars($request['service_rejection_reason'])) ?>
+            <?= nl2br(
+                htmlspecialchars($request['service_rejection_reason'])
+            ) ?>
 
-    </p>
+        </p>
 
-</div>
+    </div>
+
+<?php endif; ?>
 
       <h2 class="mb-4">
     Reschedule Service

@@ -579,15 +579,41 @@ elseif (
     $request['workflow_stage'] === 'Service Rejected'
 ): ?>
 
-    <div class="alert alert-danger mb-2">
+    <?php if (!empty($request['service_rejected_by'])): ?>
 
-        <strong>Service Rejected</strong>
+        <div class="alert alert-warning mb-2">
 
-        <hr>
+            <strong>
+                Service Rescheduling Required
+            </strong>
 
-        <?= nl2br(htmlspecialchars($request['service_rejection_reason'])) ?>
+            <hr>
 
-    </div>
+            Your service needs to be scheduled again.
+            Please select a new date and time.
+
+        </div>
+
+    <?php else: ?>
+
+        <div class="alert alert-danger mb-2">
+
+            <strong>
+                Service Rejected
+            </strong>
+
+            <hr>
+
+            <?= nl2br(
+                htmlspecialchars(
+                    $request['service_rejection_reason']
+                )
+            ) ?>
+
+        </div>
+
+    <?php endif; ?>
+
 
     <a
         href="?page=reschedule-service&request_id=<?= $request['id'] ?>"
