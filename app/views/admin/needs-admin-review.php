@@ -724,29 +724,42 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
                                     <?php elseif (
 
-                                        in_array(
-                                            $consultation['review_type'],
-                                            [
-                                                'service_missed',
-                                                'service_overdue'
-                                            ],
-                                            true
-                                        )
+    $consultation['review_type'] === 'service_missed'
 
-                                    ): ?>
+): ?>
 
 
-                                        <a
-                                            href="?page=admin-review-service-job&id=<?= (int) $consultation['id'] ?>"
-                                            class="
-                                                btn
-                                                btn-danger
-                                                btn-sm
-                                            ">
+    <a
+        href="?page=admin-review-service-job&id=<?= (int) $consultation['id'] ?>"
+        class="
+            btn
+            btn-danger
+            btn-sm
+        ">
 
-                                            Review Service Job →
+        Review Missed Service →
 
-                                        </a>
+    </a>
+
+
+<?php elseif (
+
+    $consultation['review_type'] === 'service_overdue'
+
+): ?>
+
+
+    <a
+        href="?page=admin-review-service-job&id=<?= (int) $consultation['id'] ?>"
+        class="
+            btn
+            btn-danger
+            btn-sm
+        ">
+
+        Review Overdue Service →
+
+    </a>
 
 
                                     <?php else: ?>

@@ -36,10 +36,13 @@ $stmt = $pdo->query("
     INNER JOIN consultation_slots cs
         ON cs.id = cb.slot_id
 
-    WHERE r.job_status = 'Pending'
+    WHERE
+    r.workflow_stage = 'Missed Consultation Review'
 
-      AND TIMESTAMP(cs.slot_date, cs.slot_time)
-          < DATE_SUB(NOW(), INTERVAL 1 HOUR)
+    AND r.job_status = 'Pending'
+
+    AND TIMESTAMP(cs.slot_date, cs.slot_time)
+        < DATE_SUB(NOW(), INTERVAL 1 HOUR)
 
     ORDER BY cs.slot_date DESC, cs.slot_time DESC
 ");

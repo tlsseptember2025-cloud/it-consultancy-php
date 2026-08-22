@@ -130,7 +130,7 @@ $requests = getRetentionReviewRequests($pdo);
                                         href="?page=review-retention&id=<?= (int) $request['id'] ?>"
                                         class="btn btn-sm btn-outline-primary"
                                     >
-                                        Review
+                                        View
                                     </a>
 
                                 </td>

@@ -87,7 +87,7 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                 href="index.php?page=review-closed-request&request_id=<?= $request['id'] ?>"
                 class="btn btn-info btn-sm">
 
-                Review
+                View
 
             </a>
 

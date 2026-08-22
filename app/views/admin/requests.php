@@ -65,9 +65,16 @@ $requests = $stmt->fetchAll();
                 <th>Quoted Price</th>
                 <th>Status</th>
                 <th>Workflow Stage</th>
-                <th>Request Date</th>
+                <th
+                    style="
+                        width:130px;
+                        white-space:nowrap;
+                    "
+                    >
+                    Request Date
+                </th>
                 
-                <th>Action</th>
+                <th style="width:220px; white-space:nowrap;">Action</th>
 
             </tr>
 
@@ -151,17 +158,22 @@ $requests = $stmt->fetchAll();
                         <?= workflowBadge($request['workflow_stage']) ?>
                     </td>
 
-                    <td>
+                   <td
+                        style="
+                            width:130px;
+                            white-space:nowrap;
+                        "
+                        >
                         <?= formatDate($request['created_at']) ?>
                     </td>
 
                    
-<td>
+<td style="width:220px; white-space:nowrap;">
 
     <a
         href="?page=view-request&id=<?= $request['id'] ?>"
         class="btn btn-info btn-sm">
-        View
+        View Service
     </a>
 
     <?php if (
