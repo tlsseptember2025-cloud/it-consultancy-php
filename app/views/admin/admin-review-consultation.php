@@ -711,6 +711,226 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
 <?php endif; ?>
 
+<?php if ($isOverdueConsultationReview): ?>
+
+    <form method="POST">
+
+        <div class="card shadow-sm mb-4">
+
+            <div class="card-header bg-primary text-white">
+
+                Administrator Decision
+
+            </div>
+
+            <div class="card-body">
+
+                <p class="text-muted mb-4">
+
+                    Review the agent's explanation and choose the next
+                    action for this overdue consultation.
+
+                </p>
+
+
+                <div class="row g-4">
+
+
+                    <!-- Accept Explanation -->
+
+                    <div class="col-md-4">
+
+                        <div class="card h-100 border-success">
+
+                            <div class="card-body">
+
+                                <div class="form-check">
+
+                                    <input
+                                        class="form-check-input"
+                                        type="radio"
+                                        name="admin_decision"
+                                        id="decisionAccept"
+                                        value="accept"
+                                        required
+                                    >
+
+                                    <label
+                                        class="form-check-label"
+                                        for="decisionAccept"
+                                    >
+
+                                        <strong>
+
+                                            ✅ Accept Explanation & Request Customer Confirmation
+
+                                        </strong>
+
+                                    </label>
+
+                                </div>
+
+                                <p class="text-muted small mt-3 mb-0">
+
+                                    Accept the agent's explanation and ask the
+                                    customer to confirm whether the consultation
+                                    was actually completed.
+
+                                </p>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- Reject Explanation -->
+
+                    <div class="col-md-4">
+
+                        <div class="card h-100 border-danger">
+
+                            <div class="card-body">
+
+                                <div class="form-check">
+
+                                    <input
+                                        class="form-check-input"
+                                        type="radio"
+                                        name="admin_decision"
+                                        id="decisionReject"
+                                        value="reject"
+                                    >
+
+                                    <label
+                                        class="form-check-label"
+                                        for="decisionReject"
+                                    >
+
+                                        <strong>
+
+                                            ❌ Reject Explanation
+
+                                        </strong>
+
+                                    </label>
+
+                                </div>
+
+                                <p class="text-muted small mt-3 mb-0">
+
+                                    Reject the explanation and return the case
+                                    to the current agent for further handling.
+
+                                </p>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- Reassign Consultation -->
+
+                    <div class="col-md-4">
+
+                        <div class="card h-100 border-primary">
+
+                            <div class="card-body">
+
+                                <div class="form-check">
+
+                                    <input
+                                        class="form-check-input"
+                                        type="radio"
+                                        name="admin_decision"
+                                        id="decisionReassign"
+                                        value="reassign"
+                                    >
+
+                                    <label
+                                        class="form-check-label"
+                                        for="decisionReassign"
+                                    >
+
+                                        <strong>
+
+                                            👤 Reassign Consultation
+
+                                        </strong>
+
+                                    </label>
+
+                                </div>
+
+                                <p class="text-muted small mt-3 mb-0">
+
+                                    Assign the consultation to another agent.
+                                    The customer will then reschedule with the
+                                    newly assigned agent.
+
+                                </p>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- Administrator Comments -->
+
+                <div class="mt-4">
+
+                    <label class="form-label">
+
+                        <strong>Administrator Comments</strong>
+
+                    </label>
+
+                    <textarea
+                        name="admin_review_comments"
+                        class="form-control"
+                        rows="4"
+                        required
+                        placeholder="Enter the reason for your decision, investigation findings, and any instructions for the agent or customer..."
+                    ></textarea>
+
+                    <small class="text-muted">
+
+                        Required for every decision.
+
+                    </small>
+
+                </div>
+
+
+                <div class="text-end mt-4">
+
+                    <button
+                        type="submit"
+                        name="submit_review"
+                        class="btn btn-primary px-4"
+                    >
+
+                        Continue →
+
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </form>
+
+<?php endif; ?>
+
 <form method="POST">
 
 <?php if (

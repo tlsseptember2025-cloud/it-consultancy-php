@@ -221,6 +221,10 @@ switch ($page) {
     require VIEW_PATH . '/customer/customer-rate-agent.php';
     break;
 
+    case 'confirm-service-completion':
+    require VIEW_PATH . '/customer/confirm-service-completion.php';
+    break;
+
     /*
     |--------------------------------------------------------------------------
     | Customer Portal

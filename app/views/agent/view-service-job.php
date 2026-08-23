@@ -131,10 +131,12 @@ $now = new DateTimeImmutable(
 |--------------------------------------------------------------------------
 */
 
-if ($now < $serviceStart) {
+$serviceAvailableAt = $serviceStart->modify('-10 minutes');
+
+if ($now < $serviceAvailableAt) {
 
     die(
-        'This service job has not started yet.'
+        'The Start Service button will be available 10 minutes before the scheduled service time.'
     );
 
 }
@@ -233,19 +235,21 @@ if ($status === 'Pending') {
         new DateTimeZone('Asia/Dubai')
     );
 
-    if ($now < $serviceStart) {
+    $serviceAvailableAt = $serviceStart->modify('-10 minutes');
 
-        $serviceTimeStatus = 'future';
+if ($now < $serviceAvailableAt) {
 
-    } elseif ($now < $serviceEnd) {
+    $serviceTimeStatus = 'future';
 
-        $serviceTimeStatus = 'active';
+} elseif ($now < $serviceEnd) {
 
-    } else {
+    $serviceTimeStatus = 'active';
 
-        $serviceTimeStatus = 'expired';
+} else {
 
-    }
+    $serviceTimeStatus = 'expired';
+
+}
 }
 
 
@@ -498,39 +502,31 @@ require VIEW_PATH . '/layouts/header-agent.php';
     </div>
 
     <?php if (
-        $status === 'Pending'
-        && $serviceTimeStatus === 'active'
-    ): ?>
+    $status === 'Pending'
+    && $serviceTimeStatus === 'future'
+): ?>
 
-    <div class="card shadow-sm mb-4 border-primary">
+    <div class="card shadow-sm mb-4">
 
-        <div class="card-header bg-primary text-white">
-
+        <div class="card-header">
             Service Action
-
         </div>
 
         <div class="card-body">
 
-            <p class="mb-3">
-
-                This service job is ready to be started
-                at the scheduled service time.
-
+            <p class="text-muted mb-3">
+                The Start Service button will be available
+                10 minutes before the scheduled service time.
             </p>
 
-            <form method="POST">
+            <button
+                type="button"
+                class="btn btn-secondary"
+                disabled>
 
-                <button
-                    type="submit"
-                    name="start_service"
-                    class="btn btn-primary">
+                ▶ Start Service
 
-                    ▶ Start Service
-
-                </button>
-
-            </form>
+            </button>
 
         </div>
 

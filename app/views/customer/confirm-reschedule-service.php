@@ -23,6 +23,7 @@ $stmt = $pdo->prepare("
         r.service_reschedules,
         r.workflow_stage,
         r.service_rejected_by,
+        r.service_rejection_reason,
         sb.slot_id,
         ss.service_date,
         ss.service_time
@@ -50,9 +51,21 @@ if (!$current) {
 // Only one normal customer-initiated reschedule allowed.
 // Administrator-triggered reassignment/rescheduling is allowed.
 
+/*
+|--------------------------------------------------------------------------
+| Customer Reschedule Limit
+|--------------------------------------------------------------------------
+|
+| Allow another appointment selection when:
+| - the service was reassigned to another agent, or
+| - the administrator rejected the customer's requested reschedule.
+|
+*/
+
 if (
     (int) $current['service_reschedules'] >= 1
     && empty($current['service_rejected_by'])
+    && empty($current['service_rejection_reason'])
 ) {
 
     $_SESSION['error'] =

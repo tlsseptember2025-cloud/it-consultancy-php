@@ -465,39 +465,67 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
                                     <?php elseif (
 
-                                        $consultation['review_type']
-                                            === 'service_overdue'
+    $consultation['review_type']
+        === 'service_overdue'
 
-                                    ): ?>
+): ?>
 
+    <span class="badge bg-danger">
 
-                                        <span class="badge bg-danger">
+        Service Overdue
 
-                                            Service Overdue
+    </span>
 
-                                        </span>
+    <div
+        class="
+            small
+            text-muted
+            mt-1
+        ">
 
+        Service remained In Progress
+        after the scheduled one-hour
+        session.
 
-                                        <div
-                                            class="
-                                                small
-                                                text-muted
-                                                mt-1
-                                            ">
-
-                                            Service remained In Progress
-                                            after the scheduled one-hour
-                                            session.
-
-                                        </div>
+    </div>
 
 
-                                    <?php elseif (
+<!-- ADD THE NEW BLOCK HERE -->
 
-                                        $consultation['review_type']
-                                            === 'customer_contact'
+<?php elseif (
 
-                                    ): ?>
+    $consultation['review_type']
+        === 'service_not_completed'
+
+): ?>
+
+    <span class="badge bg-danger">
+
+        Service Not Completed
+
+    </span>
+
+    <div
+        class="
+            small
+            text-muted
+            mt-1
+        ">
+
+        The customer confirmed that the service was not
+        completed after the agent's explanation was accepted.
+
+    </div>
+
+
+<!-- THEN CONTINUE WITH THE EXISTING BLOCK -->
+
+<?php elseif (
+
+    $consultation['review_type']
+        === 'customer_contact'
+
+): ?>
 
 
                                         <span
@@ -622,7 +650,8 @@ require VIEW_PATH . '/layouts/header-admin.php';
                                             $consultation['review_type'],
                                             [
                                                 'service_missed',
-                                                'service_overdue'
+                                                'service_overdue',
+                                                'service_not_completed'
                                             ],
                                             true
                                         )
@@ -758,6 +787,24 @@ require VIEW_PATH . '/layouts/header-admin.php';
         ">
 
         Review Overdue Service →
+
+    </a>
+
+    <?php elseif (
+
+    $consultation['review_type'] === 'service_not_completed'
+
+): ?>
+
+    <a
+        href="?page=admin-review-service-job&id=<?= (int) $consultation['id'] ?>"
+        class="
+            btn
+            btn-danger
+            btn-sm
+        ">
+
+        Review Service Reassignment →
 
     </a>
 

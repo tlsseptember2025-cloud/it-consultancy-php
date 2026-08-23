@@ -233,6 +233,13 @@ $requestEventDisplay = [
         'badge' => 'warning'
     ],
 
+    AWAITING_CUSTOMER_CONFIRMATION => [
+
+    'title' => 'Awaiting Customer Confirmation',
+    'icon'  => '⏳',
+    'badge' => 'warning'
+],
+
 
     /*
     |--------------------------------------------------------------------------

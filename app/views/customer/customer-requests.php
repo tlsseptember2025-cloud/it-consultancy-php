@@ -575,9 +575,34 @@ elseif (
 
 </div>
 
-<?php elseif ( 
-    $request['workflow_stage'] === 'Service Rejected' 
-): ?> 
+<?php elseif (
+    $request['workflow_stage'] === 'Awaiting Customer Confirmation'
+): ?>
+
+    <div class="alert alert-info mb-2">
+
+        <strong>
+            Service Completion Confirmation Required
+        </strong>
+
+        <hr>
+
+        The agent has reported that your service has been completed.
+        Please confirm whether the service was completed successfully.
+
+    </div>
+
+    <a
+        href="?page=confirm-service-completion&request_id=<?= $request['id'] ?>"
+        class="btn btn-primary btn-sm">
+
+        Confirm Service Completion
+
+    </a>
+
+<?php elseif (
+    $request['workflow_stage'] === 'Service Rejected'
+): ?>
  
     <div class="alert alert-warning mb-2"> 
  

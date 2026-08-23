@@ -109,7 +109,11 @@ if (
     $serviceJob['workflow_stage'] !== 'Needs Admin Review'
     || !in_array(
         $serviceJob['review_type'],
-        ['service_missed', 'service_overdue'],
+        [
+            'service_missed',
+            'service_overdue',
+            'service_not_completed'
+        ],
         true
     )
 ) {
@@ -117,7 +121,6 @@ if (
     die(
         'This request is not currently awaiting service-job review.'
     );
-
 }
 
 $isServiceMissed =
@@ -126,6 +129,8 @@ $isServiceMissed =
 $isServiceOverdue =
     $serviceJob['review_type'] === 'service_overdue';
 
+$isServiceNotCompleted =
+    $serviceJob['review_type'] === 'service_not_completed';
 
 /*
 |--------------------------------------------------------------------------
@@ -422,8 +427,8 @@ if ($decision === 'accept') {
         $update = $pdo->prepare("
             UPDATE requests
             SET
-                workflow_stage = 'Service Completed',
-                job_status = 'Completed',
+                workflow_stage = ?,
+                job_status = 'Pending',
                 review_type = NULL,
                 admin_review_comments = ?
             WHERE
@@ -433,9 +438,10 @@ if ($decision === 'accept') {
         ");
 
         $update->execute([
-            $comments,
-            $serviceJob['request_id']
-        ]);
+                'Awaiting Customer Confirmation',
+                $comments,
+                $serviceJob['request_id']
+            ]);
 
 
         if ($update->rowCount() !== 1) {
@@ -453,14 +459,14 @@ if ($decision === 'accept') {
             'SERVICE_REVIEW_ACCEPTED',
             RequestEventHelper::TYPE_SERVICE,
             'Service Explanation Accepted',
-            'The administrator accepted the agent explanation and closed the service. Administrator comments: ' . $comments,
+            'The administrator accepted the agent explanation. Customer confirmation is now required before the service can be completed. Administrator comments: ' . $comments,
             true
         );
 
 
-        header(
-            'Location: ?page=needs-admin-review&success=service-explanation-accepted'
-        );
+       header(
+                'Location: ?page=needs-admin-review&success=customer-confirmation-requested'
+            );
 
         exit;
     }
@@ -739,7 +745,11 @@ if ($decision === 'reassign') {
             WHERE
                 id = ?
                 AND workflow_stage = 'Needs Admin Review'
-                AND review_type IN ('service_missed', 'service_overdue')
+                AND review_type IN (
+    'service_missed',
+    'service_overdue',
+    'service_not_completed'
+)
         ");
 
        $stmt->execute([
@@ -861,10 +871,19 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
             <h2 class="mb-1">
 
-    <?= $isServiceOverdue
-        ? 'Review Overdue Service Job'
-        : 'Review Missed Service Job'
-    ?>
+    <?php if ($isServiceNotCompleted): ?>
+
+    Review Service Reassignment
+
+<?php elseif ($isServiceOverdue): ?>
+
+    Review Overdue Service Job
+
+<?php else: ?>
+
+    Review Missed Service Job
+
+<?php endif; ?>
 
 </h2>
 
@@ -1442,6 +1461,8 @@ $reviewHistory = $historyStmt->fetchAll(PDO::FETCH_ASSOC);
 
             <div class="row g-4">
 
+            <?php if (!$isServiceNotCompleted): ?>
+
                 <!-- Accept Explanation -->
 
                 <div class="col-md-6">
@@ -1472,7 +1493,7 @@ $reviewHistory = $historyStmt->fetchAll(PDO::FETCH_ASSOC);
 
                                         <?php else: ?>
 
-                                            ✅ Accept Explanation & Close Service
+                                            ✅ Accept Explanation & Request Customer Confirmation
 
                                         <?php endif; ?>
 
@@ -1491,9 +1512,9 @@ $reviewHistory = $historyStmt->fetchAll(PDO::FETCH_ASSOC);
 
                                 <?php else: ?>
 
-                                    Accept the agent's explanation and close the
-                                    service, only when the service work has actually
-                                    been completed.
+                                    Accept the agent's explanation and ask the customer
+                                    to confirm whether the service has actually been
+                                    completed before closing it.
 
                                 <?php endif; ?>
 
@@ -1505,6 +1526,9 @@ $reviewHistory = $historyStmt->fetchAll(PDO::FETCH_ASSOC);
 
                 </div>
 
+                <?php endif; ?>
+
+<?php if (!$isServiceNotCompleted): ?>
 
                 <!-- Reschedule -->
 
@@ -1550,6 +1574,7 @@ $reviewHistory = $historyStmt->fetchAll(PDO::FETCH_ASSOC);
 
                 </div>
 
+<?php endif; ?>
 
                 <!-- Reassign -->
 
@@ -1567,6 +1592,7 @@ $reviewHistory = $historyStmt->fetchAll(PDO::FETCH_ASSOC);
                     name="admin_decision"
                     id="decisionReassign"
                     value="reassign"
+                    <?= $isServiceNotCompleted ? 'checked' : '' ?>
                 >
 
                 <label
@@ -1597,52 +1623,54 @@ $reviewHistory = $historyStmt->fetchAll(PDO::FETCH_ASSOC);
 
 </div>
 
+    <?php if (!$isServiceNotCompleted): ?>
+    <!-- Reject -->
 
-<!-- Reject -->
+    <div class="col-md-6">
 
-<div class="col-md-6">
+        <div class="card h-100 border-danger">
 
-    <div class="card h-100 border-danger">
+            <div class="card-body">
 
-        <div class="card-body">
+                <div class="form-check">
 
-            <div class="form-check">
+                    <input
+                        class="form-check-input"
+                        type="radio"
+                        name="admin_decision"
+                        id="decisionReject"
+                        value="reject"
+                    >
 
-                <input
-                    class="form-check-input"
-                    type="radio"
-                    name="admin_decision"
-                    id="decisionReject"
-                    value="reject"
-                >
+                    <label
+                        class="form-check-label"
+                        for="decisionReject"
+                    >
 
-                <label
-                    class="form-check-label"
-                    for="decisionReject"
-                >
+                        <strong>
+                            ❌ Reject Explanation
+                        </strong>
 
-                    <strong>
-                        ❌ Reject Explanation
-                    </strong>
+                    </label>
 
-                </label>
+                </div>
+
+                <p class="text-muted small mt-2 mb-0">
+
+                    Reject the explanation and send the case back
+                    to the agent for another explanation.
+
+                    This does not close the review.
+
+                </p>
 
             </div>
-
-            <p class="text-muted small mt-2 mb-0">
-
-                Reject the explanation and send the case back
-                to the agent for another explanation.
-
-                This does not close the review.
-
-            </p>
 
         </div>
 
     </div>
 
-</div>
+<?php endif; ?>
 
 </div>
 <!-- End .row -->
@@ -1653,7 +1681,7 @@ $reviewHistory = $historyStmt->fetchAll(PDO::FETCH_ASSOC);
 <div
     id="reassignAgentSection"
     class="mt-4"
-    style="display: none;"
+    style="<?= $isServiceNotCompleted ? 'display: block;' : 'display: none;' ?>"
 >
 
     <div class="card border-primary">

@@ -25,6 +25,14 @@ define('EVENT_CONTACT_EMAIL_SENT', 'CONTACT_VERIFICATION_EMAIL_SENT');
 define('EVENT_CONTACT_PHONE_UPDATED', 'CONTACT_PHONE_UPDATED');
 define('EVENT_CONTACT_RESUMED', 'CONTACT_RESUMED');
 
+
+/*
+| Awaiting Customer Confirmation
+*/
+
+define('AWAITING_CUSTOMER_CONFIRMATION', 'Awaiting Customer Confirmation');
+
+
 /*
 | Consultation
 */

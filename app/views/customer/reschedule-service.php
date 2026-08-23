@@ -46,8 +46,22 @@ if ($request['workflow_stage'] !== 'Service Rejected') {
 |
 */
 
+/*
+|--------------------------------------------------------------------------
+| Customer Reschedule Limit
+|--------------------------------------------------------------------------
+|
+| Allow the customer to choose another appointment when:
+|
+| 1. The service was reassigned to another agent, or
+| 2. The administrator rejected the customer's previously requested
+|    reschedule appointment.
+|
+*/
+
 if (
     empty($request['service_rejected_by'])
+    && empty($request['service_rejection_reason'])
     && $request['service_reschedules'] >= 1
 ) {
 
