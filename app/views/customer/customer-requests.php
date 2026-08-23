@@ -579,26 +579,53 @@ elseif (
     $request['workflow_stage'] === 'Awaiting Customer Confirmation'
 ): ?>
 
-    <div class="alert alert-info mb-2">
+    <?php if (!empty($request['slot_date'])): ?>
 
-        <strong>
-            Service Completion Confirmation Required
-        </strong>
+        <div class="alert alert-info mb-2">
 
-        <hr>
+            <strong>
+                Consultation Completion Confirmation Required
+            </strong>
 
-        The agent has reported that your service has been completed.
-        Please confirm whether the service was completed successfully.
+            <hr>
 
-    </div>
+            The agent has reported that your consultation has been completed.
+            Please confirm whether the consultation was completed successfully.
 
-    <a
-        href="?page=confirm-service-completion&request_id=<?= $request['id'] ?>"
-        class="btn btn-primary btn-sm">
+        </div>
 
-        Confirm Service Completion
+        <a
+            href="?page=confirm-consultation-completion&request_id=<?= $request['id'] ?>"
+            class="btn btn-primary btn-sm">
 
-    </a>
+            Confirm Consultation Completion
+
+        </a>
+
+    <?php else: ?>
+
+        <div class="alert alert-info mb-2">
+
+            <strong>
+                Service Completion Confirmation Required
+            </strong>
+
+            <hr>
+
+            The agent has reported that your service has been completed.
+            Please confirm whether the service was completed successfully.
+
+        </div>
+
+        <a
+            href="?page=confirm-service-completion&request_id=<?= $request['id'] ?>"
+            class="btn btn-primary btn-sm">
+
+            Confirm Service Completion
+
+        </a>
+
+    <?php endif; ?>
 
 <?php elseif (
     $request['workflow_stage'] === 'Service Rejected'

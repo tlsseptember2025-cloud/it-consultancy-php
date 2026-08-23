@@ -116,7 +116,8 @@ $stmt = $pdo->prepare("
     WHERE
         r.workflow_stage IN (
             'Needs Admin Review',
-            'Awaiting Reschedule Approval'
+            'Awaiting Reschedule Approval',
+            'Needs Admin Final Approval'
         )
 
 
@@ -154,6 +155,9 @@ $stmt = $pdo->prepare("
         END DESC
 ");
 
+$stmt->execute();
+
+$consultations = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $stmt->execute();
 
@@ -805,6 +809,25 @@ require VIEW_PATH . '/layouts/header-admin.php';
         ">
 
         Review Service Reassignment →
+
+    </a>
+
+    <?php elseif (
+
+    $consultation['workflow_stage']
+    === 'Needs Admin Final Approval'
+
+): ?>
+
+    <a
+        href="?page=admin-final-approve-consultation&id=<?= (int) $consultation['id'] ?>"
+        class="
+            btn
+            btn-success
+            btn-sm
+        ">
+
+        Final Approve Consultation →
 
     </a>
 

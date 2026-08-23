@@ -93,6 +93,242 @@ $isCustomerContactReview =
 $isOverdueConsultationReview =
     ($reviewType === 'consultation_overdue');
 
+$isConsultationNotCompletedReview =
+    ($reviewType === 'consultation_not_completed');
+
+/*
+|--------------------------------------------------------------------------
+| Overdue Consultation Administrator Decision
+|--------------------------------------------------------------------------
+*/
+
+if (
+    $_SERVER['REQUEST_METHOD'] === 'POST'
+    && (
+        $isOverdueConsultationReview
+        || $isConsultationNotCompletedReview
+    )
+    && isset($_POST['admin_decision'])
+) {
+
+    $decision =
+        $_POST['admin_decision'] ?? '';
+
+    $comments =
+        trim($_POST['admin_review_comments'] ?? '');
+
+    if ($isConsultationNotCompletedReview) {
+
+    if ($decision !== 'reassign') {
+
+        die('Consultation not completed cases must be reassigned.');
+
+    }
+
+} else {
+
+    if (
+        !in_array(
+            $decision,
+            [
+                'accept',
+                'reject',
+                'reassign'
+            ],
+            true
+        )
+    ) {
+
+        die('Invalid administrator decision.');
+
+    }
+
+}
+
+    if ($comments === '') {
+
+        die('Administrator comments are required.');
+
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Identify Current Administrator
+    |--------------------------------------------------------------------------
+    */
+
+    $adminStmt = $pdo->prepare("
+        SELECT id
+        FROM users
+        WHERE email = ?
+        LIMIT 1
+    ");
+
+    $adminStmt->execute([
+        $_SESSION['user']
+    ]);
+
+    $currentAdmin =
+        $adminStmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$currentAdmin) {
+
+        die(
+            'Unable to identify the current administrator.'
+        );
+
+    }
+
+    $currentAdminId =
+        (int) $currentAdmin['id'];
+
+
+    /*
+|--------------------------------------------------------------------------
+| Accept Explanation
+|--------------------------------------------------------------------------
+*/
+
+/*
+|--------------------------------------------------------------------------
+| Accept Explanation
+|--------------------------------------------------------------------------
+*/
+
+if ($decision === 'accept') {
+
+    $pdo->beginTransaction();
+
+    try {
+
+        /*
+        |--------------------------------------------------------------------------
+        | Update Request
+        |--------------------------------------------------------------------------
+        */
+
+        $update = $pdo->prepare("
+            UPDATE requests
+            SET
+                workflow_stage = 'Awaiting Customer Confirmation',
+                job_status = 'Pending',
+                review_type = NULL,
+                admin_review_comments = ?
+            WHERE
+                id = ?
+                AND workflow_stage = 'Needs Admin Review'
+                AND review_type = 'consultation_overdue'
+        ");
+
+        $update->execute([
+            $comments,
+            $consultation['id']
+        ]);
+
+        if ($update->rowCount() !== 1) {
+
+            throw new Exception(
+                'The consultation could not be updated because its review status changed.'
+            );
+
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Record Review History
+        |--------------------------------------------------------------------------
+        */
+
+        $history = $pdo->prepare("
+            INSERT INTO consultation_review_history
+            (
+                request_id,
+                actor_type,
+                admin_id,
+                action_type,
+                decision_type,
+                message
+            )
+            VALUES
+            (
+                ?,
+                'admin',
+                ?,
+                'admin_decision',
+                'accept',
+                ?
+            )
+        ");
+
+        $history->execute([
+            $consultation['id'],
+            $currentAdminId,
+            $comments
+        ]);
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Request Event
+        |--------------------------------------------------------------------------
+        */
+
+        RequestEventHelper::addCurrentUser(
+            $pdo,
+            (int) $consultation['id'],
+            'CONSULTATION_REVIEW_ACCEPTED',
+            RequestEventHelper::TYPE_CONSULTATION,
+            'Consultation Explanation Accepted',
+            'The administrator accepted the agent explanation. Customer confirmation is now required before the consultation can be completed. Administrator comments: ' . $comments,
+            true
+        );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Commit Transaction
+        |--------------------------------------------------------------------------
+        */
+
+        $pdo->commit();
+
+
+        header(
+            'Location: ?page=needs-admin-review&success=consultation-customer-confirmation-requested'
+        );
+
+        exit;
+
+    } catch (Exception $e) {
+
+        if ($pdo->inTransaction()) {
+
+            $pdo->rollBack();
+
+        }
+
+        die($e->getMessage());
+
+    }
+
+}
+
+elseif ($decision === 'reassign') {
+
+    /*
+    |--------------------------------------------------------------------------
+    | Reassignment will be implemented here
+    |--------------------------------------------------------------------------
+    */
+
+    die('Consultation reassignment processing will be implemented next.');
+
+}
+
+}
+
 if (
     $_SERVER['REQUEST_METHOD'] === 'POST'
     && isset($_POST['submit_review'])
@@ -711,7 +947,10 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
 <?php endif; ?>
 
-<?php if ($isOverdueConsultationReview): ?>
+<?php if (
+    $isOverdueConsultationReview
+    || $isConsultationNotCompletedReview
+): ?>
 
     <form method="POST">
 
@@ -734,7 +973,8 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
 
                 <div class="row g-4">
-
+                
+                <?php if ($isOverdueConsultationReview): ?>
 
                     <!-- Accept Explanation -->
 
@@ -831,10 +1071,12 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
                     </div>
 
+                   <?php endif; ?>
+
 
                     <!-- Reassign Consultation -->
 
-                    <div class="col-md-4">
+                    <div class="<?= $isConsultationNotCompletedReview ? 'col-md-12' : 'col-md-4' ?>">
 
                         <div class="card h-100 border-primary">
 
@@ -848,6 +1090,8 @@ require VIEW_PATH . '/layouts/header-admin.php';
                                         name="admin_decision"
                                         id="decisionReassign"
                                         value="reassign"
+                                        <?= $isConsultationNotCompletedReview ? 'checked' : '' ?>
+                                        required
                                     >
 
                                     <label

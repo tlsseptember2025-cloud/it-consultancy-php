@@ -224,6 +224,11 @@ switch ($page) {
     case 'confirm-service-completion':
     require VIEW_PATH . '/customer/confirm-service-completion.php';
     break;
+    
+    case 'confirm-consultation-completion':
+    require VIEW_PATH
+        . '/customer/confirm-consultation-completion.php';
+    break;
 
     /*
     |--------------------------------------------------------------------------
@@ -323,6 +328,12 @@ switch ($page) {
 
         case 'admin-review-consultation':
         require VIEW_PATH . '/admin/admin-review-consultation.php';
+        break;
+
+        case 'admin-final-approve-consultation':
+        require VIEW_PATH
+            . '/admin/admin-final-approve-consultation.php';
+
         break;
 
         case 'admin-reschedule-consultation':

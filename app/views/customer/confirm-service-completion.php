@@ -99,8 +99,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $update->execute([
             $requestId,
-            $_SESSION['customer'],
-            AWAITING_CUSTOMER_CONFIRMATION
+            $_SESSION['customer']['id'],
+            'Awaiting Customer Confirmation'
         ]);
 
         if ($update->rowCount() !== 1) {
