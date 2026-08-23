@@ -21,6 +21,7 @@ verifyCustomerRequest($pdo, $requestId);
 $stmt = $pdo->prepare("
     SELECT
         r.service_reschedules,
+        r.workflow_stage,
         r.service_rejected_by,
         sb.slot_id,
         ss.service_date,
@@ -69,9 +70,11 @@ $currentDateTime = strtotime(
 );
 
 if (
-    time() >=
-    ($currentDateTime - (24 * 60 * 60))
-) {
+    $current['workflow_stage'] === 'Service Scheduled'
+    &&
+    time() >= ($currentDateTime - (24 * 60 * 60))
+)
+ {
 
     $_SESSION['error'] =
         'Services can only be rescheduled more than 24 hours before the scheduled time.';

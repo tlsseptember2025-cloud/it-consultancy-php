@@ -109,18 +109,15 @@ require dirname(__DIR__) . '/layouts/header-customer.php';
 
 <?php else: ?>
 
-    <div class="alert alert-danger">
+    <div class="alert alert-warning">
 
         <h5 class="mb-2">
-            Service Rejected
+            Service Rescheduling Required
         </h5>
 
         <p class="mb-0">
-
-            <?= nl2br(
-                htmlspecialchars($request['service_rejection_reason'])
-            ) ?>
-
+            Your previous service appointment could not be completed.
+            Please select a new date and time to reschedule your service.
         </p>
 
     </div>

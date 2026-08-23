@@ -575,45 +575,22 @@ elseif (
 
 </div>
 
-<?php elseif (
-    $request['workflow_stage'] === 'Service Rejected'
-): ?>
-
-    <?php if (!empty($request['service_rejected_by'])): ?>
-
-        <div class="alert alert-warning mb-2">
-
-            <strong>
-                Service Rescheduling Required
-            </strong>
-
-            <hr>
-
-            Your service needs to be scheduled again.
-            Please select a new date and time.
-
-        </div>
-
-    <?php else: ?>
-
-        <div class="alert alert-danger mb-2">
-
-            <strong>
-                Service Rejected
-            </strong>
-
-            <hr>
-
-            <?= nl2br(
-                htmlspecialchars(
-                    $request['service_rejection_reason']
-                )
-            ) ?>
-
-        </div>
-
-    <?php endif; ?>
-
+<?php elseif ( 
+    $request['workflow_stage'] === 'Service Rejected' 
+): ?> 
+ 
+    <div class="alert alert-warning mb-2"> 
+ 
+        <strong> 
+            Service Rescheduling Required 
+        </strong> 
+ 
+        <hr> 
+ 
+        Your previous service appointment could not be completed. 
+        Please select a new date and time to reschedule your service. 
+ 
+    </div>
 
     <a
         href="?page=reschedule-service&request_id=<?= $request['id'] ?>"
