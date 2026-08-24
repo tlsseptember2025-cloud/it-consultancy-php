@@ -14,10 +14,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install lftp
+      - name: Install deployment tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y lftp
+          sudo apt-get install -y lftp apache2-utils
 
       - name: Deploy application files to IONOS dev
         env:
@@ -70,10 +70,27 @@ jobs:
         run: |
           lftp -u "$SFTP_USERNAME","$SFTP_PASSWORD" "sftp://$SFTP_HOST:$SFTP_PORT" <<EOF
           set sftp:auto-confirm yes
-          set net:max-retries 2
-          set net:timeout 30
-
           put -O "$SFTP_PATH" .env
+          bye
+          EOF
 
+      - name: Create development password file
+        env:
+          DEV_AUTH_USER: ${{ secrets.DEV_AUTH_USER }}
+          DEV_AUTH_PASSWORD: ${{ secrets.DEV_AUTH_PASSWORD }}
+        run: |
+          htpasswd -nb "$DEV_AUTH_USER" "$DEV_AUTH_PASSWORD" > .htpasswd
+
+      - name: Upload development password file
+        env:
+          SFTP_HOST: ${{ secrets.SFTP_HOST }}
+          SFTP_PORT: ${{ secrets.SFTP_PORT }}
+          SFTP_USERNAME: ${{ secrets.SFTP_USERNAME }}
+          SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
+          SFTP_PATH: ${{ secrets.SFTP_PATH }}
+        run: |
+          lftp -u "$SFTP_USERNAME","$SFTP_PASSWORD" "sftp://$SFTP_HOST:$SFTP_PORT" <<EOF
+          set sftp:auto-confirm yes
+          put -O "$SFTP_PATH" .htpasswd
           bye
           EOF
