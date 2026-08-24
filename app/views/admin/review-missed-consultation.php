@@ -98,44 +98,38 @@ if (
 
     if ($decision === 'keep_agent') {
 
-        $update = $pdo->prepare("
-            UPDATE requests
-            SET
-                workflow_stage = 'Consultation Confirmed',
-                job_status = 'Pending',
-                status = 'Pending',
-                admin_instruction = '__RESCHEDULE_ALLOWED__'
-            WHERE
-                id = ?
-                AND workflow_stage = 'Missed Consultation Review'
-        ");
+    $update = $pdo->prepare("
+        UPDATE requests
+        SET
+            workflow_stage = 'Awaiting Customer Reschedule',
+            job_status = 'Pending',
+            status = 'Pending',
+            admin_instruction = '__RESCHEDULE_ALLOWED__'
+        WHERE
+            id = ?
+            AND workflow_stage = 'Missed Consultation Review'
+    ");
 
-        $update->execute([
-            $requestId
-        ]);
+    $update->execute([
+        $requestId
+    ]);
 
-        /*
-        |--------------------------------------------------------------------------
-        | Audit
-        |--------------------------------------------------------------------------
-        */
+    RequestEventHelper::addCurrentUser(
+        $pdo,
+        $requestId,
+        'MISSED_CONSULTATION_APPROVED',
+        RequestEventHelper::TYPE_CONSULTATION,
+        'Missed Consultation Approved',
+        'The administrator reviewed the missed consultation and approved rescheduling with the same agent.',
+        true
+    );
 
-        RequestEventHelper::addCurrentUser(
-            $pdo,
-            $requestId,
-            'MISSED_CONSULTATION_APPROVED',
-            RequestEventHelper::TYPE_CONSULTATION,
-            'Missed Consultation Approved',
-            'The administrator reviewed the missed consultation and approved rescheduling with the same agent.',
-            true
-        );
+    header(
+        'Location: ?page=view-request&id=' . $requestId
+    );
 
-        header(
-            'Location: ?page=customer-requests'
-        );
-
-        exit;
-    }
+    exit;
+}
 
 
     /*

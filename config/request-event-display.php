@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/request-events.php';
+
 /*
 |--------------------------------------------------------------------------
 | Request Event Display
@@ -238,6 +240,42 @@ $requestEventDisplay = [
     'title' => 'Awaiting Customer Confirmation',
     'icon'  => '⏳',
     'badge' => 'warning'
+],
+
+'CONSULTATION_NOT_COMPLETED_CONFIRMED' => [
+    'title' => 'Consultation Not Completed',
+    'icon'  => '⚠️',
+    'badge' => 'warning'
+],
+
+'CONSULTATION_REASSIGNED' => [
+    'title' => 'Consultation Reassigned',
+    'icon'  => '👤',
+    'badge' => 'primary'
+],
+
+EVENT_CONSULTATION_COMPLETION_CONFIRMED => [
+    'title' => 'Consultation Completion Confirmed by Customer',
+    'icon'  => '✅',
+    'badge' => 'success'
+],
+
+EVENT_CONSULTATION_REVIEW_ACCEPTED => [
+    'title' => 'Consultation Explanation Accepted',
+    'icon'  => '✅',
+    'badge' => 'success'
+],
+
+EVENT_SERVICE_COMPLETION_CONFIRMED => [
+    'title' => 'Service Completion Confirmed',
+    'icon'  => '✅',
+    'badge' => 'success'
+],
+
+EVENT_CONSULTATION_FINAL_APPROVED => [
+    'title' => 'Consultation Finally Approved',
+    'icon'  => '✅',
+    'badge' => 'success'
 ],
 
 

@@ -56,6 +56,28 @@ $stmt->execute([$requestId]);
 
 $consultation = $stmt->fetch(PDO::FETCH_ASSOC);
 
+/*
+|--------------------------------------------------------------------------
+| Load Available Agents For Consultation Reassignment
+|--------------------------------------------------------------------------
+*/
+
+$agentsStmt = $pdo->prepare("
+    SELECT
+        id,
+        name
+    FROM agents
+    WHERE id != ?
+    ORDER BY name ASC
+");
+
+$agentsStmt->execute([
+    $consultation['agent_id']
+]);
+
+$availableAgents =
+    $agentsStmt->fetchAll(PDO::FETCH_ASSOC);
+
 if (!$consultation) {
     die('Consultation not found.');
 }
@@ -317,13 +339,175 @@ if ($decision === 'accept') {
 
 elseif ($decision === 'reassign') {
 
+    $newAgentId = (int) ($_POST['new_agent_id'] ?? 0);
+
+    if ($newAgentId <= 0) {
+
+        die('Please select a new agent.');
+
+    }
+
+    if ($newAgentId === (int) $consultation['agent_id']) {
+
+        die('The consultation must be reassigned to a different agent.');
+
+    }
+
+    $pdo->beginTransaction();
+
+try {
+
     /*
     |--------------------------------------------------------------------------
-    | Reassignment will be implemented here
+    | Consultation reassignment processing
     |--------------------------------------------------------------------------
     */
 
-    die('Consultation reassignment processing will be implemented next.');
+    /*
+|--------------------------------------------------------------------------
+| Update Consultation Booking With New Agent
+|--------------------------------------------------------------------------
+*/
+
+$bookingUpdate = $pdo->prepare("
+    UPDATE consultation_bookings
+    SET
+        agent_id = ?
+    WHERE
+        id = ?
+");
+
+$bookingUpdate->execute([
+    $newAgentId,
+    $consultation['booking_id']
+]);
+
+if ($bookingUpdate->rowCount() !== 1) {
+
+    throw new Exception(
+        'The consultation booking could not be reassigned.'
+    );
+
+}
+
+/*
+|--------------------------------------------------------------------------
+| Update Request For New Agent And Customer Reschedule
+|--------------------------------------------------------------------------
+*/
+
+$requestUpdate = $pdo->prepare("
+    UPDATE requests
+    SET
+        agent_id = ?,
+        workflow_stage = 'Awaiting Customer Reschedule',
+        job_status = 'Pending',
+        review_type = NULL,
+        admin_instruction = '__RESCHEDULE_ALLOWED__',
+        admin_review_comments = ?,
+        completed_at = NULL,
+        completion_notes = NULL,
+        incomplete_reason = NULL
+    WHERE
+        id = ?
+        AND workflow_stage = 'Needs Admin Review'
+        AND review_type = 'consultation_not_completed'
+");
+
+$requestUpdate->execute([
+    $newAgentId,
+    $comments,
+    $consultation['id']
+]);
+
+if ($requestUpdate->rowCount() !== 1) {
+
+    throw new Exception(
+        'The request could not be updated for consultation reassignment.'
+    );
+
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Record Consultation Reassignment History
+|--------------------------------------------------------------------------
+*/
+
+$history = $pdo->prepare("
+    INSERT INTO consultation_review_history
+    (
+        request_id,
+        actor_type,
+        admin_id,
+        action_type,
+        decision_type,
+        message
+    )
+    VALUES
+    (
+        ?,
+        'admin',
+        ?,
+        'admin_decision',
+        'reassign',
+        ?
+    )
+");
+
+$history->execute([
+    $consultation['id'],
+    $currentAdminId,
+    $comments
+]);
+
+/*
+|--------------------------------------------------------------------------
+| Record Consultation Reassignment Event
+|--------------------------------------------------------------------------
+*/
+
+RequestEventHelper::addCurrentUser(
+    $pdo,
+    (int) $consultation['id'],
+    'CONSULTATION_REASSIGNED',
+    RequestEventHelper::TYPE_CONSULTATION,
+    'Consultation Reassigned',
+    'The administrator reassigned the consultation to a new agent after the customer reported that the consultation was not completed. The customer can now select a new consultation appointment. Administrator comments: ' . $comments,
+    true
+);
+
+/*
+|--------------------------------------------------------------------------
+| Commit Consultation Reassignment
+|--------------------------------------------------------------------------
+*/
+
+$pdo->commit();
+
+
+$_SESSION['success'] =
+    'The consultation has been reassigned. The customer can now select a new consultation appointment.';
+
+
+header(
+    'Location: ?page=needs-admin-review'
+);
+
+exit;
+
+} catch (Exception $e) {
+
+    if ($pdo->inTransaction()) {
+
+        $pdo->rollBack();
+
+    }
+
+    die($e->getMessage());
+
+}
 
 }
 
@@ -1116,6 +1300,49 @@ require VIEW_PATH . '/layouts/header-admin.php';
                                     newly assigned agent.
 
                                 </p>
+
+                                <?php if ($isConsultationNotCompletedReview): ?>
+
+    <div class="mt-3">
+
+        <label for="newAgentId" class="form-label">
+
+            <strong>Select New Agent</strong>
+
+        </label>
+
+        <select
+            name="new_agent_id"
+            id="newAgentId"
+            class="form-select"
+            required
+        >
+
+            <option value="">
+                -- Select New Agent --
+            </option>
+
+            <?php foreach ($availableAgents as $agent): ?>
+
+                <option value="<?= (int) $agent['id'] ?>">
+
+                    <?= htmlspecialchars($agent['name']) ?>
+
+                </option>
+
+            <?php endforeach; ?>
+
+        </select>
+
+        <small class="text-muted">
+
+            Select the agent who will handle the replacement consultation.
+
+        </small>
+
+    </div>
+
+<?php endif; ?>
 
                             </div>
 

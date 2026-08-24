@@ -321,8 +321,26 @@ require VIEW_PATH . '/layouts/header-admin.php';
                     <tbody>
 
 
+
                         <?php foreach ($consultations as $consultation): ?>
 
+                            <?php
+
+                                $isConsultationReschedule = (
+                                    $consultation['workflow_stage']
+                                        === 'Awaiting Reschedule Approval'
+                                    &&
+                                    !empty($consultation['pending_consultation_date'])
+                                );
+
+                                $isServiceReschedule = (
+                                    $consultation['workflow_stage']
+                                        === 'Awaiting Reschedule Approval'
+                                    &&
+                                    !empty($consultation['pending_service_date'])
+                                );
+
+                            ?>
 
                             <tr>
 
@@ -370,45 +388,56 @@ require VIEW_PATH . '/layouts/header-admin.php';
                                 <td>
 
 
-                                    <?php if (
+                                    <?php if ($isConsultationReschedule): ?>
 
-                                        $consultation['workflow_stage']
-                                            === 'Awaiting Reschedule Approval'
+    <span
+        class="
+            badge
+            bg-warning
+            text-dark
+        ">
 
-                                        &&
+        Consultation Reschedule Approval
 
-                                        !empty(
-                                            $consultation[
-                                                'pending_reschedule_slot_id'
-                                            ]
-                                        )
+    </span>
 
-                                    ): ?>
+    <div
+        class="
+            small
+            text-muted
+            mt-1
+        ">
 
+        Customer selected a new consultation
+        appointment awaiting approval.
 
-                                        <span
-                                            class="
-                                                badge
-                                                bg-warning
-                                                text-dark
-                                            ">
-
-                                            Service Reschedule Approval
-
-                                        </span>
+    </div>
 
 
-                                        <div
-                                            class="
-                                                small
-                                                text-muted
-                                                mt-1
-                                            ">
+<?php elseif ($isServiceReschedule): ?>
 
-                                            Customer selected a new service
-                                            appointment awaiting approval.
+    <span
+        class="
+            badge
+            bg-warning
+            text-dark
+        ">
 
-                                        </div>
+        Service Reschedule Approval
+
+    </span>
+
+    <div
+        class="
+            small
+            text-muted
+            mt-1
+        ">
+
+        Customer selected a new service
+        appointment awaiting approval.
+
+    </div>
 
 
                                     <?php elseif (
@@ -588,37 +617,29 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
                                 <!-- Reason -->
 
-                                <td>
+<td>
 
+    <?php if ($isConsultationReschedule): ?>
 
-                                    <?php if (
+        Customer selected a new consultation
+        appointment.
 
-                                        $consultation['workflow_stage']
-                                            === 'Awaiting Reschedule Approval'
+    <?php elseif ($isServiceReschedule): ?>
 
-                                    ): ?>
+        Customer selected a new service
+        appointment.
 
+    <?php else: ?>
 
-                                        Customer selected a new service
-                                        appointment.
+        <?= htmlspecialchars(
+            $consultation[
+                'incomplete_reason'
+            ] ?? ''
+        ) ?>
 
+    <?php endif; ?>
 
-                                    <?php else: ?>
-
-
-                                        <?= htmlspecialchars(
-                                            $consultation[
-                                                'incomplete_reason'
-                                            ] ?? ''
-                                        ) ?>
-
-
-                                    <?php endif; ?>
-
-
-                                </td>
-
-
+</td>
                                 <!-- Date -->
 
                                 <td
@@ -630,13 +651,19 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
                                     <?php
 
+                                    if ($isConsultationReschedule) {
 
-                                    if (
+                                        $reviewDate =
+                                            $consultation[
+                                                'pending_consultation_date'
+                                            ];
 
-                                        $consultation['workflow_stage']
-                                            === 'Awaiting Reschedule Approval'
+                                        $reviewTime =
+                                            $consultation[
+                                                'pending_consultation_time'
+                                            ];
 
-                                    ) {
+                                    } elseif ($isServiceReschedule) {
 
                                         $reviewDate =
                                             $consultation[
@@ -648,7 +675,10 @@ require VIEW_PATH . '/layouts/header-admin.php';
                                                 'pending_service_time'
                                             ];
 
-                                    } elseif (
+                                    }
+
+
+                                     elseif (
 
                                         in_array(
                                             $consultation['review_type'],
@@ -726,33 +756,34 @@ require VIEW_PATH . '/layouts/header-admin.php';
                                     ">
 
 
-                                    <?php if (
+                                    <?php if ($isConsultationReschedule): ?>
 
-                                        $consultation['workflow_stage']
-                                            === 'Awaiting Reschedule Approval'
+    <a
+        href="?page=review-reschedule-consultation&id=<?= (int) $consultation['id'] ?>"
+        class="
+            btn
+            btn-warning
+            btn-sm
+        ">
 
-                                        &&
+        Review Consultation Reschedule →
 
-                                        !empty(
-                                            $consultation[
-                                                'pending_reschedule_slot_id'
-                                            ]
-                                        )
-
-                                    ): ?>
+    </a>
 
 
-                                        <a
-                                            href="?page=review-reschedule-service&id=<?= (int) $consultation['id'] ?>"
-                                            class="
-                                                btn
-                                                btn-warning
-                                                btn-sm
-                                            ">
+<?php elseif ($isServiceReschedule): ?>
 
-                                            Review Service Reschedule →
+    <a
+        href="?page=review-reschedule-service&id=<?= (int) $consultation['id'] ?>"
+        class="
+            btn
+            btn-warning
+            btn-sm
+        ">
 
-                                        </a>
+        Review Service Reschedule →
+
+    </a>
 
 
                                     <?php elseif (

@@ -549,10 +549,10 @@ if ($item['review_type'] === 'consultation_overdue') {
 
                 <?php foreach ($awaitingRescheduleApproval as $item): ?>
 
-    <a
-        href="?page=review-reschedule-service&id=<?= (int)$item['id'] ?>"
-        class="text-decoration-none text-dark d-block"
-    >
+                    <a
+                        href="?page=review-reschedule-consultation&id=<?= (int)$item['id'] ?>"
+                        class="text-decoration-none text-dark d-block"
+                    >
 
                         <div class="p-3 border-bottom dashboard-action-item">
 

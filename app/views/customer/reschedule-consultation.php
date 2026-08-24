@@ -23,6 +23,7 @@ $stmt = $pdo->prepare("
         r.workflow_stage,
         r.job_status,
         r.admin_instruction,
+        r.admin_review_comments,
         cb.slot_id,
         cs.slot_date,
         cs.slot_time
@@ -230,9 +231,10 @@ require dirname(__DIR__) . '/layouts/header-customer.php';
 
 </div>
 
-<div class="card shadow-sm mb-4">
 
-    <div class="card-header">
+<div class="card shadow-sm mb-4 border-warning">
+
+    <div class="card-header bg-warning">
 
         <strong>Reason for Rescheduling</strong>
 
@@ -240,28 +242,31 @@ require dirname(__DIR__) . '/layouts/header-customer.php';
 
     <div class="card-body">
 
-        <div class="alert alert-info mb-3">
+        <p class="mb-3">
 
-            Please tell us why you would like to reschedule your consultation.
+            Your previous consultation was not completed, as you reported to
+            the administrator. After reviewing the case, the administrator has
+            approved a new consultation appointment and reassigned your request
+            to another agent.
+
+        </p>
+
+        <hr>
+
+        <strong>Administrator's Comments:</strong>
+
+        <div class="mt-2">
+
+            <?= nl2br(htmlspecialchars(
+                $request['admin_review_comments']
+            )) ?>
 
         </div>
-
-        <textarea
-            id="rescheduleReason"
-            class="form-control"
-            rows="4"
-            maxlength="500"
-            placeholder="Enter your reason (optional)..."></textarea>
-
-        <small class="text-muted">
-
-            Maximum 500 characters.
-
-        </small>
 
     </div>
 
 </div>
+
 
 <div class="card shadow-sm mb-4">
 
@@ -424,8 +429,6 @@ document.querySelectorAll('.select-slot').forEach(card => {
 
 continueButton.addEventListener('click', function () {
 
-    const reason = document.getElementById('rescheduleReason').value;
-
     const slotId = document.getElementById('selectedSlotId').value;
 
     if (!slotId) {
@@ -436,8 +439,7 @@ continueButton.addEventListener('click', function () {
     window.location =
         '?page=confirm-reschedule-consultation'
         + '&request_id=<?= $requestId ?>'
-        + '&slot_id=' + slotId
-        + '&reason=' + encodeURIComponent(reason);
+        + '&slot_id=' + slotId;
 
 });
 

@@ -368,16 +368,22 @@ elseif (
     <?php if (empty($request['admin_instruction'])): ?>
 
     <span class="badge bg-warning text-dark">
-
         Awaiting Administrator Review
-
     </span>
 
 <?php else: ?>
 
+    <?php if (!empty($request['admin_review_comments'])): ?>
+
+        <div class="small mt-3" style="color: #0b5394;">
+            <strong>Administrator's reason:</strong>
+            <?= htmlspecialchars($request['admin_review_comments']) ?>
+        </div>
+    <?php endif; ?>
+
     <a
         href="?page=reschedule-consultation&request_id=<?= $request['id'] ?>"
-        class="btn btn-warning btn-sm">
+        class="btn btn-warning btn-sm mt-2">
 
         Reschedule Consultation
 

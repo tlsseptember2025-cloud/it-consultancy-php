@@ -327,8 +327,7 @@ if (
 
 
             header(
-                'Location: ?page=review-reschedule-consultation&id='
-                . $requestId
+                'Location: ?page=needs-admin-review'
             );
 
             exit;
@@ -398,9 +397,8 @@ if (
             'The requested time was rejected. The customer can choose another time.';
 
 
-        header(
-            'Location: ?page=review-reschedule-consultation&id='
-            . $requestId
+       header(
+            'Location: ?page=needs-admin-review'
         );
 
         exit;
@@ -546,7 +544,7 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
                             <br>
 
-                            <?= htmlspecialchars(
+                            <?= formatTime(
                                 $consultation['old_slot_time']
                             ) ?>
 
@@ -567,13 +565,13 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
                         <div class="fs-5 fw-bold text-primary">
 
-                            <?= htmlspecialchars(
+                            <?= formatDate(
                                 $consultation['new_slot_date']
                             ) ?>
 
                             <br>
 
-                            <?= htmlspecialchars(
+                            <?= formatTime(
                                 $consultation['new_slot_time']
                             ) ?>
 
