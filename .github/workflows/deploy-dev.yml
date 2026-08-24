@@ -17,6 +17,11 @@ jobs:
       - name: Install sshpass
         run: sudo apt-get update && sudo apt-get install -y sshpass
 
+      - name: Test IONOS host resolution
+        run: |
+          echo "Testing SFTP host DNS..."
+          getent hosts "${{ secrets.SFTP_HOST }}"
+
       - name: Deploy files to IONOS dev
         run: |
           sshpass -p "${{ secrets.SFTP_PASSWORD }}" rsync -avz --delete \
