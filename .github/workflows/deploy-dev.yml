@@ -7,6 +7,7 @@ on:
 
 jobs:
   deploy:
+    name: Deploy PHP Application
     runs-on: ubuntu-latest
 
     steps:
@@ -18,7 +19,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y lftp
 
-      - name: Deploy files to IONOS dev via SFTP
+      - name: Deploy application files to IONOS dev
         env:
           SFTP_HOST: ${{ secrets.SFTP_HOST }}
           SFTP_PORT: ${{ secrets.SFTP_PORT }}
@@ -37,6 +38,42 @@ jobs:
             --exclude-glob .env \
             --exclude-glob storage/logs \
             ./ "$SFTP_PATH"
+
+          bye
+          EOF
+
+      - name: Create development environment file
+        env:
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASS: ${{ secrets.DB_PASS }}
+          DB_SSL_CA: ${{ secrets.DB_SSL_CA }}
+        run: |
+          cat > .env <<EOF
+          DB_HOST=$DB_HOST
+          DB_PORT=$DB_PORT
+          DB_NAME=$DB_NAME
+          DB_USER=$DB_USER
+          DB_PASS=$DB_PASS
+          DB_SSL_CA=$DB_SSL_CA
+          EOF
+
+      - name: Upload development environment file
+        env:
+          SFTP_HOST: ${{ secrets.SFTP_HOST }}
+          SFTP_PORT: ${{ secrets.SFTP_PORT }}
+          SFTP_USERNAME: ${{ secrets.SFTP_USERNAME }}
+          SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
+          SFTP_PATH: ${{ secrets.SFTP_PATH }}
+        run: |
+          lftp -u "$SFTP_USERNAME","$SFTP_PASSWORD" "sftp://$SFTP_HOST:$SFTP_PORT" <<EOF
+          set sftp:auto-confirm yes
+          set net:max-retries 2
+          set net:timeout 30
+
+          put -O "$SFTP_PATH" .env
 
           bye
           EOF
