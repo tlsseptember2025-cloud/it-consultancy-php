@@ -1,4 +1,0 @@
-AuthType Basic
-AuthName "WAHBIB Development Site"
-AuthUserFile /homepages/16/d4299801455/htdocs/mysite/dev/.htpasswd
-Require valid-user

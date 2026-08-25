@@ -36,6 +36,8 @@ jobs:
             --exclude-glob .git \
             --exclude-glob .github \
             --exclude-glob .env \
+            --exclude-glob .htaccess \
+            --exclude-glob .htpasswd \
             --exclude-glob storage/logs \
             ./ "$SFTP_PATH"
 
@@ -92,5 +94,30 @@ jobs:
           lftp -u "$SFTP_USERNAME","$SFTP_PASSWORD" "sftp://$SFTP_HOST:$SFTP_PORT" <<EOF
           set sftp:auto-confirm yes
           put -O "$SFTP_PATH" .htpasswd
+          bye
+          EOF
+
+      - name: Create development password protection file
+        run: |
+          mkdir -p public
+
+          cat > public/.htaccess <<'EOF'
+          AuthType Basic
+          AuthName "WAHBIB Development Site"
+          AuthUserFile /homepages/16/d4299801455/htdocs/mysite/dev/.htpasswd
+          Require valid-user
+          EOF
+
+      - name: Upload development password protection file
+        env:
+          SFTP_HOST: ${{ secrets.SFTP_HOST }}
+          SFTP_PORT: ${{ secrets.SFTP_PORT }}
+          SFTP_USERNAME: ${{ secrets.SFTP_USERNAME }}
+          SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
+          SFTP_PATH: ${{ secrets.SFTP_PATH }}
+        run: |
+          lftp -u "$SFTP_USERNAME","$SFTP_PASSWORD" "sftp://$SFTP_HOST:$SFTP_PORT" <<EOF
+          set sftp:auto-confirm yes
+          put -O "$SFTP_PATH/public" public/.htaccess
           bye
           EOF
