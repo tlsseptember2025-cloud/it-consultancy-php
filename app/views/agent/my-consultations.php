@@ -101,8 +101,8 @@ $stmt = $pdo->prepare("
         cs.slot_time,
 
         r.job_status,
-r.workflow_stage,
-r.incomplete_reason
+        r.workflow_stage,
+        r.incomplete_reason
 
     FROM consultation_bookings cb
 
@@ -119,13 +119,15 @@ r.incomplete_reason
         ON s.id = r.service_id
 
     WHERE
-    cb.agent_id = ?
+        cb.agent_id = ?
 
-    AND r.workflow_stage = 'Needs Admin Review'
+        AND r.workflow_stage = 'Needs Admin Review'
 
-    AND r.job_status = 'Needs Admin Review'
+        AND r.job_status = 'Needs Admin Review'
 
-    AND r.missed_consultation_reason IS NULL
+        AND r.review_type = 'consultation_overdue'
+
+        AND r.missed_consultation_reason IS NULL
 
     ORDER BY
         cs.slot_date DESC,

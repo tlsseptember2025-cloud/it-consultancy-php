@@ -20,8 +20,6 @@ define('CONFIG_PATH', BASE_PATH . '/config');
 
 require_once CONFIG_PATH . '/settings.php';
 require_once CONFIG_PATH . '/database.php';
-
-require_once APP_PATH . '/helpers/email.php';
 require_once APP_PATH . '/helpers/RequestEventHelper.php';
 
 date_default_timezone_set('Asia/Dubai');

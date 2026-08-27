@@ -50,7 +50,7 @@ $stmt->execute();
 
 $consultations = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-echo "Found " . count($consultations) . " overdue consultation(s).\n";
+echo "Found " . count($consultations) . " missed consultation(s).\n";
 
 
 /*
