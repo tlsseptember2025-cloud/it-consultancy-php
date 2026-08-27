@@ -33,6 +33,7 @@ $stmt = $pdo->prepare("
         r.review_type,
         r.incomplete_reason,
         r.contact_result,
+        r.missed_consultation_reason,
         r.pending_reschedule_slot_id,
 
         c.name AS customer_name,
@@ -386,6 +387,7 @@ require VIEW_PATH . '/layouts/header-admin.php';
                                 <!-- Review Purpose -->
 
                                 <td>
+
 
 
                                     <?php if ($isConsultationReschedule): ?>
@@ -859,6 +861,27 @@ require VIEW_PATH . '/layouts/header-admin.php';
         ">
 
         Final Approve Consultation →
+
+    </a>
+
+
+    <?php elseif (
+
+    $consultation['workflow_stage'] === 'Needs Admin Review'
+
+    && !empty($consultation['missed_consultation_reason'])
+
+): ?>
+
+    <a
+        href="?page=review-missed-consultation&id=<?= (int) $consultation['id'] ?>"
+        class="
+            btn
+            btn-warning
+            btn-sm
+        ">
+
+        Review Missed Consultation →
 
     </a>
 

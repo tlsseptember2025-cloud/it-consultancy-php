@@ -8,6 +8,10 @@ function workflowBadge(string $stage): string
             $class = 'bg-primary';
             break;
 
+        case 'Consultation Decision Required':
+            $class = 'bg-warning text-dark';
+            break;
+
         case 'Awaiting Customer Response':
         case 'Waiting Customer Response':
             $class = 'bg-secondary';

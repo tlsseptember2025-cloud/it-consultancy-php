@@ -1,7 +1,6 @@
 <?php
 
 require CONFIG_PATH . '/database.php';
-require dirname(__DIR__) . '/layouts/header-public.php';
 
 $error = '';
 
@@ -73,6 +72,8 @@ $error = 'Invalid email or password.';
 $isAgentLogin =
     isset($_SESSION['login_role']) &&
     $_SESSION['login_role'] === 'agent';
+
+require dirname(__DIR__) . '/layouts/header-public.php';
 
 ?>
 

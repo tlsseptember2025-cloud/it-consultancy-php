@@ -78,14 +78,14 @@ if (!$consultation) {
 
 /*
 |--------------------------------------------------------------------------
-| Verify Missed Consultation
+| Verify Consultation Requires Agent Explanation
 |--------------------------------------------------------------------------
 */
 
-if ($consultation['workflow_stage'] !== 'Missed Consultation') {
+if ($consultation['workflow_stage'] !== 'Consultation Decision Required') {
 
     header(
-        'Location: ?page=view-consultation&id=' . $requestId
+        'Location: ?page=agent-consultations'
     );
 
     exit;
@@ -117,25 +117,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         |--------------------------------------------------------------------------
         */
 
-        $update = $pdo->prepare("
-            UPDATE requests
+       $update = $pdo->prepare("
+    UPDATE requests
 
-            SET
-                missed_consultation_reason = ?,
-                workflow_stage = 'Missed Consultation Review'
+    SET
+        missed_consultation_reason = ?,
+        workflow_stage = 'Needs Admin Review',
+        job_status = 'Needs Admin Review'
 
-            WHERE
-                id = ?
-                AND agent_id = ?
-                AND workflow_stage = 'Missed Consultation'
-        ");
+    WHERE
+        id = ?
+        AND agent_id = ?
+        AND workflow_stage = 'Consultation Decision Required'
+");
 
-        $update->execute([
-            $reason,
-            $requestId,
-            $agentId
-        ]);
+$update->execute([
+    $reason,
+    $requestId,
+    $agentId
+]);
 
+if ($update->rowCount() === 0) {
+
+    die('Unable to update the consultation. Its workflow state may have changed.');
+}
 
         /*
         |--------------------------------------------------------------------------

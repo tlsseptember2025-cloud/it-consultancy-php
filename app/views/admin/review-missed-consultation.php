@@ -57,7 +57,9 @@ $stmt = $pdo->prepare("
 
     WHERE
         r.id = ?
-        AND r.workflow_stage = 'Missed Consultation Review'
+        AND r.workflow_stage = 'Needs Admin Review'
+AND r.missed_consultation_reason IS NOT NULL
+AND r.missed_consultation_reason <> ''
 ");
 
 $stmt->execute([$requestId]);
@@ -106,8 +108,8 @@ if (
             status = 'Pending',
             admin_instruction = '__RESCHEDULE_ALLOWED__'
         WHERE
-            id = ?
-            AND workflow_stage = 'Missed Consultation Review'
+    id = ?
+    AND workflow_stage = 'Needs Admin Review'
     ");
 
     $update->execute([

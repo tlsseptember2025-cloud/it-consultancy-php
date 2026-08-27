@@ -58,10 +58,11 @@ r.incomplete_reason
         cb.agent_id = ?
 
         AND r.workflow_stage IN (
-            'Consultation Confirmed',
-            'Customer Contact',
-            'Missed Consultation'
-        )
+    'Consultation Confirmed',
+    'Customer Contact',
+    'Missed Consultation',
+    'Consultation Decision Required'
+)
 
     ORDER BY
         cs.slot_date,
@@ -123,6 +124,8 @@ r.incomplete_reason
     AND r.workflow_stage = 'Needs Admin Review'
 
     AND r.job_status = 'Needs Admin Review'
+
+    AND r.missed_consultation_reason IS NULL
 
     ORDER BY
         cs.slot_date DESC,
@@ -252,15 +255,18 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
     </a>
 
-<?php elseif ($consultation['workflow_stage'] === 'Missed Consultation'): ?>
+<?php elseif (
+    $consultation['workflow_stage'] === 'Missed Consultation'
+    || $consultation['workflow_stage'] === 'Consultation Decision Required'
+): ?>
 
     <a
-    href="?page=explain-missed-consultation&id=<?= $consultation['request_id'] ?>"
-    class="btn btn-danger btn-sm text-nowrap">
+        href="?page=explain-missed-consultation&id=<?= (int) $consultation['request_id'] ?>"
+        class="btn btn-danger btn-sm text-nowrap">
 
-    Explain Missed Consultation
+        Explain Missed Consultation
 
-</a>
+    </a>
 
 <?php elseif ($consultation['workflow_stage'] === 'Consultation Confirmed'): ?>
 

@@ -116,8 +116,11 @@ $needsAdminReview = $pdo->query("
         r.id,
         r.created_at,
         r.review_type,
+        r.workflow_stage,
+        r.missed_consultation_reason,
         c.name AS customer_name,
         s.title AS service_title
+
     FROM requests r
     JOIN customers c
         ON c.id = r.customer_id
@@ -473,15 +476,30 @@ if ($item['review_type'] === 'consultation_overdue') {
 ?>
 
     <a
+
     href="<?=
-        in_array(
-            $item['review_type'],
-            ['service_missed', 'service_overdue'],
-            true
+
+    (
+        $item['workflow_stage'] === 'Needs Admin Review'
+        && !empty($item['missed_consultation_reason'])
+    )
+
+        ? '?page=review-missed-consultation&id=' . (int)$item['id']
+
+        : (
+
+            in_array(
+                $item['review_type'],
+                ['service_missed', 'service_overdue'],
+                true
+            )
+
+                ? '?page=admin-review-service-job&id=' . (int)$item['id']
+
+                : '?page=admin-review-consultation&id=' . (int)$item['id']
         )
-            ? '?page=admin-review-service-job&id=' . (int)$item['id']
-            : '?page=admin-review-consultation&id=' . (int)$item['id']
-    ?>"
+?>"
+    
     class="text-decoration-none text-dark d-block"
 >
 
