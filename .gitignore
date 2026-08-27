@@ -10,3 +10,6 @@
 # OS
 .DS_Store
 Thumbs.db
+
+# ca file
+app/storage/certs/ca.pem
