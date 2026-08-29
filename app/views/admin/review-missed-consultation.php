@@ -92,47 +92,123 @@ if (
 
     $decision = $_POST['missed_consultation_decision'];
 
+
     /*
     |--------------------------------------------------------------------------
-    | Keep Same Agent
+    | Accept Explanation — Keep Same Agent
     |--------------------------------------------------------------------------
     */
 
     if ($decision === 'keep_agent') {
 
-    $update = $pdo->prepare("
-        UPDATE requests
-        SET
-            workflow_stage = 'Awaiting Customer Reschedule',
-            job_status = 'Pending',
-            status = 'Pending',
-            admin_instruction = '__RESCHEDULE_ALLOWED__'
-        WHERE
-    id = ?
-    AND workflow_stage = 'Needs Admin Review'
-    ");
+        $update = $pdo->prepare("
+            UPDATE requests
+            SET
+                workflow_stage = 'Awaiting Customer Reschedule',
+                job_status = 'Pending',
+                status = 'Pending',
+                admin_instruction = '__RESCHEDULE_ALLOWED__'
+            WHERE
+                id = ?
+                AND workflow_stage = 'Needs Admin Review'
+        ");
 
-    $update->execute([
-        $requestId
-    ]);
+        $update->execute([
+            $requestId
+        ]);
 
-    RequestEventHelper::addCurrentUser(
-        $pdo,
-        $requestId,
-        'MISSED_CONSULTATION_APPROVED',
-        RequestEventHelper::TYPE_CONSULTATION,
-        'Missed Consultation Approved',
-        'The administrator reviewed the missed consultation and approved rescheduling with the same agent.',
-        true
-    );
+        RequestEventHelper::addCurrentUser(
+            $pdo,
+            $requestId,
+            'MISSED_CONSULTATION_APPROVED',
+            RequestEventHelper::TYPE_CONSULTATION,
+            'Missed Consultation Explanation Accepted',
+            'The administrator accepted the agent explanation and approved rescheduling with the same agent.',
+            true
+        );
 
-    header(
-        'Location: ?page=view-request&id=' . $requestId
-    );
+        header(
+            'Location: ?page=view-request&id=' . $requestId
+        );
 
-    exit;
-}
+        exit;
+    }
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | Accept Explanation — Reassign Agent
+    |--------------------------------------------------------------------------
+    */
+
+    if ($decision === 'reassign_agent') {
+
+        header(
+            'Location: ?page=admin-assign-agent&id=' . $requestId
+        );
+
+        exit;
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Reject Explanation
+    |--------------------------------------------------------------------------
+    |
+    | The explanation is not logically acceptable.
+    |
+    | Example:
+    | "I forgot."
+    | "I was sleeping."
+    |
+    | Return the consultation to the agent so a NEW explanation
+    | must be submitted.
+    |--------------------------------------------------------------------------
+    */
+
+    if ($decision === 'reject_explanation') {
+
+        $update = $pdo->prepare("
+            UPDATE requests
+            SET
+                missed_consultation_reason = NULL,
+                workflow_stage = 'Consultation Decision Required',
+                job_status = 'Pending',
+                status = 'Pending'
+            WHERE
+                id = ?
+                AND workflow_stage = 'Needs Admin Review'
+        ");
+
+        $update->execute([
+            $requestId
+        ]);
+
+        if ($update->rowCount() !== 1) {
+
+            die(
+                'Unable to reject the explanation. '
+                . 'The consultation workflow state may have changed.'
+            );
+        }
+
+        RequestEventHelper::addCurrentUser(
+            $pdo,
+            $requestId,
+            'MISSED_CONSULTATION_EXPLANATION_REJECTED',
+            RequestEventHelper::TYPE_CONSULTATION,
+            'Missed Consultation Explanation Rejected',
+            'The administrator rejected the agent explanation and returned the consultation to the agent for a new explanation.',
+            true
+        );
+
+        header(
+    'Location: ?page=needs-admin-review&success=explanation-rejected'
+);
+
+        exit;
+    }
 
     /*
     |--------------------------------------------------------------------------
@@ -443,64 +519,88 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
         <p class="text-muted">
 
-            Choose how this missed consultation should proceed.
+    Choose how this missed consultation should proceed.
 
-            The customer will be allowed to reschedule in either case.
+    If the explanation is rejected, the consultation will be
+    returned to the assigned agent for a new explanation.
 
-        </p>
+</p>
+
+    <div class="row g-2">
+
+    <!-- Accept — Keep Same Agent -->
+
+    <div class="col-md-4">
+
+        <form method="POST">
+
+            <input
+                type="hidden"
+                name="missed_consultation_decision"
+                value="keep_agent">
+
+            <button
+                type="submit"
+                class="btn btn-success w-100">
+
+                ✓ Accept & Keep Agent
+
+            </button>
+
+        </form>
+
+    </div>
 
 
-        <div class="row g-3">
+    <!-- Accept — Reassign Agent -->
+
+    <div class="col-md-4">
+
+        <form method="POST">
+
+            <input
+                type="hidden"
+                name="missed_consultation_decision"
+                value="reassign_agent">
+
+            <button
+                type="submit"
+                class="btn btn-primary w-100">
+
+                ⇄ Accept & Reassign Agent
+
+            </button>
+
+        </form>
+
+    </div>
 
 
-            <!-- Keep Same Agent -->
+    <!-- Reject Explanation -->
 
-            <div class="col-md-6">
+    <div class="col-md-4">
 
-                <form method="POST">
+        <form method="POST">
 
-                    <input
-                        type="hidden"
-                        name="missed_consultation_decision"
-                        value="keep_agent">
+            <input
+                type="hidden"
+                name="missed_consultation_decision"
+                value="reject_explanation">
 
-                    <button
-                        type="submit"
-                        class="btn btn-success w-100">
+            <button
+                type="submit"
+                class="btn btn-danger w-100">
 
-                        ✓ Keep Same Agent & Allow Reschedule
+                ✕ Reject Explanation
 
-                    </button>
+            </button>
 
-                </form>
+        </form>
 
-            </div>
+    </div>
 
+</div>
 
-            <!-- Reassign Agent -->
-
-            <div class="col-md-6">
-
-                <form method="POST">
-
-                    <input
-                        type="hidden"
-                        name="missed_consultation_decision"
-                        value="reassign_agent">
-
-                    <button
-                        type="submit"
-                        class="btn btn-primary w-100">
-
-                        Reassign Agent
-
-                    </button>
-
-                </form>
-
-            </div>
-
-        </div>
 
     </div>
 

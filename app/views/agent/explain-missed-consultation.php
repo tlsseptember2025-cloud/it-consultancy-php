@@ -63,6 +63,35 @@ $stmt->execute([
 
 $consultation = $stmt->fetch(PDO::FETCH_ASSOC);
 
+/*
+|--------------------------------------------------------------------------
+| Load Consultation Review History
+|--------------------------------------------------------------------------
+*/
+
+$historyStmt = $pdo->prepare("
+    SELECT
+        h.*,
+        a.name AS agent_name
+    FROM consultation_review_history h
+
+    LEFT JOIN agents a
+        ON a.id = h.agent_id
+
+    WHERE
+        h.request_id = ?
+
+    ORDER BY
+        h.created_at ASC,
+        h.id ASC
+");
+
+$historyStmt->execute([
+    $requestId
+]);
+
+$reviewHistory = $historyStmt->fetchAll(PDO::FETCH_ASSOC);
+
 
 /*
 |--------------------------------------------------------------------------
@@ -141,6 +170,39 @@ if ($update->rowCount() === 0) {
 
     die('Unable to update the consultation. Its workflow state may have changed.');
 }
+
+/*
+|--------------------------------------------------------------------------
+| Save Agent Explanation to Review History
+|--------------------------------------------------------------------------
+*/
+
+$history = $pdo->prepare("
+    INSERT INTO consultation_review_history
+    (
+        request_id,
+        actor_type,
+        agent_id,
+        action_type,
+        decision_type,
+        message
+    )
+    VALUES
+    (
+        ?,
+        'agent',
+        ?,
+        'agent_explanation',
+        NULL,
+        ?
+    )
+");
+
+$history->execute([
+    $requestId,
+    $agentId,
+    $reason
+]);
 
         /*
         |--------------------------------------------------------------------------
@@ -322,6 +384,94 @@ require VIEW_PATH . '/layouts/header-agent.php';
                 </div>
 
             </div>
+
+            <?php if (!empty($reviewHistory)): ?>
+
+    <div class="card border mb-4">
+
+        <div class="card-header">
+
+            <h5 class="mb-0">
+                Consultation Review History
+            </h5>
+
+        </div>
+
+        <div class="card-body">
+
+            <?php foreach ($reviewHistory as $entry): ?>
+
+                <?php
+                    $isAgent = $entry['actor_type'] === 'agent';
+                ?>
+
+                <div class="mb-4">
+
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+
+                        <strong>
+
+                            <?= $isAgent
+                                ? 'Agent'
+                                : 'Administrator'
+                            ?>
+
+                        </strong>
+
+                        <small class="text-muted">
+
+                            <?= htmlspecialchars(
+                                $entry['created_at']
+                            ) ?>
+
+                        </small>
+
+                    </div>
+
+
+                    <?php if ($entry['action_type'] === 'admin_rejection'): ?>
+
+                        <div class="alert alert-danger mb-0">
+
+                            <strong>
+                                Explanation Rejected
+                            </strong>
+
+                            <p class="mb-0 mt-2">
+
+                                <?= nl2br(
+                                    htmlspecialchars(
+                                        $entry['message']
+                                    )
+                                ) ?>
+
+                            </p>
+
+                        </div>
+
+                    <?php else: ?>
+
+                        <div class="border rounded p-3">
+
+                            <?= nl2br(
+                                htmlspecialchars(
+                                    $entry['message']
+                                )
+                            ) ?>
+
+                        </div>
+
+                    <?php endif; ?>
+
+                </div>
+
+            <?php endforeach; ?>
+
+        </div>
+
+    </div>
+
+<?php endif; ?>
 
 
             <div class="alert alert-warning">
