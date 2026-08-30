@@ -290,6 +290,12 @@ EVENT_CONSULTATION_DECISION_REQUIRED => [
     'badge' => 'warning'
 ],
 
+EVENT_SERVICE_NOT_COMPLETED_CONFIRMED => [
+    'title' => 'Service Not Completed Confirmed',
+    'icon'  => '⚠️',
+    'badge' => 'warning'
+],
+
 
     /*
     |--------------------------------------------------------------------------
