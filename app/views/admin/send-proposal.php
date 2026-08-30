@@ -178,5 +178,5 @@ RequestEventHelper::addCurrentUser(
 
 $_SESSION['success'] = 'Proposal sent successfully.';
 
-header('Location: ?page=admin-view-proposal&id=' . $id);
+header('Location: ?page=requests&success=proposal-sent');
 exit;

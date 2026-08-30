@@ -373,13 +373,11 @@ elseif (
 
 <?php else: ?>
 
-    <?php if (!empty($request['admin_review_comments'])): ?>
-
-        <div class="small mt-3" style="color: #0b5394;">
-            <strong>Administrator's reason:</strong>
-            <?= htmlspecialchars($request['admin_review_comments']) ?>
-        </div>
-    <?php endif; ?>
+    <div class="small mt-3 text-muted">
+        <h5>Admin Comment:</h5>
+        <h6>The agent missed the scheduled consultation.
+        Please reschedule your appointment.</h6>
+    </div>
 
     <a
         href="?page=reschedule-consultation&request_id=<?= $request['id'] ?>"

@@ -50,7 +50,8 @@ exit;
 
 // Unlimited reschedules when approved by the administrator
 $isAdminReschedule = (
-    $request['admin_instruction'] === '__RESCHEDULE_ALLOWED__'
+    $request['workflow_stage'] === 'Awaiting Customer Reschedule'
+    || $request['admin_instruction'] === '__RESCHEDULE_ALLOWED__'
 );
 
 // Normal customer reschedule: only one allowed
@@ -80,7 +81,7 @@ $isMissedConsultation = (
 if (
     !$isMissedConsultation
     &&
-    $request['admin_instruction'] !== '__RESCHEDULE_ALLOWED__'
+    !$isAdminReschedule
     &&
     time() >= ($currentConsultation - (24 * 60 * 60))
 ) {

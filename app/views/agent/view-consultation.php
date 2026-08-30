@@ -881,7 +881,10 @@ require VIEW_PATH . '/layouts/header-agent.php';
     <?php endif; ?>
 
 
-    <?php if (!empty($consultation['admin_review_comments'])): ?>
+    <?php if (
+    !empty($consultation['admin_review_comments'])
+    && $consultation['workflow_stage'] === 'Needs Admin Review'
+): ?>
 
         <div class="card shadow-sm mb-4 border-warning">
 

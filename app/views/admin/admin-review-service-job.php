@@ -240,27 +240,20 @@ if ($decision === 'reject') {
     */
 
     $update = $pdo->prepare("
-        UPDATE requests
+    UPDATE requests
+    SET
+        workflow_stage = 'Service Explanation Required',
+        job_status = 'Needs Admin Review',
+        review_type = 'service_overdue'
+    WHERE
+        id = ?
+        AND workflow_stage = 'Needs Admin Review'
+        AND review_type = 'service_overdue'
+");
 
-        SET
-            workflow_stage = 'Service Explanation Required',
-            job_status = 'Needs Admin Review',
-            review_type = 'service_overdue',
-            admin_review_comments = ?
-
-        WHERE
-            id = ?
-
-            AND workflow_stage = 'Needs Admin Review'
-
-            AND review_type = 'service_overdue'
-    ");
-
-    $update->execute([
-        $comments,
-        $serviceJob['request_id']
-    ]);
-
+$update->execute([
+    $serviceJob['request_id']
+]);
 
     if ($update->rowCount() !== 1) {
 
@@ -424,25 +417,22 @@ if ($decision === 'accept') {
 
     if ($isServiceOverdue) {
 
-        $update = $pdo->prepare("
-            UPDATE requests
-            SET
-                workflow_stage = ?,
-                job_status = 'Pending',
-                review_type = NULL,
-                admin_review_comments = ?
-            WHERE
-                id = ?
-                AND workflow_stage = 'Needs Admin Review'
-                AND review_type = 'service_overdue'
-        ");
+    $update = $pdo->prepare("
+        UPDATE requests
+        SET
+            workflow_stage = 'Awaiting Customer Confirmation',
+            job_status = 'Pending',
+            review_type = NULL,
+            admin_review_comments = NULL
+        WHERE
+            id = ?
+            AND workflow_stage = 'Needs Admin Review'
+            AND review_type = 'service_overdue'
+    ");
 
-        $update->execute([
-                'Awaiting Customer Confirmation',
-                $comments,
-                $serviceJob['request_id']
-            ]);
-
+    $update->execute([
+        $serviceJob['request_id']
+    ]);
 
         if ($update->rowCount() !== 1) {
 
@@ -528,6 +518,7 @@ if ($decision === 'reschedule') {
             review_type = NULL,
             service_rejection_reason = ?,
             service_rejected_at = NOW(),
+            admin_review_comments = NULL,
             service_rejected_by = ?
         WHERE
             id = ?
@@ -740,7 +731,6 @@ if ($decision === 'reassign') {
                 service_rejection_reason = ?,
                 service_rejected_at = NOW(),
                 service_rejected_by = ?,
-                admin_review_comments = ?,
                 incomplete_reason = NULL
             WHERE
                 id = ?
@@ -752,13 +742,12 @@ if ($decision === 'reassign') {
 )
         ");
 
-       $stmt->execute([
-            $newAgentId,
-            $comments,
-            $currentAdminId,
-            $comments,
-            $serviceJob['request_id']
-        ]);
+      $stmt->execute([
+    $newAgentId,
+    $comments,
+    $currentAdminId,
+    $serviceJob['request_id']
+]);
 
         if ($stmt->rowCount() !== 1) {
 

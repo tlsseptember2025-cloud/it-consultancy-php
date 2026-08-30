@@ -360,22 +360,31 @@ if (
 
     if ($decision === 'reject') {
 
+    $stmt = $pdo->prepare("
+    UPDATE consultation_slots
+    SET
+        is_booked = 0,
+        consultation_method = NULL,
+        meeting_link = NULL
+    WHERE id = ?
+");
+
+$stmt->execute([
+    $consultation['pending_reschedule_slot_id']
+]);
+
         $stmt = $pdo->prepare("
-            UPDATE requests
-
-            SET
-                workflow_stage = 'Consultation Confirmed',
-
-                admin_instruction = '__RESCHEDULE_ALLOWED__',
-
-                pending_reschedule_slot_id = NULL,
-
-                pending_reschedule_reason = NULL,
-
-                pending_reschedule_requested_at = NULL
-
-            WHERE id = ?
-        ");
+    UPDATE requests
+    SET
+        workflow_stage = 'Awaiting Customer Reschedule',
+        job_status = 'Pending',
+        status = 'Pending',
+        admin_instruction = 'Please choose another available consultation date and time.',
+        pending_reschedule_slot_id = NULL,
+        pending_reschedule_reason = NULL,
+        pending_reschedule_requested_at = NULL
+    WHERE id = ?
+");
 
         $stmt->execute([
             $requestId

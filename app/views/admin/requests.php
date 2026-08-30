@@ -241,15 +241,11 @@ $requests = $stmt->fetchAll();
 
     <?php if ($request['workflow_stage'] === 'Consultation Completed'): ?>
 
-    <?php if (empty($request['proposal'])): ?>
-
-        <a
-            href="?page=create-proposal&id=<?= $request['id'] ?>"
-            class="btn btn-dark btn-sm">
-            Create Proposal
-        </a>
-
-    <?php endif; ?>
+    <a
+        href="?page=create-proposal&id=<?= (int)$request['id'] ?>"
+        class="btn btn-dark btn-sm">
+        Create Proposal
+    </a>
 
 <?php endif; ?>
 

@@ -64,6 +64,7 @@ $stmt = $pdo->prepare("
 
         cb.id AS booking_id,
         cb.agent_id,
+        cb.slot_id AS slot_id,
 
         a.name AS agent_name,
 
@@ -129,12 +130,6 @@ $stmt = $pdo->prepare("
 $stmt->execute();
 
 $agents = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-/*
-|--------------------------------------------------------------------------
-| Handle Reassign Agent
-|--------------------------------------------------------------------------
-*/
 
 /*
 |--------------------------------------------------------------------------
@@ -214,22 +209,52 @@ if (isset($_POST['reassign_agent'])) {
             $reason
         ]);
 
-        /*
-        |--------------------------------------------------------------------------
-        | Update Consultation Booking
-        |--------------------------------------------------------------------------
-        */
+       /*
+|--------------------------------------------------------------------------
+| Release Old Consultation Slot
+|--------------------------------------------------------------------------
+|
+| The old appointment is no longer valid after reassignment.
+| The customer must choose a new consultation slot.
+|
+*/
 
-        $stmt = $pdo->prepare("
-            UPDATE consultation_bookings
-            SET agent_id = ?
-            WHERE id = ?
-        ");
+if (!empty($consultation['slot_id'])) {
 
-        $stmt->execute([
-            $newAgentId,
-            $consultation['booking_id']
-        ]);
+    $stmt = $pdo->prepare("
+        UPDATE consultation_slots
+        SET
+            is_booked = 0
+        WHERE id = ?
+    ");
+
+    $stmt->execute([
+        $consultation['slot_id']
+    ]);
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Update Consultation Booking
+|--------------------------------------------------------------------------
+|
+| Keep the booking record, but assign it to the new agent.
+| The slot will be replaced when the customer chooses
+| a new consultation date/time.
+|
+*/
+
+$stmt = $pdo->prepare("
+    UPDATE consultation_bookings
+    SET agent_id = ?
+    WHERE id = ?
+");
+
+$stmt->execute([
+    $newAgentId,
+    $consultation['booking_id']
+]);
 
         /*
         |--------------------------------------------------------------------------
@@ -237,17 +262,14 @@ if (isset($_POST['reassign_agent'])) {
         |--------------------------------------------------------------------------
         */
 
-        $adminInstruction = trim($_POST['admin_instruction'] ?? '');
+        $adminInstruction = 'Please reschedule your consultation because the assigned agent has been replaced.';
 
-        if ($adminInstruction === '') {
-            $adminInstruction = '__RESCHEDULE_ALLOWED__';
-}
-
-       $stmt = $pdo->prepare("
+     $stmt = $pdo->prepare("
     UPDATE requests
     SET
         agent_id = ?,
-        workflow_stage = 'Consultation Confirmed',
+
+        workflow_stage = 'Awaiting Customer Reschedule',
 
         status = 'Pending',
         job_status = 'Pending',
@@ -261,7 +283,7 @@ if (isset($_POST['reassign_agent'])) {
     WHERE id = ?
 ");
 
-      $stmt->execute([
+$stmt->execute([
     $newAgentId,
     $adminInstruction,
     $consultation['id']
@@ -278,7 +300,7 @@ RequestEventHelper::addCurrentUser(
     (int) $requestId,
     RequestEventHelper::EVENT_AGENT_REASSIGNED,
     RequestEventHelper::TYPE_REQUEST,
-    RequestEventHelper::EVENT_AGENT_ASSIGNED,
+    'Agent Reassigned',
     'The administrator reassigned the request to another agent.',
     false
 );

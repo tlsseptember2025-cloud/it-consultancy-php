@@ -9,7 +9,7 @@ if (!isset($_SESSION['customer'])) {
 }
 
 require_once HELPER_PATH . '/auth.php';
-require dirname(__DIR__) . '/layouts/header-customer.php';
+
 
 $customerId = (int) $_SESSION['customer']['id'];
 
@@ -144,14 +144,20 @@ RequestEventHelper::addCurrentUser(
     true
 );
 
-        $success =
-            'Deposit slip uploaded successfully.';
+       $_SESSION['success'] = 'Deposit slip uploaded successfully.';
+
+header('Location: ?page=customer-requests');
+exit;
+
+
     }
     }
 }
 
         
 }
+
+require dirname(__DIR__) . '/layouts/header-customer.php';
 
 ?>
 

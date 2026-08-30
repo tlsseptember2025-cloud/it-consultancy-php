@@ -48,7 +48,8 @@ if (!$current) {
 
 // Unlimited reschedules when approved by the administrator
 $isAdminReschedule = (
-    $current['admin_instruction'] === '__RESCHEDULE_ALLOWED__'
+    $current['workflow_stage'] === 'Awaiting Customer Reschedule'
+    || $current['admin_instruction'] === '__RESCHEDULE_ALLOWED__'
 );
 
 // Normal customer reschedule: only one allowed
@@ -68,7 +69,7 @@ $currentDateTime = strtotime(
 );
 
 if (
-    $current['admin_instruction'] !== '__RESCHEDULE_ALLOWED__'
+    !$isAdminReschedule
     &&
     time() >= ($currentDateTime - (24 * 60 * 60))
 ) {
