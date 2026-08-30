@@ -81,19 +81,62 @@ if (!$job) {
 |--------------------------------------------------------------------------
 */
 
-if (
-    $job['workflow_stage'] !== 'Missed Service'
-    || $job['job_status'] !== 'Missed Service'
-) {
+$isInitialMissedService = (
+    $job['workflow_stage'] === 'Missed Service'
+    && $job['job_status'] === 'Missed Service'
+);
+
+$isExplanationRequired = (
+    $job['workflow_stage'] === 'Service Explanation Required'
+    && $job['job_status'] === 'Needs Admin Review'
+);
+
+if (!$isInitialMissedService && !$isExplanationRequired) {
 
     die(
-        'This service job is not currently marked as missed.'
+        'This service job is not currently awaiting an agent explanation.'
     );
 
 }
 
 
 $error = null;
+
+/*
+|--------------------------------------------------------------------------
+| Load Latest Administrator Rejection
+|--------------------------------------------------------------------------
+*/
+
+$rejectionStmt = $pdo->prepare("
+    SELECT
+        h.message,
+        h.created_at,
+        u.email AS admin_email
+
+    FROM service_review_history h
+
+    LEFT JOIN users u
+        ON u.id = h.admin_id
+
+    WHERE
+        h.request_id = ?
+        AND h.actor_type = 'admin'
+        AND h.action_type = 'admin_rejection'
+        AND h.decision_type = 'reject'
+
+    ORDER BY
+        h.created_at DESC,
+        h.id DESC
+
+    LIMIT 1
+");
+
+$rejectionStmt->execute([
+    $job['request_id']
+]);
+
+$latestRejection = $rejectionStmt->fetch(PDO::FETCH_ASSOC);
 
 
 /*
@@ -120,54 +163,145 @@ if (
 
         /*
         |--------------------------------------------------------------------------
-        | Move to Admin Review
+        | Start transaction
         |--------------------------------------------------------------------------
         */
 
-        $update = $pdo->prepare("
-            UPDATE requests
+        $pdo->beginTransaction();
 
-            SET
-                job_status = 'Needs Admin Review',
-                workflow_stage = 'Needs Admin Review',
-                review_type = 'service_missed',
-                incomplete_reason = ?
+        try {
 
-            WHERE
-                id = ?
+            /*
+            |--------------------------------------------------------------------------
+            | Move to Admin Review
+            |--------------------------------------------------------------------------
+            |
+            | The service booking remains assigned to the authenticated agent.
+            | The booking was loaded using sb.agent_id = $agentId, and the UPDATE
+            | below also verifies that the same booking is still assigned to that
+            | agent. This prevents a different agent from submitting the explanation
+            | if the assignment changed between page load and POST.
+            |
+            */
 
-                AND job_status = 'Missed Service'
-                AND workflow_stage = 'Missed Service'
-        ");
+            $update = $pdo->prepare("
+                UPDATE requests r
+                SET
+                    r.job_status = 'Needs Admin Review',
+                    r.workflow_stage = 'Needs Admin Review',
+                    r.review_type = 'service_missed',
+                    r.incomplete_reason = ?
+                WHERE
+                    r.id = ?
+                    AND (
+                        (
+                            r.job_status = 'Missed Service'
+                            AND r.workflow_stage = 'Missed Service'
+                        )
+                        OR
+                        (
+                            r.job_status = 'Needs Admin Review'
+                            AND r.workflow_stage = 'Service Explanation Required'
+                            AND r.review_type = 'service_missed'
+                        )
+                    )
+                    AND EXISTS (
+                        SELECT 1
+                        FROM service_bookings sb_check
+                        WHERE
+                            sb_check.id = ?
+                            AND sb_check.request_id = r.id
+                            AND sb_check.agent_id = ?
+                    )
+            ");
 
-        $update->execute([
-            $explanation,
-            $job['request_id']
-        ]);
+            $update->execute([
+                $explanation,
+                $job['request_id'],
+                $bookingId,
+                $agentId
+            ]);
+
+            if ($update->rowCount() !== 1) {
+                throw new Exception(
+                    'The service could not be submitted because it is no longer assigned to you or its workflow status has changed.'
+                );
+            }
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | Record event
-        |--------------------------------------------------------------------------
-        */
+            /*
+            |--------------------------------------------------------------------------
+            | Record Agent Explanation in Service Review History
+            |--------------------------------------------------------------------------
+            |
+            | This preserves every explanation submitted by the agent. If the
+            | administrator rejects it later, the next explanation will be added
+            | as a new history entry instead of overwriting the old one.
+            |
+            */
 
-        RequestEventHelper::addCurrentUser(
-            $pdo,
-            (int) $job['request_id'],
-            'SERVICE_MISSED_EXPLANATION',
-            RequestEventHelper::TYPE_SERVICE,
-            'Missed Service Explanation Submitted',
-            'The assigned agent submitted an explanation for the missed service job.',
-            true
-        );
+            $history = $pdo->prepare("
+                INSERT INTO service_review_history
+                (
+                    request_id,
+                    actor_type,
+                    agent_id,
+                    action_type,
+                    decision_type,
+                    message
+                )
+                VALUES
+                (
+                    ?,
+                    'agent',
+                    ?,
+                    'agent_explanation',
+                    NULL,
+                    ?
+                )
+            ");
+
+            $history->execute([
+                (int) $job['request_id'],
+                $agentId,
+                $explanation
+            ]);
 
 
-        header(
-            'Location: ?page=agent-jobs&success=missed-service-explanation-submitted'
-        );
+            /*
+            |--------------------------------------------------------------------------
+            | Record audit event
+            |--------------------------------------------------------------------------
+            */
 
-        exit;
+            RequestEventHelper::addCurrentUser(
+                $pdo,
+                (int) $job['request_id'],
+                'SERVICE_MISSED_EXPLANATION',
+                RequestEventHelper::TYPE_SERVICE,
+                'Missed Service Explanation Submitted',
+                'The assigned agent submitted an explanation for the missed service job.',
+                true
+            );
+
+
+            $pdo->commit();
+
+
+            header(
+                'Location: ?page=agent-jobs&success=missed-service-explanation-submitted'
+            );
+
+            exit;
+
+        } catch (Exception $e) {
+
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+
+            die($e->getMessage());
+        }
     }
 }
 
@@ -223,6 +357,40 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
     </div>
 
+    <?php if ($latestRejection): ?>
+
+    <div class="alert alert-warning border-warning shadow-sm mb-4">
+
+        <h5 class="alert-heading mb-2">
+            ⚠️ Administrator Requested Another Explanation
+        </h5>
+
+        <p class="mb-2">
+            Your previous explanation was rejected.
+            Please review the administrator's reason below
+            and submit a new explanation.
+        </p>
+
+        <hr>
+
+        <p class="mb-1">
+            <strong>Administrator's reason:</strong>
+        </p>
+
+        <div class="bg-white border rounded p-3">
+
+            <?= nl2br(
+                htmlspecialchars(
+                    $latestRejection['message']
+                )
+            ) ?>
+
+        </div>
+
+    </div>
+
+<?php endif; ?>
+
 
     <div class="row">
 
@@ -247,6 +415,13 @@ require VIEW_PATH . '/layouts/header-agent.php';
                         <strong>Service:</strong>
                         <?= htmlspecialchars(
                             $job['service_name']
+                        ) ?>
+                    </p>
+
+                    <p>
+                        <strong>Assigned Agent:</strong>
+                        <?= htmlspecialchars(
+                            $_SESSION['agent']['name']
                         ) ?>
                     </p>
 
