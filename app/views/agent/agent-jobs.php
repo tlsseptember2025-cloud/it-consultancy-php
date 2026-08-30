@@ -10,7 +10,7 @@ if (!isset($_SESSION['agent'])) {
 
 require_once CONFIG_PATH . '/database.php';
 
-$agentId = $_SESSION['agent']['id'];
+$agentId = (int) $_SESSION['agent']['id'];
 
 $stmt = $pdo->prepare("
     SELECT
@@ -45,18 +45,24 @@ $stmt = $pdo->prepare("
         ON s.id = r.service_id
 
     WHERE
-    sb.agent_id = ?
-    AND r.workflow_stage IN (
-        'Service Scheduled',
-        'Service Active'
-    )
+        sb.agent_id = ?
+
+        AND r.workflow_stage IN (
+            'Service Scheduled',
+            'Service Active',
+            'Missed Service',
+            'Service Explanation Required',
+            'Needs Admin Review'
+        )
 
     ORDER BY
         ss.service_date,
         ss.service_time
 ");
 
-$stmt->execute([$agentId]);
+$stmt->execute([
+    $agentId
+]);
 
 $jobs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -147,7 +153,7 @@ require VIEW_PATH . '/layouts/header-agent.php';
     <td class="text-center">
 
         <strong>
-            #<?= (int)$job['request_id'] ?>
+            #<?= (int) $job['request_id'] ?>
         </strong>
 
     </td>
@@ -195,9 +201,9 @@ require VIEW_PATH . '/layouts/header-agent.php';
     </td>
 
 
-   <td>
+    <td>
 
-    <?php if (
+<?php if (
     $job['workflow_stage'] === 'Service Explanation Required'
 ): ?>
 
@@ -208,6 +214,7 @@ require VIEW_PATH . '/layouts/header-agent.php';
         Respond to Admin Review
 
     </a>
+
 
 <?php elseif (
     $job['workflow_stage'] === 'Missed Service'
@@ -222,14 +229,18 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
     </a>
 
+
 <?php elseif (
     $job['workflow_stage'] === 'Needs Admin Review'
     && $job['job_status'] === 'Needs Admin Review'
 ): ?>
 
     <span class="badge bg-warning text-dark">
+
         Submitted for Admin Review
+
     </span>
+
 
 <?php else: ?>
 
@@ -243,7 +254,7 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
 <?php endif; ?>
 
-</td>
+    </td>
 
 </tr>
 
