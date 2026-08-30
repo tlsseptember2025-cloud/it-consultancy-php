@@ -278,6 +278,12 @@ EVENT_CONSULTATION_FINAL_APPROVED => [
     'badge' => 'success'
 ],
 
+EVENT_MISSED_CONSULTATION_APPROVED => [
+    'title' => 'Missed Consultation Approved',
+    'icon'  => '✅',
+    'badge' => 'success'
+],
+
 
     /*
     |--------------------------------------------------------------------------
