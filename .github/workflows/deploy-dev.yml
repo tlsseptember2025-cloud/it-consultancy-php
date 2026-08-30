@@ -39,6 +39,7 @@ jobs:
             --exclude-glob .htaccess \
             --exclude-glob .htpasswd \
             --exclude-glob storage/logs \
+            --exclude-glob app/storage/certs/ca.pem \
             ./ "$SFTP_PATH"
 
           bye
@@ -61,18 +62,6 @@ jobs:
           DB_PASS=$DB_PASS
           DB_SSL_CA=$DB_SSL_CA
           EOF
-
-      - name: Verify DB SSL configuration
-        env:
-          DB_SSL_CA: ${{ secrets.DB_SSL_CA }}
-        run: |
-          if [ -z "$DB_SSL_CA" ]; then
-            echo "DB_SSL_CA is EMPTY"
-          elif [ "$DB_SSL_CA" = "app/storage/certs/ca.pem" ]; then
-            echo "DB_SSL_CA path is CORRECT"
-          else
-            echo "DB_SSL_CA is SET but path is DIFFERENT"
-          fi
 
       - name: Upload development environment file
         env:
