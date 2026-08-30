@@ -47,6 +47,7 @@ jobs:
 
       - name: Create development environment file
         env:
+          APP_URL: ${{ secrets.APP_URL }}
           DB_HOST: ${{ secrets.DB_HOST }}
           DB_PORT: ${{ secrets.DB_PORT }}
           DB_NAME: ${{ secrets.DB_NAME }}
@@ -55,6 +56,7 @@ jobs:
           DB_SSL_CA: ${{ secrets.DB_SSL_CA }}
         run: |
           cat > .env <<EOF
+          APP_URL=$APP_URL
           DB_HOST=$DB_HOST
           DB_PORT=$DB_PORT
           DB_NAME=$DB_NAME

@@ -184,7 +184,7 @@ foreach ($consultations as $consultation) {
 
         <p>
             <a
-                href='localhost/it-consultancy-php/public/?page=reschedule-consultation&request_id={$requestId}'
+                href='" . APP_URL . "/?page=reschedule-consultation&request_id={$requestId}'
                 style='
                     background:#0d6efd;
                     color:white;
