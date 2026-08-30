@@ -185,13 +185,7 @@ if (
     }
 
 
-    /*
-    |--------------------------------------------------------------------------
-    | Reject Explanation
-    |--------------------------------------------------------------------------
-    */
-
-    /*
+/*
 |--------------------------------------------------------------------------
 | Reject Explanation
 |--------------------------------------------------------------------------
@@ -207,58 +201,73 @@ if ($decision === 'reject') {
 
     $history = $pdo->prepare("
         INSERT INTO service_review_history
-    (
-    request_id,
-    actor_type,
-    admin_id,
-    action_type,
-    decision_type,
-    message
-    )
-    VALUES
-    (
-    ?,
-    'admin',
-    ?,
-    'admin_rejection',
-    'reject',
-    ?
-    )
+        (
+            request_id,
+            actor_type,
+            admin_id,
+            action_type,
+            decision_type,
+            message
+        )
+        VALUES
+        (
+            ?,
+            'admin',
+            ?,
+            'admin_rejection',
+            'reject',
+            ?
+        )
     ");
 
     $history->execute([
-    $serviceJob['request_id'],
-    (int) $_SESSION['user'],
-    $comments
+        $serviceJob['request_id'],
+        (int) $_SESSION['user'],
+        $comments
     ]);
 
 
     /*
     |--------------------------------------------------------------------------
-    | Send Service Back to Agent
+    | Return Missed Service to Agent
     |--------------------------------------------------------------------------
+    |
+    | The agent explanation page requires:
+    |
+    | workflow_stage = Missed Service
+    | job_status     = Missed Service
+    |
+    | The next explanation will send it back to:
+    |
+    | workflow_stage = Needs Admin Review
+    | job_status     = Needs Admin Review
+    | review_type    = service_missed
+    |
     */
 
     $update = $pdo->prepare("
-    UPDATE requests
-    SET
-        workflow_stage = 'Service Explanation Required',
-        job_status = 'Needs Admin Review',
-        review_type = 'service_overdue'
-    WHERE
-        id = ?
-        AND workflow_stage = 'Needs Admin Review'
-        AND review_type = 'service_overdue'
-");
+        UPDATE requests
+        SET
+            workflow_stage = 'Missed Service',
+            job_status = 'Missed Service',
+            review_type = NULL
 
-$update->execute([
-    $serviceJob['request_id']
-]);
+        WHERE
+            id = ?
+
+            AND workflow_stage = 'Needs Admin Review'
+            AND review_type = 'service_missed'
+    ");
+
+    $update->execute([
+        $serviceJob['request_id']
+    ]);
+
 
     if ($update->rowCount() !== 1) {
 
         die(
-            'The service review could not be returned to the agent.'
+            'The missed service could not be returned to the agent.'
         );
 
     }
@@ -293,6 +302,7 @@ $update->execute([
 
     exit;
 }
+
 
 /*
 |--------------------------------------------------------------------------
