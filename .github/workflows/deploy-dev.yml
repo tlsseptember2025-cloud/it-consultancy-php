@@ -62,6 +62,16 @@ jobs:
           DB_SSL_CA=$DB_SSL_CA
           EOF
 
+      - name: Verify DB SSL configuration
+        env:
+          DB_SSL_CA: ${{ secrets.DB_SSL_CA }}
+        run: |
+          if [ -z "$DB_SSL_CA" ]; then
+            echo "DB_SSL_CA is EMPTY"
+          else
+            echo "DB_SSL_CA is SET"
+          fi
+
       - name: Upload development environment file
         env:
           SFTP_HOST: ${{ secrets.SFTP_HOST }}
