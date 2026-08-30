@@ -284,6 +284,12 @@ EVENT_MISSED_CONSULTATION_APPROVED => [
     'badge' => 'success'
 ],
 
+EVENT_CONSULTATION_DECISION_REQUIRED => [
+    'title' => 'Consultation Decision Required',
+    'icon'  => '📝',
+    'badge' => 'warning'
+],
+
 
     /*
     |--------------------------------------------------------------------------
