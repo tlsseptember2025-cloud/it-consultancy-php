@@ -172,7 +172,7 @@ sendEmail(
 
     <p>
         <a
-            href='localhost/?page=public-login'
+            href='" . APP_URL . "/?page=public-login'
             style='
                 background:#198754;
                 color:white;

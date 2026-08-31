@@ -197,7 +197,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <p>
             <a
-                href='http://localhost/it-consultancy-php/public/?page=public-login'
+                href='" . APP_URL . "/?page=public-login'
                 style='
                     background:#0d6efd;
                     color:#ffffff;

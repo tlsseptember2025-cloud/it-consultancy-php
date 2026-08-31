@@ -567,9 +567,8 @@ if ($decision === 'approve') {
     */
 
     $ratingLink =
-        'http://localhost/it-consultancy-php/public/index.php?page=customer-rate-agent&booking_id='
-        . (int) $consultation['booking_id']
-        . '&type=consultation';
+    APP_URL . '/index.php?page=customer-rate-agent&booking_id='
+    . (int) $consultation['booking_id'];
 
 
     sendEmail(

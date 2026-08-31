@@ -45,37 +45,32 @@ RequestEventHelper::addCurrentUser(
 if ($customer && !empty($customer['email'])) {
 
     sendEmail(
-    $customer['email'],
-    'Consultation Confirmed',
-    "
-    <h2>Hello {$customer['name']},</h2>
+        $customer['email'],
+        'Consultation Confirmed',
+        "
+        <h2>Hello {$customer['name']},</h2>
 
-    <p>Your consultation request has been approved.</p>
+        <p>Your consultation request has been approved.</p>
 
-    <p>Please log in and schedule your consultation.</p>
+        <p>Please log in and schedule your consultation.</p>
 
-    <p>
-        <a
+        <p>
+            <a
+                href='" . APP_URL . "/?page=public-login'
+                style='
+                    background:#0d6efd;
+                    color:white;
+                    padding:10px 20px;
+                    text-decoration:none;
+                    border-radius:5px;
+                    display:inline-block;
+                '
+            >
+                Login Now
+            </a>
+        </p>
 
-            href='localhost/?page=public-login'
-            href='localhost/it-consultancy-php/public/?page=public-login'
-            style='
-                background:#0d6efd;
-                color:white;
-                padding:10px 20px;
-                text-decoration:none;
-                border-radius:5px;
-                display:inline-block;
-            '
-        >
-            Login Now
-        </a>
-    </p>
-
-    <p>IT Consultancy Team</p>
-    "
-);
+        <p>IT Consultancy Team</p>
+        "
+    );
 }
-
-header('Location: ?page=requests');
-exit;

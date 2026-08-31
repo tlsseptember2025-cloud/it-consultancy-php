@@ -101,9 +101,9 @@ $emailSent = sendEmail(
     <p>
         <strong>Important:</strong>
         Before proceeding, please review our
-        <a href='localhost/rules-and-regulations' target='_blank'>
+        <a href='" . APP_URL . "/?page=rules-and-regulations' target='_blank'>
             IT Consultancy Rules & Regulations
-        </a>.
+        </a>
     </p>
 
     <p>
@@ -113,7 +113,7 @@ $emailSent = sendEmail(
 
     <p>
         <a
-            href='localhost/?page=public-login'
+            href='" . APP_URL . "/?page=public-login'
             style='
                 background:#0d6efd;
                 color:white;

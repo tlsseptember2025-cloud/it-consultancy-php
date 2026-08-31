@@ -72,7 +72,7 @@ sendEmail(
 
     <p>
         <a
-            href='localhost/it-consultancy-php/public/?page=public-login'
+            href='" . APP_URL . "/?page=public-login'
             style='
                 background:#0d6efd;
                 color:white;

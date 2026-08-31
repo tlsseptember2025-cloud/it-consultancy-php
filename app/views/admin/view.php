@@ -82,7 +82,7 @@ if (
 ) {
 
     $conversationLink =
-        'http://localhost/it-consultancy-php/public/?page=visitor-message&token=' .
+        APP_URL . '/?page=visitor-message&token=' .
         $message['reply_token'];
 
     sendEmail(

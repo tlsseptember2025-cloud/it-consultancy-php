@@ -140,9 +140,8 @@ function sendServiceCompletedEmail(
     $subject = 'Your IT Service Has Been Successfully Completed';
 
     $ratingLink =
-    'http://localhost/it-consultancy-php/public/index.php?page=customer-rate-agent&service_booking_id='
-    . $serviceBookingId
-    . '&type=service';
+    APP_URL . '/index.php?page=customer-rate-agent&service_booking_id='
+    . $serviceBookingId;
 
     $body = "
     <h2>Hello {$name},</h2>
@@ -310,9 +309,9 @@ function sendPasswordResetEmail(
 
     $subject = 'Reset Your Password';
 
-    $resetLink =
-        'localhost/it-consultancy-php/public/index.php?page=customer-reset-password&token='
-        . urlencode($token);
+   $resetLink =
+    APP_URL . '/index.php?page=customer-reset-password&token='
+    . urlencode($token);
 
     $body = "
         <h2>Password Reset Request</h2>
@@ -364,9 +363,9 @@ function sendAgentPasswordResetEmail(
 
     $subject = 'Change Your Agent Password';
 
-    $resetLink =
-        'http://localhost/it-consultancy-php/public/index.php?page=agent-reset-password&token='
-        . urlencode($token);
+   $resetLink =
+    APP_URL . '/index.php?page=agent-reset-password&token='
+    . urlencode($token);
 
     $body = "
         <h2>Agent Password Change</h2>
