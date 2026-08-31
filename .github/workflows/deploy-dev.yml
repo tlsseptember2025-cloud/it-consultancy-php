@@ -11,13 +11,28 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
+      # ------------------------------------------------------------
+      # Checkout
+      # ------------------------------------------------------------
+
       - name: Checkout repository
         uses: actions/checkout@v4
+
+
+      # ------------------------------------------------------------
+      # Install deployment tools
+      # ------------------------------------------------------------
 
       - name: Install deployment tools
         run: |
           sudo apt-get update
           sudo apt-get install -y lftp apache2-utils
+
+
+      # ------------------------------------------------------------
+      # Deploy application files
+      # ------------------------------------------------------------
 
       - name: Deploy application files to IONOS dev
         env:
@@ -45,25 +60,37 @@ jobs:
           bye
           EOF
 
+
+      # ------------------------------------------------------------
+      # Create DEV environment file
+      # ------------------------------------------------------------
+
       - name: Create development environment file
         env:
-          APP_URL: ${{ secrets.APP_URL }}
           DB_HOST: ${{ secrets.DB_HOST }}
           DB_PORT: ${{ secrets.DB_PORT }}
           DB_NAME: ${{ secrets.DB_NAME }}
           DB_USER: ${{ secrets.DB_USER }}
           DB_PASS: ${{ secrets.DB_PASS }}
           DB_SSL_CA: ${{ secrets.DB_SSL_CA }}
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           cat > .env <<EOF
-          APP_URL=$APP_URL
           DB_HOST=$DB_HOST
           DB_PORT=$DB_PORT
           DB_NAME=$DB_NAME
           DB_USER=$DB_USER
           DB_PASS=$DB_PASS
           DB_SSL_CA=$DB_SSL_CA
+          APP_URL=$APP_URL
+          CRON_SECRET=$CRON_SECRET
           EOF
+
+
+      # ------------------------------------------------------------
+      # Upload DEV environment file
+      # ------------------------------------------------------------
 
       - name: Upload development environment file
         env:
@@ -79,12 +106,22 @@ jobs:
           bye
           EOF
 
+
+      # ------------------------------------------------------------
+      # Create DEV password file
+      # ------------------------------------------------------------
+
       - name: Create development password file
         env:
           DEV_AUTH_USER: ${{ secrets.DEV_AUTH_USER }}
           DEV_AUTH_PASSWORD: ${{ secrets.DEV_AUTH_PASSWORD }}
         run: |
           htpasswd -nb "$DEV_AUTH_USER" "$DEV_AUTH_PASSWORD" > .htpasswd
+
+
+      # ------------------------------------------------------------
+      # Upload DEV password file
+      # ------------------------------------------------------------
 
       - name: Upload development password file
         env:
@@ -100,6 +137,11 @@ jobs:
           bye
           EOF
 
+
+      # ------------------------------------------------------------
+      # Create DEV password protection
+      # ------------------------------------------------------------
+
       - name: Create development password protection file
         run: |
           mkdir -p public
@@ -110,6 +152,11 @@ jobs:
           AuthUserFile /homepages/16/d4299801455/htdocs/mysite/dev/.htpasswd
           Require valid-user
           EOF
+
+
+      # ------------------------------------------------------------
+      # Upload DEV password protection
+      # ------------------------------------------------------------
 
       - name: Upload development password protection file
         env:

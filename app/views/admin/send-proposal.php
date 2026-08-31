@@ -101,7 +101,7 @@ $emailSent = sendEmail(
     <p>
         <strong>Important:</strong>
         Before proceeding, please review our
-        <a href='" . APP_URL . "/?page=rules-and-regulations' target='_blank'>
+        <a href='" . APP_URL . "/?page=rules' target='_blank'>
             IT Consultancy Rules & Regulations
         </a>
     </p>
