@@ -13,7 +13,7 @@ jobs:
     steps:
 
       # ------------------------------------------------------------
-      # Checkout
+      # Checkout repository
       # ------------------------------------------------------------
 
       - name: Checkout repository
@@ -31,7 +31,7 @@ jobs:
 
 
       # ------------------------------------------------------------
-      # Deploy application files
+      # Deploy application files to IONOS DEV
       # ------------------------------------------------------------
 
       - name: Deploy application files to IONOS dev
@@ -140,6 +140,11 @@ jobs:
 
       # ------------------------------------------------------------
       # Create DEV password protection
+      #
+      # The whole DEV website requires Basic Authentication.
+      # cron-runner.php is the single exception.
+      #
+      # cron-runner.php has its own CRON_SECRET protection.
       # ------------------------------------------------------------
 
       - name: Create development password protection file
@@ -150,6 +155,12 @@ jobs:
           AuthType Basic
           AuthName "WAHBIB Development Site"
           AuthUserFile /homepages/16/d4299801455/htdocs/mysite/dev/.htpasswd
+
+          <Files "cron-runner.php">
+              AuthType None
+              Require all granted
+          </Files>
+
           Require valid-user
           EOF
 
