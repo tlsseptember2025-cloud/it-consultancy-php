@@ -9,73 +9,121 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = trim($_POST['email']);
     $password = trim($_POST['password']);
 
+
     // ---------------------------
-// Check Customer
-// ---------------------------
+    // Check Customer
+    // ---------------------------
 
-$stmt = $pdo->prepare("
-    SELECT *
-    FROM customers
-    WHERE email = ?
-");
+    $stmt = $pdo->prepare("
+        SELECT *
+        FROM customers
+        WHERE email = ?
+    ");
 
-$stmt->execute([$email]);
+    $stmt->execute([$email]);
 
-$customer = $stmt->fetch(PDO::FETCH_ASSOC);
+    $customer = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if (
-    $customer &&
-    password_verify($password, $customer['password'])
-) {
 
-    $_SESSION['customer'] = $customer;
+    if (
+        $customer &&
+        password_verify($password, $customer['password'])
+    ) {
 
-    header('Location: ?page=customer-dashboard');
-    exit;
+        // ---------------------------
+        // Check Customer Registration Status
+        // ---------------------------
 
+        if (
+            $customer['registration_status']
+            === 'Pending Email Verification'
+        ) {
+
+            $error =
+                'Please verify your email address before logging in.';
+
+        } elseif (
+            $customer['registration_status']
+            === 'Pending Admin Approval'
+        ) {
+
+            $error =
+                'Your registration is currently awaiting administrator approval.';
+
+        } elseif (
+            $customer['registration_status']
+            === 'Rejected'
+        ) {
+
+            $error =
+                'Your customer registration has been rejected. Please check the email sent to you for further information.';
+
+        } elseif (
+            $customer['registration_status']
+            === 'Approved'
+        ) {
+
+            $_SESSION['customer'] = $customer;
+
+            header('Location: ?page=customer-dashboard');
+            exit;
+
+        } else {
+
+            $error =
+                'Your customer account is not currently available for login.';
+        }
+
+
+    } else {
+
+        // ---------------------------
+        // Check Agent
+        // ---------------------------
+
+        $stmt = $pdo->prepare("
+            SELECT *
+            FROM agents
+            WHERE email = ?
+            AND status = 'Active'
+        ");
+
+        $stmt->execute([$email]);
+
+        $agent = $stmt->fetch(PDO::FETCH_ASSOC);
+
+
+        if (
+            $agent &&
+            password_verify($password, $agent['password'])
+        ) {
+
+            $_SESSION['agent'] = $agent;
+
+            header('Location: ?page=agent-dashboard');
+            exit;
+
+        }
+
+
+        // ---------------------------
+        // Invalid Login
+        // ---------------------------
+
+        $error = 'Invalid email or password.';
+    }
 }
 
-// ---------------------------
-// Check Agent
-// ---------------------------
-
-$stmt = $pdo->prepare("
-    SELECT *
-    FROM agents
-    WHERE email = ?
-    AND status = 'Active'
-");
-
-$stmt->execute([$email]);
-
-$agent = $stmt->fetch(PDO::FETCH_ASSOC);
-
-if (
-    $agent &&
-    password_verify($password, $agent['password'])
-) {
-
-    $_SESSION['agent'] = $agent;
-
-    header('Location: ?page=agent-dashboard');
-    exit;
-
-}
-
-// ---------------------------
-// Invalid Login
-// ---------------------------
-
-$error = 'Invalid email or password.';
-}
 
 $isAgentLogin =
     isset($_SESSION['login_role']) &&
     $_SESSION['login_role'] === 'agent';
 
+
 require dirname(__DIR__) . '/layouts/header-public.php';
 
 ?>
+
 
 <div class="row justify-content-center mt-5">
 
@@ -85,7 +133,7 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 
             <div class="card-body">
 
-               <h2 class="mb-2 text-center">
+                <h2 class="mb-2 text-center">
                     Welcome Back
                 </h2>
 
@@ -93,17 +141,22 @@ require dirname(__DIR__) . '/layouts/header-public.php';
                     Sign in with your email address and password.
                 </p>
 
+
                 <?php if ($error): ?>
 
                     <div class="alert alert-danger">
 
-                        <?= $error ?>
+                        <?= htmlspecialchars($error) ?>
 
                     </div>
 
                 <?php endif; ?>
 
-                <?php if (isset($_GET['reset']) && $_GET['reset'] === 'success'): ?>
+
+                <?php if (
+                    isset($_GET['reset']) &&
+                    $_GET['reset'] === 'success'
+                ): ?>
 
                     <div class="alert alert-success">
 
@@ -114,11 +167,15 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 
                 <?php endif; ?>
 
+
                 <form method="POST" autocomplete="off">
+
 
                     <div class="mb-3">
 
-                        <label>Email</label>
+                        <label>
+                            Email
+                        </label>
 
                         <input
                             type="email"
@@ -129,9 +186,12 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 
                     </div>
 
+
                     <div class="mb-3">
 
-                        <label>Password</label>
+                        <label>
+                            Password
+                        </label>
 
                         <input
                             type="password"
@@ -142,24 +202,33 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 
                     </div>
 
-                    <button class="btn btn-primary w-100">
+
+                    <button
+                        type="submit"
+                        class="btn btn-primary w-100">
 
                         Sign In
 
                     </button>
 
+
                     <p class="mt-3 text-center">
+
                         <a href="?page=customer-forgot-password">
+
                             Forgot your password?
+
                         </a>
 
                     </p>
 
+
                     <hr>
+
 
                     <p class="text-center mb-0">
 
-                       <a
+                        <a
                             href="?page=login"
                             class="small text-secondary text-decoration-none">
 
@@ -168,6 +237,7 @@ require dirname(__DIR__) . '/layouts/header-public.php';
                         </a>
 
                     </p>
+
 
                 </form>
 
@@ -178,5 +248,6 @@ require dirname(__DIR__) . '/layouts/header-public.php';
     </div>
 
 </div>
+
 
 <?php require dirname(__DIR__) . '/layouts/footer.php'; ?>

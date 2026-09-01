@@ -1,6 +1,8 @@
 <?php
 
 require_once APP_PATH . '/helpers/RequestEventHelper.php';
+require_once HELPER_PATH . '/notifications.php';
+require_once HELPER_PATH . '/email.php';
 
 if (!isset($_SESSION['customer'])) {
 
@@ -57,6 +59,65 @@ RequestEventHelper::addCurrentUser(
 );
 
 $_SESSION['success'] = 'Service request submitted successfully.';
+
+/*
+|--------------------------------------------------------------------------
+| Notify Administrator
+|--------------------------------------------------------------------------
+*/
+
+$serviceStmt = $pdo->prepare("
+    SELECT title
+    FROM services
+    WHERE id = ?
+    LIMIT 1
+");
+
+$serviceStmt->execute([
+    (int) $_POST['service_id']
+]);
+
+$service = $serviceStmt->fetch(PDO::FETCH_ASSOC);
+
+$serviceName = $service['title'] ?? 'Unknown Service';
+
+$customerName =
+    $_SESSION['customer']['name']
+    ?? 'Customer';
+
+$customerEmail =
+    $_SESSION['customer']['email']
+    ?? '';
+
+/*
+|--------------------------------------------------------------------------
+| Admin In-App Notification
+|--------------------------------------------------------------------------
+*/
+
+createNotification(
+    $pdo,
+    'admin',
+    null,
+    'New Service Request',
+    'New Service Request #' . $requestId .
+        ' has been submitted for ' . $serviceName . '.',
+    '?page=view-request&id=' . $requestId
+);
+
+/*
+|--------------------------------------------------------------------------
+| Admin Email
+|--------------------------------------------------------------------------
+*/
+
+sendNewServiceRequestAdminEmail(
+    $requestId,
+    $customerName,
+    $customerEmail,
+    $serviceName,
+    $_POST['description']
+);
 
 header('Location: ?page=customer-requests');
 exit;

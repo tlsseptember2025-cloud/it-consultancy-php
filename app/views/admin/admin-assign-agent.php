@@ -2,6 +2,8 @@
 
 require_once APP_PATH . '/helpers/DateHelper.php';
 require_once APP_PATH . '/helpers/RequestEventHelper.php';
+require_once HELPER_PATH . '/email.php';
+require_once HELPER_PATH . '/notifications.php';
 
 if (!isset($_SESSION['user'])) {
     header('Location: ?page=login');
@@ -336,6 +338,35 @@ if (isset($_POST['assign_agent'])) {
         die('Please select an agent.');
     }
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | Load Assigned Agent
+    |--------------------------------------------------------------------------
+    */
+
+    $agentStmt = $pdo->prepare("
+        SELECT
+            id,
+            name,
+            email
+        FROM agents
+        WHERE id = ?
+          AND status = 'Active'
+        LIMIT 1
+    ");
+
+    $agentStmt->execute([
+        $agentId
+    ]);
+
+    $agent = $agentStmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$agent) {
+        die('The selected agent is not available.');
+    }
+
+
     /*
     |--------------------------------------------------------------------------
     | Assign Agent to Request
@@ -346,12 +377,21 @@ if (isset($_POST['assign_agent'])) {
         UPDATE requests
         SET agent_id = ?
         WHERE id = ?
+        AND agent_id IS NULL
     ");
 
     $stmt->execute([
         $agentId,
         $consultation['id']
     ]);
+
+    if ($stmt->rowCount() !== 1) {
+        die(
+            'The service request could not be assigned. '
+            . 'It may already have an agent.'
+        );
+    }
+
 
     /*
     |--------------------------------------------------------------------------
@@ -363,13 +403,59 @@ if (isset($_POST['assign_agent'])) {
         $pdo,
         (int) $consultation['id'],
         'AGENT_ASSIGNED',
-        RequestEventHelper::TYPE_SYSTEM,
+        RequestEventHelper::TYPE_REQUEST,
         'Agent Assigned',
-        'The administrator assigned an agent to the consultation.',
+        'The administrator assigned the service request to an agent.',
         true
     );
 
-    header('Location: ?page=requests&success=agent-assigned');
+
+    /*
+    |--------------------------------------------------------------------------
+    | Agent Notification
+    |--------------------------------------------------------------------------
+    */
+
+    createNotification(
+        $pdo,
+        'agent',
+        (int) $agent['id'],
+        'New Service Request Assigned',
+        'Service Request #' . (int) $consultation['id']
+            . ' has been assigned to you.',
+        '?page=agent-dashboard'
+    );
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Agent Email
+    |--------------------------------------------------------------------------
+    */
+
+    if (!empty($agent['email'])) {
+
+        sendAgentAssignmentEmail(
+            $agent['email'],
+            $agent['name'],
+            (int) $consultation['id'],
+            $consultation['customer_name'],
+            $consultation['service_name']
+        );
+
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Redirect
+    |--------------------------------------------------------------------------
+    */
+
+    header(
+        'Location: ?page=requests&success=agent-assigned'
+    );
+
     exit;
 }
 

@@ -631,6 +631,18 @@ switch ($page) {
     require VIEW_PATH . '/agent/agent-profile.php';
     break;
 
+    case 'agent-notifications':
+    require VIEW_PATH . '/agent/agent-notifications.php';
+    break;
+
+case 'agent-open-notification':
+    require VIEW_PATH . '/agent/open-notification.php';
+    break;
+
+case 'agent-mark-all-notifications-read':
+    require VIEW_PATH . '/agent/mark-all-notifications-read.php';
+    break;
+
     /*
     |--------------------------------------------------------------------------
     | Service Scheduling
@@ -756,6 +768,22 @@ switch ($page) {
     case 'rules':
         require VIEW_PATH . '/public/rules.php';
         break;
+
+    case 'verify-customer-email':
+    require VIEW_PATH . '/public/verify-customer-email.php';
+    break;
+
+    case 'review-customer-registration':
+    require VIEW_PATH . '/admin/review-customer-registration.php';
+    break;
+
+    case 'approve-customer-registration':
+    require VIEW_PATH . '/admin/approve-customer-registration.php';
+    break;
+
+    case 'reject-customer-registration':
+    require VIEW_PATH . '/admin/reject-customer-registration.php';
+    break;
 
     /*
     |--------------------------------------------------------------------------

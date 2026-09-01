@@ -411,3 +411,168 @@ function sendAgentPasswordResetEmail(
         $body
     );
 }
+
+function sendAgentAssignmentEmail(
+    string $to,
+    string $agentName,
+    int $requestId,
+    string $customerName,
+    string $serviceName
+): bool {
+
+    $subject = 'New Service Request Assigned to You';
+
+    $portalLink =
+        APP_URL . '/?page=agent-dashboard';
+
+    $body = "
+        <h2>Hello {$agentName},</h2>
+
+        <p>
+            A new service request has been assigned to you.
+        </p>
+
+        <hr>
+
+        <p>
+            <strong>Request:</strong>
+            #{$requestId}
+        </p>
+
+        <p>
+            <strong>Customer:</strong>
+            {$customerName}
+        </p>
+
+        <p>
+            <strong>Service:</strong>
+            {$serviceName}
+        </p>
+
+        <hr>
+
+        <p>
+            Please log in to your Agent Portal to review your
+            assigned work and continue the request workflow.
+        </p>
+
+        <p>
+            <a
+                href='{$portalLink}'
+                style='
+                    background:#0d6efd;
+                    color:#ffffff;
+                    padding:12px 22px;
+                    text-decoration:none;
+                    border-radius:6px;
+                    display:inline-block;
+                    font-weight:600;
+                '>
+                Open Agent Portal
+            </a>
+        </p>
+
+        <p>
+            Kind Regards,<br>
+            <strong>IT Consultancy Team</strong>
+        </p>
+    ";
+
+    return sendEmail(
+        $to,
+        $subject,
+        $body
+    );
+}
+
+function sendNewServiceRequestAdminEmail(
+    int $requestId,
+    string $customerName,
+    string $customerEmail,
+    string $serviceName,
+    string $description
+): bool {
+
+    $config = require dirname(__DIR__, 2) . '/config/mail_config.php';
+
+    $subject =
+        'New Service Request #' . $requestId;
+
+    $body = "
+        <h2>New Service Request</h2>
+
+        <p>
+            A new service request has been submitted
+            and is waiting for administrator review.
+        </p>
+
+        <hr>
+
+        <p>
+            <strong>Request:</strong>
+            #{$requestId}
+        </p>
+
+        <p>
+            <strong>Customer:</strong>
+            " . htmlspecialchars($customerName) . "
+        </p>
+
+        <p>
+            <strong>Email:</strong>
+            " . htmlspecialchars($customerEmail) . "
+        </p>
+
+        <p>
+            <strong>Service:</strong>
+            " . htmlspecialchars($serviceName) . "
+        </p>
+
+        <p>
+            <strong>Description:</strong>
+        </p>
+
+        <div
+            style='
+                border-left:4px solid #0d6efd;
+                padding:12px 15px;
+                background:#f8f9fa;
+            '>
+            " . nl2br(htmlspecialchars($description)) . "
+        </div>
+
+        <hr>
+
+        <p>
+            Please log in to the Admin Dashboard
+            to review and assign this request.
+        </p>
+
+        <p>
+            <a
+                href='" . APP_URL . "/?page=view&id={$requestId}'
+                style='
+                    background:#0d6efd;
+                    color:#ffffff;
+                    padding:12px 22px;
+                    text-decoration:none;
+                    border-radius:6px;
+                    display:inline-block;
+                    font-weight:600;
+                '>
+                Review Service Request
+            </a>
+        </p>
+
+        <p>
+            Kind Regards,<br>
+            <strong>IT Consultancy System</strong>
+        </p>
+    ";
+
+    return sendEmail(
+        $config['admin_email'],
+        $subject,
+        $body
+    );
+}
