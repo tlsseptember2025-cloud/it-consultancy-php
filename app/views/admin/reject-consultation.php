@@ -9,6 +9,7 @@ require_once APP_PATH . '/helpers/DateHelper.php';
 */
 
 if (!isset($_SESSION['user'])) {
+
     header('Location: ?page=login');
     exit;
 }
@@ -21,6 +22,7 @@ if (!isset($_SESSION['user'])) {
 
 require_once HELPER_PATH . '/email.php';
 require_once HELPER_PATH . '/notifications.php';
+require_once APP_PATH . '/helpers/RequestEventHelper.php';
 
 /*
 |--------------------------------------------------------------------------
@@ -28,7 +30,13 @@ require_once HELPER_PATH . '/notifications.php';
 |--------------------------------------------------------------------------
 */
 
-$requestId = $_GET['id'] ?? 0;
+$requestId = (int) ($_GET['id'] ?? 0);
+
+if ($requestId <= 0) {
+
+    die('Invalid request.');
+
+}
 
 /*
 |--------------------------------------------------------------------------
@@ -67,7 +75,9 @@ $consultationStmt->execute([$requestId]);
 $request = $consultationStmt->fetch();
 
 if (!$request) {
+
     die('Consultation not found.');
+
 }
 
 /*
@@ -87,12 +97,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $reason = trim($_POST['rejection_reason'] ?? '');
 
     if ($reason === '') {
+
         die('Please enter a rejection reason.');
+
     }
 
     /*
     |--------------------------------------------------------------------------
-    | Load Admin
+    | Load Administrator
     |--------------------------------------------------------------------------
     */
 
@@ -107,7 +119,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $admin = $adminStmt->fetch();
 
     if (!$admin) {
+
         die('Admin not found.');
+
     }
 
     /*
@@ -132,6 +146,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $admin['id'],
         $requestId
     ]);
+
+    /*
+    |--------------------------------------------------------------------------
+    | Record Audit Event
+    |--------------------------------------------------------------------------
+    */
+
+    RequestEventHelper::addCurrentUser(
+        $pdo,
+        $requestId,
+        RequestEventHelper::EVENT_CONSULTATION_REJECTED,
+        RequestEventHelper::TYPE_CONSULTATION,
+        'Consultation Rejected',
+        'The administrator rejected the scheduled consultation. Reason: ' . $reason,
+        true
+    );
 
     /*
     |--------------------------------------------------------------------------
@@ -162,7 +192,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $customer = $customerStmt->fetch();
 
     if (!$customer) {
+
         die('Customer not found.');
+
     }
 
     /*
@@ -188,11 +220,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <p>
             <strong>Reason</strong><br>
-            {$reason}
+            " . nl2br(htmlspecialchars($reason)) . "
         </p>
 
         <p>
-            Please log in to your customer portal for more information or to arrange another consultation if applicable.
+            Please log in to your customer portal for more information
+            or to arrange another consultation if applicable.
         </p>
 
         <p>
@@ -220,7 +253,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     /*
     |--------------------------------------------------------------------------
-    | Create Notification
+    | Create Customer Notification
     |--------------------------------------------------------------------------
     */
 
@@ -256,12 +289,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div>
 
             <h2 class="mb-1">
+
                 <i class="bi bi-x-circle-fill text-danger"></i>
+
                 Reject Consultation
+
             </h2>
 
             <p class="text-muted mb-0">
+
                 Review the consultation details before rejecting this consultation.
+
             </p>
 
         </div>
@@ -271,6 +309,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             class="btn btn-outline-secondary">
 
             <i class="bi bi-arrow-left"></i>
+
             Back
 
         </a>
@@ -286,6 +325,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <h5 class="mb-0">
 
                 <i class="bi bi-calendar-event"></i>
+
                 Consultation Information
 
             </h5>
@@ -299,11 +339,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="col-md-6">
 
                     <label class="text-muted small">
+
                         Customer
+
                     </label>
 
                     <div class="fw-semibold fs-5">
+
                         <?= htmlspecialchars($request['name']) ?>
+
                     </div>
 
                 </div>
@@ -311,11 +355,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="col-md-6">
 
                     <label class="text-muted small">
+
                         Service
+
                     </label>
 
                     <div class="fw-semibold fs-5">
+
                         <?= htmlspecialchars($request['service_title']) ?>
+
                     </div>
 
                 </div>
@@ -323,12 +371,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="col-md-4">
 
                     <label class="text-muted small">
+
                         Consultation Date
+
                     </label>
 
                     <div>
+
                         <i class="bi bi-calendar3"></i>
+
                         <?= formatDate($request['slot_date']) ?>
+
                     </div>
 
                 </div>
@@ -336,12 +389,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="col-md-4">
 
                     <label class="text-muted small">
+
                         Consultation Time
+
                     </label>
 
                     <div>
+
                         <i class="bi bi-clock"></i>
+
                         <?= htmlspecialchars($request['slot_time']) ?>
+
                     </div>
 
                 </div>
@@ -349,12 +407,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="col-md-4">
 
                     <label class="text-muted small">
+
                         Meeting Method
+
                     </label>
 
                     <div>
+
                         <i class="bi bi-camera-video"></i>
+
                         <?= htmlspecialchars($request['consultation_method']) ?>
+
                     </div>
 
                 </div>
@@ -374,6 +437,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <h5 class="mb-0">
 
                 <i class="bi bi-exclamation-triangle-fill text-danger"></i>
+
                 Rejection Details
 
             </h5>
@@ -386,7 +450,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 <strong>Important:</strong>
 
-                The customer will receive an email and a notification containing the rejection reason you provide below.
+                The customer will receive an email and a notification
+                containing the rejection reason you provide below.
 
             </div>
 
@@ -399,6 +464,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         class="form-label fw-semibold">
 
                         Reason for Rejection
+
                     </label>
 
                     <textarea
@@ -411,7 +477,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     <div class="form-text">
 
-                        Provide enough information so the customer understands why the consultation was rejected.
+                        Provide enough information so the customer understands
+                        why the consultation is being rejected.
 
                     </div>
 
@@ -426,6 +493,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         class="btn btn-secondary">
 
                         <i class="bi bi-arrow-left"></i>
+
                         Cancel
 
                     </a>
@@ -435,6 +503,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         class="btn btn-danger">
 
                         <i class="bi bi-x-circle"></i>
+
                         Reject Consultation
 
                     </button>
