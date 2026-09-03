@@ -29,6 +29,7 @@ function sendEmail(
         $mail->Password = $config['password'];
 
         $mail->Port = $config['port'];
+        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
 
         $mail->setFrom(
             $config['username'],
@@ -55,9 +56,13 @@ function sendEmail(
 
    } catch (Exception $e) {
 
+    error_log(
+        'Email sending failed: ' . $mail->ErrorInfo
+    );
+
     return false;
 
-    }
+}
 
 }
 

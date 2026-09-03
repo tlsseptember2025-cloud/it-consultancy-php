@@ -435,14 +435,20 @@ if (isset($_POST['assign_agent'])) {
 
     if (!empty($agent['email'])) {
 
-        sendAgentAssignmentEmail(
-            $agent['email'],
-            $agent['name'],
-            (int) $consultation['id'],
-            $consultation['customer_name'],
-            $consultation['service_name']
-        );
+        $emailSent = sendAgentAssignmentEmail(
+    $agent['email'],
+    $agent['name'],
+    (int) $consultation['id'],
+    $consultation['customer_name'],
+    $consultation['service_name']
+);
 
+if (!$emailSent) {
+    error_log(
+        'Agent assignment email FAILED for: ' .
+        $agent['email']
+    );
+}
     }
 
 
