@@ -60,6 +60,18 @@ $closedLeads = $pdo->query("
     WHERE status = 'Closed'
 ")->fetchColumn();
 
+$archivedLeads = $pdo->query("
+    SELECT COUNT(*)
+    FROM contract_leads
+    WHERE status = 'Archived'
+")->fetchColumn();
+
+$pendingLeads = $pdo->query("
+    SELECT COUNT(*)
+    FROM contract_leads
+    WHERE approval_status = 'Pending'
+")->fetchColumn();
+
 $totalPayments = $pdo->query("
     SELECT COALESCE(SUM(amount), 0)
     FROM payments
@@ -392,11 +404,27 @@ $messagesNeedingAttention = $pdo->query("
                         <strong><?= $closedLeads ?></strong>
                     </p>
 
+                    <p class="mb-3">
+                        🗄️ Archived:
+                        <strong><?= $archivedLeads ?></strong>
+                    </p>
+
                     <a
                         href="?page=contract-leads"
                         class="btn btn-success">
 
                         View Leads
+
+                    </a>
+
+                    <a
+                        href="?page=pending-contract-leads"
+                        class="btn btn-warning mt-2">
+
+                        🔍 Pending Reviews
+                        <?php if ($pendingLeads > 0): ?>
+                            (<?= (int)$pendingLeads ?>)
+                        <?php endif; ?>
 
                     </a>
 

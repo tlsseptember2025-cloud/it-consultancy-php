@@ -1,0 +1,114 @@
+name: Deploy to IONOS Demo
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy PHP Application to Demo
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # ------------------------------------------------------------
+      # Checkout repository
+      # ------------------------------------------------------------
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+
+      # ------------------------------------------------------------
+      # Install deployment tools
+      # ------------------------------------------------------------
+
+      - name: Install deployment tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lftp
+
+
+      # ------------------------------------------------------------
+      # Deploy application files to IONOS DEMO
+      # ------------------------------------------------------------
+
+      - name: Deploy application files to IONOS Demo
+        env:
+          SFTP_HOST: ${{ secrets.DEMO_SFTP_HOST }}
+          SFTP_PORT: ${{ secrets.DEMO_SFTP_PORT }}
+          SFTP_USERNAME: ${{ secrets.DEMO_SFTP_USERNAME }}
+          SFTP_PASSWORD: ${{ secrets.DEMO_SFTP_PASSWORD }}
+          SFTP_PATH: ${{ secrets.DEMO_SFTP_PATH }}
+
+        run: |
+          lftp -u "$SFTP_USERNAME","$SFTP_PASSWORD" "sftp://$SFTP_HOST:$SFTP_PORT" <<EOF
+
+          set sftp:auto-confirm yes
+          set net:max-retries 2
+          set net:timeout 30
+
+          mirror --reverse --delete --verbose \
+            --exclude-glob .git \
+            --exclude-glob .github \
+            --exclude-glob .env \
+            --exclude-glob .htaccess \
+            --exclude-glob .htpasswd \
+            --exclude-glob storage/logs \
+            --exclude-glob app/storage/certs/ca.pem \
+            ./ "$SFTP_PATH"
+
+          bye
+
+          EOF
+
+
+      # ------------------------------------------------------------
+      # Create DEMO environment file
+      # ------------------------------------------------------------
+
+      - name: Create Demo environment file
+        env:
+          DB_HOST: ${{ secrets.DEMO_DB_HOST }}
+          DB_PORT: ${{ secrets.DEMO_DB_PORT }}
+          DB_NAME: ${{ secrets.DEMO_DB_NAME }}
+          DB_USER: ${{ secrets.DEMO_DB_USER }}
+          DB_PASS: ${{ secrets.DEMO_DB_PASS }}
+          DB_SSL_CA: ${{ secrets.DEMO_DB_SSL_CA }}
+          APP_URL: ${{ secrets.DEMO_APP_URL }}
+
+        run: |
+          cat > .env <<EOF
+          DB_HOST=$DB_HOST
+          DB_PORT=$DB_PORT
+          DB_NAME=$DB_NAME
+          DB_USER=$DB_USER
+          DB_PASS=$DB_PASS
+          DB_SSL_CA=$DB_SSL_CA
+          APP_URL=$APP_URL
+          EOF
+
+
+      # ------------------------------------------------------------
+      # Upload DEMO environment file
+      # ------------------------------------------------------------
+
+      - name: Upload Demo environment file
+        env:
+          SFTP_HOST: ${{ secrets.DEMO_SFTP_HOST }}
+          SFTP_PORT: ${{ secrets.DEMO_SFTP_PORT }}
+          SFTP_USERNAME: ${{ secrets.DEMO_SFTP_USERNAME }}
+          SFTP_PASSWORD: ${{ secrets.DEMO_SFTP_PASSWORD }}
+          SFTP_PATH: ${{ secrets.DEMO_SFTP_PATH }}
+
+        run: |
+          lftp -u "$SFTP_USERNAME","$SFTP_PASSWORD" "sftp://$SFTP_HOST:$SFTP_PORT" <<EOF
+
+          set sftp:auto-confirm yes
+          set net:max-retries 2
+          set net:timeout 30
+
+          put -O "$SFTP_PATH" .env
+
+          bye
+
+          EOF

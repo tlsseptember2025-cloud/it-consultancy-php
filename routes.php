@@ -741,12 +741,20 @@ case 'agent-mark-all-notifications-read':
         require VIEW_PATH . '/admin/contract-leads.php';
         break;
 
-    case 'edit-contract-lead':
-        require VIEW_PATH . '/admin/edit-contract-lead.php';
+    case 'update-contract-lead':
+        require VIEW_PATH . '/admin/update-contract-lead.php';
         break;
 
-    case 'delete-contract-lead':
-        require VIEW_PATH . '/admin/delete-contract-lead.php';
+    case 'archive-contract-lead':
+        require VIEW_PATH . '/admin/archive-contract-lead.php';
+        break;
+
+    case 'pending-contract-leads':
+        require APP_PATH . '/views/admin/pending-contract-leads.php';
+        break;
+        
+    case 'view-contract-lead':
+        require APP_PATH . '/views/admin/view-contract-lead.php';
         break;
 
     /*

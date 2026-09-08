@@ -6,6 +6,7 @@ if (!isset($_SESSION['user'])) {
 
     header('Location: ?page=login');
     exit;
+
 }
 
 require_once HELPER_PATH . '/auth.php';
@@ -27,11 +28,9 @@ $allowedStatuses = [
     'New',
     'Contacted',
     'Converted',
-    'Closed',
-    'Archived'
+    'Closed'
 
 ];
-
 
 /*
 |--------------------------------------------------------------------------
@@ -42,7 +41,8 @@ $allowedStatuses = [
 $sql = "
     SELECT *
     FROM contract_leads
-    WHERE 1 = 1
+    WHERE approval_status = 'Approved'
+      AND status != 'Archived'
 ";
 
 $params = [];
@@ -79,22 +79,51 @@ if ($search !== '') {
 |--------------------------------------------------------------------------
 | Status Filter
 |--------------------------------------------------------------------------
+|
+| If no status is selected, show active leads only.
+| Archived leads remain stored but are separated from the
+| normal working list.
+|
 */
 
-if (
-    $status !== ''
-    &&
-    in_array($status, $allowedStatuses, true)
-) {
+if ($status !== '') {
+
+    if (
+        in_array(
+            $status,
+            $allowedStatuses,
+            true
+        )
+    ) {
+
+        $sql .= "
+            AND status = ?
+        ";
+
+        $params[] = $status;
+
+    }
+
+} else {
+
+    /*
+    |--------------------------------------------------------------------------
+    | Default - Active Leads
+    |--------------------------------------------------------------------------
+    */
 
     $sql .= "
-        AND status = ?
+        AND status <> 'Archived'
     ";
-
-    $params[] = $status;
 
 }
 
+
+/*
+|--------------------------------------------------------------------------
+| Order
+|--------------------------------------------------------------------------
+*/
 
 $sql .= "
     ORDER BY created_at DESC
@@ -158,7 +187,10 @@ function leadServices($json): string
     }
 
 
-    $services = json_decode($json, true);
+    $services = json_decode(
+        $json,
+        true
+    );
 
 
     if (
@@ -174,12 +206,15 @@ function leadServices($json): string
 
     $html = '';
 
+
     foreach ($services as $service) {
 
         $html .=
             '<span class="badge bg-light text-dark border me-1 mb-1">'
-            . htmlspecialchars($service)
-            . '</span>';
+            .
+            htmlspecialchars($service)
+            .
+            '</span>';
 
     }
 
@@ -189,21 +224,38 @@ function leadServices($json): string
 }
 
 
+/*
+|--------------------------------------------------------------------------
+| Public / Admin Header
+|--------------------------------------------------------------------------
+*/
+
 require dirname(__DIR__) . '/layouts/header-admin.php';
 
 ?>
 
+
+<!--
+|--------------------------------------------------------------------------
+| Page Header
+|--------------------------------------------------------------------------
+-->
 
 <div class="d-flex justify-content-between align-items-center mb-4">
 
     <div>
 
         <h2 class="mb-1">
+
             Company Support Leads
+
         </h2>
 
         <p class="text-muted mb-0">
-            Manage companies interested in monthly or yearly support services.
+
+            Manage companies interested in monthly or annual
+            support services.
+
         </p>
 
     </div>
@@ -232,7 +284,11 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
             <div class="row g-3 align-items-end">
 
 
-                <!-- Search -->
+                <!--
+                |--------------------------------------------------------------------------
+                | Search
+                |--------------------------------------------------------------------------
+                -->
 
                 <div class="col-md-6">
 
@@ -252,13 +308,17 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                 </div>
 
 
-                <!-- Status -->
+                <!--
+                |--------------------------------------------------------------------------
+                | Status
+                |--------------------------------------------------------------------------
+                -->
 
                 <div class="col-md-4">
 
                     <label class="form-label">
 
-                        Status
+                        Lead Status
 
                     </label>
 
@@ -266,9 +326,13 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                         name="status"
                         class="form-select">
 
+
                         <option value="">
-                            All Leads
+
+                            All Active Leads
+
                         </option>
+
 
                         <?php foreach ($allowedStatuses as $leadStatus): ?>
 
@@ -282,12 +346,17 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
 
                         <?php endforeach; ?>
 
+
                     </select>
 
                 </div>
 
 
-                <!-- Search -->
+                <!--
+                |--------------------------------------------------------------------------
+                | Search Button
+                |--------------------------------------------------------------------------
+                -->
 
                 <div class="col-md-2">
 
@@ -305,7 +374,11 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
             </div>
 
 
-            <?php if ($search !== '' || $status !== ''): ?>
+            <?php if (
+                $search !== ''
+                ||
+                $status !== ''
+            ): ?>
 
                 <div class="mt-3">
 
@@ -436,7 +509,11 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                             <tr>
 
 
-                                <!-- Company -->
+                                <!--
+                                |--------------------------------------------------------------------------
+                                | Company
+                                |--------------------------------------------------------------------------
+                                -->
 
                                 <td>
 
@@ -451,7 +528,11 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                                 </td>
 
 
-                                <!-- Contact -->
+                                <!--
+                                |--------------------------------------------------------------------------
+                                | Contact
+                                |--------------------------------------------------------------------------
+                                -->
 
                                 <td>
 
@@ -462,7 +543,11 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                                 </td>
 
 
-                                <!-- Email -->
+                                <!--
+                                |--------------------------------------------------------------------------
+                                | Email
+                                |--------------------------------------------------------------------------
+                                -->
 
                                 <td>
 
@@ -480,11 +565,17 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                                 </td>
 
 
-                                <!-- Phone -->
+                                <!--
+                                |--------------------------------------------------------------------------
+                                | Phone
+                                |--------------------------------------------------------------------------
+                                -->
 
                                 <td>
 
-                                    <?php if (!empty($lead['phone'])): ?>
+                                    <?php if (
+                                        !empty($lead['phone'])
+                                    ): ?>
 
                                         <a
                                             href="tel:<?= htmlspecialchars(
@@ -500,7 +591,9 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                                     <?php else: ?>
 
                                         <span class="text-muted">
+
                                             Not provided
+
                                         </span>
 
                                     <?php endif; ?>
@@ -508,7 +601,11 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                                 </td>
 
 
-                                <!-- Services -->
+                                <!--
+                                |--------------------------------------------------------------------------
+                                | Services
+                                |--------------------------------------------------------------------------
+                                -->
 
                                 <td>
 
@@ -519,7 +616,11 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                                 </td>
 
 
-                                <!-- Contract -->
+                                <!--
+                                |--------------------------------------------------------------------------
+                                | Contract
+                                |--------------------------------------------------------------------------
+                                -->
 
                                 <td>
 
@@ -527,7 +628,8 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                                         !empty($lead['contract_term'])
                                     ): ?>
 
-                                        <span class="badge bg-light text-dark border">
+                                        <span
+                                            class="badge bg-light text-dark border">
 
                                             <?= htmlspecialchars(
                                                 $lead['contract_term']
@@ -538,7 +640,9 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                                     <?php else: ?>
 
                                         <span class="text-muted">
+
                                             Not specified
+
                                         </span>
 
                                     <?php endif; ?>
@@ -546,7 +650,11 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                                 </td>
 
 
-                                <!-- Status -->
+                                <!--
+                                |--------------------------------------------------------------------------
+                                | Status
+                                |--------------------------------------------------------------------------
+                                -->
 
                                 <td>
 
@@ -564,7 +672,11 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                                 </td>
 
 
-                                <!-- Date -->
+                                <!--
+                                |--------------------------------------------------------------------------
+                                | Date
+                                |--------------------------------------------------------------------------
+                                -->
 
                                 <td>
 
@@ -575,14 +687,22 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                                 </td>
 
 
-                                <!-- Actions -->
+                                <!--
+                                |--------------------------------------------------------------------------
+                                | Actions
+                                |--------------------------------------------------------------------------
+                                -->
 
                                 <td>
 
                                     <div class="d-flex gap-1">
 
 
-                                        <!-- Update -->
+                                        <!--
+                                        |--------------------------------------------------------------------------
+                                        | Update
+                                        |--------------------------------------------------------------------------
+                                        -->
 
                                         <a
                                             href="?page=update-contract-lead&id=<?= (int)$lead['id'] ?>"
@@ -593,7 +713,11 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                                         </a>
 
 
-                                        <!-- Archive -->
+                                        <!--
+                                        |--------------------------------------------------------------------------
+                                        | Archive
+                                        |--------------------------------------------------------------------------
+                                        -->
 
                                         <?php if (
                                             $lead['status'] !== 'Archived'
@@ -602,7 +726,7 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                                             <a
                                                 href="?page=archive-contract-lead&id=<?= (int)$lead['id'] ?>"
                                                 class="btn btn-secondary btn-sm"
-                                                onclick="return confirm('Archive this lead? The record will be kept and can be used for future follow-up.');">
+                                                onclick="return confirm('Archive this lead? The record will be kept for future follow-up and marketing purposes.');">
 
                                                 Archive
 

@@ -40,6 +40,7 @@ if (
 
     }
 
+
     /*
     |--------------------------------------------------------------------------
     | Basic submission-time protection
@@ -71,9 +72,10 @@ if (
 
     }
 
+
     /*
     |--------------------------------------------------------------------------
-    | Collect form data
+    | Collect Form Data
     |--------------------------------------------------------------------------
     */
 
@@ -111,7 +113,7 @@ if (
 
         /*
         |--------------------------------------------------------------------------
-        | Validate required fields
+        | Validate Required Fields
         |--------------------------------------------------------------------------
         */
 
@@ -127,7 +129,12 @@ if (
 
         }
 
-        elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        elseif (
+            !filter_var(
+                $email,
+                FILTER_VALIDATE_EMAIL
+            )
+        ) {
 
             $error =
                 'Please enter a valid email address.';
@@ -146,31 +153,66 @@ if (
         }
 
         elseif (
-            !in_array(
-                $contractTerm,
-                ['Monthly', 'Yearly'],
-                true
-            )
-        ) {
+    !in_array(
+        $contractTerm,
+        [
+            'Monthly',
+            'Annual',
+            'Not Sure'
+        ],
+        true
+    )
+) {
+
+    $error =
+        'Please select a contract preference.';
+
+}
+
+       elseif (
+    !in_array(
+        $supportCoverage,
+        [
+            'Business Hours',
+            'Extended Hours',
+            '24/7',
+            'Not Sure'
+        ],
+        true
+    )
+) {
 
             $error =
-                'Please select a contract preference.';
+                'Please select your preferred support coverage.';
 
         }
 
+       elseif (
+    !in_array(
+        $startTimeframe,
+        [
+            'Immediately',
+            'Within 30 Days',
+            'Within 3 Months',
+            'Just Exploring'
+        ],
+        true
+    )
+) {
+
+    $error =
+        'Please select when you would like to start.';
+
+}
+
+
         /*
         |--------------------------------------------------------------------------
-        | Save Lead
+        | Validate Service Selections
         |--------------------------------------------------------------------------
         */
 
         if (empty($error)) {
-
-            /*
-            |--------------------------------------------------------------------------
-            | Clean service selections
-            |--------------------------------------------------------------------------
-            */
 
             $allowedServices = [
 
@@ -185,6 +227,7 @@ if (
                 'Website Maintenance'
 
             ];
+
 
             $supportServices =
                 array_values(
@@ -205,11 +248,17 @@ if (
         }
 
 
+        /*
+        |--------------------------------------------------------------------------
+        | Save Lead
+        |--------------------------------------------------------------------------
+        */
+
         if (empty($error)) {
 
             /*
             |--------------------------------------------------------------------------
-            | Store structured service selections as JSON
+            | Store Service Selections as JSON
             |--------------------------------------------------------------------------
             */
 
@@ -228,46 +277,41 @@ if (
 
             $stmt = $pdo->prepare("
                 INSERT INTO contract_leads
-                (
-                    company_name,
-                    contact_person,
-                    email,
-                    phone,
-                    contract_term,
-                    support_services,
-                    support_coverage,
-                    start_timeframe,
-                    marketing_consent
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (
+                company_name,
+                contact_person,
+                email,
+                phone,
+                contract_term,
+                support_services,
+                support_coverage,
+                start_timeframe,
+                marketing_consent,
+                status,
+                approval_status
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
+
 
             $stmt->execute([
 
                 $companyName,
-
                 $contactPerson,
-
                 $email,
-
                 $phone,
-
                 $contractTerm,
-
                 $supportServicesJson,
-
                 $supportCoverage,
-
                 $startTimeframe,
-
-                $marketingConsent
+                $marketingConsent,
+                'New',
+                'Pending'
 
             ]);
-
-
             /*
             |--------------------------------------------------------------------------
-            | Email notification
+            | Email Notification
             |--------------------------------------------------------------------------
             */
 
@@ -305,7 +349,7 @@ if (
 
             /*
             |--------------------------------------------------------------------------
-            | Success
+            | Success Message
             |--------------------------------------------------------------------------
             */
 
@@ -332,7 +376,9 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 
 <?php if (!empty($success)): ?>
 
-    <div class="alert alert-success alert-dismissible fade show" role="alert">
+    <div
+        class="alert alert-success alert-dismissible fade show"
+        role="alert">
 
         <?= htmlspecialchars($success) ?>
 
@@ -349,7 +395,9 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 
 <?php if (!empty($error)): ?>
 
-    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+    <div
+        class="alert alert-danger alert-dismissible fade show"
+        role="alert">
 
         <?= htmlspecialchars($error) ?>
 
@@ -730,7 +778,7 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 
             <!--
             |--------------------------------------------------------------------------
-            | Anti-spam honeypot
+            | Anti-Spam Honeypot
             |--------------------------------------------------------------------------
             -->
 
@@ -744,18 +792,27 @@ require dirname(__DIR__) . '/layouts/header-public.php';
                 "
                 aria-hidden="true">
 
-                <label>
+                <label for="website">
+
                     Website
+
                 </label>
 
                 <input
                     type="text"
                     name="website"
+                    id="website"
                     tabindex="-1"
                     autocomplete="off">
 
             </div>
 
+
+            <!--
+            |--------------------------------------------------------------------------
+            | Submission Time
+            |--------------------------------------------------------------------------
+            -->
 
             <input
                 type="hidden"
@@ -774,7 +831,9 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 
                 <div class="col-md-6 mb-3">
 
-                    <label class="form-label">
+                    <label
+                        class="form-label"
+                        for="company_name">
 
                         Company Name
 
@@ -783,6 +842,7 @@ require dirname(__DIR__) . '/layouts/header-public.php';
                     <input
                         type="text"
                         name="company_name"
+                        id="company_name"
                         class="form-control"
                         required>
 
@@ -791,7 +851,9 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 
                 <div class="col-md-6 mb-3">
 
-                    <label class="form-label">
+                    <label
+                        class="form-label"
+                        for="contact_person">
 
                         Contact Person
 
@@ -800,6 +862,7 @@ require dirname(__DIR__) . '/layouts/header-public.php';
                     <input
                         type="text"
                         name="contact_person"
+                        id="contact_person"
                         class="form-control"
                         required>
 
@@ -814,7 +877,9 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 
                 <div class="col-md-6 mb-3">
 
-                    <label class="form-label">
+                    <label
+                        class="form-label"
+                        for="email">
 
                         Email Address
 
@@ -823,6 +888,7 @@ require dirname(__DIR__) . '/layouts/header-public.php';
                     <input
                         type="email"
                         name="email"
+                        id="email"
                         class="form-control"
                         required>
 
@@ -831,7 +897,9 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 
                 <div class="col-md-6 mb-3">
 
-                    <label class="form-label">
+                    <label
+                        class="form-label"
+                        for="phone">
 
                         Phone Number
 
@@ -840,6 +908,7 @@ require dirname(__DIR__) . '/layouts/header-public.php';
                     <input
                         type="text"
                         name="phone"
+                        id="phone"
                         class="form-control"
                         required>
 
@@ -860,90 +929,145 @@ require dirname(__DIR__) . '/layouts/header-public.php';
                 <div class="card-body">
 
 
-                    <h5 class="mb-3">
+                    <h5 class="mb-2">
 
                         What services are you interested in?
 
                     </h5>
 
 
-                    <p class="text-muted small">
+                    <p class="text-muted small mb-4">
 
                         Select all that apply.
 
                     </p>
 
 
-                    <!-- IT Support / Software -->
+                    <!--
+                    |--------------------------------------------------------------------------
+                    | IT Support / Software Services
+                    |--------------------------------------------------------------------------
+                    -->
 
-                    <div class="mb-4">
+                    <h6 class="fw-bold mb-3">
+
+                        IT Support / Software Services
+
+                    </h6>
 
 
-                        <div class="form-check">
+                    <div class="form-check mb-3">
 
-                            <input
-                                class="form-check-input"
-                                type="checkbox"
-                                name="support_services[]"
-                                value="Remote IT Support"
-                                id="remoteIT">
+                        <input
+                            class="form-check-input"
+                            type="checkbox"
+                            name="support_services[]"
+                            value="Remote IT Support"
+                            id="remoteIT">
 
-                            <label
-                                class="form-check-label"
-                                for="remoteIT">
+                        <label
+                            class="form-check-label"
+                            for="remoteIT">
 
-                                <strong>
-                                    IT Support / Software Services
-                                </strong>
-                                <br>
+                            Remote IT Support
 
-                                <span class="text-muted">
-
-                                    Remote IT Support
-
-                                </span>
-
-                            </label>
-
-                        </div>
-
+                        </label>
 
                     </div>
 
 
-                    <!-- Website Services -->
+                    <div class="form-check mb-4">
 
-                    <div>
+                        <input
+                            class="form-check-input"
+                            type="checkbox"
+                            name="support_services[]"
+                            value="Software Services"
+                            id="softwareServices">
+
+                        <label
+                            class="form-check-label"
+                            for="softwareServices">
+
+                            Software Services
+
+                        </label>
+
+                    </div>
 
 
-                        <div class="form-check">
+                    <hr>
 
-                            <input
-                                class="form-check-input"
-                                type="checkbox"
-                                name="support_services[]"
-                                value="E-commerce Website"
-                                id="ecommerceWebsite">
 
-                            <label
-                                class="form-check-label"
-                                for="ecommerceWebsite">
+                    <!--
+                    |--------------------------------------------------------------------------
+                    | Website Services
+                    |--------------------------------------------------------------------------
+                    -->
 
-                                <strong>
-                                    Website Services
-                                </strong>
-                                <br>
+                    <h6 class="fw-bold mt-4 mb-3">
 
-                                <span class="text-muted">
+                        Website Services
 
-                                    E-commerce Website
+                    </h6>
 
-                                </span>
 
-                            </label>
+                    <div class="form-check mb-3">
 
-                        </div>
+                        <input
+                            class="form-check-input"
+                            type="checkbox"
+                            name="support_services[]"
+                            value="E-commerce Website"
+                            id="ecommerceWebsite">
 
+                        <label
+                            class="form-check-label"
+                            for="ecommerceWebsite">
+
+                            E-commerce Website
+
+                        </label>
+
+                    </div>
+
+
+                    <div class="form-check mb-3">
+
+                        <input
+                            class="form-check-input"
+                            type="checkbox"
+                            name="support_services[]"
+                            value="Corporate Website"
+                            id="corporateWebsite">
+
+                        <label
+                            class="form-check-label"
+                            for="corporateWebsite">
+
+                            Corporate Website
+
+                        </label>
+
+                    </div>
+
+
+                    <div class="form-check">
+
+                        <input
+                            class="form-check-input"
+                            type="checkbox"
+                            name="support_services[]"
+                            value="Website Maintenance"
+                            id="websiteMaintenance">
+
+                        <label
+                            class="form-check-label"
+                            for="websiteMaintenance">
+
+                            Website Maintenance
+
+                        </label>
 
                     </div>
 
@@ -962,7 +1086,9 @@ require dirname(__DIR__) . '/layouts/header-public.php';
             <div class="mb-3">
 
 
-                <label class="form-label">
+                <label
+                    class="form-label"
+                    for="support_coverage">
 
                     Preferred Support Coverage
 
@@ -970,41 +1096,32 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 
 
                 <select
-                    name="support_coverage"
-                    class="form-select"
-                    required>
+    name="support_coverage"
+    id="support_coverage"
+    class="form-select"
+    required>
 
+    <option value="">
+        Select support coverage
+    </option>
 
-                    <option value="">
+    <option value="Business Hours">
+        Business Hours
+    </option>
 
-                        Select support coverage
+    <option value="Extended Hours">
+        Extended Hours
+    </option>
 
-                    </option>
+    <option value="24/7">
+        24/7
+    </option>
 
+    <option value="Not Sure">
+        Not Sure
+    </option>
 
-                    <option value="Remote">
-
-                        Remote
-
-                    </option>
-
-
-                    <option value="On-site">
-
-                        On-site
-
-                    </option>
-
-
-                    <option value="Hybrid">
-
-                        Hybrid
-
-                    </option>
-
-
-                </select>
-
+</select>
 
             </div>
 
@@ -1018,7 +1135,9 @@ require dirname(__DIR__) . '/layouts/header-public.php';
             <div class="mb-3">
 
 
-                <label class="form-label">
+                <label
+                    class="form-label"
+                    for="contract_term">
 
                     Contract Preference
 
@@ -1026,33 +1145,27 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 
 
                 <select
-                    name="contract_term"
-                    class="form-select"
-                    required>
+    name="contract_term"
+    class="form-select"
+    required>
 
+    <option value="">
+        Select contract preference
+    </option>
 
-                    <option value="">
+    <option value="Monthly">
+        Monthly
+    </option>
 
-                        Select contract preference
+    <option value="Annual">
+        Annual
+    </option>
 
-                    </option>
+    <option value="Not Sure">
+        Not Sure
+    </option>
 
-
-                    <option value="Monthly">
-
-                        Monthly
-
-                    </option>
-
-
-                    <option value="Yearly">
-
-                        Yearly
-
-                    </option>
-
-
-                </select>
+</select>
 
 
             </div>
@@ -1067,7 +1180,9 @@ require dirname(__DIR__) . '/layouts/header-public.php';
             <div class="mb-4">
 
 
-                <label class="form-label">
+                <label
+                    class="form-label"
+                    for="start_timeframe">
 
                     When would you like to start?
 
@@ -1076,6 +1191,7 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 
                 <select
                     name="start_timeframe"
+                    id="start_timeframe"
                     class="form-select"
                     required>
 
@@ -1087,32 +1203,21 @@ require dirname(__DIR__) . '/layouts/header-public.php';
                     </option>
 
 
-                    <option value="Immediately">
+                   <option value="Immediately">
+    Immediately
+</option>
 
-                        Immediately
+<option value="Within 30 Days">
+    Within 30 Days
+</option>
 
-                    </option>
+<option value="Within 3 Months">
+    Within 3 Months
+</option>
 
-
-                    <option value="Within 1 Month">
-
-                        Within 1 Month
-
-                    </option>
-
-
-                    <option value="1-3 Months">
-
-                        1–3 Months
-
-                    </option>
-
-
-                    <option value="Just Exploring">
-
-                        Just Exploring
-
-                    </option>
+<option value="Just Exploring">
+    Just Exploring
+</option>
 
 
                 </select>
@@ -1161,9 +1266,7 @@ require dirname(__DIR__) . '/layouts/header-public.php';
                 name="submit_contract_lead"
                 class="btn btn-success btn-lg">
 
-
                 I'm Interested
-
 
             </button>
 
