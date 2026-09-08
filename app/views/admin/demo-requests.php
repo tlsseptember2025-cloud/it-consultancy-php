@@ -11,6 +11,43 @@ require_once CONFIG_PATH . '/database.php';
 require_once APP_PATH . '/helpers/email.php';
 
 
+/*
+|--------------------------------------------------------------------------
+| Demo Environment
+|--------------------------------------------------------------------------
+|
+| DEV and DEMO use the same database.
+| Only show requests belonging to the current site.
+|
+*/
+
+$host = strtolower($_SERVER['HTTP_HOST'] ?? '');
+
+if (strpos($host, 'demo.wahbibconsultancy.com') !== false) {
+
+    $demoEnvironment = 'demo';
+
+} elseif (strpos($host, 'dev.wahbibconsultancy.com') !== false) {
+
+    $demoEnvironment = 'dev';
+
+} else {
+
+    /*
+    |--------------------------------------------------------------------------
+    | LOCAL DEVELOPMENT
+    |--------------------------------------------------------------------------
+    |
+    | Local development uses its own database and does not have the
+    | environment column. Therefore no environment filtering is used.
+    |
+    */
+
+    $demoEnvironment = null;
+
+}
+
+
 // ============================================================================
 // FLASH MESSAGE
 // ============================================================================
@@ -47,14 +84,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             |--------------------------------------------------------------------------
             */
 
-            $stmt = $pdo->prepare("
-                SELECT *
-                FROM demo_requests
-                WHERE id = ?
-                LIMIT 1
-            ");
+            if ($demoEnvironment !== null) {
 
-            $stmt->execute([$requestId]);
+                $stmt = $pdo->prepare("
+                    SELECT *
+                    FROM demo_requests
+                    WHERE id = ?
+                      AND environment = ?
+                    LIMIT 1
+                ");
+
+                $stmt->execute([
+                    $requestId,
+                    $demoEnvironment
+                ]);
+
+            } else {
+
+                $stmt = $pdo->prepare("
+                    SELECT *
+                    FROM demo_requests
+                    WHERE id = ?
+                    LIMIT 1
+                ");
+
+                $stmt->execute([
+                    $requestId
+                ]);
+
+            }
 
             $request = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -131,23 +189,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $pdo->beginTransaction();
 
-                $stmt = $pdo->prepare("
-                    INSERT INTO demo_users (
-                        username,
-                        password_hash,
-                        status
-                    )
-                    VALUES (
-                        ?,
-                        ?,
-                        'Active'
-                    )
-                ");
+                if ($demoEnvironment !== null) {
 
-                $stmt->execute([
-                    $username,
-                    $passwordHash
-                ]);
+                    $stmt = $pdo->prepare("
+                        INSERT INTO demo_users (
+                            username,
+                            password_hash,
+                            status,
+                            environment
+                        )
+                        VALUES (
+                            ?,
+                            ?,
+                            'Active',
+                            ?
+                        )
+                    ");
+
+                    $stmt->execute([
+                        $username,
+                        $passwordHash,
+                        $demoEnvironment
+                    ]);
+
+                } else {
+
+                    $stmt = $pdo->prepare("
+                        INSERT INTO demo_users (
+                            username,
+                            password_hash,
+                            status
+                        )
+                        VALUES (
+                            ?,
+                            ?,
+                            'Active'
+                        )
+                    ");
+
+                    $stmt->execute([
+                        $username,
+                        $passwordHash
+                    ]);
+
+                }
 
                 $demoUserId =
                     (int) $pdo->lastInsertId();
@@ -320,26 +405,75 @@ exit;
 // LOAD DEMO REQUESTS
 // ============================================================================
 
-$stmt = $pdo->query("
-    SELECT
-        dr.*,
-        du.username AS demo_username,
-        du.status AS demo_user_status,
-        du.first_login_at,
-        du.expires_at
-    FROM demo_requests dr
+if ($demoEnvironment !== null) {
 
-    LEFT JOIN demo_users du
-        ON du.id = dr.demo_user_id
+    /*
+    |--------------------------------------------------------------------------
+    | DEV / DEMO — Shared Database
+    |--------------------------------------------------------------------------
+    */
 
-    ORDER BY
-        CASE
-            WHEN dr.status = 'Pending' THEN 1
-            WHEN dr.status = 'Approved' THEN 2
-            ELSE 3
-        END,
-        dr.created_at DESC
-");
+    $stmt = $pdo->prepare("
+        SELECT
+            dr.*,
+            du.username AS demo_username,
+            du.status AS demo_user_status,
+            du.first_login_at,
+            du.expires_at
+        FROM demo_requests dr
+
+        LEFT JOIN demo_users du
+            ON du.id = dr.demo_user_id
+
+        WHERE dr.environment = ?
+
+        ORDER BY
+            CASE
+                WHEN dr.status = 'Pending' THEN 1
+                WHEN dr.status = 'Approved' THEN 2
+                ELSE 3
+            END,
+            dr.created_at DESC
+    ");
+
+    $stmt->execute([
+        $demoEnvironment
+    ]);
+
+} else {
+
+    /*
+    |--------------------------------------------------------------------------
+    | LOCAL — Separate Database
+    |--------------------------------------------------------------------------
+    |
+    | Local does not use environment filtering because its database does
+    | not contain the environment column.
+    |
+    */
+
+    $stmt = $pdo->query("
+        SELECT
+            dr.*,
+            du.username AS demo_username,
+            du.status AS demo_user_status,
+            du.first_login_at,
+            du.expires_at
+        FROM demo_requests dr
+
+        LEFT JOIN demo_users du
+            ON du.id = dr.demo_user_id
+
+        ORDER BY
+            CASE
+                WHEN dr.status = 'Pending' THEN 1
+                WHEN dr.status = 'Approved' THEN 2
+                ELSE 3
+            END,
+            dr.created_at DESC
+    ");
+
+}
 
 $requests = $stmt->fetchAll(PDO::FETCH_ASSOC);
 

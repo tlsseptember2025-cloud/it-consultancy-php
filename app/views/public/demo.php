@@ -36,6 +36,32 @@ if (isset($_SESSION['agent'])) {
 
 require_once CONFIG_PATH . '/database.php';
 
+/*
+|--------------------------------------------------------------------------
+| Demo Environment
+|--------------------------------------------------------------------------
+|
+| DEV and DEMO use the same database.
+| Determine which site submitted the request.
+|
+*/
+
+$host = strtolower($_SERVER['HTTP_HOST'] ?? '');
+
+if (strpos($host, 'demo.wahbibconsultancy.com') !== false) {
+
+    $demoEnvironment = 'demo';
+
+} elseif (strpos($host, 'dev.wahbibconsultancy.com') !== false) {
+
+    $demoEnvironment = 'dev';
+
+} else {
+
+    $demoEnvironment = 'dev';
+
+}
+
 
 /*
 |--------------------------------------------------------------------------
@@ -172,16 +198,17 @@ if (
             try {
 
                 $stmt = $pdo->prepare("
-                    INSERT INTO demo_requests (
-                        full_name,
-                        email,
-                        phone,
-                        company_name,
-                        explore_options,
-                        status
-                    )
-                    VALUES (?, ?, ?, ?, ?, 'Pending')
-                ");
+    INSERT INTO demo_requests (
+        full_name,
+        email,
+        phone,
+        company_name,
+        explore_options,
+        environment,
+        status
+    )
+    VALUES (?, ?, ?, ?, ?, ?, 'Pending')
+");
 
                 $stmt->execute([
 
