@@ -45,12 +45,20 @@ switch ($page) {
         require VIEW_PATH . '/public/demo.php';
         break;
 
+    case 'demo-register':
+        require VIEW_PATH . '/public/demo-register.php';
+        break;
+
     case 'services':
         require VIEW_PATH . '/public/services.php';
         break;
 
     case 'contact':
         require VIEW_PATH . '/public/contact.php';
+        break;
+
+    case 'demo-requests':
+        require VIEW_PATH . '/admin/demo-requests.php';
         break;
 
     /*

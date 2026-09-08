@@ -581,3 +581,135 @@ function sendNewServiceRequestAdminEmail(
         $body
     );
 }
+
+/*
+|--------------------------------------------------------------------------
+| Demo Request Approved Email
+|--------------------------------------------------------------------------
+*/
+
+function sendDemoApprovedEmail(
+    string $to,
+    string $name,
+    string $username,
+    string $password
+): bool {
+
+    $subject = 'Your Demo Access Has Been Approved';
+
+    $body = "
+        <h2>Hello " . htmlspecialchars($name) . ",</h2>
+
+        <p>
+            Your request for access to the
+            <strong>IT Consultancy Management System Demo</strong>
+            has been approved.
+        </p>
+
+        <hr>
+
+        <h3>🔐 Your Demo Credentials</h3>
+
+        <p>
+            <strong>Username:</strong>
+            " . htmlspecialchars($username) . "
+        </p>
+
+        <p>
+            <strong>Temporary Password:</strong>
+            " . htmlspecialchars($password) . "
+        </p>
+
+        <hr>
+
+        <p>
+            Your demo access is valid for
+            <strong>5 days from your first successful login</strong>.
+        </p>
+
+        <p>
+            Your demo account is separate from normal customer,
+            agent, and system accounts.
+        </p>
+
+        <p>
+            Please keep these credentials secure.
+        </p>
+
+        <br>
+
+        <p>
+            Kind Regards,<br>
+            <strong>" . COMPANY_NAME . "</strong>
+        </p>
+    ";
+
+    return sendEmail(
+        $to,
+        $subject,
+        $body
+    );
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Demo Request Rejected Email
+|--------------------------------------------------------------------------
+*/
+
+function sendDemoRejectedEmail(
+    string $to,
+    string $name,
+    string $reason
+): bool {
+
+    $subject = 'Update Regarding Your Demo Access Request';
+
+    $body = "
+        <h2>Hello " . htmlspecialchars($name) . ",</h2>
+
+        <p>
+            Thank you for your interest in the
+            <strong>IT Consultancy Management System Demo</strong>.
+        </p>
+
+        <p>
+            After reviewing your demo access request,
+            we are unable to approve the request at this time.
+        </p>
+
+        <hr>
+
+        <p>
+            <strong>Reason provided:</strong>
+        </p>
+
+        <div
+            style='
+                border-left:4px solid #dc3545;
+                padding:12px 15px;
+                background:#f8f9fa;
+            '>
+            " . nl2br(htmlspecialchars($reason)) . "
+        </div>
+
+        <hr>
+
+        <p>
+            If you have any questions or believe this decision was made
+            in error, please contact our support team.
+        </p>
+
+        <p>
+            Kind Regards,<br>
+            <strong>" . COMPANY_NAME . "</strong>
+        </p>
+    ";
+
+    return sendEmail(
+        $to,
+        $subject,
+        $body
+    );
+}
