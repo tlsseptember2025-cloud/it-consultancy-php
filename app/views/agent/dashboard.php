@@ -436,8 +436,8 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
         <h2 class="mb-2">
 
-            Welcome,
-            <?= htmlspecialchars($_SESSION['agent']['name']) ?>
+            Welcome Back,
+            <?= htmlspecialchars($_SESSION['agent']['name']) ?>!
 
         </h2>
 
