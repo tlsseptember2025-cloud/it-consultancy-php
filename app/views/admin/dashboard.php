@@ -168,6 +168,82 @@ $awaitingRescheduleApproval = $pdo->query("
 
 /*
 |--------------------------------------------------------------------------
+| Upcoming Schedule
+|--------------------------------------------------------------------------
+| Shows future confirmed consultations and scheduled services.
+|--------------------------------------------------------------------------
+*/
+
+$upcomingSchedule = [];
+
+$stmt = $pdo->prepare("
+    SELECT
+        r.id AS request_id,
+        c.name AS customer_name,
+        s.title AS service_title,
+        'Consultation' AS schedule_type,
+        cs.slot_date AS schedule_date,
+        cs.slot_time AS schedule_time
+
+    FROM requests r
+
+    JOIN customers c
+        ON c.id = r.customer_id
+
+    JOIN services s
+        ON s.id = r.service_id
+
+    JOIN consultation_bookings cb
+        ON cb.request_id = r.id
+
+    JOIN consultation_slots cs
+        ON cs.id = cb.slot_id
+
+    WHERE r.workflow_stage IN (
+    'Consultation Scheduled',
+    'Consultation Confirmed'
+)
+AND TIMESTAMP(cs.slot_date, cs.slot_time) >= NOW()
+
+
+    UNION ALL
+
+
+    SELECT
+        r.id AS request_id,
+        c.name AS customer_name,
+        s.title AS service_title,
+        'Service' AS schedule_type,
+        ss.service_date AS schedule_date,
+        ss.service_time AS schedule_time
+
+    FROM requests r
+
+    JOIN customers c
+        ON c.id = r.customer_id
+
+    JOIN services s
+        ON s.id = r.service_id
+
+    JOIN service_bookings sb
+        ON sb.request_id = r.id
+
+    JOIN service_slots ss
+        ON ss.id = sb.slot_id
+
+    WHERE r.workflow_stage = 'Service Scheduled'
+      AND TIMESTAMP(ss.service_date, ss.service_time) >= NOW()
+
+
+    ORDER BY schedule_date ASC, schedule_time ASC
+");
+
+$stmt->execute();
+
+$upcomingSchedule = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+/*
+|--------------------------------------------------------------------------
 | Agent Assignment Needed
 |--------------------------------------------------------------------------
 */
@@ -286,6 +362,7 @@ $messagesNeedingAttention = $pdo->query("
     ORDER BY created_at DESC
     LIMIT 3
 ")->fetchAll(PDO::FETCH_ASSOC);
+
 
 ?>
 
@@ -435,12 +512,113 @@ $messagesNeedingAttention = $pdo->query("
         </div>
 
 
-        <!-- RIGHT: ACTIVE DASHBOARD -->
-        <div class="col-lg-10">
+       <!-- RIGHT: ACTIVE DASHBOARD -->
+<div class="col-lg-10">
 
-            <!-- Needs Admin Review -->
+    <div class="row g-4">
 
-                <div class="row g-4">
+        <!-- Upcoming Schedule -->
+        <div class="col-lg-6">
+
+            <div class="card shadow-sm border-primary h-100">
+
+                <div class="card-header bg-primary text-white">
+                    <strong>📅 Upcoming Schedule</strong>
+
+                    <?php if (!empty($upcomingSchedule)): ?>
+
+                        <span class="badge bg-light text-primary float-end">
+                            <?= count($upcomingSchedule) ?>
+                        </span>
+
+                    <?php endif; ?>
+
+                </div>
+
+                <div class="card-body p-0">
+
+                    <?php if (empty($upcomingSchedule)): ?>
+
+                        <div class="p-4 text-muted text-center">
+                            No upcoming consultations or services are currently scheduled.
+                        </div>
+
+                    <?php else: ?>
+
+                        <?php foreach ($upcomingSchedule as $item): ?>
+
+                            <a
+                                <a
+    href="<?=
+        $item['schedule_type'] === 'Consultation'
+            ? '?page=review-consultation&id=' . (int)$item['request_id']
+            : '?page=review-service&id=' . (int)$item['request_id']
+    ?>"
+    class="text-decoration-none text-dark d-block"
+>
+                            >
+
+                                <div class="p-3 border-bottom dashboard-action-item">
+
+                                    <div class="fw-bold">
+                                        Request #<?= (int)$item['request_id'] ?>
+                                    </div>
+
+                                    <div>
+                                        <?= htmlspecialchars($item['customer_name']) ?>
+                                    </div>
+
+                                    <div class="small text-muted">
+                                        <?= htmlspecialchars($item['service_title']) ?>
+                                    </div>
+
+                                    <div class="mt-2">
+
+                                        <?php if ($item['schedule_type'] === 'Consultation'): ?>
+
+                                            <span class="badge bg-primary">
+                                                📞 Consultation
+                                            </span>
+
+                                        <?php else: ?>
+
+                                            <span class="badge bg-success">
+                                                🛠️ Service
+                                            </span>
+
+                                        <?php endif; ?>
+
+                                    </div>
+
+                                    <div class="small fw-semibold mt-2">
+
+                                        <?= date(
+                                            'd M Y',
+                                            strtotime($item['schedule_date'])
+                                        ) ?>
+
+                                        at
+
+                                        <?= date(
+                                            'h:i A',
+                                            strtotime($item['schedule_time'])
+                                        ) ?>
+
+                                    </div>
+
+                                </div>
+
+                            </a>
+
+                        <?php endforeach; ?>
+
+                    <?php endif; ?>
+
+                </div>
+
+            </div>
+
+        </div>
 
                     <!-- Needs Admin Review -->
                     <div class="col-lg-6">
@@ -500,6 +678,9 @@ if ($item['review_type'] === 'consultation_overdue') {
     $reviewDescription =
         'Consultation requires administrator review.';
 }
+
+
+
 
 ?>
 
@@ -659,8 +840,10 @@ if ($item['review_type'] === 'consultation_overdue') {
                 <?php foreach ($agentAssignmentNeeded as $item): ?>
 
                     <a
-                        href="?page=assign-agent&request_id=<?= (int)$item['id'] ?>"
-                        class="text-decoration-none text-dark d-block"
+                        <a
+    href="?page=admin-assign-agent&id=<?= (int)$item['id'] ?>"
+    class="text-decoration-none text-dark d-block"
+>
                     >
 
                         <div class="p-3 border-bottom dashboard-action-item">
