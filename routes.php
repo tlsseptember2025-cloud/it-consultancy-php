@@ -61,6 +61,19 @@ switch ($page) {
         require VIEW_PATH . '/admin/demo-requests.php';
         break;
 
+    case 'demo-login':
+        require VIEW_PATH . '/public/demo-login.php';
+        break;
+
+    case 'demo-dashboard':
+        require VIEW_PATH . '/demo/demo-dashboard.php';
+        break;
+
+    case 'demo-logout':
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+
     /*
     |--------------------------------------------------------------------------
     | Messages & Notifications

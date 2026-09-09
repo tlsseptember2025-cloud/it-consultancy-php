@@ -848,15 +848,28 @@ require dirname(__DIR__) . '/layouts/header-public.php';
                          SUBMIT
                          ==================================================== -->
 
-                    <button
-                        type="submit"
-                        name="request_demo"
-                        value="1"
-                        class="btn btn-primary">
+                    <div class="d-flex gap-2">
 
-                        Request Demo Access
+    <button
+        type="submit"
+        name="request_demo"
+        value="1"
+        class="btn btn-primary">
 
-                    </button>
+        Request Demo Access
+
+    </button>
+
+
+    <a
+        href="?page=home"
+        class="btn btn-secondary">
+
+        Back
+
+    </a>
+
+</div>
 
 
                 </form>

@@ -430,19 +430,32 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 
         <p class="col-md-8 fs-4">
 
-            Manage customers, services, requests, invoices,
-            payments, consultations and more from one platform.
+    Manage customers, services, requests, invoices,
+    payments, consultations and more from one platform.
 
-        </p>
+</p>
 
-        <a
-            class="btn btn-primary btn-lg"
-            href="?page=demo">
 
-            Explore Demo
+<div class="d-flex flex-wrap gap-2">
 
-        </a>
+    <a
+        class="btn btn-primary btn-lg"
+        href="?page=demo">
 
+        Request a Demo
+
+    </a>
+
+
+    <a
+        class="btn btn-outline-primary btn-lg"
+        href="?page=demo-login">
+
+        Login to Demo Portal
+
+    </a>
+
+</div>
     </div>
 
 </div>

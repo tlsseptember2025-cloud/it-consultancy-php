@@ -51,6 +51,28 @@ try {
         $options
     );
 
+
+    /**
+     * Set MySQL Session Timezone
+     *
+     * UAE operates on UTC+04:00.
+     *
+     * This ensures MySQL functions such as:
+     *
+     *     NOW()
+     *     CURRENT_TIMESTAMP
+     *     DATE_ADD(NOW(), ...)
+     *
+     * use UAE time for this database connection.
+     *
+     * No database table or column changes are required.
+     */
+
+    $pdo->exec("
+        SET time_zone = '+04:00'
+    ");
+
+
 } catch (PDOException $e) {
 
     die('Database connection failed: ' . $e->getMessage());
