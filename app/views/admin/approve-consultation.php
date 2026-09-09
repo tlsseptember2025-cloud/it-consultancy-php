@@ -1,5 +1,7 @@
 <?php
 
+require_once APP_PATH . '/helpers/RequestEventHelper.php';
+
 if (!isset($_SESSION['user'])) {
 
     header('Location: ?page=login');

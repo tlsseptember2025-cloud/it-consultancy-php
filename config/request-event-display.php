@@ -630,4 +630,10 @@ EVENT_CONSULTATION_RESCHEDULE_REQUESTED => [
     'badge' => 'warning'
 ],
 
+EVENT_CLOSURE_AGREEMENT_REJECTED => [
+    'title' => 'Closure Agreement Rejected',
+    'icon'  => '❌',
+    'badge' => 'danger'
+],
+
 ];

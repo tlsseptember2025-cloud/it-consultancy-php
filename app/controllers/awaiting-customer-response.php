@@ -28,10 +28,10 @@ $stmt = $pdo->prepare("
         ON s.id = r.service_id
 
     WHERE
-        r.workflow_stage IN (
-            'Awaiting Customer Response',
-            'Closure Agreement Sent'
-        )
+    r.workflow_stage IN (
+        'Waiting Customer Response',
+        'Closure Agreement Sent'
+    )
 
     ORDER BY
         r.customer_response_deadline ASC

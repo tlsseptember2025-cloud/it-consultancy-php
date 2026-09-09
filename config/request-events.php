@@ -281,6 +281,11 @@ define(
     'LEGAL_HOLD_RELEASED'
 );
 
+define(
+    'EVENT_CLOSURE_AGREEMENT_REJECTED',
+    'CLOSURE_AGREEMENT_REJECTED'
+);
+
 
 /*
 |--------------------------------------------------------------------------

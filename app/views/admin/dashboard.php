@@ -20,20 +20,22 @@ require_once APP_PATH . '/helpers/retention_review_helper.php';
 
 $pendingPayments = $pdo->query("
     SELECT
-        p.id,
-        p.request_id,
-        p.amount,
-        p.status,
-        p.payment_date,
-        p.created_at,
-        c.name AS customer_name
-    FROM payments p
+        ps.id,
+        ps.request_id,
+        ps.status,
+        ps.uploaded_at,
+        c.name AS customer_name,
+        s.title AS service_title,
+        r.quoted_price
+    FROM payment_slips ps
     JOIN requests r
-        ON r.id = p.request_id
+        ON r.id = ps.request_id
     JOIN customers c
-        ON c.id = r.customer_id
-    WHERE p.status = 'Pending'
-    ORDER BY p.created_at ASC
+        ON c.id = ps.customer_id
+    JOIN services s
+        ON s.id = r.service_id
+    WHERE ps.status = 'Pending'
+    ORDER BY ps.uploaded_at ASC
 ")->fetchAll(PDO::FETCH_ASSOC);
 
 $newLeads = $pdo->query("
@@ -537,82 +539,80 @@ $messagesNeedingAttention = $pdo->query("
 
                 <div class="card-body p-0">
 
-                    <?php if (empty($upcomingSchedule)): ?>
+                   <?php if (empty($upcomingSchedule)): ?>
 
-                        <div class="p-4 text-muted text-center">
-                            No upcoming consultations or services are currently scheduled.
-                        </div>
+    <div class="p-4 text-muted text-center">
+        No upcoming consultations or services are currently scheduled.
+    </div>
+
+<?php else: ?>
+
+    <?php foreach ($upcomingSchedule as $item): ?>
+
+        <a
+            href="<?=
+                $item['schedule_type'] === 'Consultation'
+                    ? '?page=approve-consultation&id=' . (int)$item['request_id']
+                    : '?page=approve-service-schedule&id=' . (int)$item['request_id']
+            ?>"
+            class="text-decoration-none text-dark d-block"
+        >
+
+            <div class="p-3 border-bottom dashboard-action-item">
+
+                <div class="fw-bold">
+                    Request #<?= (int)$item['request_id'] ?>
+                </div>
+
+                <div>
+                    <?= htmlspecialchars($item['customer_name']) ?>
+                </div>
+
+                <div class="small text-muted">
+                    <?= htmlspecialchars($item['service_title']) ?>
+                </div>
+
+                <div class="mt-2">
+
+                    <?php if ($item['schedule_type'] === 'Consultation'): ?>
+
+                        <span class="badge bg-primary">
+                            📞 Consultation
+                        </span>
 
                     <?php else: ?>
 
-                        <?php foreach ($upcomingSchedule as $item): ?>
-
-                            <a
-                                <a
-    href="<?=
-        $item['schedule_type'] === 'Consultation'
-            ? '?page=review-consultation&id=' . (int)$item['request_id']
-            : '?page=review-service&id=' . (int)$item['request_id']
-    ?>"
-    class="text-decoration-none text-dark d-block"
->
-                            >
-
-                                <div class="p-3 border-bottom dashboard-action-item">
-
-                                    <div class="fw-bold">
-                                        Request #<?= (int)$item['request_id'] ?>
-                                    </div>
-
-                                    <div>
-                                        <?= htmlspecialchars($item['customer_name']) ?>
-                                    </div>
-
-                                    <div class="small text-muted">
-                                        <?= htmlspecialchars($item['service_title']) ?>
-                                    </div>
-
-                                    <div class="mt-2">
-
-                                        <?php if ($item['schedule_type'] === 'Consultation'): ?>
-
-                                            <span class="badge bg-primary">
-                                                📞 Consultation
-                                            </span>
-
-                                        <?php else: ?>
-
-                                            <span class="badge bg-success">
-                                                🛠️ Service
-                                            </span>
-
-                                        <?php endif; ?>
-
-                                    </div>
-
-                                    <div class="small fw-semibold mt-2">
-
-                                        <?= date(
-                                            'd M Y',
-                                            strtotime($item['schedule_date'])
-                                        ) ?>
-
-                                        at
-
-                                        <?= date(
-                                            'h:i A',
-                                            strtotime($item['schedule_time'])
-                                        ) ?>
-
-                                    </div>
-
-                                </div>
-
-                            </a>
-
-                        <?php endforeach; ?>
+                        <span class="badge bg-success">
+                            🛠️ Service
+                        </span>
 
                     <?php endif; ?>
+
+                </div>
+
+                <div class="small fw-semibold mt-2">
+
+                    <?= date(
+                        'd M Y',
+                        strtotime($item['schedule_date'])
+                    ) ?>
+
+                    at
+
+                    <?= date(
+                        'h:i A',
+                        strtotime($item['schedule_time'])
+                    ) ?>
+
+                </div>
+
+            </div>
+
+        </a>
+
+    <?php endforeach; ?>
+
+<?php endif; ?>
 
                 </div>
 
@@ -896,7 +896,7 @@ if ($item['review_type'] === 'consultation_overdue') {
                 <?php foreach ($awaitingCustomerResponse as $item): ?>
 
                     <a
-                        href="?page=view-request&id=<?= (int)$item['id'] ?>"
+                        href="?page=view-awaiting-customer-response&id=<?= (int)$item['id'] ?>"
                         class="text-decoration-none text-dark d-block"
                     >
 
@@ -1012,40 +1012,45 @@ if ($item['review_type'] === 'consultation_overdue') {
                 <?php foreach ($pendingPayments as $payment): ?>
 
                     <a
-                        href="?page=payments&payment_id=<?= (int)$payment['id'] ?>"
-                        class="text-decoration-none text-dark d-block"
+                        <a
+                            href="?page=view-slip&id=<?= (int)$payment['id'] ?>"
+                            class="text-decoration-none text-dark d-block"
+                        >
                     >
 
-                        <div class="p-3 border-bottom">
+                        <div class="p-3 border-bottom dashboard-action-item">
 
-                            <div class="fw-bold">
-                                Payment #<?= (int)$payment['id'] ?>
-                            </div>
+    <div class="fw-bold">
+        Request #<?= (int)$payment['request_id'] ?>
+    </div>
 
-                            <div>
-                                <?= htmlspecialchars($payment['customer_name']) ?>
-                            </div>
+    <div>
+        <?= htmlspecialchars($payment['customer_name']) ?>
+    </div>
 
-                            <div class="small text-muted">
-                                Request #<?= (int)$payment['request_id'] ?>
-                            </div>
+    <div class="small text-muted">
+        <?= htmlspecialchars($payment['service_title']) ?>
+    </div>
 
-                            <div class="mt-2">
+    <div class="small mt-2">
+        <strong>Quoted Price:</strong>
+        AED <?= number_format($payment['quoted_price'], 2) ?>
+    </div>
 
-                                <span class="badge bg-info text-dark">
-                                    AED <?= number_format(
-                                        (float)$payment['amount'],
-                                        2
-                                    ) ?>
-                                </span>
+    <div class="small">
+        <strong>Payment Submitted:</strong>
+        AED <?= number_format($payment['quoted_price'], 2) ?>
+    </div>
 
-                                <span class="badge bg-warning text-dark">
-                                    Pending
-                                </span>
+    <div class="mt-2">
 
-                            </div>
+        <span class="badge bg-warning text-dark">
+            <?= htmlspecialchars($payment['status']) ?>
+        </span>
 
-                        </div>
+    </div>
+
+</div>
 
                     </a>
 
@@ -1150,7 +1155,7 @@ if ($item['review_type'] === 'consultation_overdue') {
                 <?php foreach ($messagesNeedingAttention as $message): ?>
 
                     <a
-                        href="?page=messages"
+                        href="?page=view&id=<?= (int)$message['id'] ?>"
                         class="text-decoration-none text-dark d-block"
                     >
 
