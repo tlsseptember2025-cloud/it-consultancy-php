@@ -140,103 +140,128 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
 
-                /*
+/*
                 |--------------------------------------------------------------------------
-                | Generate Unique Username
+                | Fixed Demo Accounts
+                |--------------------------------------------------------------------------
+                |
+                | These are the three permanent demo accounts.
+                |
+                | Username: user      | Role: admin
+                | Username: customer | Role: customer
+                | Username: agent    | Role: agent
+                |
+                | The password "pass" is hashed before being stored.
+                | Plain-text passwords are never stored in the database.
                 |--------------------------------------------------------------------------
                 */
 
-                do {
+                $demoAccounts = [
+                    [
+                        'username' => 'user',
+                        'password' => 'pass',
+                        'role'     => 'admin'
+                    ],
+                    [
+                        'username' => 'customer',
+                        'password' => 'pass',
+                        'role'     => 'customer'
+                    ],
+                    [
+                        'username' => 'agent',
+                        'password' => 'pass',
+                        'role'     => 'agent'
+                    ]
+                ];
 
-                    $username =
-                        'demo_' .
-                        strtolower(bin2hex(random_bytes(4)));
+                /*
+                |--------------------------------------------------------------------------
+                | Create / Validate Fixed Demo Accounts
+                |--------------------------------------------------------------------------
+                */
+
+                $pdo->beginTransaction();
+                $demoUserId = null;
+
+                foreach ($demoAccounts as $account) {
 
                     $check = $pdo->prepare("
-                        SELECT id
+                        SELECT id, role, password_hash, status
                         FROM demo_users
                         WHERE username = ?
                         LIMIT 1
                     ");
 
-                    $check->execute([$username]);
-
-                } while ($check->fetch());
-
-
-                /*
-                |--------------------------------------------------------------------------
-                | Generate Temporary Password
-                |--------------------------------------------------------------------------
-                */
-
-                $plainPassword =
-                    bin2hex(random_bytes(6));
-
-
-                $passwordHash =
-                    password_hash(
-                        $plainPassword,
-                        PASSWORD_DEFAULT
-                    );
-
-
-                /*
-                |--------------------------------------------------------------------------
-                | Create Demo User
-                |--------------------------------------------------------------------------
-                */
-
-                $pdo->beginTransaction();
-
-                if ($demoEnvironment !== null) {
-
-                    $stmt = $pdo->prepare("
-                        INSERT INTO demo_users (
-                            username,
-                            password_hash,
-                            status,
-                            environment
-                        )
-                        VALUES (
-                            ?,
-                            ?,
-                            'Active',
-                            ?
-                        )
-                    ");
-
-                    $stmt->execute([
-                        $username,
-                        $passwordHash,
-                        $demoEnvironment
+                    $check->execute([
+                        $account['username']
                     ]);
 
-                } else {
+                    $existingUser = $check->fetch(PDO::FETCH_ASSOC);
 
-                    $stmt = $pdo->prepare("
-                        INSERT INTO demo_users (
-                            username,
-                            password_hash,
-                            status
-                        )
-                        VALUES (
-                            ?,
-                            ?,
-                            'Active'
-                        )
-                    ");
+                    if (!$existingUser) {
 
-                    $stmt->execute([
-                        $username,
-                        $passwordHash
-                    ]);
+                        $passwordHash = password_hash(
+                            $account['password'],
+                            PASSWORD_DEFAULT
+                        );
 
+                        $stmt = $pdo->prepare("
+                            INSERT INTO demo_users (
+                                username,
+                                role,
+                                password_hash,
+                                status,
+                                approved_at
+                            )
+                            VALUES (
+                                ?,
+                                ?,
+                                ?,
+                                'Active',
+                                NOW()
+                            )
+                        ");
+
+                        $stmt->execute([
+                            $account['username'],
+                            $account['role'],
+                            $passwordHash
+                        ]);
+
+                        $accountId = (int) $pdo->lastInsertId();
+
+                    } else {
+
+                        if ($existingUser['role'] !== $account['role']) {
+                            throw new Exception(
+                                'Fixed demo account configuration is invalid for username "'
+                                . $account['username'] . '".'
+                            );
+                        }
+
+                        if (!password_verify(
+                            $account['password'],
+                            $existingUser['password_hash']
+                        )) {
+                            throw new Exception(
+                                'Fixed demo account password configuration is invalid for username "'
+                                . $account['username'] . '".'
+                            );
+                        }
+
+                        $accountId = (int) $existingUser['id'];
+                    }
+
+                    if ($account['role'] === 'admin') {
+                        $demoUserId = $accountId;
+                    }
                 }
 
-                $demoUserId =
-                    (int) $pdo->lastInsertId();
-
+                if (!$demoUserId) {
+                    throw new Exception(
+                        'Unable to create or locate the fixed demo admin account.'
+                    );
+                }
 
                 /*
                 |--------------------------------------------------------------------------
@@ -262,27 +287,98 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 
 /*
-|--------------------------------------------------------------------------
-| Send Approval Email
-|--------------------------------------------------------------------------
-*/
+                |--------------------------------------------------------------------------
+                | Send Approval Email With All Three Fixed Accounts
+                |--------------------------------------------------------------------------
+                */
 
-$emailSent = sendDemoApprovedEmail(
-    $request['email'],
-    $request['full_name'],
-    $username,
-    $plainPassword
-);
+                $emailSubject = 'Your Demo Portal Access Has Been Approved';
 
+                $emailBody = "
+                    <h2>Hello " . htmlspecialchars($request['full_name']) . ",</h2>
 
-$_SESSION['demo_credentials'] = [
-    'username' => $username,
-    'password' => $plainPassword,
-    'full_name' => $request['full_name']
-];
+                    <p>
+                        Your request for access to our IT Consultancy Demo Portal
+                        has been approved.
+                    </p>
 
+                    <p>
+                        You may use any of the following fixed demo accounts:
+                    </p>
 
-if ($emailSent) {
+                    <table cellpadding='8' cellspacing='0' border='1'
+                           style='border-collapse:collapse; width:100%; max-width:600px;'>
+                        <thead>
+                            <tr>
+                                <th align='left'>User Type</th>
+                                <th align='left'>Username</th>
+                                <th align='left'>Password</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Admin</td>
+                                <td><strong>user</strong></td>
+                                <td><strong>pass</strong></td>
+                            </tr>
+                            <tr>
+                                <td>Customer</td>
+                                <td><strong>customer</strong></td>
+                                <td><strong>pass</strong></td>
+                            </tr>
+                            <tr>
+                                <td>Agent</td>
+                                <td><strong>agent</strong></td>
+                                <td><strong>pass</strong></td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <br>
+
+                    <p>
+                        <strong>Important:</strong> These are fixed demo accounts
+                        provided for demonstration purposes.
+                    </p>
+
+                    <p>
+                        Please use the appropriate user type when signing in.
+                    </p>
+
+                    <p>
+                        Thank you,<br>
+                        <strong>IT Consultancy Team</strong>
+                    </p>
+                ";
+
+                $emailSent = sendEmail(
+                    $request['email'],
+                    $emailSubject,
+                    $emailBody
+                );
+
+                $_SESSION['demo_credentials'] = [
+                    'full_name' => $request['full_name'],
+                    'accounts' => [
+                        [
+                            'type' => 'Admin',
+                            'username' => 'user',
+                            'password' => 'pass'
+                        ],
+                        [
+                            'type' => 'Customer',
+                            'username' => 'customer',
+                            'password' => 'pass'
+                        ],
+                        [
+                            'type' => 'Agent',
+                            'username' => 'agent',
+                            'password' => 'pass'
+                        ]
+                    ]
+                ];
+
+                if ($emailSent) {
 
     $_SESSION['demo_success'] =
         'Demo request approved successfully. '
@@ -540,7 +636,7 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
 
     <!-- ================================================================
-         GENERATED DEMO CREDENTIALS
+         FIXED DEMO CREDENTIALS
          ================================================================ -->
 
     <?php if ($generatedCredentials): ?>
@@ -548,46 +644,46 @@ require VIEW_PATH . '/layouts/header-admin.php';
         <div class="alert alert-warning">
 
             <h5 class="mb-3">
-                🔐 Demo Account Created
+                🔐 Fixed Demo Accounts
             </h5>
 
             <p>
-                The demo account for
+                Demo access has been approved for
                 <strong>
                     <?= htmlspecialchars($generatedCredentials['full_name']) ?>
-                </strong>
-                has been created.
+                </strong>.
             </p>
 
-            <div class="border rounded bg-white p-3">
-
-                <p class="mb-2">
-
-                    <strong>Username:</strong>
-
-                    <code>
-                        <?= htmlspecialchars($generatedCredentials['username']) ?>
-                    </code>
-
-                </p>
-
-                <p class="mb-0">
-
-                    <strong>Password:</strong>
-
-                    <code>
-                        <?= htmlspecialchars($generatedCredentials['password']) ?>
-                    </code>
-
-                </p>
-
+            <div class="table-responsive">
+                <table class="table table-bordered table-sm bg-white mb-3">
+                    <thead>
+                        <tr>
+                            <th>User Type</th>
+                            <th>Username</th>
+                            <th>Password</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($generatedCredentials['accounts'] as $account): ?>
+                            <tr>
+                                <td>
+                                    <strong><?= htmlspecialchars($account['type']) ?></strong>
+                                </td>
+                                <td>
+                                    <code><?= htmlspecialchars($account['username']) ?></code>
+                                </td>
+                                <td>
+                                    <code><?= htmlspecialchars($account['password']) ?></code>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
             </div>
 
-            <hr>
-
             <small>
-                The password is not stored in the database.
-                Keep these credentials available for the demo user.
+                These three accounts are fixed demo accounts.
+                Passwords are stored in the database only as secure hashes.
             </small>
 
         </div>
@@ -892,7 +988,7 @@ require VIEW_PATH . '/layouts/header-admin.php';
                                             <form
                                                 method="POST"
                                                 onsubmit="return confirm(
-                                                    'Approve this demo request and create a demo account?'
+                                                    'Approve this demo request and enable the three fixed demo accounts?'
                                                 );">
 
                                                 <input

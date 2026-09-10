@@ -6,109 +6,94 @@
 |--------------------------------------------------------------------------
 | Separate authentication for temporary demo accounts.
 |
-| Demo users are NOT customers, agents, or administrators.
-|--------------------------------------------------------------------------
-*/
-
-
-/*
-|--------------------------------------------------------------------------
-| Prevent Already Logged-In Users From Accessing Demo Login
+| Fixed demo accounts:
+|   user     = Admin
+|   customer = Customer
+|   agent    = Agent
+|
+| Demo sessions are completely separate from normal application sessions.
 |--------------------------------------------------------------------------
 */
 
 if (isset($_SESSION['user'])) {
-
     header('Location: ?page=dashboard');
     exit;
-
 }
 
 if (isset($_SESSION['customer'])) {
-
     header('Location: ?page=customer-dashboard');
     exit;
-
 }
 
 if (isset($_SESSION['agent'])) {
-
     header('Location: ?page=agent-dashboard');
     exit;
-
 }
 
 if (isset($_SESSION['demo_user'])) {
-
     header('Location: ?page=demo-dashboard');
     exit;
-
 }
 
+if (isset($_SESSION['demo_customer'])) {
+    header('Location: ?page=demo-customer-dashboard');
+    exit;
+}
 
-/*
-|--------------------------------------------------------------------------
-| Database
-|--------------------------------------------------------------------------
-*/
+if (isset($_SESSION['demo_agent'])) {
+    header('Location: ?page=demo-agent-dashboard');
+    exit;
+}
 
 require_once CONFIG_PATH . '/database.php';
 
-
-/*
-|--------------------------------------------------------------------------
-| Variables
-|--------------------------------------------------------------------------
-*/
-
 $error = '';
-
 $username = '';
+$userType = '';
 
-
-/*
-|--------------------------------------------------------------------------
-| DEMO LOGIN SUBMISSION
-|--------------------------------------------------------------------------
-*/
+$genericError =
+    'Unable to sign in. Please check your credentials and try again.';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $username = trim($_POST['username'] ?? '');
-
     $password = $_POST['password'] ?? '';
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | Basic Validation
-    |--------------------------------------------------------------------------
-    */
-
-    if ($username === '') {
-
-        $error = 'Please enter your demo username.';
-
-    } elseif ($password === '') {
-
-        $error = 'Please enter your demo password.';
-
-    }
-
+    $userType = $_POST['user_type'] ?? '';
 
     /*
     |--------------------------------------------------------------------------
-    | Find Demo User
+    | User Type -> Database Role
+    |--------------------------------------------------------------------------
+    |
+    | Admin     -> admin
+    | Customer  -> customer
+    | Agent     -> agent
     |--------------------------------------------------------------------------
     */
 
-    if ($error === '') {
+    $roleMap = [
+        'admin'    => 'admin',
+        'customer' => 'customer',
+        'agent'    => 'agent'
+    ];
+
+    $selectedRole = $roleMap[$userType] ?? null;
+
+    if (
+        $username === ''
+        || $password === ''
+        || $selectedRole === null
+    ) {
+
+        $error = $genericError;
+
+    } else {
 
         try {
 
             /*
             |--------------------------------------------------------------------------
-            | Load Demo Account
+            | Find Demo Account
             |--------------------------------------------------------------------------
             */
 
@@ -119,127 +104,133 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 LIMIT 1
             ");
 
-            $stmt->execute([$username]);
+            $stmt->execute([
+                $username
+            ]);
 
             $demoUser = $stmt->fetch(PDO::FETCH_ASSOC);
 
 
             /*
             |--------------------------------------------------------------------------
-            | Invalid Username / Password
+            | Verify Username + Password + Role
             |--------------------------------------------------------------------------
             */
 
             if (
-                !$demoUser ||
-                !password_verify(
+                !$demoUser
+                || !password_verify(
                     $password,
                     $demoUser['password_hash']
                 )
+                || $demoUser['role'] !== $selectedRole
             ) {
 
-                $error = 'Invalid demo username or password.';
+                $error = $genericError;
 
             } else {
 
-
                 /*
                 |--------------------------------------------------------------------------
-                | Check Account Status
-                |--------------------------------------------------------------------------
-                */
-
-                if ($demoUser['status'] === 'Rejected') {
-
-                    $error =
-                        'This demo account is no longer available.';
-
-                } elseif ($demoUser['status'] === 'Expired') {
-
-                    $error =
-                        'This demo account has expired.';
-
-                } elseif ($demoUser['status'] !== 'Active') {
-
-                    $error =
-                        'This demo account is not currently available.';
-
-                }
-
-
-                /*
-                |--------------------------------------------------------------------------
-                | Check Existing Expiration
-                |--------------------------------------------------------------------------
-                */
-
-                if (
-                    $error === ''
-                    && !empty($demoUser['expires_at'])
-                    && strtotime($demoUser['expires_at']) <= time()
-                ) {
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | Mark Account Expired
-                    |--------------------------------------------------------------------------
-                    */
-
-                    $stmt = $pdo->prepare("
-                        UPDATE demo_users
-                        SET status = 'Expired'
-                        WHERE id = ?
-                    ");
-
-                    $stmt->execute([
-                        (int) $demoUser['id']
-                    ]);
-
-
-                    $error =
-                        'This demo account has expired.';
-
-                }
-
-
-                /*
-                |--------------------------------------------------------------------------
-                | FIRST SUCCESSFUL LOGIN
+                | Shared Demo 5-Day Period
                 |--------------------------------------------------------------------------
                 |
-                | The 5-day demo period starts here.
+                | Whichever of the three fixed Demo accounts logs in FIRST
+                | starts the Demo period. That exact first-login time and
+                | expiration time are then shared by ALL THREE accounts.
+                |
+                | Later logins NEVER reset or extend the 5-day period.
                 |--------------------------------------------------------------------------
                 */
 
-                if (
-                    $error === ''
-                    && empty($demoUser['first_login_at'])
-                ) {
+                if ($demoUser['status'] !== 'Active') {
+                    $error = $genericError;
+                }
+
+                if ($error === '') {
 
                     /*
                     |--------------------------------------------------------------------------
-                    | Start Demo Period
+                    | Find the existing shared Demo period
+                    |--------------------------------------------------------------------------
+                    |
+                    | MIN() lets us recover safely if older test data has
+                    | different first_login_at / expires_at values.
+                    | The earliest recorded first login becomes the shared
+                    | Demo start time.
                     |--------------------------------------------------------------------------
                     */
 
                     $stmt = $pdo->prepare("
-                        UPDATE demo_users
-                        SET
-                            first_login_at = NOW(),
-                            expires_at = DATE_ADD(NOW(), INTERVAL 5 DAY)
-                        WHERE id = ?
-                        AND status = 'Active'
-                        AND first_login_at IS NULL
+                        SELECT
+                            MIN(first_login_at) AS shared_first_login,
+                            MIN(expires_at) AS shared_expires_at
+                        FROM demo_users
+                        WHERE username IN ('user', 'customer', 'agent')
+                          AND first_login_at IS NOT NULL
                     ");
 
-                    $stmt->execute([
-                        (int) $demoUser['id']
-                    ]);
+                    $stmt->execute();
+
+                    $sharedPeriod = $stmt->fetch(PDO::FETCH_ASSOC);
 
 
                     /*
                     |--------------------------------------------------------------------------
-                    | Reload Updated Account
+                    | Start the shared Demo period if nobody has logged in yet
+                    |--------------------------------------------------------------------------
+                    */
+
+                    if (empty($sharedPeriod['shared_first_login'])) {
+
+                        $stmt = $pdo->prepare("
+                            UPDATE demo_users
+                            SET
+                                first_login_at = NOW(),
+                                expires_at = DATE_ADD(NOW(), INTERVAL 5 DAY)
+                            WHERE username IN ('user', 'customer', 'agent')
+                              AND status = 'Active'
+                        ");
+
+                        $stmt->execute();
+
+                    } else {
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | Shared Demo period already exists
+                        |--------------------------------------------------------------------------
+                        |
+                        | Synchronize all three accounts to the original
+                        | Demo start and expiry. Never extend the timer.
+                        |--------------------------------------------------------------------------
+                        */
+
+                        $sharedFirstLogin = $sharedPeriod['shared_first_login'];
+
+                        $sharedExpires = date(
+                            'Y-m-d H:i:s',
+                            strtotime($sharedFirstLogin . ' +5 days')
+                        );
+
+                        $stmt = $pdo->prepare("
+                            UPDATE demo_users
+                            SET
+                                first_login_at = ?,
+                                expires_at = ?
+                            WHERE username IN ('user', 'customer', 'agent')
+                        ");
+
+                        $stmt->execute([
+                            $sharedFirstLogin,
+                            $sharedExpires
+                        ]);
+                    }
+
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Reload the logged-in account with the shared values
                     |--------------------------------------------------------------------------
                     */
 
@@ -256,92 +247,112 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     $demoUser = $stmt->fetch(PDO::FETCH_ASSOC);
 
-
                     if (!$demoUser) {
-
-                        $error =
-                            'Unable to start the demo account. Please try again.';
-
+                        $error = $genericError;
                     }
-
                 }
 
 
                 /*
                 |--------------------------------------------------------------------------
-                | Create Demo Session
+                | Shared Expiration Check
+                |--------------------------------------------------------------------------
+                |
+                | When the shared 5-day period expires, ALL THREE fixed
+                | Demo accounts are marked Expired together.
                 |--------------------------------------------------------------------------
                 */
 
-                if ($error === '') {
+                if ($error === '' && !empty($demoUser['expires_at'])) {
 
-                    /*
-                    |--------------------------------------------------------------------------
-                    | Final Expiration Check
-                    |--------------------------------------------------------------------------
-                    */
-
-                    if (
-                        !empty($demoUser['expires_at'])
-                        && strtotime($demoUser['expires_at']) <= time()
-                    ) {
+                    if (strtotime($demoUser['expires_at']) <= time()) {
 
                         $stmt = $pdo->prepare("
                             UPDATE demo_users
                             SET status = 'Expired'
-                            WHERE id = ?
+                            WHERE username IN ('user', 'customer', 'agent')
                         ");
 
-                        $stmt->execute([
-                            (int) $demoUser['id']
-                        ]);
+                        $stmt->execute();
 
-
-                        $error =
-                            'This demo account has expired.';
-
+                        $error = $genericError;
                     }
-
                 }
 
 
                 /*
                 |--------------------------------------------------------------------------
-                | Successful Login
+                | Successful Demo Login
                 |--------------------------------------------------------------------------
                 */
 
                 if ($error === '') {
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | Prevent Session Fixation
-                    |--------------------------------------------------------------------------
-                    */
 
                     session_regenerate_id(true);
 
 
                     /*
                     |--------------------------------------------------------------------------
-                    | Store Demo Session
+                    | Clear ONLY Demo Sessions
+                    |--------------------------------------------------------------------------
+                    |
+                    | IMPORTANT:
+                    | Normal $_SESSION['user'], $_SESSION['customer'],
+                    | and $_SESSION['agent'] are NOT touched.
                     |--------------------------------------------------------------------------
                     */
 
-                    $_SESSION['demo_user'] = $demoUser;
+                    unset(
+                        $_SESSION['demo_user'],
+                        $_SESSION['demo_customer'],
+                        $_SESSION['demo_agent']
+                    );
 
 
                     /*
                     |--------------------------------------------------------------------------
-                    | Redirect
+                    | Create Isolated Demo Session
                     |--------------------------------------------------------------------------
                     */
 
-                    header('Location: ?page=demo-dashboard');
-                    exit;
+                    if ($demoUser['role'] === 'admin') {
 
+                        $_SESSION['demo_user'] = $demoUser;
+
+                        header(
+                            'Location: ?page=demo-dashboard'
+                        );
+
+                        exit;
+
+                    } elseif (
+                        $demoUser['role'] === 'customer'
+                    ) {
+
+                        $_SESSION['demo_customer'] = $demoUser;
+
+                        header(
+                            'Location: ?page=demo-customer-dashboard'
+                        );
+
+                        exit;
+
+                    } elseif (
+                        $demoUser['role'] === 'agent'
+                    ) {
+
+                        $_SESSION['demo_agent'] = $demoUser;
+
+                        header(
+                            'Location: ?page=demo-agent-dashboard'
+                        );
+
+                        exit;
+                    }
+
+
+                    $error = $genericError;
                 }
-
             }
 
         } catch (PDOException $e) {
@@ -351,27 +362,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 . $e->getMessage()
             );
 
-            $error =
-                'Unable to process the demo login right now. '
-                . 'Please try again later.';
-
+            $error = $genericError;
         }
-
     }
-
 }
 
-
-/*
-|--------------------------------------------------------------------------
-| Public Header
-|--------------------------------------------------------------------------
-*/
 
 require dirname(__DIR__) . '/layouts/header-public.php';
 
 ?>
-
 
 <div class="row justify-content-center mt-5">
 
@@ -382,34 +381,89 @@ require dirname(__DIR__) . '/layouts/header-public.php';
             <div class="card-body">
 
                 <h2 class="mb-2 text-center">
-
                     🖥 Demo Login
-
                 </h2>
 
-
                 <p class="text-muted text-center mb-4">
-
                     Sign in using the demo credentials provided to you.
-
                 </p>
-
 
                 <?php if ($error !== ''): ?>
 
                     <div class="alert alert-danger">
-
                         <?= htmlspecialchars($error) ?>
-
                     </div>
 
                 <?php endif; ?>
-
 
                 <form
                     method="POST"
                     action="?page=demo-login"
                     autocomplete="off">
+
+                    <!-- ====================================================
+                         USER TYPE
+                         ==================================================== -->
+
+                    <div class="mb-3">
+
+                        <label
+                            for="user_type"
+                            class="form-label">
+
+                            User Type
+
+                        </label>
+
+                        <select
+                            class="form-select"
+                            id="user_type"
+                            name="user_type"
+                            required>
+
+                            <option
+                                value=""
+                                <?= $userType === ''
+                                    ? 'selected'
+                                    : '' ?>>
+
+                                Select User Type
+
+                            </option>
+
+                            <option
+                                value="admin"
+                                <?= $userType === 'admin'
+                                    ? 'selected'
+                                    : '' ?>>
+
+                                Admin
+
+                            </option>
+
+                            <option
+                                value="customer"
+                                <?= $userType === 'customer'
+                                    ? 'selected'
+                                    : '' ?>>
+
+                                Customer
+
+                            </option>
+
+                            <option
+                                value="agent"
+                                <?= $userType === 'agent'
+                                    ? 'selected'
+                                    : '' ?>>
+
+                                Agent
+
+                            </option>
+
+                        </select>
+
+                    </div>
 
 
                     <!-- ====================================================
@@ -474,17 +528,22 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 
                         <br><br>
 
-                        Your demo account is temporary.
+                        Your demo access is temporary.
 
                         <br><br>
 
-                        The 5-day demo period begins after your
-                        first successful login.
+                        The 5-day demo period begins after the first
+                        successful login for the selected demo account.
 
                         <br><br>
 
-                        Demo data is separate from normal customer,
-                        agent, and administrator accounts.
+                        All three demo accounts share the same
+                        expiration date.
+
+                        <br><br>
+
+                        Demo accounts are separate from normal
+                        customer, agent, and administrator accounts.
 
                     </div>
 
@@ -500,6 +559,7 @@ require dirname(__DIR__) . '/layouts/header-public.php';
                         Sign In to Demo
 
                     </button>
+
 
                     <div class="text-center mt-3">
 
@@ -520,4 +580,8 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 </div>
 
 
-<?php require dirname(__DIR__) . '/layouts/footer.php'; ?>
+<?php
+
+require dirname(__DIR__) . '/layouts/footer.php';
+
+?>

@@ -2,8 +2,10 @@
 
 require_once APP_PATH . '/helpers/DateHelper.php';
 
-if (!isset($_SESSION['customer'])) {
-
+if (
+    !isset($_SESSION['customer']) &&
+    !isset($_SESSION['demo_customer'])
+) {
     header('Location: ?page=public-login');
     exit;
 }
@@ -12,9 +14,12 @@ require_once HELPER_PATH . '/meeting.php';
 require dirname(__DIR__) . '/layouts/header-customer.php';
 require_once HELPER_PATH . '/auth.php';
 
-$customerId = (int) $_SESSION['customer']['id'];
-
-$customerId = $_SESSION['customer']['id'];
+if (isset($_SESSION['demo_customer'])) {
+    $customerId = (int) $_SESSION['demo_customer']['id'];
+} else {
+    requireCustomerLogin();
+    $customerId = (int) $_SESSION['customer']['id'];
+}
 
 $stmt = $pdo->prepare("
     SELECT

@@ -70,10 +70,15 @@ switch ($page) {
         break;
 
     case 'demo-logout':
-        unset($_SESSION['demo_user']);
-        header('Location: ?page=demo-login');
-        exit;
 
+    unset(
+        $_SESSION['demo_user'],
+        $_SESSION['demo_customer'],
+        $_SESSION['demo_agent']
+    );
+
+    header('Location: ?page=demo-login');
+    exit;
     /*
     |--------------------------------------------------------------------------
     | Messages & Notifications
@@ -313,6 +318,14 @@ switch ($page) {
 
     case 'view-slip':
         require VIEW_PATH . '/admin/view-slip.php';
+        break;
+
+    case 'demo-customer-dashboard':
+    require VIEW_PATH . '/customer/demo-customer-dashboard.php';
+    break;
+
+    case 'demo-agent-dashboard':
+        require VIEW_PATH . '/agent/demo-agent-dashboard.php';
         break;
 
     /*

@@ -40,6 +40,28 @@ require_once CONFIG_PATH . '/database.php';
 |--------------------------------------------------------------------------
 | Demo Environment
 |--------------------------------------------------------------------------
+*/
+
+$host = strtolower($_SERVER['HTTP_HOST'] ?? '');
+
+if (strpos($host, 'demo.wahbibconsultancy.com') !== false) {
+
+    $demoEnvironment = 'demo';
+
+} elseif (strpos($host, 'dev.wahbibconsultancy.com') !== false) {
+
+    $demoEnvironment = 'dev';
+
+} else {
+
+    // Local development
+    $demoEnvironment = null;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Demo Environment
+|--------------------------------------------------------------------------
 |
 | DEV and DEMO use the same database.
 | Determine which site submitted the request.
@@ -195,72 +217,144 @@ if (
 
         } else {
 
+
             try {
 
-                $stmt = $pdo->prepare("
-    INSERT INTO demo_requests (
-        full_name,
-        email,
-        phone,
-        company_name,
-        explore_options,
-        environment,
-        status
-    )
-    VALUES (?, ?, ?, ?, ?, ?, 'Pending')
-");
+    /*
+    |--------------------------------------------------------------------------
+    | Detect Environment
+    |--------------------------------------------------------------------------
+    */
 
-                $stmt->execute([
-
-                    $fullName,
-                    $email,
-                    $phone !== '' ? $phone : null,
-                    $companyName !== '' ? $companyName : null,
-                    $exploreOptionsJson
-
-                ]);
+    $host = strtolower($_SERVER['HTTP_HOST'] ?? '');
 
 
-                /*
-                |--------------------------------------------------------------------------
-                | Success
-                |--------------------------------------------------------------------------
-                */
+    /*
+    |--------------------------------------------------------------------------
+    | DEV / DEMO
+    |--------------------------------------------------------------------------
+    |
+    | DEV and DEMO share a database and use the environment column.
+    |
+    */
 
-                $success =
-                    'Thank you! Your demo access request has been submitted. '
-                    . 'Your request will be reviewed before access is provided.';
+    if (
+        strpos($host, 'demo.wahbibconsultancy.com') !== false
+        || strpos($host, 'dev.wahbibconsultancy.com') !== false
+    ) {
+
+        $environment =
+            strpos($host, 'demo.wahbibconsultancy.com') !== false
+                ? 'demo'
+                : 'dev';
 
 
-                /*
-                |--------------------------------------------------------------------------
-                | Clear Form
-                |--------------------------------------------------------------------------
-                */
+        $stmt = $pdo->prepare("
+            INSERT INTO demo_requests (
+                full_name,
+                email,
+                phone,
+                company_name,
+                explore_options,
+                environment,
+                status
+            )
+            VALUES (
+                :full_name,
+                :email,
+                :phone,
+                :company_name,
+                :explore_options,
+                :environment,
+                'Pending'
+            )
+        ");
 
-                $fullName = '';
+        $stmt->execute([
+            ':full_name'       => $fullName,
+            ':email'           => $email,
+            ':phone'           => $phone !== '' ? $phone : null,
+            ':company_name'    => $companyName !== '' ? $companyName : null,
+            ':explore_options' => $exploreOptionsJson,
+            ':environment'     => $environment
+        ]);
 
-                $email = '';
+    } else {
 
-                $phone = '';
+        /*
+        |--------------------------------------------------------------------------
+        | LOCAL
+        |--------------------------------------------------------------------------
+        |
+        | Local database does NOT have the environment column.
+        |
+        */
 
-                $companyName = '';
+        $stmt = $pdo->prepare("
+            INSERT INTO demo_requests (
+                full_name,
+                email,
+                phone,
+                company_name,
+                explore_options,
+                status
+            )
+            VALUES (
+                :full_name,
+                :email,
+                :phone,
+                :company_name,
+                :explore_options,
+                'Pending'
+            )
+        ");
 
-                $selectedOptions = [];
+        $stmt->execute([
+            ':full_name'       => $fullName,
+            ':email'           => $email,
+            ':phone'           => $phone !== '' ? $phone : null,
+            ':company_name'    => $companyName !== '' ? $companyName : null,
+            ':explore_options' => $exploreOptionsJson
+        ]);
+    }
 
-            } catch (PDOException $e) {
 
-                error_log(
-                    'Demo request submission failed: '
-                    . $e->getMessage()
-                );
+    /*
+    |--------------------------------------------------------------------------
+    | Success
+    |--------------------------------------------------------------------------
+    */
 
-                $error =
-                    'We could not submit your demo request right now. '
-                    . 'Please try again later.';
+    $success =
+        'Thank you! Your demo access request has been submitted. '
+        . 'Your request will be reviewed before access is provided.';
 
-            }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Clear Form
+    |--------------------------------------------------------------------------
+    */
+
+    $fullName = '';
+    $email = '';
+    $phone = '';
+    $companyName = '';
+    $selectedOptions = [];
+
+
+} catch (Throwable $e) {
+
+    error_log(
+        'Demo request submission failed: '
+        . $e->getMessage()
+    );
+
+    $error =
+        'We could not submit your demo request right now. '
+        . 'Please try again later.';
+}
+          
         }
 
     }
