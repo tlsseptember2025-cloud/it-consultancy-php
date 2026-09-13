@@ -6,7 +6,12 @@ if (
     !isset($_SESSION['customer']) &&
     !isset($_SESSION['demo_customer'])
 ) {
-    header('Location: ?page=public-login');
+    if (!empty($_SESSION['demo_logged_out'])) {
+        header('Location: ?page=demo-login');
+    } else {
+        header('Location: ?page=public-login');
+    }
+
     exit;
 }
 

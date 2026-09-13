@@ -1,9 +1,15 @@
- <?php
+<?php
 
 $customerNotificationCount = 0;
 $customerNotifications = [];
 
-if (isset($_SESSION['customer'])) {
+if (isset($_SESSION['customer']) || isset($_SESSION['demo_customer'])) {
+
+    if (isset($_SESSION['demo_customer'])) {
+        $customerId = (int) $_SESSION['demo_customer']['id'];
+    } else {
+        $customerId = (int) $_SESSION['customer']['id'];
+    }
 
     $stmt = $pdo->prepare("
         SELECT COUNT(*)
@@ -14,7 +20,7 @@ if (isset($_SESSION['customer'])) {
     ");
 
     $stmt->execute([
-        (int) $_SESSION['customer']['id']
+        $customerId
     ]);
 
     $customerNotificationCount = (int) $stmt->fetchColumn();
@@ -30,11 +36,10 @@ if (isset($_SESSION['customer'])) {
     ");
 
     $stmt->execute([
-        (int) $_SESSION['customer']['id']
+        $customerId
     ]);
 
     $customerNotifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
 }
 
 ?>
@@ -45,7 +50,9 @@ if (isset($_SESSION['customer'])) {
 
         <a
             class="navbar-brand fw-bold"
-            href="?page=customer-dashboard"
+            href="<?= isset($_SESSION['demo_customer'])
+                ? '?page=demo-customer-dashboard'
+                : '?page=customer-dashboard' ?>"
             title="<?= COMPANY_TAGLINE ?>">
 
             <?= COMPANY_NAME ?>
@@ -70,6 +77,16 @@ if (isset($_SESSION['customer'])) {
             id="navbarNav">
 
             <ul class="navbar-nav ms-auto align-items-lg-center">
+
+                <?php if (isset($_SESSION['demo_customer'])): ?>
+
+                    <li class="nav-item">
+                        <span class="nav-link text-warning fw-semibold">
+                            Demo Customer
+                        </span>
+                    </li>
+
+                <?php endif; ?>
 
                 <!-- Requests -->
 
@@ -115,19 +132,19 @@ if (isset($_SESSION['customer'])) {
 
                 <!-- Profile -->
 
-                    <li class="nav-item">
+                <li class="nav-item">
 
-                        <a
-                            class="nav-link"
-                            href="?page=customer-profile">
+                    <a
+                        class="nav-link"
+                        href="?page=customer-profile">
 
-                            My Profile
+                        My Profile
 
-                        </a>
+                    </a>
 
-                    </li>
+                </li>
 
-                                <!-- Notifications -->
+                <!-- Notifications -->
 
                 <li class="nav-item dropdown">
 
@@ -181,17 +198,13 @@ if (isset($_SESSION['customer'])) {
                                         href="?page=customer-notifications">
 
                                         <strong>
-
                                             <?= htmlspecialchars($notification['title']) ?>
-
                                         </strong>
 
                                         <br>
 
                                         <small class="text-muted">
-
                                             <?= htmlspecialchars($notification['message']) ?>
-
                                         </small>
 
                                     </a>
@@ -199,9 +212,7 @@ if (isset($_SESSION['customer'])) {
                                 </li>
 
                                 <li>
-
                                     <hr class="dropdown-divider">
-
                                 </li>
 
                             <?php endforeach; ?>
@@ -230,7 +241,9 @@ if (isset($_SESSION['customer'])) {
 
                     <a
                         class="nav-link text-danger"
-                        href="?page=customer-logout">
+                        href="<?= isset($_SESSION['demo_customer'])
+                            ? '?page=demo-logout'
+                            : '?page=customer-logout' ?>">
 
                         Logout
 

@@ -1,14 +1,27 @@
 <?php
 
-if (!isset($_SESSION['customer'])) {
+if (
+    !isset($_SESSION['customer']) &&
+    !isset($_SESSION['demo_customer'])
+) {
+    if (!empty($_SESSION['demo_logged_out'])) {
+        header('Location: ?page=demo-login');
+    } else {
+        header('Location: ?page=public-login');
+    }
 
-    header('Location: ?page=public-login');
     exit;
 }
 
 require_once CONFIG_PATH . '/database.php';
 
-$customerId = (int) $_SESSION['customer']['id'];
+$isDemoCustomer = isset($_SESSION['demo_customer']);
+
+if ($isDemoCustomer) {
+    $customerId = (int) $_SESSION['demo_customer']['id'];
+} else {
+    $customerId = (int) $_SESSION['customer']['id'];
+}
 
 $stmt = $pdo->prepare("
     SELECT
@@ -27,16 +40,19 @@ $customer = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$customer) {
 
-    session_destroy();
+    if ($isDemoCustomer) {
+        unset($_SESSION['demo_customer']);
+        header('Location: ?page=demo-login');
+    } else {
+        unset($_SESSION['customer']);
+        header('Location: ?page=public-login');
+    }
 
-    header('Location: ?page=public-login');
     exit;
 }
 
-
 $error = null;
 $success = null;
-
 
 if (
     $_SERVER['REQUEST_METHOD'] === 'POST'
@@ -97,11 +113,16 @@ if (
             ]);
 
             /*
-             * Keep the session information synchronized
+             * Keep the correct session synchronized
              * with the database.
              */
-            $_SESSION['customer']['name'] = $name;
-            $_SESSION['customer']['email'] = $email;
+            if ($isDemoCustomer) {
+                $_SESSION['demo_customer']['name'] = $name;
+                $_SESSION['demo_customer']['email'] = $email;
+            } else {
+                $_SESSION['customer']['name'] = $name;
+                $_SESSION['customer']['email'] = $email;
+            }
 
             $customer['name'] = $name;
             $customer['email'] = $email;
@@ -128,7 +149,6 @@ require VIEW_PATH . '/layouts/header-customer.php';
 
         </div>
 
-
         <div class="card-body">
 
             <?php if ($success): ?>
@@ -141,7 +161,6 @@ require VIEW_PATH . '/layouts/header-customer.php';
 
             <?php endif; ?>
 
-
             <?php if ($error): ?>
 
                 <div class="alert alert-danger">
@@ -151,7 +170,6 @@ require VIEW_PATH . '/layouts/header-customer.php';
                 </div>
 
             <?php endif; ?>
-
 
             <form method="POST">
 
@@ -169,7 +187,6 @@ require VIEW_PATH . '/layouts/header-customer.php';
                         required>
 
                 </div>
-
 
                 <div class="mb-3">
 
@@ -190,7 +207,6 @@ require VIEW_PATH . '/layouts/header-customer.php';
 
                 </div>
 
-
                 <div class="mb-4">
 
                     <label class="form-label fw-bold">
@@ -201,11 +217,9 @@ require VIEW_PATH . '/layouts/header-customer.php';
                         type="text"
                         name="phone"
                         class="form-control"
-                        value="<?= htmlspecialchars($customer['phone'] ?? '') ?>"
-                        >
+                        value="<?= htmlspecialchars($customer['phone'] ?? '') ?>">
 
                 </div>
-
 
                 <button
                     type="submit"
@@ -218,9 +232,7 @@ require VIEW_PATH . '/layouts/header-customer.php';
 
             </form>
 
-
             <hr class="my-4">
-
 
             <div class="d-flex justify-content-between align-items-center">
 
@@ -236,7 +248,6 @@ require VIEW_PATH . '/layouts/header-customer.php';
 
                 </div>
 
-
                 <a
                     href="?page=customer-forgot-password"
                     class="btn btn-primary">
@@ -247,11 +258,12 @@ require VIEW_PATH . '/layouts/header-customer.php';
 
             </div>
 
-
             <div class="mt-4">
 
                 <a
-                    href="?page=customer-dashboard"
+                    href="<?= $isDemoCustomer
+                        ? '?page=demo-customer-dashboard'
+                        : '?page=customer-dashboard' ?>"
                     class="btn btn-secondary">
 
                     ← Back

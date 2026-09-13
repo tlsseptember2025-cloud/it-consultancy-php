@@ -15,7 +15,7 @@ if (!isset($_SESSION['demo_customer'])) {
 
 $demoCustomer = $_SESSION['demo_customer'];
 
-require VIEW_PATH . '/layouts/header-public.php';
+require VIEW_PATH . '/layouts/header-customer.php';
 
 ?>
 
@@ -39,12 +39,6 @@ require VIEW_PATH . '/layouts/header-public.php';
                 </strong>
             </p>
         </div>
-
-        <a
-            href="?page=demo-logout"
-            class="btn btn-outline-danger">
-            Logout
-        </a>
 
     </div>
 

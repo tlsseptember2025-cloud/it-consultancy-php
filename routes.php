@@ -71,6 +71,8 @@ switch ($page) {
 
     case 'demo-logout':
 
+    $_SESSION['demo_logged_out'] = true;
+
     unset(
         $_SESSION['demo_user'],
         $_SESSION['demo_customer'],
