@@ -66,6 +66,289 @@ function sendEmail(
 
 }
 
+/*
+|--------------------------------------------------------------------------
+| Demo Credentials Email
+|--------------------------------------------------------------------------
+*/
+
+function sendDemoCredentialsEmail(
+    string $to,
+    string $name,
+    string $companyName,
+    string $adminUsername,
+    string $adminPassword,
+    string $customerUsername,
+    string $customerPassword,
+    string $agentUsername,
+    string $agentPassword,
+    string $loginLink
+): bool {
+
+    $subject = 'Your Demo Portal Credentials';
+
+    $safeName = htmlspecialchars(
+        $name,
+        ENT_QUOTES,
+        'UTF-8'
+    );
+
+    $safeCompany = htmlspecialchars(
+        $companyName,
+        ENT_QUOTES,
+        'UTF-8'
+    );
+
+    $safeAdminUsername = htmlspecialchars(
+        $adminUsername,
+        ENT_QUOTES,
+        'UTF-8'
+    );
+
+    $safeCustomerUsername = htmlspecialchars(
+        $customerUsername,
+        ENT_QUOTES,
+        'UTF-8'
+    );
+
+    $safeAgentUsername = htmlspecialchars(
+        $agentUsername,
+        ENT_QUOTES,
+        'UTF-8'
+    );
+
+    $safeLoginLink = htmlspecialchars(
+        $loginLink,
+        ENT_QUOTES,
+        'UTF-8'
+    );
+
+    $body = "
+        <html>
+        <body>
+
+            <h2>Hello {$safeName},</h2>
+
+            <p>
+                Your business email has been verified and your
+                private Demo workspace has now been created.
+            </p>
+
+            " . (
+                $safeCompany !== ''
+                    ? "<p><strong>Company:</strong> {$safeCompany}</p>"
+                    : ''
+            ) . "
+
+            <p>
+                Your workspace contains three separate Demo roles:
+                <strong>Admin</strong>, <strong>Customer</strong>,
+                and <strong>Agent</strong>.
+            </p>
+
+            <table
+                cellpadding='8'
+                cellspacing='0'
+                border='1'
+                style='
+                    border-collapse:collapse;
+                    width:100%;
+                    max-width:650px;
+                '>
+
+                <thead>
+                    <tr>
+                        <th align='left'>User Type</th>
+                        <th align='left'>Username</th>
+                        <th align='left'>Temporary Password</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    <tr>
+                        <td><strong>Admin</strong></td>
+                        <td>{$safeAdminUsername}</td>
+                        <td>{$adminPassword}</td>
+                    </tr>
+
+                    <tr>
+                        <td><strong>Customer</strong></td>
+                        <td>{$safeCustomerUsername}</td>
+                        <td>{$customerPassword}</td>
+                    </tr>
+
+                    <tr>
+                        <td><strong>Agent</strong></td>
+                        <td>{$safeAgentUsername}</td>
+                        <td>{$agentPassword}</td>
+                    </tr>
+
+                </tbody>
+
+            </table>
+
+            <br>
+
+            <p>
+                <strong>Demo Login:</strong>
+                <a href='{$safeLoginLink}'>
+                    Open Demo Login
+                </a>
+            </p>
+
+            <p>
+                Your Demo period is shared across all three accounts
+                and begins when the first Demo account successfully
+                logs in.
+            </p>
+
+            <p>
+                These are temporary passwords. You will be required
+                to change your password when you first sign in.
+            </p>
+
+            <p>
+                Demo access is temporary. The Demo workspace,
+                accounts, and temporary Demo data will be removed
+                after the Demo period expires.
+            </p>
+
+            <p>
+                Please keep these credentials secure and do not share
+                them outside your organization.
+            </p>
+
+            <p>
+                Kind Regards,<br>
+                <strong>IT Consultancy Team</strong>
+            </p>
+
+        </body>
+        </html>
+    ";
+
+    $plainText = "
+Hello {$name},
+
+Your business email has been verified and your private Demo workspace has now been created.
+
+Company: {$companyName}
+
+DEMO CREDENTIALS
+
+Admin
+Username: {$adminUsername}
+Temporary Password: {$adminPassword}
+
+Customer
+Username: {$customerUsername}
+Temporary Password: {$customerPassword}
+
+Agent
+Username: {$agentUsername}
+Temporary Password: {$agentPassword}
+
+Demo Login:
+{$loginLink}
+
+Your Demo period is shared across all three accounts and begins when the first Demo account successfully logs in.
+
+These are temporary passwords. You will be required to change your password when you first sign in.
+
+Kind Regards,
+IT Consultancy Team
+";
+
+    $config = require dirname(__DIR__, 2) . '/config/mail_config.php';
+
+    $mail = new PHPMailer(true);
+
+    try {
+
+        $mail->isSMTP();
+
+        $mail->Host = $config['host'];
+        $mail->SMTPAuth = true;
+
+        $mail->Username = $config['username'];
+        $mail->Password = $config['password'];
+
+        $mail->Port = $config['port'];
+        $mail->SMTPSecure =
+            PHPMailer::ENCRYPTION_STARTTLS;
+
+        $mail->CharSet = 'UTF-8';
+        $mail->Encoding = 'base64';
+
+        /*
+        |--------------------------------------------------------------------------
+        | Force a fresh SMTP message
+        |--------------------------------------------------------------------------
+        */
+
+        $mail->SMTPKeepAlive = false;
+
+        $mail->setFrom(
+            $config['username'],
+            $config['from_name']
+        );
+
+        $mail->addAddress($to);
+
+        /*
+        |--------------------------------------------------------------------------
+        | HTML + Plain Text
+        |--------------------------------------------------------------------------
+        */
+
+        $mail->isHTML(true);
+
+        $mail->Subject = $subject;
+        $mail->Body = $body;
+        $mail->AltBody = $plainText;
+
+        /*
+        |--------------------------------------------------------------------------
+        | Useful Demo headers
+        |--------------------------------------------------------------------------
+        */
+
+        $mail->addCustomHeader(
+            'X-Demo-Email',
+            'credentials'
+        );
+
+        $mail->addCustomHeader(
+            'X-Demo-Credentials',
+            'temporary'
+        );
+
+        $mail->send();
+
+        error_log(
+            'DEMO CREDENTIALS EMAIL SENT'
+            . ' | TO=' . $to
+            . ' | SUBJECT=' . $subject
+            . ' | MESSAGE_ID=' . $mail->getLastMessageID()
+        );
+
+        return true;
+
+    } catch (Exception $e) {
+
+        error_log(
+            'DEMO CREDENTIALS EMAIL FAILED'
+            . ' | TO=' . $to
+            . ' | SUBJECT=' . $subject
+            . ' | ERROR=' . $mail->ErrorInfo
+            . ' | EXCEPTION=' . $e->getMessage()
+        );
+
+        return false;
+    }
+}
+
 function sendConsultationApprovedEmail($email, $name)
 {
     $subject = 'Consultation Confirmed';

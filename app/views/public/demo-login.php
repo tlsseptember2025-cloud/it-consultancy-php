@@ -4,14 +4,123 @@
 |--------------------------------------------------------------------------
 | DEMO LOGIN
 |--------------------------------------------------------------------------
-| Separate authentication for temporary demo accounts.
+| Separate authentication for temporary Demo accounts.
 |
-| Fixed demo accounts:
-|   user     = Admin
-|   customer = Customer
-|   agent    = Agent
+| Each approved Demo request owns one isolated workspace containing:
+|   - Admin
+|   - Customer
+|   - Agent
 |
-| Demo sessions are completely separate from normal application sessions.
+| The 5-day Demo period is shared by all three accounts in that workspace.
+| The temporary password must be changed on first successful login.
+|--------------------------------------------------------------------------
+*/
+
+require_once CONFIG_PATH . '/database.php';
+
+$genericError =
+    'Unable to sign in. Please check your credentials and try again.';
+
+$error = '';
+$username = '';
+$userType = '';
+
+/*
+|--------------------------------------------------------------------------
+| Helper: redirect an already authenticated Demo session
+|--------------------------------------------------------------------------
+*/
+
+function redirectExistingDemoSession(PDO $pdo): void
+{
+    $sessions = [
+        'demo_user'     => 'demo-dashboard',
+        'demo_customer' => 'demo-customer-dashboard',
+        'demo_agent'    => 'demo-agent-dashboard'
+    ];
+
+    foreach ($sessions as $sessionKey => $dashboardPage) {
+
+        if (!isset($_SESSION[$sessionKey])) {
+            continue;
+        }
+
+        $demoUserId = (int) ($_SESSION[$sessionKey]['id'] ?? 0);
+
+        if ($demoUserId <= 0) {
+            unset($_SESSION[$sessionKey]);
+            continue;
+        }
+
+        $stmt = $pdo->prepare("
+            SELECT *
+            FROM demo_users
+            WHERE id = ?
+            LIMIT 1
+        ");
+
+        $stmt->execute([$demoUserId]);
+        $demoUser = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$demoUser || $demoUser['status'] !== 'Active') {
+            unset($_SESSION[$sessionKey]);
+            $_SESSION['demo_logged_out'] = true;
+            header('Location: ?page=demo-login');
+            exit;
+        }
+
+        if (
+            !empty($demoUser['expires_at'])
+            && strtotime($demoUser['expires_at']) <= time()
+        ) {
+            if (!empty($demoUser['workspace_id'])) {
+                $stmt = $pdo->prepare("
+                    UPDATE demo_users
+                    SET status = 'Expired'
+                    WHERE workspace_id = ?
+                      AND status = 'Active'
+                ");
+                $stmt->execute([(int) $demoUser['workspace_id']]);
+
+                $stmt = $pdo->prepare("
+                    UPDATE demo_workspaces
+                    SET
+                        status = 'Expired',
+                        expired_at = COALESCE(expired_at, NOW())
+                    WHERE id = ?
+                ");
+                $stmt->execute([(int) $demoUser['workspace_id']]);
+            } else {
+                $stmt = $pdo->prepare("
+                    UPDATE demo_users
+                    SET status = 'Expired'
+                    WHERE id = ?
+                ");
+                $stmt->execute([$demoUserId]);
+            }
+
+            unset($_SESSION[$sessionKey]);
+            $_SESSION['demo_logged_out'] = true;
+            header('Location: ?page=demo-login');
+            exit;
+        }
+
+        /* Keep the session synchronized with the database. */
+        $_SESSION[$sessionKey] = $demoUser;
+
+        if ((int) $demoUser['must_change_password'] === 1) {
+            header('Location: ?page=demo-change-password');
+            exit;
+        }
+
+        header('Location: ?page=' . $dashboardPage);
+        exit;
+    }
+}
+
+/*
+|--------------------------------------------------------------------------
+| Normal accounts are not allowed to enter the Demo login page.
 |--------------------------------------------------------------------------
 */
 
@@ -30,46 +139,19 @@ if (isset($_SESSION['agent'])) {
     exit;
 }
 
-if (isset($_SESSION['demo_user'])) {
-    header('Location: ?page=demo-dashboard');
-    exit;
+try {
+    redirectExistingDemoSession($pdo);
+} catch (PDOException $e) {
+    error_log(
+        'Demo session check failed: ' . $e->getMessage()
+    );
 }
-
-if (isset($_SESSION['demo_customer'])) {
-    header('Location: ?page=demo-customer-dashboard');
-    exit;
-}
-
-if (isset($_SESSION['demo_agent'])) {
-    header('Location: ?page=demo-agent-dashboard');
-    exit;
-}
-
-require_once CONFIG_PATH . '/database.php';
-
-$error = '';
-$username = '';
-$userType = '';
-
-$genericError =
-    'Unable to sign in. Please check your credentials and try again.';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $username = trim($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
     $userType = $_POST['user_type'] ?? '';
-
-    /*
-    |--------------------------------------------------------------------------
-    | User Type -> Database Role
-    |--------------------------------------------------------------------------
-    |
-    | Admin     -> admin
-    | Customer  -> customer
-    | Agent     -> agent
-    |--------------------------------------------------------------------------
-    */
 
     $roleMap = [
         'admin'    => 'admin',
@@ -84,38 +166,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         || $password === ''
         || $selectedRole === null
     ) {
-
         $error = $genericError;
-
     } else {
 
         try {
-
             /*
-            |--------------------------------------------------------------------------
-            | Find Demo Account
-            |--------------------------------------------------------------------------
+            |------------------------------------------------------------------
+            | Find the Demo account
+            |------------------------------------------------------------------
             */
 
             $stmt = $pdo->prepare("
                 SELECT *
                 FROM demo_users
                 WHERE username = ?
+                  AND role = ?
                 LIMIT 1
             ");
 
-            $stmt->execute([
-                $username
-            ]);
-
+            $stmt->execute([$username, $selectedRole]);
             $demoUser = $stmt->fetch(PDO::FETCH_ASSOC);
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | Verify Username + Password + Role
-            |--------------------------------------------------------------------------
-            */
 
             if (
                 !$demoUser
@@ -125,89 +195,127 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 )
                 || $demoUser['role'] !== $selectedRole
             ) {
-
                 $error = $genericError;
-
             } else {
-
-                /*
-                |--------------------------------------------------------------------------
-                | Shared Demo 5-Day Period
-                |--------------------------------------------------------------------------
-                |
-                | Whichever of the three fixed Demo accounts logs in FIRST
-                | starts the Demo period. That exact first-login time and
-                | expiration time are then shared by ALL THREE accounts.
-                |
-                | Later logins NEVER reset or extend the 5-day period.
-                |--------------------------------------------------------------------------
-                */
 
                 if ($demoUser['status'] !== 'Active') {
                     $error = $genericError;
                 }
 
-                if ($error === '') {
+                /*
+                |--------------------------------------------------------------
+                | Check current expiration.
+                |--------------------------------------------------------------
+                */
 
-                    /*
-                    |--------------------------------------------------------------------------
-                    | Find the existing shared Demo period
-                    |--------------------------------------------------------------------------
-                    |
-                    | MIN() lets us recover safely if older test data has
-                    | different first_login_at / expires_at values.
-                    | The earliest recorded first login becomes the shared
-                    | Demo start time.
-                    |--------------------------------------------------------------------------
-                    */
+                if (
+                    $error === ''
+                    && !empty($demoUser['expires_at'])
+                    && strtotime($demoUser['expires_at']) <= time()
+                ) {
+                    if (!empty($demoUser['workspace_id'])) {
+                        $stmt = $pdo->prepare("
+                            UPDATE demo_users
+                            SET status = 'Expired'
+                            WHERE workspace_id = ?
+                              AND status = 'Active'
+                        ");
+                        $stmt->execute([
+                            (int) $demoUser['workspace_id']
+                        ]);
+
+                        $stmt = $pdo->prepare("
+                            UPDATE demo_workspaces
+                            SET
+                                status = 'Expired',
+                                expired_at = COALESCE(expired_at, NOW())
+                            WHERE id = ?
+                        ");
+                        $stmt->execute([
+                            (int) $demoUser['workspace_id']
+                        ]);
+                    } else {
+                        $stmt = $pdo->prepare("
+                            UPDATE demo_users
+                            SET status = 'Expired'
+                            WHERE id = ?
+                        ");
+                        $stmt->execute([
+                            (int) $demoUser['id']
+                        ]);
+                    }
+
+                    $error = $genericError;
+                }
+
+                /*
+                |--------------------------------------------------------------
+                | Start the shared 5-day period for this workspace.
+                |--------------------------------------------------------------
+                |
+                | Whichever Demo role logs in first starts the workspace timer.
+                | The other two roles use exactly the same timer.
+                |--------------------------------------------------------------
+                */
+
+                if (
+                    $error === ''
+                    && !empty($demoUser['workspace_id'])
+                ) {
+                    $workspaceId = (int) $demoUser['workspace_id'];
 
                     $stmt = $pdo->prepare("
                         SELECT
                             MIN(first_login_at) AS shared_first_login,
                             MIN(expires_at) AS shared_expires_at
                         FROM demo_users
-                        WHERE username IN ('user', 'customer', 'agent')
+                        WHERE workspace_id = ?
+                          AND status = 'Active'
                           AND first_login_at IS NOT NULL
                     ");
 
-                    $stmt->execute();
-
+                    $stmt->execute([$workspaceId]);
                     $sharedPeriod = $stmt->fetch(PDO::FETCH_ASSOC);
 
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | Start the shared Demo period if nobody has logged in yet
-                    |--------------------------------------------------------------------------
-                    */
-
                     if (empty($sharedPeriod['shared_first_login'])) {
+                        $firstLoginAt = date('Y-m-d H:i:s');
+                        $expiresAt = date(
+                            'Y-m-d H:i:s',
+                            strtotime($firstLoginAt . ' +5 days')
+                        );
 
                         $stmt = $pdo->prepare("
                             UPDATE demo_users
                             SET
-                                first_login_at = NOW(),
-                                expires_at = DATE_ADD(NOW(), INTERVAL 5 DAY)
-                            WHERE username IN ('user', 'customer', 'agent')
+                                first_login_at = ?,
+                                expires_at = ?
+                            WHERE workspace_id = ?
                               AND status = 'Active'
                         ");
 
-                        $stmt->execute();
+                        $stmt->execute([
+                            $firstLoginAt,
+                            $expiresAt,
+                            $workspaceId
+                        ]);
 
+                        $stmt = $pdo->prepare("
+                            UPDATE demo_workspaces
+                            SET
+                                status = 'Active',
+                                started_at = ?,
+                                expires_at = ?
+                            WHERE id = ?
+                              AND status IN ('Pending', 'Active')
+                        ");
+
+                        $stmt->execute([
+                            $firstLoginAt,
+                            $expiresAt,
+                            $workspaceId
+                        ]);
                     } else {
-
-                        /*
-                        |--------------------------------------------------------------------------
-                        | Shared Demo period already exists
-                        |--------------------------------------------------------------------------
-                        |
-                        | Synchronize all three accounts to the original
-                        | Demo start and expiry. Never extend the timer.
-                        |--------------------------------------------------------------------------
-                        */
-
                         $sharedFirstLogin = $sharedPeriod['shared_first_login'];
-
                         $sharedExpires = date(
                             'Y-m-d H:i:s',
                             strtotime($sharedFirstLogin . ' +5 days')
@@ -218,22 +326,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             SET
                                 first_login_at = ?,
                                 expires_at = ?
-                            WHERE username IN ('user', 'customer', 'agent')
+                            WHERE workspace_id = ?
+                              AND status = 'Active'
                         ");
 
                         $stmt->execute([
                             $sharedFirstLogin,
-                            $sharedExpires
+                            $sharedExpires,
+                            $workspaceId
+                        ]);
+
+                        $stmt = $pdo->prepare("
+                            UPDATE demo_workspaces
+                            SET
+                                status = 'Active',
+                                started_at = COALESCE(started_at, ?),
+                                expires_at = ?
+                            WHERE id = ?
+                              AND status IN ('Pending', 'Active')
+                        ");
+
+                        $stmt->execute([
+                            $sharedFirstLogin,
+                            $sharedExpires,
+                            $workspaceId
                         ]);
                     }
 
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | Reload the logged-in account with the shared values
-                    |--------------------------------------------------------------------------
-                    */
-
+                    /* Reload after workspace synchronization. */
                     $stmt = $pdo->prepare("
                         SELECT *
                         FROM demo_users
@@ -252,55 +372,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
 
-
                 /*
-                |--------------------------------------------------------------------------
-                | Shared Expiration Check
-                |--------------------------------------------------------------------------
-                |
-                | When the shared 5-day period expires, ALL THREE fixed
-                | Demo accounts are marked Expired together.
-                |--------------------------------------------------------------------------
+                |--------------------------------------------------------------
+                | Final expiration check after starting/synchronizing timer.
+                |--------------------------------------------------------------
                 */
 
-                if ($error === '' && !empty($demoUser['expires_at'])) {
-
-                    if (strtotime($demoUser['expires_at']) <= time()) {
-
+                if (
+                    $error === ''
+                    && !empty($demoUser['expires_at'])
+                    && strtotime($demoUser['expires_at']) <= time()
+                ) {
+                    if (!empty($demoUser['workspace_id'])) {
                         $stmt = $pdo->prepare("
                             UPDATE demo_users
                             SET status = 'Expired'
-                            WHERE username IN ('user', 'customer', 'agent')
+                            WHERE workspace_id = ?
+                              AND status = 'Active'
                         ");
+                        $stmt->execute([
+                            (int) $demoUser['workspace_id']
+                        ]);
 
-                        $stmt->execute();
-
-                        $error = $genericError;
+                        $stmt = $pdo->prepare("
+                            UPDATE demo_workspaces
+                            SET
+                                status = 'Expired',
+                                expired_at = COALESCE(expired_at, NOW())
+                            WHERE id = ?
+                        ");
+                        $stmt->execute([
+                            (int) $demoUser['workspace_id']
+                        ]);
                     }
+
+                    $error = $genericError;
                 }
 
-
                 /*
-                |--------------------------------------------------------------------------
-                | Successful Demo Login
-                |--------------------------------------------------------------------------
+                |--------------------------------------------------------------
+                | Successful Demo login
+                |--------------------------------------------------------------
                 */
 
                 if ($error === '') {
+                    unset($_SESSION['demo_logged_out']);
 
                     session_regenerate_id(true);
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | Clear ONLY Demo Sessions
-                    |--------------------------------------------------------------------------
-                    |
-                    | IMPORTANT:
-                    | Normal $_SESSION['user'], $_SESSION['customer'],
-                    | and $_SESSION['agent'] are NOT touched.
-                    |--------------------------------------------------------------------------
-                    */
 
                     unset(
                         $_SESSION['demo_user'],
@@ -308,58 +426,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $_SESSION['demo_agent']
                     );
 
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | Create Isolated Demo Session
-                    |--------------------------------------------------------------------------
-                    */
-
                     if ($demoUser['role'] === 'admin') {
-
                         $_SESSION['demo_user'] = $demoUser;
-
-                        header(
-                            'Location: ?page=demo-dashboard'
-                        );
-
-                        exit;
-
-                    } elseif (
-                        $demoUser['role'] === 'customer'
-                    ) {
-
+                    } elseif ($demoUser['role'] === 'customer') {
                         $_SESSION['demo_customer'] = $demoUser;
-
-                        header(
-                            'Location: ?page=demo-customer-dashboard'
-                        );
-
-                        exit;
-
-                    } elseif (
-                        $demoUser['role'] === 'agent'
-                    ) {
-
+                    } elseif ($demoUser['role'] === 'agent') {
                         $_SESSION['demo_agent'] = $demoUser;
-
-                        header(
-                            'Location: ?page=demo-agent-dashboard'
-                        );
-
-                        exit;
+                    } else {
+                        $error = $genericError;
                     }
 
+                    if ($error === '') {
+                        if ((int) $demoUser['must_change_password'] === 1) {
+                            header('Location: ?page=demo-change-password');
+                            exit;
+                        }
 
-                    $error = $genericError;
+                        if ($demoUser['role'] === 'admin') {
+                            header('Location: ?page=demo-dashboard');
+                        } elseif ($demoUser['role'] === 'customer') {
+                            header('Location: ?page=demo-customer-dashboard');
+                        } else {
+                            header('Location: ?page=demo-agent-dashboard');
+                        }
+                        exit;
+                    }
                 }
             }
 
         } catch (PDOException $e) {
-
             error_log(
-                'Demo login failed: '
-                . $e->getMessage()
+                'Demo login failed: ' . $e->getMessage()
             );
 
             $error = $genericError;
@@ -367,13 +464,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-
 require dirname(__DIR__) . '/layouts/header-public.php';
 
 ?>
 
 <div class="row justify-content-center mt-5">
-
     <div class="col-lg-5 col-md-6">
 
         <div class="card shadow-sm">
@@ -385,15 +480,13 @@ require dirname(__DIR__) . '/layouts/header-public.php';
                 </h2>
 
                 <p class="text-muted text-center mb-4">
-                    Sign in using the demo credentials provided to you.
+                    Sign in using the Demo credentials provided to you.
                 </p>
 
                 <?php if ($error !== ''): ?>
-
                     <div class="alert alert-danger">
                         <?= htmlspecialchars($error) ?>
                     </div>
-
                 <?php endif; ?>
 
                 <form
@@ -401,18 +494,11 @@ require dirname(__DIR__) . '/layouts/header-public.php';
                     action="?page=demo-login"
                     autocomplete="off">
 
-                    <!-- ====================================================
-                         USER TYPE
-                         ==================================================== -->
-
                     <div class="mb-3">
-
                         <label
                             for="user_type"
                             class="form-label">
-
                             User Type
-
                         </label>
 
                         <select
@@ -423,61 +509,36 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 
                             <option
                                 value=""
-                                <?= $userType === ''
-                                    ? 'selected'
-                                    : '' ?>>
-
+                                <?= $userType === '' ? 'selected' : '' ?>>
                                 Select User Type
-
                             </option>
 
                             <option
                                 value="admin"
-                                <?= $userType === 'admin'
-                                    ? 'selected'
-                                    : '' ?>>
-
+                                <?= $userType === 'admin' ? 'selected' : '' ?>>
                                 Admin
-
                             </option>
 
                             <option
                                 value="customer"
-                                <?= $userType === 'customer'
-                                    ? 'selected'
-                                    : '' ?>>
-
+                                <?= $userType === 'customer' ? 'selected' : '' ?>>
                                 Customer
-
                             </option>
 
                             <option
                                 value="agent"
-                                <?= $userType === 'agent'
-                                    ? 'selected'
-                                    : '' ?>>
-
+                                <?= $userType === 'agent' ? 'selected' : '' ?>>
                                 Agent
-
                             </option>
 
                         </select>
-
                     </div>
 
-
-                    <!-- ====================================================
-                         USERNAME
-                         ==================================================== -->
-
                     <div class="mb-3">
-
                         <label
                             for="username"
                             class="form-label">
-
                             Demo Username
-
                         </label>
 
                         <input
@@ -489,22 +550,13 @@ require dirname(__DIR__) . '/layouts/header-public.php';
                             value="<?= htmlspecialchars($username) ?>"
                             autocomplete="username"
                             required>
-
                     </div>
 
-
-                    <!-- ====================================================
-                         PASSWORD
-                         ==================================================== -->
-
                     <div class="mb-3">
-
                         <label
                             for="password"
                             class="form-label">
-
                             Demo Password
-
                         </label>
 
                         <input
@@ -514,59 +566,34 @@ require dirname(__DIR__) . '/layouts/header-public.php';
                             name="password"
                             autocomplete="current-password"
                             required>
-
                     </div>
 
-
-                    <!-- ====================================================
-                         DEMO INFORMATION
-                         ==================================================== -->
+                    <div class="text-end mb-3">
+                        <a href="?page=demo-recover-credentials">
+                            Forgot Demo Password?
+                        </a>
+                    </div>
 
                     <div class="alert alert-info">
-
                         <strong>Demo Account</strong>
-
                         <br><br>
-
-                        Your demo access is temporary.
-
+                        Your Demo access is temporary and shared across the
+                        Admin, Customer, and Agent accounts in your workspace.
                         <br><br>
-
-                        The 5-day demo period begins after the first
-                        successful login for the selected demo account.
-
-                        <br><br>
-
-                        All three demo accounts share the same
-                        expiration date.
-
-                        <br><br>
-
-                        Demo accounts are separate from normal
-                        customer, agent, and administrator accounts.
-
+                        On first sign-in, you will be required to replace your
+                        temporary password before entering the portal.
                     </div>
-
-
-                    <!-- ====================================================
-                         LOGIN
-                         ==================================================== -->
 
                     <button
                         type="submit"
                         class="btn btn-primary w-100">
-
                         Sign In to Demo
-
                     </button>
 
-
                     <div class="text-center mt-3">
-
                         <a href="?page=home">
                             Back to Main Website
                         </a>
-
                     </div>
 
                 </form>
@@ -576,12 +603,8 @@ require dirname(__DIR__) . '/layouts/header-public.php';
         </div>
 
     </div>
-
 </div>
 
-
 <?php
-
 require dirname(__DIR__) . '/layouts/footer.php';
-
 ?>

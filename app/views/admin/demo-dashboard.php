@@ -2,16 +2,16 @@
 
 /*
 |--------------------------------------------------------------------------
-| DEMO DASHBOARD
+| DEMO ADMIN DASHBOARD
 |--------------------------------------------------------------------------
-| Temporary dashboard for approved demo users.
+| Temporary dashboard for approved Demo Admin users.
 |--------------------------------------------------------------------------
 */
 
 
 /*
 |--------------------------------------------------------------------------
-| Require Demo Login
+| Require Demo Admin Login
 |--------------------------------------------------------------------------
 */
 
@@ -34,7 +34,7 @@ require_once CONFIG_PATH . '/database.php';
 
 /*
 |--------------------------------------------------------------------------
-| Load Current Demo User
+| Load Current Demo Admin
 |--------------------------------------------------------------------------
 */
 
@@ -70,7 +70,7 @@ $demoUser = $stmt->fetch(PDO::FETCH_ASSOC);
 |--------------------------------------------------------------------------
 */
 
-if (!$demoUser) {
+if (!$demoUser || $demoUser['role'] !== 'admin') {
 
     unset($_SESSION['demo_user']);
 
@@ -107,20 +107,64 @@ if (
     && strtotime($demoUser['expires_at']) <= time()
 ) {
 
-    $stmt = $pdo->prepare("
-        UPDATE demo_users
-        SET status = 'Expired'
-        WHERE id = ?
-    ");
+    if (!empty($demoUser['workspace_id'])) {
 
-    $stmt->execute([
-        $demoUserId
-    ]);
+        $stmt = $pdo->prepare("
+            UPDATE demo_users
+            SET status = 'Expired'
+            WHERE workspace_id = ?
+              AND status = 'Active'
+        ");
 
+        $stmt->execute([
+            (int) $demoUser['workspace_id']
+        ]);
+
+        $stmt = $pdo->prepare("
+            UPDATE demo_workspaces
+            SET
+                status = 'Expired',
+                expired_at = COALESCE(expired_at, NOW())
+            WHERE id = ?
+        ");
+
+        $stmt->execute([
+            (int) $demoUser['workspace_id']
+        ]);
+
+    } else {
+
+        $stmt = $pdo->prepare("
+            UPDATE demo_users
+            SET status = 'Expired'
+            WHERE id = ?
+        ");
+
+        $stmt->execute([
+            $demoUserId
+        ]);
+
+    }
 
     unset($_SESSION['demo_user']);
 
     header('Location: ?page=demo-login&expired=1');
+    exit;
+
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Forced Password Change Guard
+|--------------------------------------------------------------------------
+*/
+
+if ((int) ($demoUser['must_change_password'] ?? 0) === 1) {
+
+    $_SESSION['demo_user'] = $demoUser;
+
+    header('Location: ?page=demo-change-password');
     exit;
 
 }
@@ -156,11 +200,11 @@ $remainingDays = $remainingSeconds !== null
 
 /*
 |--------------------------------------------------------------------------
-| Public Header
+| Admin Header
 |--------------------------------------------------------------------------
 */
 
-require dirname(__DIR__) . '/layouts/header-public.php';
+require dirname(__DIR__) . '/layouts/header-admin.php';
 
 ?>
 
@@ -192,19 +236,6 @@ require dirname(__DIR__) . '/layouts/header-public.php';
                 </strong>
 
             </p>
-
-        </div>
-
-
-        <div>
-
-            <a
-                href="?page=demo-logout"
-                class="btn btn-outline-danger">
-
-                Logout
-
-            </a>
 
         </div>
 
@@ -443,7 +474,7 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 
                     <h5 class="card-title">
 
-                        💳 Payments & Refunds
+                        💳 Payments &amp; Refunds
 
                     </h5>
 
@@ -579,7 +610,7 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 
                     <h5 class="card-title">
 
-                        📊 Reports & Administration
+                        📊 Reports &amp; Administration
 
                     </h5>
 

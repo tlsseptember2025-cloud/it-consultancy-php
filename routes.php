@@ -29,6 +29,43 @@ require_once CONFIG_PATH . '/database.php';
 
 $page = $_GET['page'] ?? 'home';
 
+/*
+|--------------------------------------------------------------------------
+| Demo Mandatory Password Change Guard
+|--------------------------------------------------------------------------
+| This must run immediately AFTER:
+|
+|     $page = $_GET['page'] ?? 'home';
+|
+| and BEFORE the switch ($page) block.
+|--------------------------------------------------------------------------
+*/
+
+if (!in_array($page, [
+    'demo-login',
+    'demo-change-password',
+    'demo-logout'
+], true)) {
+
+    $demoSessionKey = null;
+
+    if (isset($_SESSION['demo_user'])) {
+        $demoSessionKey = 'demo_user';
+    } elseif (isset($_SESSION['demo_customer'])) {
+        $demoSessionKey = 'demo_customer';
+    } elseif (isset($_SESSION['demo_agent'])) {
+        $demoSessionKey = 'demo_agent';
+    }
+
+    if (
+        $demoSessionKey !== null
+        && (int) ($_SESSION[$demoSessionKey]['must_change_password'] ?? 0) === 1
+    ) {
+        header('Location: ?page=demo-change-password');
+        exit;
+    }
+}
+
 switch ($page) {
 
     /*
@@ -65,9 +102,25 @@ switch ($page) {
         require VIEW_PATH . '/public/demo-login.php';
         break;
 
-    case 'demo-dashboard':
-        require VIEW_PATH . '/demo/demo-dashboard.php';
+    case 'demo-verify-email':
+        require VIEW_PATH . '/public/demo-verify-email.php';
         break;
+
+    case 'demo-recover-credentials':
+        require VIEW_PATH . '/public/demo-recover-credentials.php';
+        break;
+
+    case 'demo-change-password':
+    require VIEW_PATH . '/public/demo-change-password.php';
+    break;
+
+    case 'demo-recover-credentials-confirm':
+    require VIEW_PATH . '/public/demo-recover-credentials-confirm.php';
+    break;
+
+    case 'demo-dashboard':
+    require VIEW_PATH . '/admin/demo-dashboard.php';
+    break;
 
     case 'demo-logout':
 
@@ -126,6 +179,8 @@ switch ($page) {
     case 'review-closure-agreement':
         require CONTROLLER_PATH . '/review-closure-agreement.php';
         break;
+
+    
 
     /*
     |--------------------------------------------------------------------------

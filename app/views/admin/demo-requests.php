@@ -1,88 +1,33 @@
 <?php
 
 if (!isset($_SESSION['user'])) {
-
     header('Location: ?page=login');
     exit;
-
 }
 
 require_once CONFIG_PATH . '/database.php';
 require_once APP_PATH . '/helpers/email.php';
+require_once HELPER_PATH . '/demo-domain.php';
 
-
-/*
-|--------------------------------------------------------------------------
-| Demo Environment
-|--------------------------------------------------------------------------
-|
-| DEV and DEMO use the same database.
-| Only show requests belonging to the current site.
-|
-*/
-
-$host = strtolower($_SERVER['HTTP_HOST'] ?? '');
-
-if (strpos($host, 'demo.wahbibconsultancy.com') !== false) {
-
-    $demoEnvironment = 'demo';
-
-} elseif (strpos($host, 'dev.wahbibconsultancy.com') !== false) {
-
-    $demoEnvironment = 'dev';
-
-} else {
-
-    /*
-    |--------------------------------------------------------------------------
-    | LOCAL DEVELOPMENT
-    |--------------------------------------------------------------------------
-    |
-    | Local development uses its own database and does not have the
-    | environment column. Therefore no environment filtering is used.
-    |
-    */
-
-    $demoEnvironment = null;
-
-}
-
-
-// ============================================================================
-// FLASH MESSAGE
-// ============================================================================
+$demoEnvironment = getDemoEnvironment();
 
 $successMessage = $_SESSION['demo_success'] ?? null;
 unset($_SESSION['demo_success']);
 
-$generatedCredentials = $_SESSION['demo_credentials'] ?? null;
-unset($_SESSION['demo_credentials']);
-
 $errorMessage = null;
-
-
-// ============================================================================
-// APPROVE / REJECT REQUEST
-// ============================================================================
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $requestId = (int) ($_POST['request_id'] ?? 0);
-    $action    = $_POST['action'] ?? '';
+    $action = trim($_POST['action'] ?? '');
 
     if ($requestId <= 0) {
 
-        $errorMessage = 'Invalid demo request.';
+        $errorMessage = 'Invalid Demo request.';
 
     } else {
 
         try {
-
-            /*
-            |--------------------------------------------------------------------------
-            | Load Demo Request
-            |--------------------------------------------------------------------------
-            */
 
             if ($demoEnvironment !== null) {
 
@@ -111,309 +56,154 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->execute([
                     $requestId
                 ]);
-
             }
 
             $request = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$request) {
-
-                throw new Exception('Demo request not found.');
-
+                throw new RuntimeException('Demo request not found.');
             }
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | APPROVE
-            |--------------------------------------------------------------------------
-            */
 
             if ($action === 'approve') {
 
                 if ($request['status'] !== 'Pending') {
-
-                    throw new Exception(
-                        'Only pending demo requests can be approved.'
+                    throw new RuntimeException(
+                        'Only pending Demo requests can be approved.'
                     );
-
                 }
 
+                $verificationToken =
+                    bin2hex(random_bytes(32));
 
-/*
-                |--------------------------------------------------------------------------
-                | Fixed Demo Accounts
-                |--------------------------------------------------------------------------
-                |
-                | These are the three permanent demo accounts.
-                |
-                | Username: user      | Role: admin
-                | Username: customer | Role: customer
-                | Username: agent    | Role: agent
-                |
-                | The password "pass" is hashed before being stored.
-                | Plain-text passwords are never stored in the database.
-                |--------------------------------------------------------------------------
-                */
+                $verificationTokenHash =
+                    hash('sha256', $verificationToken);
 
-                $demoAccounts = [
-                    [
-                        'username' => 'user',
-                        'password' => 'pass',
-                        'role'     => 'admin'
-                    ],
-                    [
-                        'username' => 'customer',
-                        'password' => 'pass',
-                        'role'     => 'customer'
-                    ],
-                    [
-                        'username' => 'agent',
-                        'password' => 'pass',
-                        'role'     => 'agent'
-                    ]
-                ];
-
-                /*
-                |--------------------------------------------------------------------------
-                | Create / Validate Fixed Demo Accounts
-                |--------------------------------------------------------------------------
-                */
+                $verificationLink =
+                    rtrim(APP_URL, '/')
+                    . '/?page=demo-verify-email&token='
+                    . urlencode($verificationToken);
 
                 $pdo->beginTransaction();
-                $demoUserId = null;
-
-                foreach ($demoAccounts as $account) {
-
-                    $check = $pdo->prepare("
-                        SELECT id, role, password_hash, status
-                        FROM demo_users
-                        WHERE username = ?
-                        LIMIT 1
-                    ");
-
-                    $check->execute([
-                        $account['username']
-                    ]);
-
-                    $existingUser = $check->fetch(PDO::FETCH_ASSOC);
-
-                    if (!$existingUser) {
-
-                        $passwordHash = password_hash(
-                            $account['password'],
-                            PASSWORD_DEFAULT
-                        );
-
-                        $stmt = $pdo->prepare("
-                            INSERT INTO demo_users (
-                                username,
-                                role,
-                                password_hash,
-                                status,
-                                approved_at
-                            )
-                            VALUES (
-                                ?,
-                                ?,
-                                ?,
-                                'Active',
-                                NOW()
-                            )
-                        ");
-
-                        $stmt->execute([
-                            $account['username'],
-                            $account['role'],
-                            $passwordHash
-                        ]);
-
-                        $accountId = (int) $pdo->lastInsertId();
-
-                    } else {
-
-                        if ($existingUser['role'] !== $account['role']) {
-                            throw new Exception(
-                                'Fixed demo account configuration is invalid for username "'
-                                . $account['username'] . '".'
-                            );
-                        }
-
-                        if (!password_verify(
-                            $account['password'],
-                            $existingUser['password_hash']
-                        )) {
-                            throw new Exception(
-                                'Fixed demo account password configuration is invalid for username "'
-                                . $account['username'] . '".'
-                            );
-                        }
-
-                        $accountId = (int) $existingUser['id'];
-                    }
-
-                    if ($account['role'] === 'admin') {
-                        $demoUserId = $accountId;
-                    }
-                }
-
-                if (!$demoUserId) {
-                    throw new Exception(
-                        'Unable to create or locate the fixed demo admin account.'
-                    );
-                }
-
-                /*
-                |--------------------------------------------------------------------------
-                | Link Request To Demo User
-                |--------------------------------------------------------------------------
-                */
 
                 $stmt = $pdo->prepare("
                     UPDATE demo_requests
                     SET
-                        demo_user_id = ?,
                         status = 'Approved',
-                        approved_at = NOW()
+                        approved_at = NOW(),
+                        verification_status = 'Pending',
+                        email_verification_token_hash = ?,
+                        email_verification_expires_at =
+                            DATE_ADD(NOW(), INTERVAL 24 HOUR),
+                        email_verified_at = NULL,
+                        demo_user_id = NULL,
+                        workspace_id = NULL
                     WHERE id = ?
+                      AND status = 'Pending'
                 ");
 
                 $stmt->execute([
-                    $demoUserId,
+                    $verificationTokenHash,
                     $requestId
                 ]);
 
-               $pdo->commit();
+                if ($stmt->rowCount() !== 1) {
+                    throw new RuntimeException(
+                        'This Demo request was already processed.'
+                    );
+                }
 
+                $pdo->commit();
 
-/*
-                |--------------------------------------------------------------------------
-                | Send Approval Email With All Three Fixed Accounts
-                |--------------------------------------------------------------------------
-                */
+                $safeName = htmlspecialchars(
+                    $request['full_name'],
+                    ENT_QUOTES,
+                    'UTF-8'
+                );
 
-                $emailSubject = 'Your Demo Portal Access Has Been Approved';
+                $safeCompany = htmlspecialchars(
+                    $request['company_name'] ?? '',
+                    ENT_QUOTES,
+                    'UTF-8'
+                );
 
                 $emailBody = "
-                    <h2>Hello " . htmlspecialchars($request['full_name']) . ",</h2>
+                    <h2>Hello {$safeName},</h2>
 
                     <p>
-                        Your request for access to our IT Consultancy Demo Portal
-                        has been approved.
+                        Your request for access to our IT Consultancy
+                        Demo Portal has been approved.
                     </p>
 
                     <p>
-                        You may use any of the following fixed demo accounts:
+                        Before Demo access can be created, please verify
+                        that you control this business email address.
                     </p>
 
-                    <table cellpadding='8' cellspacing='0' border='1'
-                           style='border-collapse:collapse; width:100%; max-width:600px;'>
-                        <thead>
-                            <tr>
-                                <th align='left'>User Type</th>
-                                <th align='left'>Username</th>
-                                <th align='left'>Password</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td>Admin</td>
-                                <td><strong>user</strong></td>
-                                <td><strong>pass</strong></td>
-                            </tr>
-                            <tr>
-                                <td>Customer</td>
-                                <td><strong>customer</strong></td>
-                                <td><strong>pass</strong></td>
-                            </tr>
-                            <tr>
-                                <td>Agent</td>
-                                <td><strong>agent</strong></td>
-                                <td><strong>pass</strong></td>
-                            </tr>
-                        </tbody>
-                    </table>
-
-                    <br>
+                    " . (
+                        $safeCompany !== ''
+                            ? "<p><strong>Company:</strong> {$safeCompany}</p>"
+                            : ''
+                    ) . "
 
                     <p>
-                        <strong>Important:</strong> These are fixed demo accounts
-                        provided for demonstration purposes.
+                        <a
+                            href='{$verificationLink}'
+                            style='
+                                background:#0d6efd;
+                                color:#ffffff;
+                                padding:12px 22px;
+                                text-decoration:none;
+                                border-radius:6px;
+                                display:inline-block;
+                                font-weight:600;
+                            '>
+                            Verify Demo Email
+                        </a>
                     </p>
 
                     <p>
-                        Please use the appropriate user type when signing in.
+                        This verification link is valid for 24 hours
+                        and can only be used once.
                     </p>
 
                     <p>
-                        Thank you,<br>
+                        No Demo account has been created yet.
+                        The three Demo accounts will be created only
+                        after successful email verification.
+                    </p>
+
+                    <p>
+                        If you did not request Demo access, you can safely
+                        ignore this email.
+                    </p>
+
+                    <p>
+                        Kind Regards,<br>
                         <strong>IT Consultancy Team</strong>
                     </p>
                 ";
 
                 $emailSent = sendEmail(
                     $request['email'],
-                    $emailSubject,
+                    'Verify Your Demo Email Address',
                     $emailBody
                 );
 
-                $_SESSION['demo_credentials'] = [
-                    'full_name' => $request['full_name'],
-                    'accounts' => [
-                        [
-                            'type' => 'Admin',
-                            'username' => 'user',
-                            'password' => 'pass'
-                        ],
-                        [
-                            'type' => 'Customer',
-                            'username' => 'customer',
-                            'password' => 'pass'
-                        ],
-                        [
-                            'type' => 'Agent',
-                            'username' => 'agent',
-                            'password' => 'pass'
-                        ]
-                    ]
-                ];
+                $_SESSION['demo_success'] =
+                    $emailSent
+                        ? 'Demo request approved. A verification link has been sent to the applicant.'
+                        : 'Demo request approved, but the verification email could not be sent. Please check the mail configuration.';
 
-                if ($emailSent) {
-
-    $_SESSION['demo_success'] =
-        'Demo request approved successfully. '
-        . 'The demo credentials were also sent to the applicant by email.';
-
-} else {
-
-    $_SESSION['demo_success'] =
-        'Demo request approved successfully, '
-        . 'but the email could not be sent. '
-        . 'Please provide the displayed credentials to the applicant.';
-
-}
-
-
-header('Location: ?page=demo-requests');
-exit;
-
+                header('Location: ?page=demo-requests');
+                exit;
             }
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | REJECT
-            |--------------------------------------------------------------------------
-            */
 
             if ($action === 'reject') {
 
                 if ($request['status'] !== 'Pending') {
-
-                    throw new Exception(
-                        'Only pending demo requests can be rejected.'
+                    throw new RuntimeException(
+                        'Only pending Demo requests can be rejected.'
                     );
-
                 }
 
                 $reason = trim(
@@ -421,113 +211,140 @@ exit;
                 );
 
                 if ($reason === '') {
-
-                    throw new Exception(
+                    throw new RuntimeException(
                         'Please provide a rejection reason.'
                     );
-
                 }
 
-
                 $stmt = $pdo->prepare("
-    UPDATE demo_requests
-    SET
-        status = 'Rejected',
-        rejection_reason = ?,
-        rejected_at = NOW()
-    WHERE id = ?
-");
+                    UPDATE demo_requests
+                    SET
+                        status = 'Rejected',
+                        rejection_reason = ?,
+                        rejected_at = NOW(),
+                        verification_status = 'Not Started',
+                        email_verification_token_hash = NULL,
+                        email_verification_expires_at = NULL,
+                        email_verified_at = NULL
+                    WHERE id = ?
+                      AND status = 'Pending'
+                ");
 
-$stmt->execute([
-    $reason,
-    $requestId
-]);
+                $stmt->execute([
+                    $reason,
+                    $requestId
+                ]);
 
+                $safeName = htmlspecialchars(
+                    $request['full_name'],
+                    ENT_QUOTES,
+                    'UTF-8'
+                );
 
-/*
-|--------------------------------------------------------------------------
-| Send Rejection Email
-|--------------------------------------------------------------------------
-*/
+                $safeReason = nl2br(
+                    htmlspecialchars(
+                        $reason,
+                        ENT_QUOTES,
+                        'UTF-8'
+                    )
+                );
 
-$emailSent = sendDemoRejectedEmail(
-    $request['email'],
-    $request['full_name'],
-    $reason
-);
+                $emailBody = "
+                    <h2>Hello {$safeName},</h2>
 
+                    <p>
+                        Thank you for your interest in our IT Consultancy
+                        Demo Portal.
+                    </p>
 
-if ($emailSent) {
+                    <p>
+                        After review, we are unable to approve your Demo
+                        access request at this time.
+                    </p>
 
-    $_SESSION['demo_success'] =
-        'Demo request rejected successfully. '
-        . 'A rejection notification was also sent to the applicant.';
+                    <p><strong>Reason:</strong></p>
 
-} else {
+                    <div
+                        style='
+                            border-left:4px solid #dc3545;
+                            padding:12px 15px;
+                            background:#f8f9fa;
+                        '>
+                        {$safeReason}
+                    </div>
 
-    $_SESSION['demo_success'] =
-        'Demo request rejected successfully, '
-        . 'but the rejection email could not be sent.';
+                    <p>
+                        Kind Regards,<br>
+                        <strong>IT Consultancy Team</strong>
+                    </p>
+                ";
 
-}
+                $emailSent = sendEmail(
+                    $request['email'],
+                    'Your Demo Request Has Been Declined',
+                    $emailBody
+                );
 
+                $_SESSION['demo_success'] =
+                    $emailSent
+                        ? 'Demo request rejected successfully. A rejection notification was also sent to the applicant.'
+                        : 'Demo request rejected successfully, but the rejection email could not be sent.';
 
-header('Location: ?page=demo-requests');
-exit;
-
+                header('Location: ?page=demo-requests');
+                exit;
             }
 
+            throw new RuntimeException('Invalid Demo action.');
 
-            throw new Exception('Invalid action.');
-
-        } catch (Throwable $e) {
+        } catch (RuntimeException $e) {
 
             if ($pdo->inTransaction()) {
-
                 $pdo->rollBack();
-
             }
 
             $errorMessage = $e->getMessage();
 
+        } catch (PDOException $e) {
+
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+
+            error_log(
+                'Demo request administration failed: '
+                . $e->getMessage()
+            );
+
+            $errorMessage =
+                'We could not process this Demo request right now. '
+                . 'Please try again later.';
         }
-
     }
-
 }
 
-
-// ============================================================================
-// LOAD DEMO REQUESTS
-// ============================================================================
-
 if ($demoEnvironment !== null) {
-
-    /*
-    |--------------------------------------------------------------------------
-    | DEV / DEMO — Shared Database
-    |--------------------------------------------------------------------------
-    */
 
     $stmt = $pdo->prepare("
         SELECT
             dr.*,
+            dc.domain AS company_domain_display,
+            dc.demo_used,
             du.username AS demo_username,
-            du.status AS demo_user_status,
-            du.first_login_at,
-            du.expires_at
+            du.status AS demo_user_status
         FROM demo_requests dr
-
+        LEFT JOIN demo_companies dc
+            ON dc.id = dr.demo_company_id
         LEFT JOIN demo_users du
             ON du.id = dr.demo_user_id
-
         WHERE dr.environment = ?
-
         ORDER BY
             CASE
                 WHEN dr.status = 'Pending' THEN 1
-                WHEN dr.status = 'Approved' THEN 2
-                ELSE 3
+                WHEN dr.status = 'Approved'
+                     AND dr.verification_status = 'Pending' THEN 2
+                WHEN dr.status = 'Approved'
+                     AND dr.verification_status = 'Verified' THEN 3
+                ELSE 4
             END,
             dr.created_at DESC
     ");
@@ -538,171 +355,116 @@ if ($demoEnvironment !== null) {
 
 } else {
 
-    /*
-    |--------------------------------------------------------------------------
-    | LOCAL — Separate Database
-    |--------------------------------------------------------------------------
-    |
-    | Local does not use environment filtering because its database does
-    | not contain the environment column.
-    |
-    */
-
     $stmt = $pdo->query("
         SELECT
             dr.*,
+            dc.domain AS company_domain_display,
+            dc.demo_used,
             du.username AS demo_username,
-            du.status AS demo_user_status,
-            du.first_login_at,
-            du.expires_at
+            du.status AS demo_user_status
         FROM demo_requests dr
-
+        LEFT JOIN demo_companies dc
+            ON dc.id = dr.demo_company_id
         LEFT JOIN demo_users du
             ON du.id = dr.demo_user_id
-
         ORDER BY
             CASE
                 WHEN dr.status = 'Pending' THEN 1
-                WHEN dr.status = 'Approved' THEN 2
-                ELSE 3
+                WHEN dr.status = 'Approved'
+                     AND dr.verification_status = 'Pending' THEN 2
+                WHEN dr.status = 'Approved'
+                     AND dr.verification_status = 'Verified' THEN 3
+                ELSE 4
             END,
             dr.created_at DESC
     ");
-
 }
 
 $requests = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-
-// ============================================================================
-// ADMIN HEADER
-// ============================================================================
 
 require VIEW_PATH . '/layouts/header-admin.php';
 
 ?>
 
-<div class="container py-4">
+<style>
+    .demo-requests-wrap {
+        width: 100%;
+    }
 
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    .demo-requests-table {
+        width: 100%;
+        table-layout: fixed;
+        font-size: 12px;
+    }
 
-        <div>
+    .demo-requests-table th,
+    .demo-requests-table td {
+        vertical-align: middle;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        padding: 8px 7px;
+    }
 
-            <h2 class="mb-1">
-                Demo Requests
-            </h2>
+    .demo-requests-table th:nth-child(1) { width: 3%; }
+    .demo-requests-table th:nth-child(2) { width: 10%; }
+    .demo-requests-table th:nth-child(3) { width: 13%; }
+    .demo-requests-table th:nth-child(4) { width: 8%; }
+    .demo-requests-table th:nth-child(5) { width: 10%; }
+    .demo-requests-table th:nth-child(6) { width: 13%; }
+    .demo-requests-table th:nth-child(7) { width: 7%; }
+    .demo-requests-table th:nth-child(8) { width: 9%; }
+    .demo-requests-table th:nth-child(9) { width: 8%; }
+    .demo-requests-table th:nth-child(10) { width: 8%; }
+    .demo-requests-table th:nth-child(11) { width: 11%; }
 
-            <p class="text-muted mb-0">
-                Review and manage temporary demo access requests.
-            </p>
+    .demo-requests-table .badge {
+        font-size: 10px;
+        white-space: normal;
+    }
 
-        </div>
+    .demo-requests-table .btn {
+        font-size: 11px;
+        padding: 4px 7px;
+    }
 
+    .demo-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+</style>
+
+<div class="container-fluid py-4 demo-requests-wrap">
+
+    <div class="mb-4">
+        <h2 class="mb-1">Demo Requests</h2>
+        <p class="text-muted mb-0">
+            Review and manage temporary Demo access requests.
+        </p>
     </div>
-
-
-    <!-- ================================================================
-         SUCCESS MESSAGE
-         ================================================================ -->
 
     <?php if ($successMessage): ?>
 
         <div class="alert alert-success">
-
             <strong>Success!</strong>
-
             <?= htmlspecialchars($successMessage) ?>
-
         </div>
 
     <?php endif; ?>
-
-
-    <!-- ================================================================
-         ERROR MESSAGE
-         ================================================================ -->
 
     <?php if ($errorMessage): ?>
 
         <div class="alert alert-danger">
-
             <strong>Error:</strong>
-
             <?= htmlspecialchars($errorMessage) ?>
-
         </div>
 
     <?php endif; ?>
-
-
-    <!-- ================================================================
-         FIXED DEMO CREDENTIALS
-         ================================================================ -->
-
-    <?php if ($generatedCredentials): ?>
-
-        <div class="alert alert-warning">
-
-            <h5 class="mb-3">
-                🔐 Fixed Demo Accounts
-            </h5>
-
-            <p>
-                Demo access has been approved for
-                <strong>
-                    <?= htmlspecialchars($generatedCredentials['full_name']) ?>
-                </strong>.
-            </p>
-
-            <div class="table-responsive">
-                <table class="table table-bordered table-sm bg-white mb-3">
-                    <thead>
-                        <tr>
-                            <th>User Type</th>
-                            <th>Username</th>
-                            <th>Password</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($generatedCredentials['accounts'] as $account): ?>
-                            <tr>
-                                <td>
-                                    <strong><?= htmlspecialchars($account['type']) ?></strong>
-                                </td>
-                                <td>
-                                    <code><?= htmlspecialchars($account['username']) ?></code>
-                                </td>
-                                <td>
-                                    <code><?= htmlspecialchars($account['password']) ?></code>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-
-            <small>
-                These three accounts are fixed demo accounts.
-                Passwords are stored in the database only as secure hashes.
-            </small>
-
-        </div>
-
-    <?php endif; ?>
-
-
-    <!-- ================================================================
-         REQUEST TABLE
-         ================================================================ -->
 
     <div class="card shadow-sm">
 
         <div class="card-header">
-
-            <strong>
-                Demo Access Requests
-            </strong>
-
+            <strong>Demo Access Requests</strong>
         </div>
 
         <div class="card-body p-0">
@@ -710,448 +472,415 @@ require VIEW_PATH . '/layouts/header-admin.php';
             <?php if (!$requests): ?>
 
                 <div class="p-4 text-muted">
-
-                    No demo requests found.
-
+                    No Demo requests found.
                 </div>
 
             <?php else: ?>
 
-                <div class="table-responsive">
+                <table class="table table-bordered table-striped mb-0 demo-requests-table">
 
-                    <table class="table table-bordered table-striped mb-0">
+                    <thead>
 
-                        <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Applicant</th>
+                            <th>Contact</th>
+                            <th>Company</th>
+                            <th>Domain</th>
+                            <th>Areas of Interest</th>
+                            <th>Status</th>
+                            <th>Verification</th>
+                            <th>Demo Account</th>
+                            <th>Created</th>
+                            <th>Actions</th>
+                        </tr>
 
-                            <tr>
+                    </thead>
 
-                                <th>
-                                    #
-                                </th>
+                    <tbody>
 
-                                <th>
-                                    Applicant
-                                </th>
+                    <?php foreach ($requests as $request): ?>
 
-                                <th>
-                                    Contact
-                                </th>
+                        <?php
+                        $verificationStatus =
+                            $request['verification_status']
+                            ?? 'Not Started';
 
-                                <th>
-                                    Company
-                                </th>
+                        $options = [];
 
-                                <th>
-                                    Areas of Interest
-                                </th>
+                        if (!empty($request['explore_options'])) {
 
-                                <th>
-                                    Status
-                                </th>
+                            $decoded = json_decode(
+                                $request['explore_options'],
+                                true
+                            );
 
-                                <th>
-                                    Demo Account
-                                </th>
+                            if (is_array($decoded)) {
+                                $options = $decoded;
+                            }
+                        }
+                        ?>
 
-                                <th>
-                                    Created
-                                </th>
+                        <tr>
 
-                                <th>
-                                    Actions
-                                </th>
+                            <td>
+                                <?= (int) $request['id'] ?>
+                            </td>
 
-                            </tr>
+                            <td>
+                                <strong>
+                                    <?= htmlspecialchars(
+                                        $request['full_name']
+                                    ) ?>
+                                </strong>
+                            </td>
 
-                        </thead>
+                            <td>
+                                <?= htmlspecialchars(
+                                    $request['email']
+                                ) ?>
 
+                                <?php if (!empty($request['phone'])): ?>
 
-                        <tbody>
+                                    <br>
+                                    <small class="text-muted">
+                                        <?= htmlspecialchars(
+                                            $request['phone']
+                                        ) ?>
+                                    </small>
 
-                        <?php foreach ($requests as $request): ?>
+                                <?php endif; ?>
+                            </td>
 
-                            <tr>
+                            <td>
+                                <?= !empty($request['company_name'])
+                                    ? htmlspecialchars(
+                                        $request['company_name']
+                                    )
+                                    : '—'
+                                ?>
+                            </td>
 
-                                <!-- ID -->
+                            <td>
 
-                                <td>
+                                <?= !empty($request['company_domain_display'])
+                                    ? htmlspecialchars(
+                                        $request['company_domain_display']
+                                    )
+                                    : (
+                                        !empty($request['company_domain'])
+                                            ? htmlspecialchars(
+                                                $request['company_domain']
+                                            )
+                                            : '—'
+                                    )
+                                ?>
 
-                                    <?= (int) $request['id'] ?>
+                                <?php if (
+                                    isset($request['demo_used'])
+                                    && (int) $request['demo_used'] === 1
+                                ): ?>
 
-                                </td>
+                                    <br>
+                                    <span class="badge bg-secondary">
+                                        Demo Used
+                                    </span>
 
+                                <?php endif; ?>
 
-                                <!-- NAME -->
+                            </td>
 
-                                <td>
+                            <td>
+
+                                <?php if ($options): ?>
+
+                                    <?php foreach ($options as $option): ?>
+
+                                        <span class="badge bg-info text-dark mb-1">
+                                            <?= htmlspecialchars($option) ?>
+                                        </span>
+
+                                    <?php endforeach; ?>
+
+                                <?php else: ?>
+
+                                    —
+
+                                <?php endif; ?>
+
+                            </td>
+
+                            <td>
+
+                                <?php if ($request['status'] === 'Pending'): ?>
+
+                                    <span class="badge bg-warning text-dark">
+                                        Pending
+                                    </span>
+
+                                <?php elseif ($request['status'] === 'Approved'): ?>
+
+                                    <span class="badge bg-success">
+                                        Approved
+                                    </span>
+
+                                <?php elseif ($request['status'] === 'Rejected'): ?>
+
+                                    <span class="badge bg-danger">
+                                        Rejected
+                                    </span>
+
+                                <?php else: ?>
+
+                                    <span class="badge bg-secondary">
+                                        <?= htmlspecialchars(
+                                            $request['status']
+                                        ) ?>
+                                    </span>
+
+                                <?php endif; ?>
+
+                            </td>
+
+                            <td>
+
+                                <?php if ($verificationStatus === 'Verified'): ?>
+
+                                    <span class="badge bg-success">
+                                        Verified
+                                    </span>
+
+                                <?php elseif ($verificationStatus === 'Pending'): ?>
+
+                                    <span class="badge bg-warning text-dark">
+                                        Verification Pending
+                                    </span>
+
+                                <?php elseif ($verificationStatus === 'Expired'): ?>
+
+                                    <span class="badge bg-secondary">
+                                        Verification Expired
+                                    </span>
+
+                                <?php else: ?>
+
+                                    <span class="badge bg-light text-dark">
+                                        Not Started
+                                    </span>
+
+                                <?php endif; ?>
+
+                            </td>
+
+                            <td>
+
+                                <?php if (!empty($request['demo_username'])): ?>
 
                                     <strong>
                                         <?= htmlspecialchars(
-                                            $request['full_name']
+                                            $request['demo_username']
                                         ) ?>
                                     </strong>
 
-                                </td>
-
-
-                                <!-- CONTACT -->
-
-                                <td>
-
-                                    <div>
-
-                                        <?= htmlspecialchars(
-                                            $request['email']
-                                        ) ?>
-
-                                    </div>
-
-                                    <?php if (!empty($request['phone'])): ?>
-
-                                        <small class="text-muted">
-
-                                            <?= htmlspecialchars(
-                                                $request['phone']
-                                            ) ?>
-
-                                        </small>
-
-                                    <?php endif; ?>
-
-                                </td>
-
-
-                                <!-- COMPANY -->
-
-                                <td>
-
-                                    <?= !empty($request['company_name'])
-                                        ? htmlspecialchars(
-                                            $request['company_name']
-                                        )
-                                        : '<span class="text-muted">—</span>'
-                                    ?>
-
-                                </td>
-
-
-                                <!-- INTEREST -->
-
-                                <td>
-
-                                    <?php
-
-                                    $options = [];
-
-                                    if (!empty($request['explore_options'])) {
-
-                                        $decoded = json_decode(
-                                            $request['explore_options'],
-                                            true
-                                        );
-
-                                        if (is_array($decoded)) {
-
-                                            $options = $decoded;
-
-                                        }
-
-                                    }
-
-                                    ?>
-
-                                    <?php if ($options): ?>
-
-                                        <?php foreach ($options as $option): ?>
-
-                                            <span
-                                                class="badge bg-info text-dark mb-1">
-
-                                                <?= htmlspecialchars($option) ?>
-
-                                            </span>
-
-                                        <?php endforeach; ?>
-
-                                    <?php else: ?>
-
-                                        <span class="text-muted">
-                                            —
-                                        </span>
-
-                                    <?php endif; ?>
-
-                                </td>
-
-
-                                <!-- STATUS -->
-
-                                <td>
+                                    <br>
 
                                     <?php if (
-                                        $request['status'] === 'Pending'
-                                    ): ?>
-
-                                        <span class="badge bg-warning text-dark">
-                                            Pending
-                                        </span>
-
-                                    <?php elseif (
-                                        $request['status'] === 'Approved'
+                                        $request['demo_user_status'] === 'Active'
                                     ): ?>
 
                                         <span class="badge bg-success">
-                                            Approved
+                                            Active
                                         </span>
 
                                     <?php elseif (
-                                        $request['status'] === 'Rejected'
+                                        $request['demo_user_status'] === 'Expired'
                                     ): ?>
 
-                                        <span class="badge bg-danger">
-                                            Rejected
+                                        <span class="badge bg-secondary">
+                                            Expired
                                         </span>
 
                                     <?php endif; ?>
 
-                                </td>
+                                <?php else: ?>
 
+                                    <span class="text-muted">
+                                        Not created
+                                    </span>
 
-                                <!-- DEMO USER -->
+                                <?php endif; ?>
 
-                                <td>
+                            </td>
 
-                                    <?php if ($request['demo_username']): ?>
+                            <td>
+                                <?= htmlspecialchars(
+                                    $request['created_at']
+                                ) ?>
+                            </td>
 
-                                        <strong>
-                                            <?= htmlspecialchars(
-                                                $request['demo_username']
-                                            ) ?>
-                                        </strong>
+                            <td>
 
-                                        <br>
+                                <?php if ($request['status'] === 'Pending'): ?>
 
-                                        <?php if (
-                                            $request['demo_user_status']
-                                            === 'Active'
-                                        ): ?>
+                                    <div class="demo-actions">
 
-                                            <span class="badge bg-success">
-                                                Active
-                                            </span>
+                                        <form
+                                            method="POST"
+                                            onsubmit="return confirm(
+                                                'Approve this Demo request and send an email verification link?'
+                                            );">
 
-                                        <?php elseif (
-                                            $request['demo_user_status']
-                                            === 'Expired'
-                                        ): ?>
+                                            <input
+                                                type="hidden"
+                                                name="request_id"
+                                                value="<?= (int) $request['id'] ?>">
 
-                                            <span class="badge bg-secondary">
-                                                Expired
-                                            </span>
-
-                                        <?php endif; ?>
-
-                                    <?php else: ?>
-
-                                        <span class="text-muted">
-                                            Not created
-                                        </span>
-
-                                    <?php endif; ?>
-
-                                </td>
-
-
-                                <!-- CREATED -->
-
-                                <td>
-
-                                    <?= htmlspecialchars(
-                                        $request['created_at']
-                                    ) ?>
-
-                                </td>
-
-
-                                <!-- ACTIONS -->
-
-                                <td>
-
-                                    <?php if (
-                                        $request['status'] === 'Pending'
-                                    ): ?>
-
-                                        <div class="d-flex gap-2">
-
-                                            <!-- APPROVE -->
-
-                                            <form
-                                                method="POST"
-                                                onsubmit="return confirm(
-                                                    'Approve this demo request and enable the three fixed demo accounts?'
-                                                );">
-
-                                                <input
-                                                    type="hidden"
-                                                    name="request_id"
-                                                    value="<?= (int) $request['id'] ?>">
-
-                                                <input
-                                                    type="hidden"
-                                                    name="action"
-                                                    value="approve">
-
-                                                <button
-                                                    type="submit"
-                                                    class="btn btn-success btn-sm">
-
-                                                    Approve
-
-                                                </button>
-
-                                            </form>
-
-
-                                            <!-- REJECT -->
+                                            <input
+                                                type="hidden"
+                                                name="action"
+                                                value="approve">
 
                                             <button
-                                                type="button"
-                                                class="btn btn-danger btn-sm"
-                                                data-bs-toggle="modal"
-                                                data-bs-target="#rejectModal<?= (int) $request['id'] ?>">
-
-                                                Reject
-
+                                                type="submit"
+                                                class="btn btn-success btn-sm">
+                                                Approve
                                             </button>
 
-                                        </div>
+                                        </form>
 
+                                        <button
+                                            type="button"
+                                            class="btn btn-danger btn-sm"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#rejectModal<?= (int) $request['id'] ?>">
+                                            Reject
+                                        </button>
 
-                                        <!-- REJECT MODAL -->
+                                    </div>
 
-                                        <div
-                                            class="modal fade"
-                                            id="rejectModal<?= (int) $request['id'] ?>"
-                                            tabindex="-1">
+                                    <div
+                                        class="modal fade"
+                                        id="rejectModal<?= (int) $request['id'] ?>"
+                                        tabindex="-1">
 
-                                            <div class="modal-dialog">
+                                        <div class="modal-dialog">
 
-                                                <div class="modal-content">
+                                            <div class="modal-content">
 
-                                                    <form method="POST">
+                                                <form method="POST">
 
-                                                        <div class="modal-header">
+                                                    <div class="modal-header">
 
-                                                            <h5 class="modal-title">
+                                                        <h5 class="modal-title">
+                                                            Reject Demo Request
+                                                        </h5>
 
-                                                                Reject Demo Request
+                                                        <button
+                                                            type="button"
+                                                            class="btn-close"
+                                                            data-bs-dismiss="modal">
+                                                        </button>
 
-                                                            </h5>
+                                                    </div>
 
-                                                            <button
-                                                                type="button"
-                                                                class="btn-close"
-                                                                data-bs-dismiss="modal">
-                                                            </button>
+                                                    <div class="modal-body">
 
-                                                        </div>
+                                                        <p>
+                                                            Reject Demo request
+                                                            from
+                                                            <strong>
+                                                                <?= htmlspecialchars(
+                                                                    $request['full_name']
+                                                                ) ?>
+                                                            </strong>?
+                                                        </p>
 
+                                                        <input
+                                                            type="hidden"
+                                                            name="request_id"
+                                                            value="<?= (int) $request['id'] ?>">
 
-                                                        <div class="modal-body">
+                                                        <input
+                                                            type="hidden"
+                                                            name="action"
+                                                            value="reject">
 
-                                                            <p>
+                                                        <div class="mb-3">
 
-                                                                Reject demo request
-                                                                from
+                                                            <label class="form-label">
+                                                                Rejection Reason
+                                                            </label>
 
-                                                                <strong>
-                                                                    <?= htmlspecialchars(
-                                                                        $request['full_name']
-                                                                    ) ?>
-                                                                </strong>?
-
-                                                            </p>
-
-
-                                                            <input
-                                                                type="hidden"
-                                                                name="request_id"
-                                                                value="<?= (int) $request['id'] ?>">
-
-                                                            <input
-                                                                type="hidden"
-                                                                name="action"
-                                                                value="reject">
-
-
-                                                            <div class="mb-3">
-
-                                                                <label
-                                                                    class="form-label">
-
-                                                                    Rejection Reason
-
-                                                                </label>
-
-                                                                <textarea
-                                                                    name="rejection_reason"
-                                                                    class="form-control"
-                                                                    rows="4"
-                                                                    required></textarea>
-
-                                                            </div>
+                                                            <textarea
+                                                                name="rejection_reason"
+                                                                class="form-control"
+                                                                rows="4"
+                                                                required></textarea>
 
                                                         </div>
 
+                                                    </div>
 
-                                                        <div class="modal-footer">
+                                                    <div class="modal-footer">
 
-                                                            <button
-                                                                type="button"
-                                                                class="btn btn-secondary"
-                                                                data-bs-dismiss="modal">
+                                                        <button
+                                                            type="button"
+                                                            class="btn btn-secondary"
+                                                            data-bs-dismiss="modal">
+                                                            Cancel
+                                                        </button>
 
-                                                                Cancel
+                                                        <button
+                                                            type="submit"
+                                                            class="btn btn-danger">
+                                                            Reject Request
+                                                        </button>
 
-                                                            </button>
+                                                    </div>
 
-                                                            <button
-                                                                type="submit"
-                                                                class="btn btn-danger">
-
-                                                                Reject Request
-
-                                                            </button>
-
-                                                        </div>
-
-                                                    </form>
-
-                                                </div>
+                                                </form>
 
                                             </div>
 
                                         </div>
 
-                                    <?php else: ?>
+                                    </div>
 
-                                        <span class="text-muted">
-                                            No action
-                                        </span>
+                                <?php elseif (
+                                    $request['status'] === 'Approved'
+                                    && $verificationStatus === 'Pending'
+                                ): ?>
 
-                                    <?php endif; ?>
+                                    <span class="badge bg-warning text-dark">
+                                        Awaiting Email Verification
+                                    </span>
 
-                                </td>
+                                <?php elseif (
+                                    $request['status'] === 'Approved'
+                                    && $verificationStatus === 'Verified'
+                                ): ?>
 
-                            </tr>
+                                    <span class="badge bg-success">
+                                        Ready / Workspace Created
+                                    </span>
 
-                        <?php endforeach; ?>
+                                <?php else: ?>
 
-                        </tbody>
+                                    <span class="text-muted">
+                                        No action
+                                    </span>
 
-                    </table>
+                                <?php endif; ?>
 
-                </div>
+                            </td>
+
+                        </tr>
+
+                    <?php endforeach; ?>
+
+                    </tbody>
+
+                </table>
 
             <?php endif; ?>
 
@@ -1160,6 +889,5 @@ require VIEW_PATH . '/layouts/header-admin.php';
     </div>
 
 </div>
-
 
 <?php require VIEW_PATH . '/layouts/footer.php'; ?>

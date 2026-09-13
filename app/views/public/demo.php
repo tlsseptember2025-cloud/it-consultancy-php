@@ -35,6 +35,7 @@ if (isset($_SESSION['agent'])) {
 */
 
 require_once CONFIG_PATH . '/database.php';
+require_once HELPER_PATH . '/demo-domain.php';
 
 /*
 |--------------------------------------------------------------------------
@@ -57,33 +58,6 @@ if (strpos($host, 'demo.wahbibconsultancy.com') !== false) {
     // Local development
     $demoEnvironment = null;
 }
-
-/*
-|--------------------------------------------------------------------------
-| Demo Environment
-|--------------------------------------------------------------------------
-|
-| DEV and DEMO use the same database.
-| Determine which site submitted the request.
-|
-*/
-
-$host = strtolower($_SERVER['HTTP_HOST'] ?? '');
-
-if (strpos($host, 'demo.wahbibconsultancy.com') !== false) {
-
-    $demoEnvironment = 'demo';
-
-} elseif (strpos($host, 'dev.wahbibconsultancy.com') !== false) {
-
-    $demoEnvironment = 'dev';
-
-} else {
-
-    $demoEnvironment = 'dev';
-
-}
-
 
 /*
 |--------------------------------------------------------------------------
@@ -110,7 +84,7 @@ $allowedOptions = [
 ];
 
 
-/*
+    /*
 |--------------------------------------------------------------------------
 | Demo Request Submission
 |--------------------------------------------------------------------------
@@ -122,13 +96,9 @@ if (
 ) {
 
     $fullName = trim($_POST['demo_full_name'] ?? '');
-
-    $email = trim($_POST['demo_email'] ?? '');
-
+    $email = strtolower(trim($_POST['demo_email'] ?? ''));
     $phone = trim($_POST['demo_phone'] ?? '');
-
     $companyName = trim($_POST['demo_company'] ?? '');
-
 
     /*
     |--------------------------------------------------------------------------
@@ -139,11 +109,8 @@ if (
     $submittedOptions = $_POST['explore_options'] ?? [];
 
     if (!is_array($submittedOptions)) {
-
         $submittedOptions = [];
-
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -152,33 +119,21 @@ if (
     */
 
     foreach ($submittedOptions as $option) {
-
         if (
             is_string($option)
             && in_array($option, $allowedOptions, true)
         ) {
-
             $selectedOptions[] = $option;
-
         }
-
     }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | Remove Duplicates
-    |--------------------------------------------------------------------------
-    */
 
     $selectedOptions = array_values(
         array_unique($selectedOptions)
     );
 
-
     /*
     |--------------------------------------------------------------------------
-    | Validation
+    | Basic Validation
     |--------------------------------------------------------------------------
     */
 
@@ -192,10 +147,34 @@ if (
 
     } elseif (count($selectedOptions) === 0) {
 
-        $error = 'Please select at least one area you would like to explore.';
-
+        $error =
+            'Please select at least one area you would like to explore.';
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Business Email / Company Domain Validation
+    |--------------------------------------------------------------------------
+    */
+
+    $companyDomain = null;
+
+    if ($error === '') {
+
+        $companyDomain = getDemoEmailDomain($email);
+
+        if ($companyDomain === null) {
+
+            $error =
+                'Please enter a valid business email address.';
+
+        } elseif (isFreeDemoEmailDomain($companyDomain)) {
+
+            $error =
+                'Please use your company email address. '
+                . 'Personal email addresses are not accepted for Demo requests.';
+        }
+    }
 
     /*
     |--------------------------------------------------------------------------
@@ -210,157 +189,314 @@ if (
             JSON_UNESCAPED_UNICODE
         );
 
-
         if ($exploreOptionsJson === false) {
 
-            $error = 'Unable to process your selected options.';
+            $error =
+                'Unable to process your selected options.';
 
         } else {
 
-
             try {
 
-    /*
-    |--------------------------------------------------------------------------
-    | Detect Environment
-    |--------------------------------------------------------------------------
-    */
+                $pdo->beginTransaction();
 
-    $host = strtolower($_SERVER['HTTP_HOST'] ?? '');
+                /*
+                |--------------------------------------------------------------------------
+                | Find Existing Company
+                |--------------------------------------------------------------------------
+                */
 
+                $stmt = $pdo->prepare("
+                    SELECT *
+                    FROM demo_companies
+                    WHERE domain = ?
+                    LIMIT 1
+                    FOR UPDATE
+                ");
 
-    /*
-    |--------------------------------------------------------------------------
-    | DEV / DEMO
-    |--------------------------------------------------------------------------
-    |
-    | DEV and DEMO share a database and use the environment column.
-    |
-    */
+                $stmt->execute([
+                    $companyDomain
+                ]);
 
-    if (
-        strpos($host, 'demo.wahbibconsultancy.com') !== false
-        || strpos($host, 'dev.wahbibconsultancy.com') !== false
-    ) {
+                $demoCompany = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        $environment =
-            strpos($host, 'demo.wahbibconsultancy.com') !== false
-                ? 'demo'
-                : 'dev';
+                /*
+                |--------------------------------------------------------------------------
+                | Company Already Used Demo
+                |--------------------------------------------------------------------------
+                */
 
+                if (
+                    $demoCompany
+                    && (int) $demoCompany['demo_used'] === 1
+                ) {
 
-        $stmt = $pdo->prepare("
-            INSERT INTO demo_requests (
-                full_name,
-                email,
-                phone,
-                company_name,
-                explore_options,
-                environment,
-                status
-            )
-            VALUES (
-                :full_name,
-                :email,
-                :phone,
-                :company_name,
-                :explore_options,
-                :environment,
-                'Pending'
-            )
-        ");
+                    throw new RuntimeException(
+                        'This company has already used its Demo access.'
+                    );
+                }
 
-        $stmt->execute([
-            ':full_name'       => $fullName,
-            ':email'           => $email,
-            ':phone'           => $phone !== '' ? $phone : null,
-            ':company_name'    => $companyName !== '' ? $companyName : null,
-            ':explore_options' => $exploreOptionsJson,
-            ':environment'     => $environment
-        ]);
+                /*
+                |--------------------------------------------------------------------------
+                | Existing Request Still In Progress
+                |--------------------------------------------------------------------------
+                */
 
-    } else {
+                if ($demoCompany) {
 
-        /*
-        |--------------------------------------------------------------------------
-        | LOCAL
-        |--------------------------------------------------------------------------
-        |
-        | Local database does NOT have the environment column.
-        |
-        */
+                    $requestEnvironment = getDemoEnvironment();
 
-        $stmt = $pdo->prepare("
-            INSERT INTO demo_requests (
-                full_name,
-                email,
-                phone,
-                company_name,
-                explore_options,
-                status
-            )
-            VALUES (
-                :full_name,
-                :email,
-                :phone,
-                :company_name,
-                :explore_options,
-                'Pending'
-            )
-        ");
+                    if ($requestEnvironment !== null) {
 
-        $stmt->execute([
-            ':full_name'       => $fullName,
-            ':email'           => $email,
-            ':phone'           => $phone !== '' ? $phone : null,
-            ':company_name'    => $companyName !== '' ? $companyName : null,
-            ':explore_options' => $exploreOptionsJson
-        ]);
-    }
+                        $stmt = $pdo->prepare("
+                            SELECT id
+                            FROM demo_requests
+                            WHERE demo_company_id = ?
+                              AND environment = ?
+                              AND status IN ('Pending', 'Approved')
+                            LIMIT 1
+                        ");
 
+                        $stmt->execute([
+                            (int) $demoCompany['id'],
+                            $requestEnvironment
+                        ]);
 
-    /*
-    |--------------------------------------------------------------------------
-    | Success
-    |--------------------------------------------------------------------------
-    */
+                    } else {
 
-    $success =
-        'Thank you! Your demo access request has been submitted. '
-        . 'Your request will be reviewed before access is provided.';
+                        $stmt = $pdo->prepare("
+                            SELECT id
+                            FROM demo_requests
+                            WHERE demo_company_id = ?
+                              AND status IN ('Pending', 'Approved')
+                            LIMIT 1
+                        ");
 
+                        $stmt->execute([
+                            (int) $demoCompany['id']
+                        ]);
+                    }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Clear Form
-    |--------------------------------------------------------------------------
-    */
+                    if ($stmt->fetch()) {
 
-    $fullName = '';
-    $email = '';
-    $phone = '';
-    $companyName = '';
-    $selectedOptions = [];
+                        throw new RuntimeException(
+                            'A Demo request for this company is already in progress.'
+                        );
+                    }
+                }
 
+                /*
+                |--------------------------------------------------------------------------
+                | Create Company History Record
+                |--------------------------------------------------------------------------
+                */
 
-} catch (Throwable $e) {
+                if (!$demoCompany) {
 
-    error_log(
-        'Demo request submission failed: '
-        . $e->getMessage()
-    );
+                    $stmt = $pdo->prepare("
+                        INSERT INTO demo_companies (
+                            domain,
+                            company_name,
+                            demo_used
+                        )
+                        VALUES (?, ?, 0)
+                    ");
 
-    $error =
-        'We could not submit your demo request right now. '
-        . 'Please try again later.';
-}
-          
+                    $stmt->execute([
+                        $companyDomain,
+                        $companyName !== ''
+                            ? $companyName
+                            : null
+                    ]);
+
+                    $demoCompanyId =
+                        (int) $pdo->lastInsertId();
+
+                } else {
+
+                    $demoCompanyId =
+                        (int) $demoCompany['id'];
+
+                    /*
+                    | Keep the latest supplied company name when
+                    | the existing company record does not have one.
+                    */
+                    if (
+                        $companyName !== ''
+                        && empty($demoCompany['company_name'])
+                    ) {
+
+                        $stmt = $pdo->prepare("
+                            UPDATE demo_companies
+                            SET company_name = ?
+                            WHERE id = ?
+                        ");
+
+                        $stmt->execute([
+                            $companyName,
+                            $demoCompanyId
+                        ]);
+                    }
+                }
+
+                /*
+                |--------------------------------------------------------------------------
+                | Insert Demo Request
+                |--------------------------------------------------------------------------
+                |
+                | LOCAL has no environment column.
+                | DEV / DEMO will use the same code later with
+                | environment filtering.
+                |
+                */
+
+                $requestEnvironment = getDemoEnvironment();
+
+                if ($requestEnvironment !== null) {
+
+                    $stmt = $pdo->prepare("
+                        INSERT INTO demo_requests (
+                            full_name,
+                            email,
+                            phone,
+                            company_name,
+                            explore_options,
+                            status,
+                            company_domain,
+                            demo_company_id,
+                            environment
+                        )
+                        VALUES (?, ?, ?, ?, ?, 'Pending', ?, ?, ?)
+                    ");
+
+                    $stmt->execute([
+                        $fullName,
+                        $email,
+                        $phone !== '' ? $phone : null,
+                        $companyName !== '' ? $companyName : null,
+                        $exploreOptionsJson,
+                        $companyDomain,
+                        $demoCompanyId,
+                        $requestEnvironment
+                    ]);
+
+                } else {
+
+                    $stmt = $pdo->prepare("
+                        INSERT INTO demo_requests (
+                            full_name,
+                            email,
+                            phone,
+                            company_name,
+                            explore_options,
+                            status,
+                            company_domain,
+                            demo_company_id
+                        )
+                        VALUES (?, ?, ?, ?, ?, 'Pending', ?, ?)
+                    ");
+
+                    $stmt->execute([
+                        $fullName,
+                        $email,
+                        $phone !== '' ? $phone : null,
+                        $companyName !== '' ? $companyName : null,
+                        $exploreOptionsJson,
+                        $companyDomain,
+                        $demoCompanyId
+                    ]);
+                }
+
+                $demoRequestId =
+                    (int) $pdo->lastInsertId();
+
+                /*
+                |--------------------------------------------------------------------------
+                | Store First Demo Request ID
+                |--------------------------------------------------------------------------
+                */
+
+                if ($demoCompany) {
+
+                    $stmt = $pdo->prepare("
+                        UPDATE demo_companies
+                        SET
+                            first_demo_request_id =
+                                COALESCE(first_demo_request_id, ?)
+                        WHERE id = ?
+                    ");
+
+                    $stmt->execute([
+                        $demoRequestId,
+                        $demoCompanyId
+                    ]);
+
+                } else {
+
+                    $stmt = $pdo->prepare("
+                        UPDATE demo_companies
+                        SET first_demo_request_id = ?
+                        WHERE id = ?
+                    ");
+
+                    $stmt->execute([
+                        $demoRequestId,
+                        $demoCompanyId
+                    ]);
+                }
+
+                $pdo->commit();
+
+                /*
+                |--------------------------------------------------------------------------
+                | Success
+                |--------------------------------------------------------------------------
+                */
+
+                $success =
+                    'Thank you! Your Demo access request has been submitted. '
+                    . 'Your company email has been recorded for verification. '
+                    . 'Your request will be reviewed before access is provided.';
+
+                /*
+                |--------------------------------------------------------------------------
+                | Clear Form
+                |--------------------------------------------------------------------------
+                */
+
+                $fullName = '';
+                $email = '';
+                $phone = '';
+                $companyName = '';
+                $selectedOptions = [];
+
+            } catch (RuntimeException $e) {
+
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+
+                $error = $e->getMessage();
+
+            } catch (PDOException $e) {
+
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+
+                error_log(
+                    'Demo request submission failed: '
+                    . $e->getMessage()
+                );
+
+                $error =
+                    'We could not submit your Demo request right now. '
+                    . 'Please try again later.';
+            }
         }
-
     }
 
 }
-
 
 require dirname(__DIR__) . '/layouts/header-public.php';
 

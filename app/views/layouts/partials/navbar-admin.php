@@ -2,12 +2,146 @@
 
 require_once APP_PATH . '/helpers/DateHelper.php';
 
-
 /*
 |--------------------------------------------------------------------------
-| Unread Admin Notifications
+| DEMO ADMIN NAVBAR
+|--------------------------------------------------------------------------
+| Demo Admin must never use normal Admin links/data.
+| The Demo dashboard and future Demo Admin feature pages are isolated
+| by the Demo workspace/session model.
 |--------------------------------------------------------------------------
 */
+if (isset($_SESSION['demo_user'])) {
+    ?>
+
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark py-3">
+        <div class="container-fluid">
+
+            <a
+                class="navbar-brand fw-bold"
+                href="?page=demo-dashboard"
+                title="<?= htmlspecialchars(COMPANY_TAGLINE) ?>">
+                <?= htmlspecialchars(COMPANY_NAME) ?>
+            </a>
+
+            <button
+                class="navbar-toggler"
+                type="button"
+                data-bs-toggle="collapse"
+                data-bs-target="#navbarNav"
+                aria-controls="navbarNav"
+                aria-expanded="false"
+                aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto align-items-lg-center">
+
+                    <!-- Demo Admin -->
+                    <li class="nav-item">
+                        <span class="nav-link text-warning fw-semibold">Demo Admin</span>
+                    </li>
+
+                    <!-- Services -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            Services
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="?page=demo-dashboard">Services</a></li>
+                            <li><a class="dropdown-item" href="?page=demo-dashboard">Price List</a></li>
+                        </ul>
+                    </li>
+
+                    <!-- Customers -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            Customers
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="?page=demo-dashboard">Customers</a></li>
+                        </ul>
+                    </li>
+
+                    <!-- Agents -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            Agents
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="?page=demo-dashboard">View Agents</a></li>
+                            <li><a class="dropdown-item" href="?page=demo-dashboard">Add Agent</a></li>
+                        </ul>
+                    </li>
+
+                    <!-- Requests -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            Requests
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="?page=demo-dashboard">Current Requests</a></li>
+                            <li><a class="dropdown-item" href="?page=demo-dashboard">Needs Admin Review</a></li>
+                            <li><a class="dropdown-item" href="?page=demo-dashboard">Awaiting Customer Response</a></li>
+                            <li><a class="dropdown-item" href="?page=demo-dashboard">Closed Requests</a></li>
+                            <li><a class="dropdown-item" href="?page=demo-dashboard">Archived Requests</a></li>
+                            <li><a class="dropdown-item" href="?page=demo-dashboard">Retention Review</a></li>
+                        </ul>
+                    </li>
+
+                    <!-- Consultations -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            Consultations
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="?page=demo-dashboard">Pending Closure Agreements</a></li>
+                            <li><a class="dropdown-item" href="?page=demo-dashboard">Approved Closures</a></li>
+                        </ul>
+                    </li>
+
+                    <!-- Finance -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            Finance
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="?page=demo-dashboard">Payments</a></li>
+                            <li><a class="dropdown-item" href="?page=demo-dashboard">Refund Requests</a></li>
+                            <li><a class="dropdown-item" href="?page=demo-dashboard">Approved Refunds</a></li>
+                        </ul>
+                    </li>
+
+                    <!-- Communications -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            Communications
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="?page=demo-dashboard">Active Messages</a></li>
+                            <li><a class="dropdown-item" href="?page=demo-dashboard">Archived Messages</a></li>
+                        </ul>
+                    </li>
+
+                    <!-- Notifications -->
+                    <li class="nav-item">
+                        <a class="nav-link" href="?page=demo-dashboard">Notifications</a>
+                    </li>
+
+                    <!-- Logout -->
+                    <li class="nav-item">
+                        <a class="nav-link text-danger" href="?page=demo-logout">Logout</a>
+                    </li>
+
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <?php
+    return;
+}
 
 $notificationCount = 0;
 
@@ -28,8 +162,21 @@ try {
 
 }
 
-?>
 
+$stmt = $pdo->prepare("
+    SELECT COUNT(*) AS total
+    FROM requests
+    WHERE workflow_stage = ?
+");
+
+$stmt->execute([
+    'Needs Admin Review'
+]);
+
+$needsAdminReviewCount = (int) $stmt->fetch(PDO::FETCH_ASSOC)['total'];
+
+
+?>
 
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark py-3">
 
@@ -44,7 +191,6 @@ try {
 
         </a>
 
-
         <button
             class="navbar-toggler"
             type="button"
@@ -58,96 +204,91 @@ try {
 
         </button>
 
-
         <div
             class="collapse navbar-collapse"
             id="navbarNav">
 
             <ul class="navbar-nav ms-auto align-items-lg-center">
 
-
                 <!-- Services -->
 
-                <li class="nav-item dropdown">
+               <!-- Services -->
 
-                    <a
-                        class="nav-link dropdown-toggle"
-                        href="#"
-                        role="button"
-                        data-bs-toggle="dropdown"
-                        aria-expanded="false">
+<li class="nav-item dropdown">
 
-                        Services
+    <a
+        class="nav-link dropdown-toggle"
+        href="#"
+        role="button"
+        data-bs-toggle="dropdown"
+        aria-expanded="false">
 
-                    </a>
+        Services
 
+    </a>
 
-                    <ul class="dropdown-menu">
+    <ul class="dropdown-menu">
 
-                        <li>
+        <li>
 
-                            <a
-                                class="dropdown-item"
-                                href="?page=services-admin">
+            <a
+                class="dropdown-item"
+                href="?page=services-admin">
 
-                                Services
+                Services
 
-                            </a>
+            </a>
 
-                        </li>
+        </li>
 
+        <li>
 
-                        <li>
+            <a
+                class="dropdown-item"
+                href="?page=pricing">
 
-                            <a
-                                class="dropdown-item"
-                                href="?page=pricing">
+                Price List
 
-                                Price List
+            </a>
 
-                            </a>
+        </li>
 
-                        </li>
+    </ul>
 
-                    </ul>
-
-                </li>
-
+</li>
 
                 <!-- Customers -->
 
                 <li class="nav-item dropdown">
 
-                    <a
-                        class="nav-link dropdown-toggle"
-                        href="#"
-                        role="button"
-                        data-bs-toggle="dropdown"
-                        aria-expanded="false">
+    <a
+        class="nav-link dropdown-toggle"
+        href="#"
+        role="button"
+        data-bs-toggle="dropdown"
+        aria-expanded="false">
 
-                        Customers
+        Customers
 
-                    </a>
+    </a>
 
+    <ul class="dropdown-menu">
 
-                    <ul class="dropdown-menu">
+        <li>
 
-                        <li>
+            <a
+                class="dropdown-item"
+                href="?page=customers">
 
-                            <a
-                                class="dropdown-item"
-                                href="?page=customers">
+                Customers
 
-                                Customers
+            </a>
 
-                            </a>
+        </li>
 
-                        </li>
+    </ul>
 
-                    </ul>
-
-                </li>
-
+</li>
 
                 <!-- Agents -->
 
@@ -164,7 +305,6 @@ try {
 
                     </a>
 
-
                     <ul class="dropdown-menu">
 
                         <li>
@@ -178,7 +318,6 @@ try {
                             </a>
 
                         </li>
-
 
                         <li>
 
@@ -196,201 +335,177 @@ try {
 
                 </li>
 
-
                 <!-- Requests -->
 
-                <li class="nav-item dropdown">
+<li class="nav-item dropdown">
 
-                    <a
-                        class="nav-link dropdown-toggle"
-                        href="#"
-                        role="button"
-                        data-bs-toggle="dropdown"
-                        aria-expanded="false">
+    <a
+        class="nav-link dropdown-toggle <?= $needsAdminReviewCount > 0 ? 'text-warning fw-semibold' : '' ?>"
+        href="#"
+        role="button"
+        data-bs-toggle="dropdown"
+        aria-expanded="false">
 
-                        Requests
+        Requests
 
-                    </a>
+        <?php if ($needsAdminReviewCount > 0): ?>
 
+            <span class="badge bg-warning text-dark ms-1">
+                <?= $needsAdminReviewCount ?>
+            </span>
 
-                    <ul class="dropdown-menu">
+        <?php endif; ?>
 
-                        <li>
-
-                            <a
-                                class="dropdown-item"
-                                href="?page=requests">
-
-                                Current Requests
-
-                            </a>
-
-                        </li>
+    </a>
 
 
-                        <li>
+    <ul class="dropdown-menu">
 
-                            <a
-                                class="dropdown-item"
-                                href="?page=needs-admin-review">
+        <!-- Current Requests -->
 
-                                Needs Admin Review
+        <li>
 
-                            </a>
+            <a
+                class="dropdown-item"
+                href="?page=requests">
 
-                        </li>
+                Current Requests
 
+            </a>
 
-                        <li>
-
-                            <a
-                                class="dropdown-item"
-                                href="?page=awaiting-customer-response">
-
-                                Awaiting Customer Response
-
-                            </a>
-
-                        </li>
+        </li>
 
 
-                        <li>
+        <!-- Needs Admin Review -->
 
-                            <a
-                                class="dropdown-item"
-                                href="?page=closed-requests">
+        <li>
 
-                                Closed Requests
+            <a
+                class="dropdown-item <?= $needsAdminReviewCount > 0 ? 'text-warning fw-semibold' : '' ?>"
+                href="?page=needs-admin-review">
 
-                            </a>
+                Needs Admin Review
 
-                        </li>
+                <?php if ($needsAdminReviewCount > 0): ?>
 
+                    <span class="badge bg-warning text-dark float-end">
+                        <?= $needsAdminReviewCount ?>
+                    </span>
 
-                        <li>
+                <?php endif; ?>
 
-                            <a
-                                class="dropdown-item"
-                                href="?page=archived-requests">
+            </a>
 
-                                Archived Requests
-
-                            </a>
-
-                        </li>
+        </li>
 
 
-                        <li>
+        <!-- Awaiting Customer Response -->
 
-                            <a
-                                class="dropdown-item"
-                                href="?page=retention-review">
+        <li>
 
-                                Retention Review
+            <a
+                class="dropdown-item"
+                href="?page=awaiting-customer-response">
 
-                            </a>
+                Awaiting Customer Response
 
-                        </li>
+            </a>
 
-                    </ul>
-
-                </li>
-
-                                <!-- Demo -->
-
-                <li class="nav-item dropdown">
-
-                    <a
-                        class="nav-link dropdown-toggle"
-                        href="#"
-                        role="button"
-                        data-bs-toggle="dropdown"
-                        aria-expanded="false">
-
-                        Demo
-
-                    </a>
+        </li>
 
 
-                    <ul class="dropdown-menu">
+        <!-- Closed Requests -->
 
-                        <li>
+        <li>
 
-                            <a
-                                class="dropdown-item"
-                                href="?page=demo-requests">
+            <a
+                class="dropdown-item"
+                href="?page=closed-requests">
 
-                                Demo Requests
+                Closed Requests
 
-                            </a>
+            </a>
 
-                        </li>
+        </li>
 
-                    </ul>
 
-                </li>
+        <!-- Archived Requests -->
 
+        <li>
+
+            <a
+                class="dropdown-item"
+                href="?page=archived-requests">
+
+                Archived Requests
+
+            </a>
+
+        </li>
+
+
+        <!-- Retention Review -->
+
+        <li>
+
+            <a
+                class="dropdown-item"
+                href="?page=retention-review">
+
+                Retention Review
+
+            </a>
+
+        </li>
+
+    </ul>
+
+</li>
 
                 <!-- Consultations -->
 
-                <li class="nav-item dropdown">
+<li class="nav-item dropdown">
 
-                    <a
-                        class="nav-link dropdown-toggle"
-                        href="#"
-                        role="button"
-                        data-bs-toggle="dropdown"
-                        aria-expanded="false">
+    <a
+        class="nav-link dropdown-toggle"
+        href="#"
+        role="button"
+        data-bs-toggle="dropdown"
+        aria-expanded="false">
 
-                        Consultations
+        Consultations
 
-                    </a>
+    </a>
 
+    <ul class="dropdown-menu">
 
-                    <ul class="dropdown-menu">
+        <li>
 
-                        <li>
+            <a
+                class="dropdown-item"
+                href="?page=closure-agreements">
 
-                            <a
-                                class="dropdown-item"
-                                href="?page=closure-agreements">
+                Pending Closure Agreements
 
-                                Pending Closure Agreements
+            </a>
 
-                            </a>
+        </li>
 
-                        </li>
+        <li>
 
+            <a
+                class="dropdown-item"
+                href="?page=approved-closures">
 
-                        <li>
+                Approved Closures
 
-                            <a
-                                class="dropdown-item"
-                                href="?page=approved-closures">
+            </a>
 
-                                Approved Closures
+        </li>
 
-                            </a>
+    </ul>
 
-                        </li>
-
-
-                        <li>
-
-                            <a
-                                class="dropdown-item"
-                                href="?page=missed-consultation-approvals">
-
-                                Missed Consultation Approvals
-
-                            </a>
-
-                        </li>
-
-                    </ul>
-
-                </li>
-
+</li>
 
                 <!-- Finance -->
 
@@ -407,7 +522,6 @@ try {
 
                     </a>
 
-
                     <ul class="dropdown-menu">
 
                         <li>
@@ -422,7 +536,6 @@ try {
 
                         </li>
 
-
                         <li>
 
                             <a
@@ -434,7 +547,6 @@ try {
                             </a>
 
                         </li>
-
 
                         <li>
 
@@ -452,8 +564,7 @@ try {
 
                 </li>
 
-
-                <!-- Communications -->
+                                <!-- System -->
 
                 <li class="nav-item dropdown">
 
@@ -468,7 +579,6 @@ try {
 
                     </a>
 
-
                     <ul class="dropdown-menu">
 
                         <li>
@@ -482,7 +592,6 @@ try {
                             </a>
 
                         </li>
-
 
                         <li>
 
@@ -500,7 +609,6 @@ try {
 
                 </li>
 
-
                 <!-- Notifications -->
 
                 <li class="nav-item dropdown">
@@ -515,7 +623,6 @@ try {
 
                         <i class="bi bi-bell-fill"></i>
 
-
                         <?php if ($notificationCount > 0): ?>
 
                             <span
@@ -529,7 +636,6 @@ try {
                         <?php endif; ?>
 
                     </a>
-
 
                     <ul
                         class="dropdown-menu dropdown-menu-end"
@@ -550,7 +656,6 @@ try {
                         $notifications = $stmt->fetchAll();
 
                         ?>
-
 
                         <?php if (empty($notifications)): ?>
 
@@ -596,7 +701,6 @@ try {
 
                                 </li>
 
-
                                 <li>
 
                                     <hr class="dropdown-divider">
@@ -606,7 +710,6 @@ try {
                             <?php endforeach; ?>
 
                         <?php endif; ?>
-
 
                         <li>
 
@@ -624,7 +727,6 @@ try {
 
                 </li>
 
-
                 <!-- Logout -->
 
                 <li class="nav-item">
@@ -638,7 +740,6 @@ try {
                     </a>
 
                 </li>
-
 
             </ul>
 

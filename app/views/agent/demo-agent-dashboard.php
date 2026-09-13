@@ -40,12 +40,6 @@ require VIEW_PATH . '/layouts/header-public.php';
             </p>
         </div>
 
-        <a
-            href="?page=demo-logout"
-            class="btn btn-outline-danger">
-            Logout
-        </a>
-
     </div>
 
 
