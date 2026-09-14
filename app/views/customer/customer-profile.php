@@ -1,27 +1,14 @@
 <?php
 
-if (
-    !isset($_SESSION['customer']) &&
-    !isset($_SESSION['demo_customer'])
-) {
-    if (!empty($_SESSION['demo_logged_out'])) {
-        header('Location: ?page=demo-login');
-    } else {
-        header('Location: ?page=public-login');
-    }
+if (!isset($_SESSION['customer'])) {
 
+    header('Location: ?page=public-login');
     exit;
 }
 
 require_once CONFIG_PATH . '/database.php';
 
-$isDemoCustomer = isset($_SESSION['demo_customer']);
-
-if ($isDemoCustomer) {
-    $customerId = (int) $_SESSION['demo_customer']['id'];
-} else {
-    $customerId = (int) $_SESSION['customer']['id'];
-}
+$customerId = (int) $_SESSION['customer']['id'];
 
 $stmt = $pdo->prepare("
     SELECT
@@ -40,13 +27,8 @@ $customer = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$customer) {
 
-    if ($isDemoCustomer) {
-        unset($_SESSION['demo_customer']);
-        header('Location: ?page=demo-login');
-    } else {
-        unset($_SESSION['customer']);
-        header('Location: ?page=public-login');
-    }
+    unset($_SESSION['customer']);
+    header('Location: ?page=public-login');
 
     exit;
 }
@@ -113,16 +95,11 @@ if (
             ]);
 
             /*
-             * Keep the correct session synchronized
+             * Keep the session information synchronized
              * with the database.
              */
-            if ($isDemoCustomer) {
-                $_SESSION['demo_customer']['name'] = $name;
-                $_SESSION['demo_customer']['email'] = $email;
-            } else {
-                $_SESSION['customer']['name'] = $name;
-                $_SESSION['customer']['email'] = $email;
-            }
+            $_SESSION['customer']['name'] = $name;
+            $_SESSION['customer']['email'] = $email;
 
             $customer['name'] = $name;
             $customer['email'] = $email;
@@ -261,9 +238,7 @@ require VIEW_PATH . '/layouts/header-customer.php';
             <div class="mt-4">
 
                 <a
-                    href="<?= $isDemoCustomer
-                        ? '?page=demo-customer-dashboard'
-                        : '?page=customer-dashboard' ?>"
+                    href="?page=customer-dashboard"
                     class="btn btn-secondary">
 
                     ← Back

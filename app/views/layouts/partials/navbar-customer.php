@@ -3,13 +3,9 @@
 $customerNotificationCount = 0;
 $customerNotifications = [];
 
-if (isset($_SESSION['customer']) || isset($_SESSION['demo_customer'])) {
+if (isset($_SESSION['customer'])) {
 
-    if (isset($_SESSION['demo_customer'])) {
-        $customerId = (int) $_SESSION['demo_customer']['id'];
-    } else {
-        $customerId = (int) $_SESSION['customer']['id'];
-    }
+    $customerId = (int) $_SESSION['customer']['id'];
 
     $stmt = $pdo->prepare("
         SELECT COUNT(*)
@@ -50,9 +46,7 @@ if (isset($_SESSION['customer']) || isset($_SESSION['demo_customer'])) {
 
         <a
             class="navbar-brand fw-bold"
-            href="<?= isset($_SESSION['demo_customer'])
-                ? '?page=demo-customer-dashboard'
-                : '?page=customer-dashboard' ?>"
+            href="?page=customer-dashboard"
             title="<?= COMPANY_TAGLINE ?>">
 
             <?= COMPANY_NAME ?>
@@ -78,15 +72,6 @@ if (isset($_SESSION['customer']) || isset($_SESSION['demo_customer'])) {
 
             <ul class="navbar-nav ms-auto align-items-lg-center">
 
-                <?php if (isset($_SESSION['demo_customer'])): ?>
-
-                    <li class="nav-item">
-                        <span class="nav-link text-warning fw-semibold">
-                            Demo Customer
-                        </span>
-                    </li>
-
-                <?php endif; ?>
 
                 <!-- Requests -->
 
@@ -241,9 +226,7 @@ if (isset($_SESSION['customer']) || isset($_SESSION['demo_customer'])) {
 
                     <a
                         class="nav-link text-danger"
-                        href="<?= isset($_SESSION['demo_customer'])
-                            ? '?page=demo-logout'
-                            : '?page=customer-logout' ?>">
+                        href="?page=customer-logout">
 
                         Logout
 
