@@ -432,6 +432,7 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 
     Manage customers, services, requests, invoices,
     payments, consultations and more from one platform.
+    WAHBIB CONSULTATION LLC
 
 </p>
 
