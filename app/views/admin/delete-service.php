@@ -12,7 +12,7 @@ if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
     exit;
 }
 
-require dirname(__DIR__, 2) . '/config/database.php';
+require dirname(__DIR__, 3) . '/config/database.php';
 
 $id = (int) $_GET['id'];
 
