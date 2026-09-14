@@ -5,10 +5,6 @@ if (!isset($_SESSION['user'])) {
     exit;
 }
 
-blockDemoAction(
-    'Deleting a payment is disabled in the online demo.',
-    '?page=requests'
-);
 
 require CONFIG_PATH . '/database.php';
 

@@ -38,7 +38,6 @@ body {
 }
 </style>
 
-<?php require __DIR__ . '/partials/demo-banner.php'; ?>
 
 <?php require __DIR__ . '/partials/navbar-agent.php'; ?>
 

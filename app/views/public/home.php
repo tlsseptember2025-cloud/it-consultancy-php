@@ -437,26 +437,7 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 </p>
 
 
-<div class="d-flex flex-wrap gap-2">
 
-    <a
-        class="btn btn-primary btn-lg"
-        href="?page=demo">
-
-        Request a Demo
-
-    </a>
-
-
-    <a
-        class="btn btn-outline-primary btn-lg"
-        href="?page=demo-login">
-
-        Login to Demo Portal
-
-    </a>
-
-</div>
     </div>
 
 </div>

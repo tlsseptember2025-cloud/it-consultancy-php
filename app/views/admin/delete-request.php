@@ -5,10 +5,6 @@ if (!isset($_SESSION['user'])) {
     exit;
 }
 
-blockDemoAction(
-    'Deleting requests is disabled in the online demo.',
-    '?page=requests'
-);
 
 require_once CONFIG_PATH . '/database.php';
 
