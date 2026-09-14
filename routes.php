@@ -29,43 +29,6 @@ require_once CONFIG_PATH . '/database.php';
 
 $page = $_GET['page'] ?? 'home';
 
-/*
-|--------------------------------------------------------------------------
-| Demo Mandatory Password Change Guard
-|--------------------------------------------------------------------------
-| This must run immediately AFTER:
-|
-|     $page = $_GET['page'] ?? 'home';
-|
-| and BEFORE the switch ($page) block.
-|--------------------------------------------------------------------------
-*/
-
-if (!in_array($page, [
-    'demo-login',
-    'demo-change-password',
-    'demo-logout'
-], true)) {
-
-    $demoSessionKey = null;
-
-    if (isset($_SESSION['demo_user'])) {
-        $demoSessionKey = 'demo_user';
-    } elseif (isset($_SESSION['demo_customer'])) {
-        $demoSessionKey = 'demo_customer';
-    } elseif (isset($_SESSION['demo_agent'])) {
-        $demoSessionKey = 'demo_agent';
-    }
-
-    if (
-        $demoSessionKey !== null
-        && (int) ($_SESSION[$demoSessionKey]['must_change_password'] ?? 0) === 1
-    ) {
-        header('Location: ?page=demo-change-password');
-        exit;
-    }
-}
-
 switch ($page) {
 
     /*
@@ -78,13 +41,7 @@ switch ($page) {
         require VIEW_PATH . '/public/home.php';
         break;
 
-    case 'demo':
-        require VIEW_PATH . '/public/demo.php';
-        break;
 
-    case 'demo-register':
-        require VIEW_PATH . '/public/demo-register.php';
-        break;
 
     case 'services':
         require VIEW_PATH . '/public/services.php';
@@ -94,46 +51,14 @@ switch ($page) {
         require VIEW_PATH . '/public/contact.php';
         break;
 
-    case 'demo-requests':
-        require VIEW_PATH . '/admin/demo-requests.php';
-        break;
 
-    case 'demo-login':
-        require VIEW_PATH . '/public/demo-login.php';
-        break;
 
-    case 'demo-verify-email':
-        require VIEW_PATH . '/public/demo-verify-email.php';
-        break;
 
-    case 'demo-recover-credentials':
-        require VIEW_PATH . '/public/demo-recover-credentials.php';
-        break;
 
-    case 'demo-change-password':
-    require VIEW_PATH . '/public/demo-change-password.php';
-    break;
 
-    case 'demo-recover-credentials-confirm':
-    require VIEW_PATH . '/public/demo-recover-credentials-confirm.php';
-    break;
 
-    case 'demo-dashboard':
-    require VIEW_PATH . '/admin/demo-dashboard.php';
-    break;
 
-    case 'demo-logout':
 
-    $_SESSION['demo_logged_out'] = true;
-
-    unset(
-        $_SESSION['demo_user'],
-        $_SESSION['demo_customer'],
-        $_SESSION['demo_agent']
-    );
-
-    header('Location: ?page=demo-login');
-    exit;
     /*
     |--------------------------------------------------------------------------
     | Messages & Notifications
@@ -377,13 +302,7 @@ switch ($page) {
         require VIEW_PATH . '/admin/view-slip.php';
         break;
 
-    case 'demo-customer-dashboard':
-    require VIEW_PATH . '/customer/demo-customer-dashboard.php';
-    break;
 
-    case 'demo-agent-dashboard':
-        require VIEW_PATH . '/agent/demo-agent-dashboard.php';
-        break;
 
     /*
     |--------------------------------------------------------------------------

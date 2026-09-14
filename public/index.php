@@ -11,12 +11,11 @@ define('CONTROLLER_PATH', APP_PATH . '/controllers');
 
 require_once CONFIG_PATH . '/settings.php';
 
-require_once HELPER_PATH . '/demo_helper.php';
 require_once HELPER_PATH . '/slot_generator.php';
 
 require_once ROOT_PATH . '/routes.php';
 
-if (isDevelopment()) {
+if (defined('APP_MODE') && APP_MODE === 'development') {
     ini_set('display_errors', 1);
     ini_set('display_startup_errors', 1);
 } else {

@@ -56,7 +56,7 @@ require APP_PATH.'/views/layouts/header-admin.php';
 
 <style>
 @media print{
-nav,footer,.btn,.demo-banner{display:none!important;}
+nav,footer,.btn{display:none!important;}
 .card{border:none!important;box-shadow:none!important;}
 body{background:#fff;}
 }

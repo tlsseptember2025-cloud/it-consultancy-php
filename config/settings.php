@@ -9,11 +9,10 @@
 /**
  * Application mode
  *
- * demo
  * development
  * production
  */
-define('APP_MODE', 'demo');
+define('APP_MODE', 'development');
 
 date_default_timezone_set('Asia/Dubai');
 
