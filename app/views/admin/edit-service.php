@@ -36,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
        move_uploaded_file(
     $_FILES['image']['tmp_name'],
-    ROOT_PATH . '/public/uploads/' . $image
+    ROOT_PATH . '/public/uploads/services/' . $image
 );
     }
 
@@ -117,7 +117,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <?php if (!empty($service['image'])): ?>
 
                                     <img
-                                        src="../public/uploads/<?= htmlspecialchars($service['image']) ?>"
+                                        src="../public/uploads/services/<?= htmlspecialchars($service['image']) ?>"
                                         width="120"
                                         class="img-thumbnail mb-3">
 

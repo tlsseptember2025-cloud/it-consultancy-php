@@ -22,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         move_uploaded_file(
     $_FILES['image']['tmp_name'],
-    ROOT_PATH . '/public/uploads/' . $image
+    ROOT_PATH . '/public/uploads/services/' . $image
 );
     }
 

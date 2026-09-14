@@ -58,7 +58,7 @@ $services = $stmt->fetchAll();
                     <?php if (!empty($service['image'])): ?>
 
                         <img
-                            src="../public/uploads/<?= htmlspecialchars($service['image']) ?>"
+                            src="../public/uploads/services/<?= htmlspecialchars($service['image']) ?>"
                             width="80"
                             class="img-thumbnail">
 
