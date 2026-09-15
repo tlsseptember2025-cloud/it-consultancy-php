@@ -13,3 +13,4 @@ Thumbs.db
 
 # ca file
 app/storage/certs/ca.pem
+app/storage/certs/ca_demo.pem
