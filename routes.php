@@ -51,12 +51,38 @@ switch ($page) {
         require VIEW_PATH . '/public/contact.php';
         break;
 
+    case 'demo-request':
+        require VIEW_PATH . '/public/demo-request.php';
+        break;
+
+    case 'confirm-demo-email':
+        require VIEW_PATH . '/public/confirm-demo-email.php';
+        break;
+
+    case 'approve-demo-request':
+    require VIEW_PATH . '/admin/approve-demo-request.php';
+    break;
+
+    case 'confirm-demo-customer':
+    require VIEW_PATH . '/public/confirm-demo-customer.php';
+    break;
 
 
 
 
+    /*
+|--------------------------------------------------------------------------
+| Demo Requests
+|--------------------------------------------------------------------------
+*/
 
+case 'demo-requests':
+    require VIEW_PATH . '/admin/demo-requests.php';
+    break;
 
+case 'view-demo-request':
+    require VIEW_PATH . '/admin/view-demo-request.php';
+    break;
 
 
     /*

@@ -94,6 +94,18 @@ $totalRefunded = $pdo->query("
     FROM refunds
 ")->fetchColumn();
 
+/*
+|--------------------------------------------------------------------------
+| Demo Requests
+|--------------------------------------------------------------------------
+*/
+
+$demoRequestsActionCount = $pdo->query("
+    SELECT COUNT(*)
+    FROM demo_requests
+    WHERE status IN ('Confirmed', 'Customer Confirmed')
+")->fetchColumn();
+
 $netRevenue = $totalRevenue - $totalRefunded;
 //$totalRevenue = $totalPayments - $totalRefunded;
 //$outstandingBalance = $totalQuoted - $totalRevenue;
@@ -402,6 +414,49 @@ $messagesNeedingAttention = $pdo->query("
 
         <!-- LEFT SIDEBAR -->
         <div class="col-lg-2">
+
+            <!-- Demo Requests -->
+<div class="card shadow-sm border-primary mb-4">
+
+    <div class="card-header bg-primary text-white">
+        <strong>🖥️ Demo Requests</strong>
+
+        <?php if ($demoRequestsActionCount > 0): ?>
+            <span class="badge bg-light text-primary float-end">
+                <?= (int) $demoRequestsActionCount ?>
+            </span>
+        <?php endif; ?>
+    </div>
+
+    <div class="card-body text-center p-3">
+
+        <?php if ($demoRequestsActionCount > 0): ?>
+
+            <div class="mb-2">
+                <strong>
+                    <?= (int) $demoRequestsActionCount ?>
+                </strong>
+                request<?= $demoRequestsActionCount == 1 ? '' : 's' ?>
+                need<?= $demoRequestsActionCount == 1 ? 's' : '' ?>
+                admin action.
+            </div>
+
+        <?php else: ?>
+
+            <div class="text-muted mb-2">
+                No Demo requests need action.
+            </div>
+
+        <?php endif; ?>
+
+        <a href="?page=demo-requests"
+           class="btn btn-sm btn-primary">
+            View Requests
+        </a>
+
+    </div>
+
+</div>
 
             <!-- Financial Summary -->
             <div class="card shadow-sm mb-4">
