@@ -150,6 +150,9 @@ case 'view-demo-request':
     case 'public-login':
         require VIEW_PATH . '/public/login.php';
         break;
+    case 'demo-login':
+        require VIEW_PATH . '/public/demo-login.php';
+        break;
 
     case 'customer-register':
         require VIEW_PATH . '/public/customer-register.php';
