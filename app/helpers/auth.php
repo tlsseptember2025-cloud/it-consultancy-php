@@ -12,11 +12,12 @@ function requireCustomerLogin(): void
 
 function requireAdminLogin(): void
 {
-    if (!isset($_SESSION['user'])) {
-
+    if (
+        !isset($_SESSION['user']) &&
+        !isset($_SESSION['demo_user'])
+    ) {
         header('Location: ?page=login');
         exit;
-
     }
 }
 

@@ -17,33 +17,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         /*
          * ------------------------------------------------------------
-         * Check Demo Admin
+         * Check Demo Customer
          * ------------------------------------------------------------
          */
 
         $stmt = $demoPdo->prepare("
-            SELECT u.*, t.company_name, t.company_domain, t.expires_at, t.status AS tenant_status
-            FROM users u
+            SELECT
+                c.*,
+                t.company_name,
+                t.company_domain,
+                t.expires_at,
+                t.status AS tenant_status
+            FROM customers c
             INNER JOIN demo_tenants t
-                ON t.id = u.demo_tenant_id
-            WHERE u.email = ?
-              AND u.is_demo_account = 1
-              AND u.demo_tenant_id IS NOT NULL
+                ON t.id = c.demo_tenant_id
+            WHERE c.email = ?
+              AND c.is_demo_account = 1
+              AND c.demo_tenant_id IS NOT NULL
             LIMIT 1
         ");
 
         $stmt->execute([$email]);
 
-        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        $customer = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (
-            $user &&
-            password_verify($password, $user['password'])
+            $customer &&
+            password_verify($password, $customer['password'])
         ) {
 
             if (
-                $user['tenant_status'] !== 'Active' ||
-                strtotime($user['expires_at']) <= time()
+                $customer['tenant_status'] !== 'Active' ||
+                strtotime($customer['expires_at']) <= time()
             ) {
 
                 $error = 'This Demo account has expired.';
@@ -53,65 +58,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 unset(
                     $_SESSION['user'],
                     $_SESSION['customer'],
-                    $_SESSION['agent']
+                    $_SESSION['agent'],
+                    $_SESSION['demo_user'],
+                    $_SESSION['demo_agent']
                 );
 
-                $_SESSION['demo_user'] = $user;
+                $_SESSION['demo_customer'] = $customer;
 
-                header('Location: ?page=dashboard');
+                header('Location: ?page=customer-dashboard');
                 exit;
-            }
-        }
-
-
-        /*
-         * ------------------------------------------------------------
-         * Check Demo Customer
-         * ------------------------------------------------------------
-         */
-
-        if ($error === '') {
-
-            $stmt = $demoPdo->prepare("
-                SELECT c.*, t.company_name, t.company_domain, t.expires_at, t.status AS tenant_status
-                FROM customers c
-                INNER JOIN demo_tenants t
-                    ON t.id = c.demo_tenant_id
-                WHERE c.email = ?
-                  AND c.is_demo_account = 1
-                  AND c.demo_tenant_id IS NOT NULL
-                LIMIT 1
-            ");
-
-            $stmt->execute([$email]);
-
-            $customer = $stmt->fetch(PDO::FETCH_ASSOC);
-
-            if (
-                $customer &&
-                password_verify($password, $customer['password'])
-            ) {
-
-                if (
-                    $customer['tenant_status'] !== 'Active' ||
-                    strtotime($customer['expires_at']) <= time()
-                ) {
-
-                    $error = 'This Demo account has expired.';
-
-                } else {
-
-                    unset(
-                        $_SESSION['user'],
-                        $_SESSION['customer'],
-                        $_SESSION['agent']
-                    );
-
-                    $_SESSION['demo_customer'] = $customer;
-
-                    header('Location: ?page=customer-dashboard');
-                    exit;
-                }
             }
         }
 
@@ -125,7 +80,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($error === '') {
 
             $stmt = $demoPdo->prepare("
-                SELECT a.*, t.company_name, t.company_domain, t.expires_at, t.status AS tenant_status
+                SELECT
+                    a.*,
+                    t.company_name,
+                    t.company_domain,
+                    t.expires_at,
+                    t.status AS tenant_status
                 FROM agents a
                 INNER JOIN demo_tenants t
                     ON t.id = a.demo_tenant_id
@@ -157,12 +117,81 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     unset(
                         $_SESSION['user'],
                         $_SESSION['customer'],
-                        $_SESSION['agent']
+                        $_SESSION['agent'],
+                        $_SESSION['demo_user'],
+                        $_SESSION['demo_customer']
                     );
 
                     $_SESSION['demo_agent'] = $agent;
 
                     header('Location: ?page=agent-dashboard');
+                    exit;
+                }
+            }
+        }
+
+
+        /*
+         * ------------------------------------------------------------
+         * Check Demo Admin
+         * ------------------------------------------------------------
+         *
+         * Demo Admin accounts are stored in the Demo DB users table.
+         * They are linked to a Demo tenant and marked as Demo accounts.
+         *
+         * Company Demo Admin does NOT have Super Admin privileges.
+         */
+
+        if ($error === '') {
+
+            $stmt = $demoPdo->prepare("
+                SELECT
+                    u.*,
+                    t.company_name,
+                    t.company_domain,
+                    t.expires_at,
+                    t.status AS tenant_status
+                FROM users u
+                INNER JOIN demo_tenants t
+                    ON t.id = u.demo_tenant_id
+                WHERE u.email = ?
+                  AND u.is_demo_account = 1
+                  AND u.is_super_admin = 0
+                  AND u.demo_tenant_id IS NOT NULL
+                LIMIT 1
+            ");
+
+            $stmt->execute([$email]);
+
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (
+                $user &&
+                password_verify($password, $user['password'])
+            ) {
+
+                if (
+    $user['tenant_status'] !== 'Active' ||
+    (
+        $user['expires_at'] !== null &&
+        strtotime($user['expires_at']) <= time()
+    )
+) {
+    $error = 'This Demo account has expired.';
+} else {
+
+                    unset(
+                        $_SESSION['user'],
+                        $_SESSION['customer'],
+                        $_SESSION['agent'],
+                        $_SESSION['demo_customer'],
+                        $_SESSION['demo_agent'],
+                        $_SESSION['demo_super_admin']
+                    );
+
+                    $_SESSION['demo_user'] = $user;
+
+                    header('Location: ?page=dashboard');
                     exit;
                 }
             }
@@ -250,13 +279,37 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 
                     </button>
 
-                    <p class="mt-3 text-center mb-0">
+                    <p class="mt-3 text-center mb-2">
+
+                        <a href="?page=demo-forgot-password">
+
+                            Forgot Demo Password?
+
+                        </a>
+
+                    </p>
+
+                    <hr>
+
+                    <p class="text-center mb-2">
 
                         <a
-                            href="?page=public-login"
+                            href="?page=demo-super-admin-login"
                             class="small text-secondary text-decoration-none">
 
-                            Main Website Login
+                            Wahbib Admin Login
+
+                        </a>
+
+                    </p>
+
+                    <p class="text-center mb-0">
+
+                        <a
+                            href="?page=home"
+                            class="small text-secondary text-decoration-none">
+
+                            Back to Main Website
 
                         </a>
 
@@ -273,4 +326,3 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 </div>
 
 <?php require dirname(__DIR__) . '/layouts/footer.php'; ?>
-

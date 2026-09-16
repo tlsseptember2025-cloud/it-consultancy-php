@@ -27,6 +27,15 @@ ROUTES ORGANIZATION
 
 require_once CONFIG_PATH . '/database.php';
 
+if (
+    isset($_SESSION['demo_super_admin']) ||
+    isset($_SESSION['demo_user']) ||
+    isset($_SESSION['demo_customer']) ||
+    isset($_SESSION['demo_agent'])
+) {
+    require_once CONFIG_PATH . '/demo-database.php';
+}
+
 $page = $_GET['page'] ?? 'home';
 
 switch ($page) {
@@ -82,6 +91,18 @@ case 'demo-requests':
 
 case 'view-demo-request':
     require VIEW_PATH . '/admin/view-demo-request.php';
+    break;
+
+case 'demo-super-admin':
+    require VIEW_PATH . '/admin/demo-super-admin.php';
+    break;
+
+case 'demo-super-admin-login':
+    require VIEW_PATH . '/public/demo-super-admin-login.php';
+    break;
+
+case 'create-demo':
+    require CONTROLLER_PATH . '/create-demo.php';
     break;
 
 

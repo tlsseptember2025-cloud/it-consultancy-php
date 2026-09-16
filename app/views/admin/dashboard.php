@@ -1,13 +1,19 @@
 <?php
 
 require_once APP_PATH . '/helpers/DateHelper.php';
+require_once HELPER_PATH . '/auth.php';
 
-if (!isset($_SESSION['user'])) {
-    header("Location: ?page=login");
-    exit;
+requireAdminLogin();
+
+$adminPdo = $pdo;
+
+if (
+    isset($_SESSION['demo_super_admin']) ||
+    isset($_SESSION['demo_user'])
+) {
+    $adminPdo = $demoPdo;
 }
 
-require_once HELPER_PATH . '/auth.php';
 require dirname(__DIR__) . '/layouts/header-admin.php';
 require_once CONFIG_PATH . '/database.php';
 require_once APP_PATH . '/helpers/retention_review_helper.php';
@@ -18,33 +24,68 @@ require_once APP_PATH . '/helpers/retention_review_helper.php';
 |--------------------------------------------------------------------------
 */
 
-$pendingPayments = $pdo->query("
-    SELECT
-        ps.id,
-        ps.request_id,
-        ps.status,
-        ps.uploaded_at,
-        c.name AS customer_name,
-        s.title AS service_title,
-        r.quoted_price
-    FROM payment_slips ps
-    JOIN requests r
-        ON r.id = ps.request_id
-    JOIN customers c
-        ON c.id = ps.customer_id
-    JOIN services s
-        ON s.id = r.service_id
-    WHERE ps.status = 'Pending'
-    ORDER BY ps.uploaded_at ASC
-")->fetchAll(PDO::FETCH_ASSOC);
+$pendingPayments = [];
 
-$newLeads = $pdo->query("
+if (isset($_SESSION['demo_user'])) {
+
+    $stmt = $adminPdo->prepare("
+        SELECT
+            ps.id,
+            ps.request_id,
+            ps.status,
+            ps.uploaded_at,
+            c.name AS customer_name,
+            s.title AS service_title,
+            r.quoted_price
+        FROM payment_slips ps
+        JOIN requests r
+            ON r.id = ps.request_id
+        JOIN customers c
+            ON c.id = ps.customer_id
+        JOIN services s
+            ON s.id = r.service_id
+        WHERE ps.status = 'Pending'
+          AND c.demo_tenant_id = ?
+        ORDER BY ps.uploaded_at ASC
+    ");
+
+    $stmt->execute([
+        (int) $_SESSION['demo_user']['demo_tenant_id']
+    ]);
+
+    $pendingPayments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+} else {
+
+    $pendingPayments = $adminPdo->query("
+        SELECT
+            ps.id,
+            ps.request_id,
+            ps.status,
+            ps.uploaded_at,
+            c.name AS customer_name,
+            s.title AS service_title,
+            r.quoted_price
+        FROM payment_slips ps
+        JOIN requests r
+            ON r.id = ps.request_id
+        JOIN customers c
+            ON c.id = ps.customer_id
+        JOIN services s
+            ON s.id = r.service_id
+        WHERE ps.status = 'Pending'
+        ORDER BY ps.uploaded_at ASC
+    ")->fetchAll(PDO::FETCH_ASSOC);
+
+}
+
+$newLeads = $adminPdo->query("
     SELECT COUNT(*)
     FROM contract_leads
     WHERE status = 'New'
 ")->fetchColumn();
 
-$contactedLeads = $pdo->query("
+$contactedLeads = $adminPdo->query("
     SELECT COUNT(*)
     FROM contract_leads
     WHERE status = 'Contacted'
@@ -56,40 +97,40 @@ $convertedLeads = $pdo->query("
     WHERE status = 'Converted'
 ")->fetchColumn();
 
-$closedLeads = $pdo->query("
+$closedLeads = $adminPdo->query("
     SELECT COUNT(*)
     FROM contract_leads
     WHERE status = 'Closed'
 ")->fetchColumn();
 
-$archivedLeads = $pdo->query("
+$archivedLeads = $adminPdo->query("
     SELECT COUNT(*)
     FROM contract_leads
     WHERE status = 'Archived'
 ")->fetchColumn();
 
-$pendingLeads = $pdo->query("
+$pendingLeads = $adminPdo->query("
     SELECT COUNT(*)
     FROM contract_leads
     WHERE approval_status = 'Pending'
 ")->fetchColumn();
 
-$totalPayments = $pdo->query("
+$totalPayments = $adminPdo->query("
     SELECT COALESCE(SUM(amount), 0)
     FROM payments
 ")->fetchColumn();
 
-$totalRevenue = $pdo->query("
+$totalRevenue = $adminPdo->query("
     SELECT COALESCE(SUM(amount),0)
     FROM payments
 ")->fetchColumn();
 
-$totalQuoted = $pdo->query("
+$totalQuoted = $adminPdo->query("
     SELECT COALESCE(SUM(quoted_price),0)
     FROM requests
 ")->fetchColumn();
 
-$totalRefunded = $pdo->query("
+$totalRefunded = $adminPdo->query("
     SELECT COALESCE(SUM(amount),0)
     FROM refunds
 ")->fetchColumn();
@@ -123,7 +164,7 @@ $outstandingBalance = max(
 |--------------------------------------------------------------------------
 */
 
-$retentionReviewRequests = getRetentionReviewRequests($pdo);
+$retentionReviewRequests = getRetentionReviewRequests($adminPdo);
 $retentionReviewCount = count($retentionReviewRequests);
 $retentionReviewLatest = array_slice(
     $retentionReviewRequests,
@@ -137,7 +178,7 @@ $retentionReviewLatest = array_slice(
 |--------------------------------------------------------------------------
 */
 
-$needsAdminReview = $pdo->query("
+$needsAdminReview = $adminPdo->query("
     SELECT
         r.id,
         r.created_at,
@@ -163,7 +204,7 @@ $needsAdminReview = $pdo->query("
 |--------------------------------------------------------------------------
 */
 
-$awaitingRescheduleApproval = $pdo->query("
+$awaitingRescheduleApproval = $adminPdo->query("
     SELECT
         r.id,
         r.pending_reschedule_requested_at,
@@ -190,7 +231,7 @@ $awaitingRescheduleApproval = $pdo->query("
 
 $upcomingSchedule = [];
 
-$stmt = $pdo->prepare("
+$stmt = $adminPdo->prepare("
     SELECT
         r.id AS request_id,
         c.name AS customer_name,
@@ -262,7 +303,7 @@ $upcomingSchedule = $stmt->fetchAll(PDO::FETCH_ASSOC);
 |--------------------------------------------------------------------------
 */
 
-$agentAssignmentNeeded = $pdo->query("
+$agentAssignmentNeeded = $adminPdo->query("
     SELECT
         r.id,
         r.created_at,
@@ -285,7 +326,7 @@ $agentAssignmentNeeded = $pdo->query("
 |--------------------------------------------------------------------------
 */
 
-$awaitingCustomerResponse = $pdo->query("
+$awaitingCustomerResponse = $adminPdo->query("
     SELECT
         r.id,
         r.created_at,
@@ -311,7 +352,7 @@ $awaitingCustomerResponse = $pdo->query("
 |--------------------------------------------------------------------------
 */
 
-$pendingClosureAgreements = $pdo->query("
+$pendingClosureAgreements = $adminPdo->query("
     SELECT
         ca.id AS agreement_id,
         ca.request_id,
@@ -338,7 +379,7 @@ $pendingClosureAgreements = $pdo->query("
 |--------------------------------------------------------------------------
 */
 
-$refundRequests = $pdo->query("
+$refundRequests = $adminPdo->query("
     SELECT
         rr.id,
         rr.request_id,
@@ -364,7 +405,7 @@ $refundRequests = $pdo->query("
 |--------------------------------------------------------------------------
 */
 
-$messagesNeedingAttention = $pdo->query("
+$messagesNeedingAttention = $adminPdo->query("
     SELECT
         id,
         name,

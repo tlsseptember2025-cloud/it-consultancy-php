@@ -2,11 +2,20 @@
 
 require_once APP_PATH . '/helpers/DateHelper.php';
 
+$adminPdo = $pdo;
+
+if (
+    isset($_SESSION['demo_super_admin']) ||
+    isset($_SESSION['demo_user'])
+) {
+    $adminPdo = $demoPdo;
+}
+
 $notificationCount = 0;
 
 try {
 
-    $stmt = $pdo->query("
+    $stmt = $adminPdo->query("
         SELECT COUNT(*)
         FROM notifications
         WHERE recipient_type = 'admin'
@@ -22,7 +31,7 @@ try {
 }
 
 
-$stmt = $pdo->prepare("
+$stmt = $adminPdo->prepare("
     SELECT COUNT(*) AS total
     FROM requests
     WHERE workflow_stage = ?
@@ -503,7 +512,7 @@ $needsAdminReviewCount = (int) $stmt->fetch(PDO::FETCH_ASSOC)['total'];
 
                         <?php
 
-                        $stmt = $pdo->query("
+                        $stmt = $adminPdo->query("
                             SELECT *
                             FROM notifications
                             WHERE recipient_type = 'admin'
