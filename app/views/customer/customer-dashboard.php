@@ -1,6 +1,9 @@
 <?php
 
-if (!isset($_SESSION['customer'])) {
+if (
+    !isset($_SESSION['customer']) &&
+    !isset($_SESSION['demo_customer'])
+) {
 
     header('Location: ?page=public-login');
     exit;
@@ -8,11 +11,13 @@ if (!isset($_SESSION['customer'])) {
 
 require_once HELPER_PATH . '/auth.php';
 
-$customerId = (int) $_SESSION['customer']['id'];
+if (isset($_SESSION['demo_customer'])) {
+    $customerId = (int) $_SESSION['demo_customer']['id'];
+} else {
+    $customerId = (int) $_SESSION['customer']['id'];
+}
 
 require CONFIG_PATH . '/database.php';
-
-$customerId = $_SESSION['customer']['id'];
 
 $requests = $pdo->prepare("
     SELECT
@@ -63,7 +68,11 @@ $refunds = $refunds->fetchAll();
     <h1>
 
         Welcome,
-        <?= htmlspecialchars($_SESSION['customer']['name']) ?>
+       <?= htmlspecialchars(
+    isset($_SESSION['demo_customer'])
+        ? $_SESSION['demo_customer']['username']
+        : $_SESSION['customer']['name']
+) ?>
 
     </h1>
 

@@ -1,6 +1,9 @@
 <?php
 
-if (!isset($_SESSION['agent'])) {
+if (
+    !isset($_SESSION['agent']) &&
+    !isset($_SESSION['demo_agent'])
+) {
 
     header('Location: ?page=public-login');
     exit;
@@ -8,7 +11,11 @@ if (!isset($_SESSION['agent'])) {
 
 require_once CONFIG_PATH . '/database.php';
 
-$agentId = (int) $_SESSION['agent']['id'];
+if (isset($_SESSION['demo_agent'])) {
+    $agentId = (int) $_SESSION['demo_agent']['id'];
+} else {
+    $agentId = (int) $_SESSION['agent']['id'];
+}
 
 /*
 |--------------------------------------------------------------------------
@@ -432,30 +439,42 @@ require VIEW_PATH . '/layouts/header-agent.php';
     |--------------------------------------------------------------------------
     -->
 
-    <div class="mb-4">
+   <div class="mb-4">
 
-        <h2 class="mb-2">
+    <h2 class="mb-2">
 
-            Welcome Back,
-            <?= htmlspecialchars($_SESSION['agent']['name']) ?>!
+        Welcome Back,
+        <?= htmlspecialchars(
+            isset($_SESSION['demo_agent'])
+                ? $_SESSION['demo_agent']['username']
+                : $_SESSION['agent']['name']
+        ) ?>!
 
-        </h2>
+    </h2>
 
-        <p class="text-muted mb-1">
+    <p class="text-muted mb-1">
 
-            Position:
-            <?= htmlspecialchars($_SESSION['agent']['position']) ?>
+        Position:
+        <?= htmlspecialchars(
+            isset($_SESSION['demo_agent'])
+                ? $_SESSION['demo_agent']['position']
+                : $_SESSION['agent']['position']
+        ) ?>
 
-        </p>
+    </p>
 
-        <p class="text-success mb-0">
+    <p class="text-success mb-0">
 
-            Status:
-            <?= htmlspecialchars($_SESSION['agent']['status']) ?>
+        Status:
+        <?= htmlspecialchars(
+            isset($_SESSION['demo_agent'])
+                ? $_SESSION['demo_agent']['status']
+                : $_SESSION['agent']['status']
+        ) ?>
 
-        </p>
+    </p>
 
-    </div>
+</div>
 
 <!-- Performance -->
 

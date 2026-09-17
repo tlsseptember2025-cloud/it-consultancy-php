@@ -152,7 +152,9 @@ case 'create-demo':
         require CONTROLLER_PATH . '/review-closure-agreement.php';
         break;
 
-    
+    case 'demo-setup':
+        require VIEW_PATH . '/public/demo-setup.php';
+        break;    
 
     /*
     |--------------------------------------------------------------------------
@@ -180,9 +182,19 @@ case 'create-demo':
         break;
 
     case 'customer-logout':
-        unset($_SESSION['customer']);
-        header('Location: ?page=public-login');
+
+    if (isset($_SESSION['demo_customer'])) {
+
+        unset($_SESSION['demo_customer']);
+
+        header('Location: ?page=demo-login');
         exit;
+    }
+
+    unset($_SESSION['customer']);
+
+    header('Location: ?page=public-login');
+    exit;
 
     case 'review-reschedule-consultation':
         require VIEW_PATH . '/admin/review-reschedule-consultation.php';
@@ -286,6 +298,10 @@ case 'create-demo':
     case 'confirm-consultation-completion':
     require VIEW_PATH
         . '/customer/confirm-consultation-completion.php';
+    break;
+
+    case 'demo-change-password':
+    require VIEW_PATH . '/public/demo-change-password.php';
     break;
 
     /*

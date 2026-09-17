@@ -445,6 +445,14 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 </a>
 
 
+ <a
+        class="btn btn-outline-primary btn-lg"
+        href="?page=demo-login">
+
+        Demo Login
+
+    </a>
+
 
     </div>
 

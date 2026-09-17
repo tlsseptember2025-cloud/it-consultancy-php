@@ -476,27 +476,6 @@ if ($stmt->fetch()) {
     );
 }
 
-
-/*
-|--------------------------------------------------------------------------
-| Generate Temporary Passwords
-|--------------------------------------------------------------------------
-*/
-
-$customerTemporaryPassword = bin2hex(random_bytes(8));
-$agentTemporaryPassword    = bin2hex(random_bytes(8));
-
-$customerPasswordHash = password_hash(
-    $customerTemporaryPassword,
-    PASSWORD_DEFAULT
-);
-
-$agentPasswordHash = password_hash(
-    $agentTemporaryPassword,
-    PASSWORD_DEFAULT
-);
-
-
 /*
 |--------------------------------------------------------------------------
 | Create Demo Customer + Demo Agent
@@ -528,14 +507,13 @@ try {
         force_password_change
     )
     VALUES
-    (?, ?, NULL, NULL, ?, ?, ?, 1, 1)
+(?, ?, NULL, NULL, ?, NULL, ?, 1, 0)
 ");
 
 $stmt->execute([
     $customerUsername,
     $customerName,
     $companyName,
-    $customerPasswordHash,
     $tenantId
 ]);
 
@@ -562,14 +540,11 @@ $stmt->execute([
         status,
         active
     )
-    VALUES
-    (?, ?, NULL, ?, ?, 1, 1, ?, 'Active', 1)
-");
+    VALUES(?, ?, NULL, NULL, ?, 1, 0, ?, 'Active', 1)");
 
 $stmt->execute([
     $agentUsername,
     'Demo Agent',
-    $agentPasswordHash,
     $tenantId,
     'IT Consultant'
 ]);
@@ -729,31 +704,13 @@ $stmt->execute([
                     </table>
 
 
-                    <div class="alert alert-warning">
+                    <div class="alert alert-info">
 
-                        <h5>
-                            Demo Customer Temporary Password
-                        </h5>
+                        <strong>Demo Customer and Demo Agent setup is pending.</strong>
 
-                        <code class="fs-5">
-                            <?= htmlspecialchars($customerTemporaryPassword) ?>
-                        </code>
-
-                        <hr>
-
-                        <h5>
-                            Demo Agent Temporary Password
-                        </h5>
-
-                        <code class="fs-5">
-                            <?= htmlspecialchars($agentTemporaryPassword) ?>
-                        </code>
-
-                        <div class="small mt-3">
-
-                            Both passwords are temporary and the accounts
-                            have <strong>force_password_change = 1</strong>.
-
+                        <div class="small mt-2">
+                            The Company Demo Admin will provide the Customer and Agent
+                            email addresses during Demo Setup.
                         </div>
 
                     </div>

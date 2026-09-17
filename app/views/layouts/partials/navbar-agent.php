@@ -2,6 +2,25 @@
 
 /*
 |--------------------------------------------------------------------------
+| Determine Active Agent Session
+|--------------------------------------------------------------------------
+|
+| Normal Agent  -> $_SESSION['agent']
+| Demo Agent    -> $_SESSION['demo_agent']
+|
+*/
+
+if (isset($_SESSION['demo_agent'])) {
+    $activeAgent = $_SESSION['demo_agent'];
+} else {
+    $activeAgent = $_SESSION['agent'];
+}
+
+$activeAgentId = (int) $activeAgent['id'];
+
+
+/*
+|--------------------------------------------------------------------------
 | Customer Contact Approved Count
 |--------------------------------------------------------------------------
 */
@@ -17,7 +36,7 @@ $stmt = $pdo->prepare("
 ");
 
 $stmt->execute([
-    $_SESSION['agent']['id'],
+    $activeAgentId,
     'Customer Contact Approved'
 ]);
 
@@ -31,7 +50,7 @@ $customerContactApprovedCount =
 |--------------------------------------------------------------------------
 */
 
-$agentId = (int) $_SESSION['agent']['id'];
+$agentId = $activeAgentId;
 
 $stmt = $pdo->prepare("
     SELECT COUNT(*)
@@ -47,7 +66,6 @@ $stmt->execute([
 ]);
 
 $agentNotificationCount = (int) $stmt->fetchColumn();
-
 
 /*
 |--------------------------------------------------------------------------
