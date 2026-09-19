@@ -1,11 +1,19 @@
 <?php
 
-if (!isset($_SESSION['user'])) {
-    header('Location: ?page=login');
-    exit;
-}
+require_once HELPER_PATH . '/auth.php';
+requireAdminLogin();
 
 require_once CONFIG_PATH . '/database.php';
+
+$closePdo = $pdo;
+$isDemoAdmin = isset($_SESSION['demo_user']);
+$demoTenantId = null;
+
+if ($isDemoAdmin) {
+    require_once CONFIG_PATH . '/demo-database.php';
+    $closePdo = $demoPdo;
+    $demoTenantId = (int) $_SESSION['demo_user']['demo_tenant_id'];
+}
 require_once APP_PATH . '/helpers/email.php';
 require_once APP_PATH . '/helpers/RequestEventHelper.php';
 require_once APP_PATH . '/helpers/contact_history_helper.php';
@@ -23,7 +31,7 @@ if ($requestId <= 0) {
 |--------------------------------------------------------------------------
 */
 
-$stmt = $pdo->prepare("
+$stmt = $closePdo->prepare("
     SELECT
         r.*,
         c.name AS customer_name,
@@ -39,10 +47,18 @@ $stmt = $pdo->prepare("
     INNER JOIN services s
         ON s.id = r.service_id
     WHERE r.id = ?
+      AND (
+          ? = 0
+          OR (c.demo_tenant_id = ? AND c.is_demo_account = 1)
+      )
     LIMIT 1
 ");
 
-$stmt->execute([$requestId]);
+$stmt->execute([
+    $requestId,
+    $demoTenantId ?? 0,
+    $demoTenantId ?? 0
+]);
 
 $request = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -57,14 +73,18 @@ if (!$request) {
 |--------------------------------------------------------------------------
 */
 
-$stmt = $pdo->prepare("
+$stmt = $closePdo->prepare("
     SELECT id
     FROM users
     WHERE email = ?
     LIMIT 1
 ");
 
-$stmt->execute([$_SESSION['user']]);
+$adminEmail = $isDemoAdmin
+    ? ($_SESSION['demo_user']['email'] ?? '')
+    : ($_SESSION['user'] ?? '');
+
+$stmt->execute([$adminEmail]);
 
 $admin = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -81,7 +101,7 @@ $adminId = $admin['id'];
 |--------------------------------------------------------------------------
 */
 
-$stmt = $pdo->prepare("
+$stmt = $closePdo->prepare("
     SELECT *
     FROM consultation_closure_agreements
     WHERE request_id = ?
@@ -390,7 +410,7 @@ if (
     |--------------------------------------------------------------------------
     */
 
-    $update = $pdo->prepare("
+    $update = $closePdo->prepare("
         UPDATE requests
         SET
             closure_notes = ?,
@@ -412,7 +432,7 @@ if (
     */
 
     addContactHistory(
-        $pdo,
+        $closePdo,
         $requestId,
         null,
         $adminId,
@@ -426,7 +446,7 @@ if (
     );
 
     RequestEventHelper::add(
-    $pdo,
+    $closePdo,
     $requestId,
     RequestEventHelper::EVENT_CLOSURE_REQUEST_CONFIRMED,
     RequestEventHelper::TYPE_CONTACT,
@@ -445,7 +465,7 @@ if (
     */
 
     RequestEventHelper::add(
-        $pdo,
+        $closePdo,
         $requestId,
         $isResend
             ? 'CLOSURE_AGREEMENT_RESENT'

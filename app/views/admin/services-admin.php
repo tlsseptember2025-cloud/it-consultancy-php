@@ -1,15 +1,18 @@
 <?php
 
-if (!isset($_SESSION['user'])) {
+require_once HELPER_PATH . '/auth.php';
 
-    header('Location: ?page=login');
-    exit;
+requireAdminLogin();
+
+if (isset($_SESSION['demo_user'])) {
+    require_once CONFIG_PATH . '/demo-database.php';
+    $servicesPdo = $demoPdo;
+} else {
+    require_once CONFIG_PATH . '/database.php';
+    $servicesPdo = $pdo;
 }
 
-require_once HELPER_PATH . '/auth.php';
-require_once CONFIG_PATH . '/database.php';
-
-$stmt = $pdo->query("
+$stmt = $servicesPdo->query("
     SELECT * FROM services
     ORDER BY created_at DESC
 ");

@@ -1,21 +1,77 @@
 <?php
 
-if (!isset($_SESSION['user'])) {
-    header("Location: ?page=login");
-    exit;
+require_once HELPER_PATH . '/auth.php';
+
+requireAdminLogin();
+
+
+/*
+|--------------------------------------------------------------------------
+| Select Database
+|--------------------------------------------------------------------------
+*/
+
+if (isset($_SESSION['demo_user'])) {
+
+    require_once CONFIG_PATH . '/demo-database.php';
+
+    $agentsPdo = $demoPdo;
+
+    $demoTenantId = (int) $_SESSION['demo_user']['demo_tenant_id'];
+
+} else {
+
+    require CONFIG_PATH . '/database.php';
+
+    $agentsPdo = $pdo;
+
+    $demoTenantId = null;
 }
 
-require_once CONFIG_PATH . '/database.php';
 
-$stmt = $pdo->query("
-    SELECT *
-    FROM agents
-    ORDER BY name ASC
-");
+/*
+|--------------------------------------------------------------------------
+| Load Agents
+|--------------------------------------------------------------------------
+*/
 
-$agents = $stmt->fetchAll();
+if (isset($_SESSION['demo_user'])) {
+
+    /*
+     * Demo Admin sees only Agents belonging
+     * to the current Demo tenant.
+     */
+
+    $stmt = $agentsPdo->prepare("
+        SELECT *
+        FROM agents
+        WHERE demo_tenant_id = ?
+          AND is_demo_account = 1
+        ORDER BY name ASC
+    ");
+
+    $stmt->execute([
+        $demoTenantId
+    ]);
+
+} else {
+
+    /*
+     * Main System Admin sees all Agents.
+     */
+
+    $stmt = $agentsPdo->query("
+        SELECT *
+        FROM agents
+        ORDER BY name ASC
+    ");
+}
+
+$agents = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
 
 require dirname(__DIR__) . '/layouts/header-admin.php';
+
 ?>
 
 <div class="card shadow-sm">
@@ -24,23 +80,32 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
 
         <div class="d-flex justify-content-between align-items-center mb-2">
 
-    <h2 class="mb-0">Agents</h2>
+            <h2 class="mb-0">
+                Agents
+            </h2>
 
-    <a href="?page=add-agent"
-       class="btn btn-success">
+            <?php if (!isset($_SESSION['demo_user'])): ?>
 
-        Add Agent
+                <a
+                    href="?page=add-agent"
+                    class="btn btn-success">
 
-    </a>
+                    Add Agent
 
-</div>
+                </a>
 
-<p class="text-muted">
+            <?php endif; ?>
 
-    Total Agents:
-    <strong><?= count($agents) ?></strong>
+        </div>
 
-</p>
+
+        <p class="text-muted">
+
+            Total Agents:
+            <strong><?= count($agents) ?></strong>
+
+        </p>
+
 
         <?php if (empty($agents)): ?>
 
@@ -56,91 +121,146 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
 
                 <thead>
 
-                <tr>
+                    <tr>
 
-                    <th width="50">#</th>
-                    <th>Name</th>
-                    <th>Email</th>
-                    <th>Phone</th>
-                    <th>Position</th>
-                    <th class="text-center">Status</th>
-                    <th class="text-center">Actions</th>
+                        <th width="50">#</th>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Phone</th>
+                        <th>Position</th>
+                        <th class="text-center">Status</th>
+                        <th class="text-center">Actions</th>
 
-                </tr>
+                    </tr>
 
                 </thead>
 
+
                 <tbody>
 
-<?php $i = 1; ?>
+                    <?php $i = 1; ?>
 
-<?php foreach ($agents as $agent): ?>
+                    <?php foreach ($agents as $agent): ?>
 
-<tr>
+                        <tr>
 
-    <td><?= $i++ ?></td>
+                            <td>
+                                <?= $i++ ?>
+                            </td>
 
-    <td class="text-nowrap">
-        <strong><?= htmlspecialchars($agent['name']) ?></strong>
-    </td>
 
-    <td><?= htmlspecialchars($agent['email']) ?></td>
+                            <td class="text-nowrap">
 
-    <td>
+                                <strong>
+                                    <?= htmlspecialchars(
+                                        $agent['name']
+                                    ) ?>
+                                </strong>
 
-        <?= !empty($agent['phone'])
-            ? htmlspecialchars($agent['phone'])
-            : '<span class="text-muted fst-italic">Not Set</span>' ?>
+                            </td>
 
-    </td>
 
-    <td>
+                            <td>
 
-        <?= !empty($agent['position'])
-            ? htmlspecialchars($agent['position'])
-            : '<span class="text-muted fst-italic">Not Set</span>' ?>
+                                <?= htmlspecialchars(
+                                    $agent['email']
+                                ) ?>
 
-    </td>
+                            </td>
 
-    <td class="text-center">
 
-        <?php if ($agent['status'] === 'Active'): ?>
+                            <td>
 
-            <span class="badge rounded-pill bg-success">
+                                <?= !empty($agent['phone'])
 
-                Active
+                                    ? htmlspecialchars(
+                                        $agent['phone']
+                                    )
 
-            </span>
+                                    : '<span class="text-muted fst-italic">
+                                        Not Set
+                                       </span>' ?>
 
-        <?php else: ?>
+                            </td>
 
-            <span class="badge rounded-pill bg-secondary">
 
-                Inactive
+                            <td>
 
-            </span>
+                                <?= !empty($agent['position'])
 
-        <?php endif; ?>
+                                    ? htmlspecialchars(
+                                        $agent['position']
+                                    )
 
-    </td>
+                                    : '<span class="text-muted fst-italic">
+                                        Not Set
+                                       </span>' ?>
 
-    <td class="text-center">
+                            </td>
+
+
+                            <td class="text-center">
+
+                                <?php if (
+                                    $agent['status'] === 'Active'
+                                ): ?>
+
+                                    <span
+                                        class="badge rounded-pill bg-success">
+
+                                        Active
+
+                                    </span>
+
+                                <?php else: ?>
+
+                                    <span
+                                        class="badge rounded-pill bg-secondary">
+
+                                        Inactive
+
+                                    </span>
+
+                                <?php endif; ?>
+
+                            </td>
+
+
+                            <td class="text-center">
+
+                                <td class="text-center">
+
+    <?php if (isset($_SESSION['demo_user'])): ?>
 
         <a
-            href="?page=edit-agent&id=<?= $agent['id'] ?>"
+            href="?page=view-agent&id=<?= (int) $agent['id'] ?>"
+            class="btn btn-info btn-sm px-3">
+
+            View
+
+        </a>
+
+    <?php else: ?>
+
+        <a
+            href="?page=edit-agent&id=<?= (int) $agent['id'] ?>"
             class="btn btn-warning btn-sm px-3">
 
             Edit
 
         </a>
 
-    </td>
+    <?php endif; ?>
 
-</tr>
+</td>
 
-<?php endforeach; ?>
+                            </td>
 
-</tbody>
+                        </tr>
+
+                    <?php endforeach; ?>
+
+                </tbody>
 
             </table>
 
@@ -149,5 +269,6 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
     </div>
 
 </div>
+
 
 <?php require dirname(__DIR__) . '/layouts/footer.php'; ?>

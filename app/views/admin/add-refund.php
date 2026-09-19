@@ -1,65 +1,145 @@
 <?php
 
-if (!isset($_SESSION['user'])) {
-
-    header("Location: ?page=login");
-    exit;
-}
+require_once HELPER_PATH . '/auth.php';
+requireAdminLogin();
 
 require CONFIG_PATH . '/database.php';
 
-$requests = $pdo->query("
-    SELECT
-        requests.id,
-        customers.name,
-        services.title,
+$refundPdo = $pdo;
 
-        (
-            SELECT COALESCE(SUM(amount), 0)
-            FROM payments
-            WHERE payments.request_id = requests.id
-        ) AS total_paid,
+/*
+|--------------------------------------------------------------------------
+| Demo System
+|--------------------------------------------------------------------------
+*/
 
-        (
-            SELECT COALESCE(SUM(amount), 0)
-            FROM refunds
-            WHERE refunds.request_id = requests.id
-        ) AS total_refunded
+$isDemoAdmin = isset($_SESSION['demo_user']);
 
-    FROM requests
+if ($isDemoAdmin) {
 
-    JOIN customers
-        ON customers.id = requests.customer_id
+    require CONFIG_PATH . '/demo-database.php';
 
-    JOIN services
-        ON services.id = requests.service_id
+    $refundPdo = $demoPdo;
 
-    ORDER BY requests.id DESC
-")->fetchAll();
+    $demoTenantId = (int) $_SESSION['demo_user']['demo_tenant_id'];
 
-$requestId = (int)($_POST['request_id'] ?? ($requests[0]['id'] ?? 0));
+    /*
+     * Demo Admin can only see requests belonging
+     * to the current Demo tenant.
+     */
+    $requestsStmt = $refundPdo->prepare("
+        SELECT
+            requests.id,
+            customers.name,
+            services.title,
 
-$totalPaidStmt = $pdo->prepare("
-    SELECT COALESCE(SUM(amount),0)
+            (
+                SELECT COALESCE(SUM(amount), 0)
+                FROM payments
+                WHERE payments.request_id = requests.id
+            ) AS total_paid,
+
+            (
+                SELECT COALESCE(SUM(amount), 0)
+                FROM refunds
+                WHERE refunds.request_id = requests.id
+            ) AS total_refunded
+
+        FROM requests
+
+        JOIN customers
+            ON customers.id = requests.customer_id
+
+        JOIN services
+            ON services.id = requests.service_id
+
+        WHERE customers.demo_tenant_id = ?
+          AND customers.is_demo_account = 1
+
+        ORDER BY requests.id DESC
+    ");
+
+    $requestsStmt->execute([$demoTenantId]);
+
+} else {
+
+    /*
+     * Main System Admin
+     */
+    $requestsStmt = $refundPdo->query("
+        SELECT
+            requests.id,
+            customers.name,
+            services.title,
+
+            (
+                SELECT COALESCE(SUM(amount), 0)
+                FROM payments
+                WHERE payments.request_id = requests.id
+            ) AS total_paid,
+
+            (
+                SELECT COALESCE(SUM(amount), 0)
+                FROM refunds
+                WHERE refunds.request_id = requests.id
+            ) AS total_refunded
+
+        FROM requests
+
+        JOIN customers
+            ON customers.id = requests.customer_id
+
+        JOIN services
+            ON services.id = requests.service_id
+
+        ORDER BY requests.id DESC
+    ");
+}
+
+$requests = $requestsStmt->fetchAll();
+
+$requestId = (int) (
+    $_POST['request_id']
+    ?? ($requests[0]['id'] ?? 0)
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| Calculate refund availability
+|--------------------------------------------------------------------------
+*/
+
+$totalPaidStmt = $refundPdo->prepare("
+    SELECT COALESCE(SUM(amount), 0)
     FROM payments
     WHERE request_id = ?
 ");
 
 $totalPaidStmt->execute([$requestId]);
 
-$totalPaid = $totalPaidStmt->fetchColumn();
+$totalPaid = (float) $totalPaidStmt->fetchColumn();
 
-$totalRefundedStmt = $pdo->prepare("
-    SELECT COALESCE(SUM(amount),0)
+
+$totalRefundedStmt = $refundPdo->prepare("
+    SELECT COALESCE(SUM(amount), 0)
     FROM refunds
     WHERE request_id = ?
 ");
 
 $totalRefundedStmt->execute([$requestId]);
 
-$totalRefunded = $totalRefundedStmt->fetchColumn();
+$totalRefunded = (float) $totalRefundedStmt->fetchColumn();
+
 
 $availableRefund = $totalPaid - $totalRefunded;
+
+
+/*
+|--------------------------------------------------------------------------
+| Save Refund
+|--------------------------------------------------------------------------
+*/
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
@@ -67,11 +147,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $error = 'This request has already been fully refunded.';
 
-    } elseif ($_POST['amount'] <= 0) {
+    } elseif ((float) $_POST['amount'] <= 0) {
 
         $error = 'Refund amount must be greater than zero.';
 
-    } elseif ($_POST['amount'] > $availableRefund) {
+    } elseif ((float) $_POST['amount'] > $availableRefund) {
 
         $error = 'Refund exceeds available refundable amount.';
 
@@ -82,9 +162,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $fullReason =
             $refundReason .
-            (!empty($details) ? "\n\nDetails:\n" . $details : '');
+            (!empty($details)
+                ? "\n\nDetails:\n" . $details
+                : ''
+            );
 
-        $stmt = $pdo->prepare("
+        $stmt = $refundPdo->prepare("
             INSERT INTO refunds
             (
                 request_id,
@@ -115,6 +198,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     Add Refund
 </h1>
 
+<?php if (!empty($error)): ?>
+
+    <div class="alert alert-danger">
+        <?= htmlspecialchars($error) ?>
+    </div>
+
+<?php endif; ?>
+
+<?php if (empty($requests)): ?>
+
+    <div class="alert alert-info">
+        No requests are available for refund.
+    </div>
+
+<?php else: ?>
+
 <div class="card shadow-sm">
 
     <div class="card-body">
@@ -134,47 +233,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     <?php foreach ($requests as $request): ?>
 
-                       <option
-                            value="<?= $request['id'] ?>"
-                            data-paid="<?= $request['total_paid'] ?>"
-                            data-refunded="<?= $request['total_refunded'] ?>">
+                        <option
+                            value="<?= (int) $request['id'] ?>"
+                            data-paid="<?= htmlspecialchars($request['total_paid']) ?>"
+                            data-refunded="<?= htmlspecialchars($request['total_refunded']) ?>"
+                            <?= $requestId == $request['id'] ? 'selected' : '' ?>>
 
-                        <?= htmlspecialchars($request['name']) ?>
+                            <?= htmlspecialchars($request['name']) ?>
 
-                        -
+                            -
 
-                        <?= htmlspecialchars($request['title']) ?>
+                            <?= htmlspecialchars($request['title']) ?>
 
-</option>
+                        </option>
 
                     <?php endforeach; ?>
 
                 </select>
 
-                <div class="alert alert-info">
+                <div class="alert alert-info mt-3">
 
-    <strong>Total Paid:</strong>
-<span id="totalPaid">
-    $<?= number_format($totalPaid, 2) ?>
-</span>
+                    <strong>Total Paid:</strong>
 
-<br>
+                    <span id="totalPaid">
+                        AED <?= number_format($totalPaid, 2) ?>
+                    </span>
 
-<strong>Already Refunded:</strong>
-<span id="totalRefunded">
-    $<?= number_format($totalRefunded, 2) ?>
-</span>
+                    <br>
 
-<br>
+                    <strong>Already Refunded:</strong>
 
-<strong>Maximum Refund:</strong>
-<span id="availableRefund">
-    $<?= number_format($availableRefund, 2) ?>
-</span>
+                    <span id="totalRefunded">
+                        AED <?= number_format($totalRefunded, 2) ?>
+                    </span>
 
-</div>
+                    <br>
+
+                    <strong>Maximum Refund:</strong>
+
+                    <span id="availableRefund">
+                        AED <?= number_format($availableRefund, 2) ?>
+                    </span>
+
+                </div>
 
             </div>
+
 
             <div class="mb-3">
 
@@ -195,6 +299,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             </div>
 
+
             <div class="mb-3">
 
                 <label class="form-label">
@@ -209,61 +314,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             </div>
 
+
             <div class="mb-3">
 
-    <label class="form-label">
-        Refund Reason
-    </label>
+                <label class="form-label">
+                    Refund Reason
+                </label>
 
-    <select
-        name="refund_reason"
-        class="form-select"
-        required>
+                <select
+                    name="refund_reason"
+                    class="form-select"
+                    required>
 
-        <option value="">
-            -- Select a reason --
-        </option>
+                    <option value="">
+                        -- Select a reason --
+                    </option>
 
-        <option value="Service Unsuccessful">
-            Service was not successful
-        </option>
+                    <option value="Service Unsuccessful">
+                        Service was not successful
+                    </option>
 
-        <option value="Other">
-            Other
-        </option>
+                    <option value="Other">
+                        Other
+                    </option>
 
-    </select>
+                </select>
 
-</div>
+            </div>
 
-<div class="mb-3">
 
-    <label class="form-label">
-        Additional Details
-    </label>
+            <div class="mb-3">
 
-    <textarea
-        name="reason"
-        class="form-control"
-        rows="4"
-        placeholder="Please provide more information..."
-        required></textarea>
+                <label class="form-label">
+                    Additional Details
+                </label>
 
-</div>
+                <textarea
+                    name="reason"
+                    class="form-control"
+                    rows="4"
+                    placeholder="Please provide more information..."
+                    required></textarea>
+
+            </div>
+
 
             <?php if ($availableRefund > 0): ?>
 
-    <button class="btn btn-danger">
-        Save Refund
-    </button>
+                <button class="btn btn-danger">
+                    Save Refund
+                </button>
 
-<?php else: ?>
+            <?php else: ?>
 
-    <button class="btn btn-secondary" disabled>
-        Fully Refunded
-    </button>
+                <button class="btn btn-secondary" disabled>
+                    Fully Refunded
+                </button>
 
-<?php endif; ?>
+            <?php endif; ?>
 
         </form>
 
@@ -271,35 +379,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 </div>
 
+<?php endif; ?>
+
+
 <script>
 
 const requestSelect = document.querySelector('select[name="request_id"]');
 
-requestSelect.addEventListener('change', function () {
+if (requestSelect) {
 
-    const option = this.options[this.selectedIndex];
+    requestSelect.addEventListener('change', function () {
 
-    const paid = parseFloat(option.dataset.paid || 0);
-    const refunded = parseFloat(option.dataset.refunded || 0);
-    const available = paid - refunded;
+        const option = this.options[this.selectedIndex];
 
-    document.getElementById('totalPaid').textContent =
-        '$' + paid.toFixed(2);
+        const paid = parseFloat(option.dataset.paid || 0);
+        const refunded = parseFloat(option.dataset.refunded || 0);
+        const available = paid - refunded;
 
-    document.getElementById('totalRefunded').textContent =
-        '$' + refunded.toFixed(2);
+        document.getElementById('totalPaid').textContent =
+            'AED ' + paid.toFixed(2);
 
-    document.getElementById('availableRefund').textContent =
-        '$' + available.toFixed(2);
+        document.getElementById('totalRefunded').textContent =
+            'AED ' + refunded.toFixed(2);
 
-    // Reset refund amount to 0.00
-    const amountInput = document.getElementById('refundAmount');
+        document.getElementById('availableRefund').textContent =
+            'AED ' + available.toFixed(2);
 
-    amountInput.value = '0.00';
+        const amountInput =
+            document.getElementById('refundAmount');
 
-    amountInput.max = available.toFixed(2);
+        amountInput.value = '0.00';
 
-});
+        amountInput.max = available.toFixed(2);
+
+    });
+
+}
 
 </script>
 

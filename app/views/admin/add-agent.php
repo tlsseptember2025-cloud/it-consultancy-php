@@ -217,7 +217,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </button>
 
                     <a
-                        href="?page=customers"
+                        href="?page=agents"
                         class="btn btn-secondary ms-2">
 
                         Cancel

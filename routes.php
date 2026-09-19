@@ -72,6 +72,10 @@ switch ($page) {
     require VIEW_PATH . '/admin/approve-demo-request.php';
     break;
 
+    case 'view-agent':
+    require VIEW_PATH . '/admin/view-agent.php';
+    break;
+
     case 'confirm-demo-customer':
     require VIEW_PATH . '/public/confirm-demo-customer.php';
     break;

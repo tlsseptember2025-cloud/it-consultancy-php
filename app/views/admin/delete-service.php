@@ -1,10 +1,7 @@
 <?php
 
-if (!isset($_SESSION['user'])) {
-
-    header("Location: ?page=login");
-    exit;
-}
+require_once HELPER_PATH . '/auth.php';
+requireAdminLogin();
 
 if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
 
@@ -12,11 +9,17 @@ if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
     exit;
 }
 
-require dirname(__DIR__, 3) . '/config/database.php';
+if (isset($_SESSION['demo_user'])) {
+    require_once CONFIG_PATH . '/demo-database.php';
+    $servicesPdo = $demoPdo;
+} else {
+    require CONFIG_PATH . '/database.php';
+    $servicesPdo = $pdo;
+}
 
 $id = (int) $_GET['id'];
 
-$stmt = $pdo->prepare("
+$stmt = $servicesPdo->prepare("
     DELETE FROM services
     WHERE id = ?
 ");

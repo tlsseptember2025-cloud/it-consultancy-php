@@ -1,27 +1,56 @@
 <?php
 
-if (!isset($_SESSION['user'])) {
-    header("Location: ?page=login");
-    exit;
-}
-
 require_once HELPER_PATH . '/auth.php';
+requireAdminLogin();
+
 require CONFIG_PATH . '/database.php';
 
-$stmt = $pdo->query("
-    SELECT
-        payments.*,
-        customers.name AS customer_name,
-        services.title AS service_title
-    FROM payments
-    JOIN requests
-        ON requests.id = payments.request_id
-    JOIN customers
-        ON customers.id = requests.customer_id
-    JOIN services
-        ON services.id = requests.service_id
-    ORDER BY payments.created_at DESC
-");
+$paymentsPdo = $pdo;
+
+if (isset($_SESSION['demo_user'])) {
+
+    require CONFIG_PATH . '/demo-database.php';
+
+    $paymentsPdo = $demoPdo;
+
+    $demoTenantId = (int) $_SESSION['demo_user']['demo_tenant_id'];
+
+    $stmt = $paymentsPdo->prepare("
+        SELECT
+            payments.*,
+            customers.name AS customer_name,
+            services.title AS service_title
+        FROM payments
+        JOIN requests
+            ON requests.id = payments.request_id
+        JOIN customers
+            ON customers.id = requests.customer_id
+        JOIN services
+            ON services.id = requests.service_id
+        WHERE customers.demo_tenant_id = ?
+          AND customers.is_demo_account = 1
+        ORDER BY payments.created_at DESC
+    ");
+
+    $stmt->execute([$demoTenantId]);
+
+} else {
+
+    $stmt = $paymentsPdo->query("
+        SELECT
+            payments.*,
+            customers.name AS customer_name,
+            services.title AS service_title
+        FROM payments
+        JOIN requests
+            ON requests.id = payments.request_id
+        JOIN customers
+            ON customers.id = requests.customer_id
+        JOIN services
+            ON services.id = requests.service_id
+        ORDER BY payments.created_at DESC
+    ");
+}
 
 $payments = $stmt->fetchAll();
 

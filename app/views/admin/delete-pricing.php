@@ -1,12 +1,18 @@
 <?php
 
-if (!isset($_SESSION['user'])) {
-    header('Location: ?page=login');
-    exit;
-}
+require_once HELPER_PATH . '/auth.php';
+
+requireAdminLogin();
 
 require_once HELPER_PATH . '/auth.php';
-require CONFIG_PATH . '/database.php';
+
+if (isset($_SESSION['demo_user'])) {
+    require_once CONFIG_PATH . '/demo-database.php';
+    $pricingPdo = $demoPdo;
+} else {
+    require CONFIG_PATH . '/database.php';
+    $pricingPdo = $pdo;
+}
 
 /*
 |--------------------------------------------------------------------------
@@ -27,7 +33,7 @@ if ($id <= 0) {
 |--------------------------------------------------------------------------
 */
 
-$stmt = $pdo->prepare("
+$stmt = $pricingPdo->prepare("
     SELECT id
     FROM price_list
     WHERE id = ?
@@ -46,7 +52,7 @@ if (!$stmt->fetch()) {
 |--------------------------------------------------------------------------
 */
 
-$stmt = $pdo->prepare("
+$stmt = $pricingPdo->prepare("
     DELETE FROM price_list
     WHERE id = ?
 ");

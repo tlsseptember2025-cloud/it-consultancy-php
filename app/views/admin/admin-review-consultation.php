@@ -3,18 +3,29 @@
 require_once APP_PATH . '/helpers/DateHelper.php';
 require_once APP_PATH . '/helpers/RequestEventHelper.php';
 require_once HELPER_PATH . '/email.php';
+require_once HELPER_PATH . '/auth.php';
 
-if (!isset($_SESSION['user'])) {
-
-    header('Location: ?page=login');
-    exit;
-}
+requireAdminLogin();
 
 require_once CONFIG_PATH . '/database.php';
 
+$isDemoAdmin = isset($_SESSION['demo_user']);
+
+$reviewPdo = $pdo;
+$demoTenantId = null;
+
+if ($isDemoAdmin) {
+
+    require_once CONFIG_PATH . '/demo-database.php';
+
+    $reviewPdo = $demoPdo;
+
+    $demoTenantId = (int) $_SESSION['demo_user']['demo_tenant_id'];
+}
+
 $requestId = (int)($_GET['id'] ?? 0);
 
-$stmt = $pdo->prepare("
+$stmt = $reviewPdo->prepare("
     SELECT
         r.*,
 
@@ -48,11 +59,22 @@ $stmt = $pdo->prepare("
         ON cs.id = cb.slot_id
 
     WHERE r.id = ?
+      AND (
+            ? = 0
+            OR (
+                c.demo_tenant_id = ?
+                AND c.is_demo_account = 1
+            )
+      )
 
     LIMIT 1
 ");
 
-$stmt->execute([$requestId]);
+$stmt->execute([
+    $requestId,
+    $demoTenantId ?? 0,
+    $demoTenantId ?? 0
+]);
 
 $consultation = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -62,18 +84,40 @@ $consultation = $stmt->fetch(PDO::FETCH_ASSOC);
 |--------------------------------------------------------------------------
 */
 
-$agentsStmt = $pdo->prepare("
-    SELECT
-        id,
-        name
-    FROM agents
-    WHERE id != ?
-    ORDER BY name ASC
-");
+if ($isDemoAdmin) {
 
-$agentsStmt->execute([
-    $consultation['agent_id']
-]);
+    $agentsStmt = $reviewPdo->prepare("
+        SELECT
+            id,
+            name
+        FROM agents
+        WHERE id != ?
+          AND demo_tenant_id = ?
+          AND is_demo_account = 1
+          AND status = 'Active'
+        ORDER BY name ASC
+    ");
+
+    $agentsStmt->execute([
+        $consultation['agent_id'],
+        $demoTenantId
+    ]);
+
+} else {
+
+    $agentsStmt = $reviewPdo->prepare("
+        SELECT
+            id,
+            name
+        FROM agents
+        WHERE id != ?
+        ORDER BY name ASC
+    ");
+
+    $agentsStmt->execute([
+        $consultation['agent_id']
+    ]);
+}
 
 $availableAgents =
     $agentsStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -180,7 +224,7 @@ if (
     |--------------------------------------------------------------------------
     */
 
-    $adminStmt = $pdo->prepare("
+    $adminStmt = $reviewPdo->prepare("
         SELECT id
         FROM users
         WHERE email = ?
@@ -220,7 +264,7 @@ if (
 
 if ($decision === 'accept') {
 
-    $pdo->beginTransaction();
+    $reviewPdo->beginTransaction();
 
     try {
 
@@ -230,7 +274,7 @@ if ($decision === 'accept') {
         |--------------------------------------------------------------------------
         */
 
-        $update = $pdo->prepare("
+        $update = $reviewPdo->prepare("
             UPDATE requests
             SET
                 workflow_stage = 'Awaiting Customer Confirmation',
@@ -263,7 +307,7 @@ if ($decision === 'accept') {
         |--------------------------------------------------------------------------
         */
 
-        $history = $pdo->prepare("
+        $history = $reviewPdo->prepare("
             INSERT INTO consultation_review_history
             (
                 request_id,
@@ -314,7 +358,7 @@ if ($decision === 'accept') {
         |--------------------------------------------------------------------------
         */
 
-        $pdo->commit();
+        $reviewPdo->commit();
 
 
         header(
@@ -325,9 +369,9 @@ if ($decision === 'accept') {
 
     } catch (Exception $e) {
 
-        if ($pdo->inTransaction()) {
+        if ($reviewPdo->inTransaction()) {
 
-            $pdo->rollBack();
+            $reviewPdo->rollBack();
 
         }
 
@@ -353,7 +397,7 @@ elseif ($decision === 'reassign') {
 
     }
 
-    $pdo->beginTransaction();
+    $reviewPdo->beginTransaction();
 
 try {
 
@@ -369,7 +413,7 @@ try {
 |--------------------------------------------------------------------------
 */
 
-$bookingUpdate = $pdo->prepare("
+$bookingUpdate = $reviewPdo->prepare("
     UPDATE consultation_bookings
     SET
         agent_id = ?
@@ -396,7 +440,7 @@ if ($bookingUpdate->rowCount() !== 1) {
 |--------------------------------------------------------------------------
 */
 
-$requestUpdate = $pdo->prepare("
+$requestUpdate = $reviewPdo->prepare("
     UPDATE requests
     SET
         agent_id = ?,
@@ -435,7 +479,7 @@ if ($requestUpdate->rowCount() !== 1) {
 |--------------------------------------------------------------------------
 */
 
-$history = $pdo->prepare("
+$history = $reviewPdo->prepare("
     INSERT INTO consultation_review_history
     (
         request_id,
@@ -484,7 +528,7 @@ RequestEventHelper::addCurrentUser(
 |--------------------------------------------------------------------------
 */
 
-$pdo->commit();
+$reviewPdo->commit();
 
 
 $_SESSION['success'] =
@@ -499,9 +543,9 @@ exit;
 
 } catch (Exception $e) {
 
-    if ($pdo->inTransaction()) {
+    if ($reviewPdo->inTransaction()) {
 
-        $pdo->rollBack();
+        $reviewPdo->rollBack();
 
     }
 
@@ -529,7 +573,7 @@ if (
 
 if ($decision === 'approve') {
 
-    $update = $pdo->prepare("
+    $update = $reviewPdo->prepare("
         UPDATE requests
         SET
             admin_review_comments = ?,
@@ -634,7 +678,7 @@ if ($decision === 'approve') {
 
 } elseif ($decision === 'return') {
 
-    $update = $pdo->prepare("
+    $update = $reviewPdo->prepare("
         UPDATE requests
         SET
             admin_review_comments = ?,

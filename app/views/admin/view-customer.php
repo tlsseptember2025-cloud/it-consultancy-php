@@ -1,25 +1,95 @@
 <?php
 
-if (!isset($_SESSION['user'])) {
-    header("Location: ?page=login");
-    exit;
+require_once HELPER_PATH . '/auth.php';
+
+requireAdminLogin();
+
+
+/*
+|--------------------------------------------------------------------------
+| Select Database
+|--------------------------------------------------------------------------
+*/
+
+if (isset($_SESSION['demo_user'])) {
+
+    require_once CONFIG_PATH . '/demo-database.php';
+
+    $customerPdo = $demoPdo;
+
+    $demoTenantId = (int) $_SESSION['demo_user']['demo_tenant_id'];
+
+} else {
+
+    require CONFIG_PATH . '/database.php';
+
+    $customerPdo = $pdo;
+
+    $demoTenantId = null;
 }
 
-require CONFIG_PATH . '/database.php';
 
-$id = $_GET['id'];
+/*
+|--------------------------------------------------------------------------
+| Customer ID
+|--------------------------------------------------------------------------
+*/
 
-$stmt = $pdo->prepare("
-    SELECT *
-    FROM customers
-    WHERE id = ?
-");
+$id = isset($_GET['id'])
+    ? (int) $_GET['id']
+    : 0;
 
-$stmt->execute([$id]);
+if ($id <= 0) {
+    die('Invalid customer ID');
+}
 
-$customer = $stmt->fetch();
 
-$requestsStmt = $pdo->prepare("
+/*
+|--------------------------------------------------------------------------
+| Load Customer
+|--------------------------------------------------------------------------
+*/
+
+if (isset($_SESSION['demo_user'])) {
+
+    $stmt = $customerPdo->prepare("
+        SELECT *
+        FROM customers
+        WHERE id = ?
+          AND demo_tenant_id = ?
+          AND is_demo_account = 1
+        LIMIT 1
+    ");
+
+    $stmt->execute([
+        $id,
+        $demoTenantId
+    ]);
+
+} else {
+
+    $stmt = $customerPdo->prepare("
+        SELECT *
+        FROM customers
+        WHERE id = ?
+        LIMIT 1
+    ");
+
+    $stmt->execute([
+        $id
+    ]);
+}
+
+$customer = $stmt->fetch(PDO::FETCH_ASSOC);
+
+
+/*
+|--------------------------------------------------------------------------
+| Customer Requests
+|--------------------------------------------------------------------------
+*/
+
+$requestsStmt = $customerPdo->prepare("
     SELECT
         requests.*,
         services.title AS service_title
@@ -30,11 +100,20 @@ $requestsStmt = $pdo->prepare("
     ORDER BY requests.created_at DESC
 ");
 
-$requestsStmt->execute([$id]);
+$requestsStmt->execute([
+    $id
+]);
 
-$requests = $requestsStmt->fetchAll();
+$requests = $requestsStmt->fetchAll(PDO::FETCH_ASSOC);
 
-$paymentsStmt = $pdo->prepare("
+
+/*
+|--------------------------------------------------------------------------
+| Customer Payments
+|--------------------------------------------------------------------------
+*/
+
+$paymentsStmt = $customerPdo->prepare("
     SELECT
         payments.*,
         services.title AS service_title
@@ -47,17 +126,28 @@ $paymentsStmt = $pdo->prepare("
     ORDER BY payments.created_at DESC
 ");
 
-$paymentsStmt->execute([$id]);
+$paymentsStmt->execute([
+    $id
+]);
 
-$payments = $paymentsStmt->fetchAll();
+$payments = $paymentsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+
+/*
+|--------------------------------------------------------------------------
+| Calculate Financial Summary
+|--------------------------------------------------------------------------
+*/
 
 $totalRequestsValue = 0;
 $totalPaid = 0;
 
+
 foreach ($requests as $request) {
 
-    $totalRequestsValue += $request['quoted_price'];
+    $totalRequestsValue += (float) $request['quoted_price'];
 }
+
 
 foreach ($payments as $payment) {
 
@@ -65,20 +155,31 @@ foreach ($payments as $payment) {
         $payment['status'] === 'Paid' ||
         $payment['status'] === 'Partially Paid'
     ) {
-        $totalPaid += $payment['amount'];
+
+        $totalPaid += (float) $payment['amount'];
     }
 }
+
 
 $outstandingBalance =
     $totalRequestsValue - $totalPaid;
 
+
+/*
+|--------------------------------------------------------------------------
+| Customer Not Found
+|--------------------------------------------------------------------------
+*/
+
 if (!$customer) {
+
     die('Customer not found');
 }
 
 ?>
 
 <?php require dirname(__DIR__) . '/layouts/header-admin.php'; ?>
+
 
 <div class="card shadow-sm">
 
@@ -88,192 +189,313 @@ if (!$customer) {
             Customer Details
         </h2>
 
+
         <p>
+
             <strong>Name:</strong>
-            <?= htmlspecialchars($customer['name']) ?>
+
+            <?= htmlspecialchars(
+                $customer['name']
+            ) ?>
+
         </p>
 
+
         <p>
+
             <strong>Email:</strong>
-            <?= htmlspecialchars($customer['email']) ?>
+
+            <?= htmlspecialchars(
+                $customer['email']
+            ) ?>
+
         </p>
 
+
         <p>
+
             <strong>Phone:</strong>
-            <?= htmlspecialchars($customer['phone']) ?>
+
+            <?= htmlspecialchars(
+                $customer['phone']
+            ) ?>
+
         </p>
 
+
         <p>
+
             <strong>Company:</strong>
-            <?= htmlspecialchars($customer['company']) ?>
+
+            <?= htmlspecialchars(
+                $customer['company']
+            ) ?>
+
         </p>
+
 
         <p>
+
             <strong>Notes:</strong><br>
-            <?= nl2br(htmlspecialchars($customer['notes'])) ?>
+
+            <?= nl2br(
+                htmlspecialchars(
+                    $customer['notes']
+                )
+            ) ?>
+
         </p>
 
-        <hr>
-
-<div class="row mb-4">
-
-    <div class="col-md-4">
-
-        <div class="card text-center border-primary">
-
-            <div class="card-body">
-
-                <h6>
-                    Total Requests Value
-                </h6>
-
-                <h4 class="text-primary">
-
-                    $<?= number_format($totalRequestsValue, 2) ?>
-
-                </h4>
-
-            </div>
-
-        </div>
-
-    </div>
-
-    <div class="col-md-4">
-
-        <div class="card text-center border-success">
-
-            <div class="card-body">
-
-                <h6>
-                    Total Paid
-                </h6>
-
-                <h4 class="text-success">
-
-                    $<?= number_format($totalPaid, 2) ?>
-
-                </h4>
-
-            </div>
-
-        </div>
-
-    </div>
-
-    <div class="col-md-4">
-
-        <div class="card text-center border-danger">
-
-            <div class="card-body">
-
-                <h6>
-                    Outstanding Balance
-                </h6>
-
-                <h4 class="text-danger">
-
-                    $<?= number_format($outstandingBalance, 2) ?>
-
-                </h4>
-
-            </div>
-
-        </div>
-
-    </div>
-
-</div>
 
         <hr>
 
-<h3 class="mb-3">
-    Requests
-</h3>
 
-<table class="table table-bordered">
+        <div class="row mb-4">
 
-    <thead>
 
-        <tr>
+            <div class="col-md-4">
 
-            <th>Service</th>
-            <th>Price</th>
-            <th>Status</th>
+                <div class="card text-center border-primary">
 
-        </tr>
+                    <div class="card-body">
 
-    </thead>
+                        <h6>
+                            Total Requests Value
+                        </h6>
 
-    <tbody>
+                        <h4 class="text-primary">
 
-        <?php foreach ($requests as $request): ?>
+                            $<?= number_format(
+                                $totalRequestsValue,
+                                2
+                            ) ?>
 
-            <tr>
+                        </h4>
 
-                <td>
-                    <?= htmlspecialchars($request['service_title']) ?>
-                </td>
+                    </div>
 
-                <td>
-                    $<?= number_format($request['quoted_price'], 2) ?>
-                </td>
+                </div>
 
-                <td>
-                    <?= htmlspecialchars($request['status']) ?>
-                </td>
+            </div>
 
-            </tr>
 
-        <?php endforeach; ?>
+            <div class="col-md-4">
 
-    </tbody>
+                <div class="card text-center border-success">
 
-</table>
+                    <div class="card-body">
 
-<h3 class="mb-3 mt-5">
-    Payments
-</h3>
+                        <h6>
+                            Total Paid
+                        </h6>
 
-<table class="table table-bordered">
+                        <h4 class="text-success">
 
-    <thead>
+                            $<?= number_format(
+                                $totalPaid,
+                                2
+                            ) ?>
 
-        <tr>
+                        </h4>
 
-            <th>Service</th>
-            <th>Amount</th>
-            <th>Status</th>
+                    </div>
 
-        </tr>
+                </div>
 
-    </thead>
+            </div>
 
-    <tbody>
 
-        <?php foreach ($payments as $payment): ?>
+            <div class="col-md-4">
 
-            <tr>
+                <div class="card text-center border-danger">
 
-                <td>
-                    <?= htmlspecialchars($payment['service_title']) ?>
-                </td>
+                    <div class="card-body">
 
-                <td>
-                    $<?= number_format($payment['amount'], 2) ?>
-                </td>
+                        <h6>
+                            Outstanding Balance
+                        </h6>
 
-                <td>
-                    <?= htmlspecialchars($payment['status']) ?>
-                </td>
+                        <h4 class="text-danger">
 
-            </tr>
+                            $<?= number_format(
+                                $outstandingBalance,
+                                2
+                            ) ?>
 
-        <?php endforeach; ?>
+                        </h4>
 
-    </tbody>
+                    </div>
 
-</table>
+                </div>
+
+            </div>
+
+
+        </div>
+
+
+        <hr>
+
+
+        <h3 class="mb-3">
+            Requests
+        </h3>
+
+
+        <table class="table table-bordered">
+
+            <thead>
+
+                <tr>
+
+                    <th>Service</th>
+                    <th>Price</th>
+                    <th>Status</th>
+
+                </tr>
+
+            </thead>
+
+
+            <tbody>
+
+                <?php if (empty($requests)): ?>
+
+                    <tr>
+
+                        <td
+                            colspan="3"
+                            class="text-center text-muted">
+
+                            No requests found.
+
+                        </td>
+
+                    </tr>
+
+                <?php else: ?>
+
+                    <?php foreach ($requests as $request): ?>
+
+                        <tr>
+
+                            <td>
+
+                                <?= htmlspecialchars(
+                                    $request['service_title']
+                                ) ?>
+
+                            </td>
+
+
+                            <td>
+
+                                $<?= number_format(
+                                    $request['quoted_price'],
+                                    2
+                                ) ?>
+
+                            </td>
+
+
+                            <td>
+
+                                <?= htmlspecialchars(
+                                    $request['status']
+                                ) ?>
+
+                            </td>
+
+                        </tr>
+
+                    <?php endforeach; ?>
+
+                <?php endif; ?>
+
+            </tbody>
+
+        </table>
+
+
+        <h3 class="mb-3 mt-5">
+            Payments
+        </h3>
+
+
+        <table class="table table-bordered">
+
+            <thead>
+
+                <tr>
+
+                    <th>Service</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+
+                </tr>
+
+            </thead>
+
+
+            <tbody>
+
+                <?php if (empty($payments)): ?>
+
+                    <tr>
+
+                        <td
+                            colspan="3"
+                            class="text-center text-muted">
+
+                            No payments found.
+
+                        </td>
+
+                    </tr>
+
+                <?php else: ?>
+
+                    <?php foreach ($payments as $payment): ?>
+
+                        <tr>
+
+                            <td>
+
+                                <?= htmlspecialchars(
+                                    $payment['service_title']
+                                ) ?>
+
+                            </td>
+
+
+                            <td>
+
+                                $<?= number_format(
+                                    $payment['amount'],
+                                    2
+                                ) ?>
+
+                            </td>
+
+
+                            <td>
+
+                                <?= htmlspecialchars(
+                                    $payment['status']
+                                ) ?>
+
+                            </td>
+
+                        </tr>
+
+                    <?php endforeach; ?>
+
+                <?php endif; ?>
+
+            </tbody>
+
+        </table>
+
 
         <a
             href="?page=customers"
@@ -283,8 +505,10 @@ if (!$customer) {
 
         </a>
 
+
     </div>
 
 </div>
+
 
 <?php require dirname(__DIR__) . '/layouts/footer.php'; ?>

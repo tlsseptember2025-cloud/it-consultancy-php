@@ -1,14 +1,18 @@
 <?php
 
-if (!isset($_SESSION['user'])) {
-    header('Location: ?page=login');
-    exit;
+require_once HELPER_PATH . '/auth.php';
+
+requireAdminLogin();
+
+if (isset($_SESSION['demo_user'])) {
+    require_once CONFIG_PATH . '/demo-database.php';
+    $pricingPdo = $demoPdo;
+} else {
+    require CONFIG_PATH . '/database.php';
+    $pricingPdo = $pdo;
 }
 
-require_once HELPER_PATH . '/auth.php';
-require CONFIG_PATH . '/database.php';
-
-$stmt = $pdo->query("
+$stmt = $pricingPdo->query("
     SELECT
         price_list.*,
         services.title AS service_title

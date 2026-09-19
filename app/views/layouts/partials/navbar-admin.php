@@ -187,18 +187,6 @@ $needsAdminReviewCount = (int) $stmt->fetch(PDO::FETCH_ASSOC)['total'];
 
                         </li>
 
-                        <li>
-
-                            <a
-                                class="dropdown-item"
-                                href="?page=add-agent">
-
-                                Add Agent
-
-                            </a>
-
-                        </li>
-
                     </ul>
 
                 </li>

@@ -2,15 +2,23 @@
 
 require_once APP_PATH . '/helpers/DateHelper.php';
 require_once APP_PATH . '/helpers/RequestEventHelper.php';
+require_once APP_PATH . '/helpers/auth.php';
 
 
-if (!isset($_SESSION['user'])) {
-
-    header('Location: ?page=login');
-    exit;
-}
+requireAdminLogin();
 
 require_once CONFIG_PATH . '/database.php';
+
+$isDemoAdmin = isset($_SESSION['demo_user']);
+
+$serviceReviewPdo = $pdo;
+$demoTenantId = null;
+
+if ($isDemoAdmin) {
+    require_once CONFIG_PATH . '/demo-database.php';
+    $serviceReviewPdo = $demoPdo;
+    $demoTenantId = (int) ($_SESSION['demo_user']['demo_tenant_id'] ?? 0);
+}
 
 
 /*
@@ -34,7 +42,7 @@ if ($requestId <= 0) {
 |--------------------------------------------------------------------------
 */
 
-$stmt = $pdo->prepare("
+$stmt = $serviceReviewPdo->prepare("
     SELECT
 
         r.id AS request_id,
@@ -79,12 +87,21 @@ $stmt = $pdo->prepare("
 
     WHERE
         r.id = ?
+        AND (
+            ? = 0
+            OR (
+                c.demo_tenant_id = ?
+                AND c.is_demo_account = 1
+            )
+        )
 
     LIMIT 1
 ");
 
 $stmt->execute([
-    $requestId
+    $requestId,
+    $demoTenantId ?? 0,
+    $demoTenantId ?? 0
 ]);
 
 $serviceJob = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -138,17 +155,26 @@ $isServiceNotCompleted =
 |--------------------------------------------------------------------------
 */
 
-$agentsStmt = $pdo->prepare("
+$agentsStmt = $serviceReviewPdo->prepare("
     SELECT
         id,
         name
     FROM agents
     WHERE id != ?
+      AND (
+          ? = 0
+          OR (
+              demo_tenant_id = ?
+              AND is_demo_account = 1
+          )
+      )
     ORDER BY name ASC
 ");
 
 $agentsStmt->execute([
-    (int) $serviceJob['agent_id']
+    (int) $serviceJob['agent_id'],
+    $demoTenantId ?? 0,
+    $demoTenantId ?? 0
 ]);
 
 $availableAgents = $agentsStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -199,7 +225,7 @@ if ($decision === 'reject') {
     |--------------------------------------------------------------------------
     */
 
-    $history = $pdo->prepare("
+    $history = $serviceReviewPdo->prepare("
         INSERT INTO service_review_history
         (
             request_id,
@@ -245,7 +271,7 @@ if ($decision === 'reject') {
     |
     */
 
-    $update = $pdo->prepare("
+    $update = $serviceReviewPdo->prepare("
         UPDATE requests
         SET
             workflow_stage = 'Missed Service',
@@ -318,7 +344,7 @@ if ($decision === 'accept') {
     |--------------------------------------------------------------------------
     */
 
-    $history = $pdo->prepare("
+    $history = $serviceReviewPdo->prepare("
         INSERT INTO service_review_history
         (
             request_id,
@@ -356,7 +382,7 @@ if ($decision === 'accept') {
 
     if ($isServiceMissed) {
 
-        $update = $pdo->prepare("
+        $update = $serviceReviewPdo->prepare("
             UPDATE requests
             SET
                 workflow_stage = 'Service Rejected',
@@ -427,7 +453,7 @@ if ($decision === 'accept') {
 
     if ($isServiceOverdue) {
 
-    $update = $pdo->prepare("
+    $update = $serviceReviewPdo->prepare("
         UPDATE requests
         SET
             workflow_stage = 'Awaiting Customer Confirmation',
@@ -486,7 +512,7 @@ if ($decision === 'reschedule') {
     |--------------------------------------------------------------------------
     */
 
-    $history = $pdo->prepare("
+    $history = $serviceReviewPdo->prepare("
         INSERT INTO service_review_history
         (
             request_id,
@@ -520,7 +546,7 @@ if ($decision === 'reschedule') {
     |--------------------------------------------------------------------------
     */
 
-    $update = $pdo->prepare("
+    $update = $serviceReviewPdo->prepare("
         UPDATE requests
         SET
             workflow_stage = 'Service Rejected',
@@ -583,24 +609,36 @@ if ($decision === 'reschedule') {
 }
 
 
-$adminStmt = $pdo->prepare("
-    SELECT id
-    FROM users
-    WHERE email = ?
-    LIMIT 1
-");
+if ($isDemoAdmin) {
+    $currentAdminId = (int) ($_SESSION['demo_user']['id'] ?? 0);
 
-$adminStmt->execute([
-    $_SESSION['user']
-]);
+    if ($currentAdminId <= 0) {
+        die('Unable to identify the current Demo administrator.');
+    }
+} else {
+    if ($isDemoAdmin) {
+        $currentAdminId = (int) ($_SESSION['demo_user']['id'] ?? 0);
+    } else {
+        $adminStmt = $serviceReviewPdo->prepare("
+            SELECT id
+            FROM users
+            WHERE email = ?
+            LIMIT 1
+        ");
 
-$currentAdmin = $adminStmt->fetch(PDO::FETCH_ASSOC);
+        $adminStmt->execute([
+            $_SESSION['user']
+        ]);
 
-if (!$currentAdmin) {
-    die('Unable to identify the current administrator.');
+        $currentAdmin = $adminStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$currentAdmin) {
+            die('Unable to identify the current administrator.');
+        }
+
+        $currentAdminId = (int) $currentAdmin['id'];
+    }
 }
-
-$currentAdminId = (int) $currentAdmin['id'];
 
 /*
 |--------------------------------------------------------------------------
@@ -610,7 +648,7 @@ $currentAdminId = (int) $currentAdmin['id'];
 
 if ($decision === 'reassign') {
 
-    $adminStmt = $pdo->prepare("
+    $adminStmt = $serviceReviewPdo->prepare("
         SELECT id
         FROM users
         WHERE email = ?
@@ -650,15 +688,24 @@ if ($decision === 'reassign') {
     |--------------------------------------------------------------------------
     */
 
-    $agentStmt = $pdo->prepare("
+    $agentStmt = $serviceReviewPdo->prepare("
         SELECT id
         FROM agents
         WHERE id = ?
+          AND (
+              ? = 0
+              OR (
+                  demo_tenant_id = ?
+                  AND is_demo_account = 1
+              )
+          )
         LIMIT 1
     ");
 
     $agentStmt->execute([
-        $newAgentId
+        $newAgentId,
+        $demoTenantId ?? 0,
+        $demoTenantId ?? 0
     ]);
 
     if (!$agentStmt->fetch()) {
@@ -674,7 +721,7 @@ if ($decision === 'reassign') {
     |--------------------------------------------------------------------------
     */
 
-    $pdo->beginTransaction();
+    $serviceReviewPdo->beginTransaction();
 
     try {
 
@@ -684,7 +731,7 @@ if ($decision === 'reassign') {
         |--------------------------------------------------------------------------
         */
 
-        $stmt = $pdo->prepare("
+        $stmt = $serviceReviewPdo->prepare("
             INSERT INTO service_agent_reassignments
             (
                 request_id,
@@ -713,7 +760,7 @@ if ($decision === 'reassign') {
         |--------------------------------------------------------------------------
         */
 
-        $stmt = $pdo->prepare("
+        $stmt = $serviceReviewPdo->prepare("
             UPDATE service_bookings
             SET agent_id = ?
             WHERE id = ?
@@ -731,7 +778,7 @@ if ($decision === 'reassign') {
         |--------------------------------------------------------------------------
         */
 
-        $stmt = $pdo->prepare("
+        $stmt = $serviceReviewPdo->prepare("
             UPDATE requests
             SET
                 agent_id = ?,
@@ -774,7 +821,7 @@ if ($decision === 'reassign') {
         |--------------------------------------------------------------------------
         */
 
-        $history = $pdo->prepare("
+        $history = $serviceReviewPdo->prepare("
             INSERT INTO service_review_history
             (
                 request_id,
@@ -825,7 +872,7 @@ if ($decision === 'reassign') {
         |--------------------------------------------------------------------------
         */
 
-        $pdo->commit();
+        $serviceReviewPdo->commit();
 
 
         /*
@@ -842,9 +889,9 @@ if ($decision === 'reassign') {
 
     } catch (Exception $e) {
 
-        if ($pdo->inTransaction()) {
+        if ($serviceReviewPdo->inTransaction()) {
 
-            $pdo->rollBack();
+            $serviceReviewPdo->rollBack();
 
         }
 
@@ -1205,7 +1252,7 @@ require VIEW_PATH . '/layouts/header-admin.php';
 |--------------------------------------------------------------------------
 */
 
-$historyStmt = $pdo->prepare("
+$historyStmt = $serviceReviewPdo->prepare("
     SELECT
         h.*,
         a.name AS agent_name,

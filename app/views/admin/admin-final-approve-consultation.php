@@ -1,13 +1,23 @@
 <?php
 
-if (!isset($_SESSION['user'])) {
-
-    header('Location: ?page=login');
-    exit;
-
-}
+require_once HELPER_PATH . '/auth.php';
+requireAdminLogin();
 
 require_once HELPER_PATH . '/RequestEventHelper.php';
+require_once CONFIG_PATH . '/database.php';
+
+$isDemoAdmin = isset($_SESSION['demo_user']);
+
+$approvalPdo = $pdo;
+$demoTenantId = null;
+
+if ($isDemoAdmin) {
+
+    require_once CONFIG_PATH . '/demo-database.php';
+
+    $approvalPdo = $demoPdo;
+    $demoTenantId = (int) $_SESSION['demo_user']['demo_tenant_id'];
+}
 
 
 /*
@@ -32,48 +42,99 @@ if ($requestId <= 0) {
 |--------------------------------------------------------------------------
 */
 
-$stmt = $pdo->prepare("
-    SELECT
-        r.*,
+if ($isDemoAdmin) {
 
-        c.name AS customer_name,
-        c.email AS customer_email,
+    $stmt = $approvalPdo->prepare("
+        SELECT
+            r.*,
 
-        a.name AS agent_name,
+            c.name AS customer_name,
+            c.email AS customer_email,
 
-        s.title AS service_name,
+            a.name AS agent_name,
 
-        cs.slot_date AS consultation_date,
-        cs.slot_time AS consultation_time,
-        cs.consultation_method
+            s.title AS service_name,
 
-    FROM requests r
+            cs.slot_date AS consultation_date,
+            cs.slot_time AS consultation_time,
+            cs.consultation_method
 
-    INNER JOIN customers c
-        ON c.id = r.customer_id
+        FROM requests r
 
-    INNER JOIN agents a
-        ON a.id = r.agent_id
+        INNER JOIN customers c
+            ON c.id = r.customer_id
 
-    INNER JOIN services s
-        ON s.id = r.service_id
+        INNER JOIN agents a
+            ON a.id = r.agent_id
 
-    LEFT JOIN consultation_bookings cb
-        ON cb.request_id = r.id
+        INNER JOIN services s
+            ON s.id = r.service_id
 
-    LEFT JOIN consultation_slots cs
-        ON cs.id = cb.slot_id
+        LEFT JOIN consultation_bookings cb
+            ON cb.request_id = r.id
 
-    WHERE
-        r.id = ?
-        AND r.workflow_stage = 'Needs Admin Final Approval'
+        LEFT JOIN consultation_slots cs
+            ON cs.id = cb.slot_id
 
-    LIMIT 1
-");
+        WHERE
+            r.id = ?
+            AND r.workflow_stage = 'Needs Admin Final Approval'
+            AND c.demo_tenant_id = ?
+            AND c.is_demo_account = 1
 
-$stmt->execute([
-    $requestId
-]);
+        LIMIT 1
+    ");
+
+    $stmt->execute([
+        $requestId,
+        $demoTenantId
+    ]);
+
+} else {
+
+    $stmt = $approvalPdo->prepare("
+        SELECT
+            r.*,
+
+            c.name AS customer_name,
+            c.email AS customer_email,
+
+            a.name AS agent_name,
+
+            s.title AS service_name,
+
+            cs.slot_date AS consultation_date,
+            cs.slot_time AS consultation_time,
+            cs.consultation_method
+
+        FROM requests r
+
+        INNER JOIN customers c
+            ON c.id = r.customer_id
+
+        INNER JOIN agents a
+            ON a.id = r.agent_id
+
+        INNER JOIN services s
+            ON s.id = r.service_id
+
+        LEFT JOIN consultation_bookings cb
+            ON cb.request_id = r.id
+
+        LEFT JOIN consultation_slots cs
+            ON cs.id = cb.slot_id
+
+        WHERE
+            r.id = ?
+            AND r.workflow_stage = 'Needs Admin Final Approval'
+
+        LIMIT 1
+    ");
+
+    $stmt->execute([
+        $requestId
+    ]);
+}
 
 $consultation = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -84,6 +145,7 @@ if (!$consultation) {
 
 }
 
+
 /*
 |--------------------------------------------------------------------------
 | Process Final Approval
@@ -92,7 +154,7 @@ if (!$consultation) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    $pdo->beginTransaction();
+    $approvalPdo->beginTransaction();
 
     try {
 
@@ -102,7 +164,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         |--------------------------------------------------------------------------
         */
 
-        $adminStmt = $pdo->prepare("
+        if ($isDemoAdmin) {
+            $adminEmail = $_SESSION['demo_user']['email'] ?? null;
+        } else {
+            $adminEmail = $_SESSION['user'] ?? null;
+        }
+
+        if (!$adminEmail) {
+
+            throw new Exception(
+                'Unable to identify the current administrator.'
+            );
+
+        }
+
+        $adminStmt = $approvalPdo->prepare("
             SELECT id
             FROM users
             WHERE email = ?
@@ -110,7 +186,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ");
 
         $adminStmt->execute([
-            $_SESSION['user']
+            $adminEmail
         ]);
 
         $currentAdmin = $adminStmt->fetch(PDO::FETCH_ASSOC);
@@ -132,20 +208,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         |--------------------------------------------------------------------------
         */
 
-        $update = $pdo->prepare("
-            UPDATE requests
-            SET
-                workflow_stage = 'Consultation Completed',
-                job_status = 'Completed',
-                completed_at = NOW()
-            WHERE
-                id = ?
-                AND workflow_stage = 'Needs Admin Final Approval'
-        ");
+        if ($isDemoAdmin) {
 
-        $update->execute([
-            $requestId
-        ]);
+            $update = $approvalPdo->prepare("
+                UPDATE requests r
+                INNER JOIN customers c
+                    ON c.id = r.customer_id
+                SET
+                    r.workflow_stage = 'Consultation Completed',
+                    r.job_status = 'Completed',
+                    r.completed_at = NOW()
+                WHERE
+                    r.id = ?
+                    AND r.workflow_stage = 'Needs Admin Final Approval'
+                    AND c.demo_tenant_id = ?
+                    AND c.is_demo_account = 1
+            ");
+
+            $update->execute([
+                $requestId,
+                $demoTenantId
+            ]);
+
+        } else {
+
+            $update = $approvalPdo->prepare("
+                UPDATE requests
+                SET
+                    workflow_stage = 'Consultation Completed',
+                    job_status = 'Completed',
+                    completed_at = NOW()
+                WHERE
+                    id = ?
+                    AND workflow_stage = 'Needs Admin Final Approval'
+            ");
+
+            $update->execute([
+                $requestId
+            ]);
+        }
 
         if ($update->rowCount() !== 1) {
 
@@ -163,7 +264,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         */
 
         RequestEventHelper::addCurrentUser(
-            $pdo,
+            $approvalPdo,
             $requestId,
             'CONSULTATION_FINAL_APPROVED',
             RequestEventHelper::TYPE_CONSULTATION,
@@ -179,7 +280,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         |--------------------------------------------------------------------------
         */
 
-        $pdo->commit();
+        $approvalPdo->commit();
 
 
         $_SESSION['success'] =
@@ -193,10 +294,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     } catch (Exception $e) {
 
-        if ($pdo->inTransaction()) {
-
-            $pdo->rollBack();
-
+        if ($approvalPdo->inTransaction()) {
+            $approvalPdo->rollBack();
         }
 
         die($e->getMessage());

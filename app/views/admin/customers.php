@@ -1,13 +1,18 @@
 <?php
 
-if (!isset($_SESSION['user'])) {
+require_once HELPER_PATH . '/auth.php';
 
-    header("Location: ?page=login");
-    exit;
+requireAdminLogin();
+
+if (isset($_SESSION['demo_user'])) {
+    require_once CONFIG_PATH . '/demo-database.php';
+    $customersPdo = $demoPdo;
+} else {
+    require CONFIG_PATH . '/database.php';
+    $customersPdo = $pdo;
 }
 
 require dirname(__DIR__) . '/layouts/header-admin.php';
-require_once CONFIG_PATH . '/database.php';
 
 
 /*
@@ -16,7 +21,7 @@ require_once CONFIG_PATH . '/database.php';
 |--------------------------------------------------------------------------
 */
 
-$stmt = $pdo->query("
+$stmt = $customersPdo->query("
     SELECT *
     FROM customers
     WHERE registration_status = 'Pending Admin Approval'
@@ -32,13 +37,31 @@ $pendingRegistrations = $stmt->fetchAll(PDO::FETCH_ASSOC);
 |--------------------------------------------------------------------------
 */
 
-$stmt = $pdo->query("
-    SELECT *
-    FROM customers
-    WHERE registration_status = 'Approved'
-       OR registration_status IS NULL
-    ORDER BY created_at DESC
-");
+if (isset($_SESSION['demo_user'])) {
+
+    $demoTenantId = (int) $_SESSION['demo_user']['demo_tenant_id'];
+
+    $stmt = $customersPdo->prepare("
+        SELECT *
+        FROM customers
+        WHERE demo_tenant_id = ?
+          AND is_demo_account = 1
+        ORDER BY created_at DESC
+    ");
+
+    $stmt->execute([$demoTenantId]);
+
+} else {
+
+    $stmt = $customersPdo->query("
+        SELECT *
+        FROM customers
+        WHERE registration_status = 'Approved'
+           OR registration_status IS NULL
+        ORDER BY created_at DESC
+    ");
+
+}
 
 $customers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -49,14 +72,6 @@ $customers = $stmt->fetchAll(PDO::FETCH_ASSOC);
     <h2 class="mb-0">
         Customers
     </h2>
-
-    <a
-        href="?page=add-customer"
-        class="btn btn-primary">
-
-        Add Customer
-
-    </a>
 
 </div>
 
@@ -303,19 +318,18 @@ $customers = $stmt->fetchAll(PDO::FETCH_ASSOC);
                             </a>
 
                             <a
-                                href="?page=edit-customer&id=<?= (int) $customer['id'] ?>"
+                                href="?page=customer-status&id=<?= (int) $customer['id'] ?>"
                                 class="btn btn-sm btn-warning">
 
-                                Edit
+                                Status
 
                             </a>
 
                             <a
-                                href="?page=delete-customer&id=<?= (int) $customer['id'] ?>"
-                                class="btn btn-sm btn-danger"
-                                onclick="return confirm('Delete customer?')">
+                                href="?page=messages&id=<?= (int) $customer['id'] ?>"
+                                class="btn btn-sm btn-primary">
 
-                                Delete
+                                Messages
 
                             </a>
 

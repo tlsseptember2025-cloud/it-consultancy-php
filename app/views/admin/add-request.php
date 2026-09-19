@@ -1,65 +1,180 @@
 <?php
 
-if (!isset($_SESSION['user'])) {
-    header("Location: ?page=login");
-    exit;
+require_once HELPER_PATH . '/auth.php';
+requireAdminLogin();
+
+require CONFIG_PATH . '/database.php';
+
+$requestPdo = $pdo;
+
+$isDemoAdmin = isset($_SESSION['demo_user']);
+
+if ($isDemoAdmin) {
+
+    require CONFIG_PATH . '/demo-database.php';
+
+    $requestPdo = $demoPdo;
+
+    $demoTenantId = (int) $_SESSION['demo_user']['demo_tenant_id'];
 }
 
-require_once CONFIG_PATH . '/database.php';
+
+/*
+|--------------------------------------------------------------------------
+| Save Request
+|--------------------------------------------------------------------------
+*/
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    $stmt = $pdo->prepare("
-    INSERT INTO requests
-    (
-        customer_id,
-        service_id,
-        quoted_price,
-        description,
-        status
-    )
-    VALUES (?, ?, ?, ?, ?)
-");
+    $customerId = (int) ($_POST['customer_id'] ?? 0);
+    $serviceId = (int) ($_POST['service_id'] ?? 0);
+    $description = trim($_POST['description'] ?? '');
+    $status = $_POST['status'] ?? 'Pending';
 
-    $serviceStmt = $pdo->prepare("
-    SELECT price
-    FROM services
-    WHERE id = ?
-");
 
-$serviceStmt->execute([
-    $_POST['service_id']
-]);
+    /*
+     * Verify the selected customer belongs to the correct system/tenant.
+     */
+    if ($isDemoAdmin) {
 
-$service = $serviceStmt->fetch();
+        $customerStmt = $requestPdo->prepare("
+            SELECT id
+            FROM customers
+            WHERE id = ?
+              AND demo_tenant_id = ?
+              AND is_demo_account = 1
+            LIMIT 1
+        ");
 
-$stmt->execute([
-    $_POST['customer_id'],
-    $_POST['service_id'],
-    $service['price'],
-    $_POST['description'],
-    $_POST['status']
-]);
+        $customerStmt->execute([
+            $customerId,
+            $demoTenantId
+        ]);
 
-    header("Location: ?page=requests");
-    exit;
+    } else {
+
+        $customerStmt = $requestPdo->prepare("
+            SELECT id
+            FROM customers
+            WHERE id = ?
+            LIMIT 1
+        ");
+
+        $customerStmt->execute([
+            $customerId
+        ]);
+    }
+
+    $customer = $customerStmt->fetch(PDO::FETCH_ASSOC);
+
+
+    if (!$customer) {
+
+        $error = 'Invalid customer selected.';
+
+    } else {
+
+        /*
+         * Get service price.
+         */
+        $serviceStmt = $requestPdo->prepare("
+            SELECT id, price
+            FROM services
+            WHERE id = ?
+            LIMIT 1
+        ");
+
+        $serviceStmt->execute([
+            $serviceId
+        ]);
+
+        $service = $serviceStmt->fetch(PDO::FETCH_ASSOC);
+
+
+        if (!$service) {
+
+            $error = 'Invalid service selected.';
+
+        } else {
+
+            /*
+             * Create request.
+             */
+            $stmt = $requestPdo->prepare("
+                INSERT INTO requests
+                (
+                    customer_id,
+                    service_id,
+                    quoted_price,
+                    description,
+                    status
+                )
+                VALUES (?, ?, ?, ?, ?)
+            ");
+
+            $stmt->execute([
+                $customerId,
+                $serviceId,
+                $service['price'],
+                $description,
+                $status
+            ]);
+
+            header("Location: ?page=requests");
+            exit;
+        }
+    }
 }
 
-$customers = $pdo->query("
-    SELECT *
-    FROM customers
-    ORDER BY name
-")->fetchAll();
 
-$services = $pdo->query("
+/*
+|--------------------------------------------------------------------------
+| Load Customers
+|--------------------------------------------------------------------------
+*/
+
+if ($isDemoAdmin) {
+
+    $customersStmt = $requestPdo->prepare("
+        SELECT *
+        FROM customers
+        WHERE demo_tenant_id = ?
+          AND is_demo_account = 1
+        ORDER BY name
+    ");
+
+    $customersStmt->execute([
+        $demoTenantId
+    ]);
+
+} else {
+
+    $customersStmt = $requestPdo->query("
+        SELECT *
+        FROM customers
+        ORDER BY name
+    ");
+}
+
+$customers = $customersStmt->fetchAll(PDO::FETCH_ASSOC);
+
+
+/*
+|--------------------------------------------------------------------------
+| Load Services
+|--------------------------------------------------------------------------
+*/
+
+$services = $requestPdo->query("
     SELECT *
     FROM services
     ORDER BY title
-")->fetchAll();
+")->fetchAll(PDO::FETCH_ASSOC);
 
 ?>
 
-require dirname(__DIR__) . '/layouts/header-admin.php';
+<?php require dirname(__DIR__) . '/layouts/header-admin.php'; ?>
 
 <div class="row justify-content-center">
 
@@ -73,123 +188,166 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                     Add Request
                 </h2>
 
-                <form method="POST">
 
-                    <div class="mb-3">
+                <?php if (!empty($error)): ?>
 
-                        <label class="form-label">
-                            Customer
-                        </label>
+                    <div class="alert alert-danger">
+                        <?= htmlspecialchars($error) ?>
+                    </div>
 
-                        <select
-                            name="customer_id"
-                            class="form-select"
-                            required>
+                <?php endif; ?>
 
-                            <option value="">
-                                Select Customer
-                            </option>
 
-                            <?php foreach ($customers as $customer): ?>
+                <?php if (empty($customers)): ?>
 
-                                <option
-                                    value="<?= $customer['id'] ?>">
+                    <div class="alert alert-info">
+                        No customers are available.
+                    </div>
 
-                                    <?= htmlspecialchars($customer['name']) ?>
+                <?php else: ?>
 
+                    <form method="POST">
+
+                        <div class="mb-3">
+
+                            <label class="form-label">
+                                Customer
+                            </label>
+
+                            <select
+                                name="customer_id"
+                                class="form-select"
+                                required>
+
+                                <option value="">
+                                    Select Customer
                                 </option>
 
-                            <?php endforeach; ?>
+                                <?php foreach ($customers as $customer): ?>
 
-                        </select>
+                                    <option
+                                        value="<?= (int) $customer['id'] ?>"
+                                        <?= (
+                                            isset($_POST['customer_id'])
+                                            && (int) $_POST['customer_id'] === (int) $customer['id']
+                                        ) ? 'selected' : '' ?>>
 
-                    </div>
+                                        <?= htmlspecialchars($customer['name']) ?>
 
-                    <div class="mb-3">
+                                    </option>
 
-                        <label class="form-label">
-                            Service
-                        </label>
+                                <?php endforeach; ?>
 
-                        <select
-                            name="service_id"
-                            class="form-select"
-                            required>
+                            </select>
 
-                            <option value="">
-                                Select Service
-                            </option>
+                        </div>
 
-                            <?php foreach ($services as $service): ?>
 
-                                <option
-                                    value="<?= $service['id'] ?>">
+                        <div class="mb-3">
 
-                                    <?= htmlspecialchars($service['title']) ?>
+                            <label class="form-label">
+                                Service
+                            </label>
 
+                            <select
+                                name="service_id"
+                                class="form-select"
+                                required>
+
+                                <option value="">
+                                    Select Service
                                 </option>
 
-                            <?php endforeach; ?>
+                                <?php foreach ($services as $service): ?>
 
-                        </select>
+                                    <option
+                                        value="<?= (int) $service['id'] ?>"
+                                        <?= (
+                                            isset($_POST['service_id'])
+                                            && (int) $_POST['service_id'] === (int) $service['id']
+                                        ) ? 'selected' : '' ?>>
 
-                    </div>
+                                        <?= htmlspecialchars($service['title']) ?>
 
-                    <div class="mb-3">
+                                    </option>
 
-                        <label class="form-label">
-                            Description
-                        </label>
+                                <?php endforeach; ?>
 
-                        <textarea
-                            name="description"
-                            class="form-control"
-                            rows="5"></textarea>
+                            </select>
 
-                    </div>
+                        </div>
 
-                    <div class="mb-3">
 
-                        <label class="form-label">
-                            Status
-                        </label>
+                        <div class="mb-3">
 
-                        <select
-                            name="status"
-                            class="form-select">
+                            <label class="form-label">
+                                Description
+                            </label>
 
-                            <option>
-                                Pending
-                            </option>
+                            <textarea
+                                name="description"
+                                class="form-control"
+                                rows="5"><?= htmlspecialchars($_POST['description'] ?? '') ?></textarea>
 
-                            <option>
-                                Approved
-                            </option>
+                        </div>
 
-                            <option>
-                                In Progress
-                            </option>
 
-                            <option>
-                                Completed
-                            </option>
+                        <div class="mb-3">
 
-                            <option>
-                                Cancelled
-                            </option>
+                            <label class="form-label">
+                                Status
+                            </label>
 
-                        </select>
+                            <select
+                                name="status"
+                                class="form-select">
 
-                    </div>
+                                <option
+                                    value="Pending"
+                                    <?= ($_POST['status'] ?? 'Pending') === 'Pending' ? 'selected' : '' ?>>
+                                    Pending
+                                </option>
 
-                    <button
-                        class="btn btn-primary">
+                                <option
+                                    value="Approved"
+                                    <?= ($_POST['status'] ?? '') === 'Approved' ? 'selected' : '' ?>>
+                                    Approved
+                                </option>
 
-                        Save Request
+                                <option
+                                    value="In Progress"
+                                    <?= ($_POST['status'] ?? '') === 'In Progress' ? 'selected' : '' ?>>
+                                    In Progress
+                                </option>
 
-                    </button>
+                                <option
+                                    value="Completed"
+                                    <?= ($_POST['status'] ?? '') === 'Completed' ? 'selected' : '' ?>>
+                                    Completed
+                                </option>
 
-                </form>
+                                <option
+                                    value="Cancelled"
+                                    <?= ($_POST['status'] ?? '') === 'Cancelled' ? 'selected' : '' ?>>
+                                    Cancelled
+                                </option>
+
+                            </select>
+
+                        </div>
+
+
+                        <button
+                            type="submit"
+                            class="btn btn-primary">
+
+                            Save Request
+
+                        </button>
+
+                    </form>
+
+                <?php endif; ?>
 
             </div>
 
@@ -200,4 +358,3 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
 </div>
 
 <?php require dirname(__DIR__) . '/layouts/footer.php'; ?>
-

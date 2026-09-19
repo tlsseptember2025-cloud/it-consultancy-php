@@ -2,17 +2,28 @@
 
 require_once APP_PATH . '/helpers/DateHelper.php';
 require_once APP_PATH . '/helpers/RequestEventHelper.php';
+require_once HELPER_PATH . '/auth.php';
 
-if (!isset($_SESSION['user'])) {
-
-    header('Location: ?page=login');
-    exit;
-
-}
+requireAdminLogin();
 
 require_once CONFIG_PATH . '/database.php';
 
-$requestId = (int)($_GET['id'] ?? 0);
+$isDemoAdmin = isset($_SESSION['demo_user']);
+
+$reschedulePdo = $pdo;
+$demoTenantId = null;
+
+if ($isDemoAdmin) {
+
+    require_once CONFIG_PATH . '/demo-database.php';
+
+    $reschedulePdo = $demoPdo;
+
+    $demoTenantId = (int) $_SESSION['demo_user']['demo_tenant_id'];
+}
+
+$requestId = (int) ($_GET['id'] ?? 0);
+
 
 /*
 |--------------------------------------------------------------------------
@@ -20,47 +31,101 @@ $requestId = (int)($_GET['id'] ?? 0);
 |--------------------------------------------------------------------------
 */
 
-$stmt = $pdo->prepare("
-    SELECT
+if ($isDemoAdmin) {
 
-        r.*,
+    $stmt = $reschedulePdo->prepare("
+        SELECT
 
-        c.name  AS customer_name,
-        c.email,
-        c.phone,
+            r.*,
 
-        s.title AS service_name,
+            c.name  AS customer_name,
+            c.email,
+            c.phone,
 
-        a.name  AS agent_name,
+            s.title AS service_name,
 
-        cs.slot_date,
-        cs.slot_time,
-        cs.consultation_method,
-        cs.meeting_link
+            a.name  AS agent_name,
 
-    FROM requests r
+            cs.slot_date,
+            cs.slot_time,
+            cs.consultation_method,
+            cs.meeting_link
 
-    INNER JOIN customers c
-        ON c.id = r.customer_id
+        FROM requests r
 
-    INNER JOIN services s
-        ON s.id = r.service_id
+        INNER JOIN customers c
+            ON c.id = r.customer_id
 
-    LEFT JOIN agents a
-        ON a.id = r.agent_id
+        INNER JOIN services s
+            ON s.id = r.service_id
 
-    LEFT JOIN consultation_bookings cb
-        ON cb.request_id = r.id
+        LEFT JOIN agents a
+            ON a.id = r.agent_id
 
-    LEFT JOIN consultation_slots cs
-        ON cs.id = cb.slot_id
+        LEFT JOIN consultation_bookings cb
+            ON cb.request_id = r.id
 
-    WHERE r.id = ?
+        LEFT JOIN consultation_slots cs
+            ON cs.id = cb.slot_id
 
-    LIMIT 1
-");
+        WHERE r.id = ?
+          AND c.demo_tenant_id = ?
+          AND c.is_demo_account = 1
 
-$stmt->execute([$requestId]);
+        LIMIT 1
+    ");
+
+    $stmt->execute([
+        $requestId,
+        $demoTenantId
+    ]);
+
+} else {
+
+    $stmt = $reschedulePdo->prepare("
+        SELECT
+
+            r.*,
+
+            c.name  AS customer_name,
+            c.email,
+            c.phone,
+
+            s.title AS service_name,
+
+            a.name  AS agent_name,
+
+            cs.slot_date,
+            cs.slot_time,
+            cs.consultation_method,
+            cs.meeting_link
+
+        FROM requests r
+
+        INNER JOIN customers c
+            ON c.id = r.customer_id
+
+        INNER JOIN services s
+            ON s.id = r.service_id
+
+        LEFT JOIN agents a
+            ON a.id = r.agent_id
+
+        LEFT JOIN consultation_bookings cb
+            ON cb.request_id = r.id
+
+        LEFT JOIN consultation_slots cs
+            ON cs.id = cb.slot_id
+
+        WHERE r.id = ?
+
+        LIMIT 1
+    ");
+
+    $stmt->execute([
+        $requestId
+    ]);
+}
 
 $consultation = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -69,6 +134,7 @@ if (!$consultation) {
     die('Consultation not found.');
 
 }
+
 
 /*
 |--------------------------------------------------------------------------
@@ -81,7 +147,9 @@ if (
     && isset($_POST['send_to_customer'])
 ) {
 
-    $adminInstruction = trim($_POST['admin_instruction'] ?? '');
+    $adminInstruction = trim(
+        $_POST['admin_instruction'] ?? ''
+    );
 
     if ($adminInstruction === '') {
 
@@ -89,7 +157,15 @@ if (
 
     }
 
-    $stmt = $pdo->prepare("
+
+    /*
+     * Update the request.
+     *
+     * The request was already tenant-validated above for
+     * Demo Admin, so this update is safe for the selected tenant.
+     */
+
+    $stmt = $reschedulePdo->prepare("
         UPDATE requests
         SET
             workflow_stage = 'Awaiting Customer Reschedule',
@@ -103,29 +179,31 @@ if (
         $consultation['id']
     ]);
 
-    /*
-|--------------------------------------------------------------------------
-| Record Consultation Reschedule Approval Event
-|--------------------------------------------------------------------------
-*/
 
-RequestEventHelper::addCurrentUser(
-    $pdo,
-    (int) $consultation['id'],
-    RequestEventHelper::EVENT_CONSULTATION_RESCHEDULE_APPROVED,
-    RequestEventHelper::TYPE_CONSULTATION,
-    'Consultation Reschedule Approved',
-    'The administrator approved the customer to schedule a new consultation appointment.',
-    false
-);
+    /*
+    |--------------------------------------------------------------------------
+    | Record Consultation Reschedule Approval Event
+    |--------------------------------------------------------------------------
+    */
+
+    RequestEventHelper::addCurrentUser(
+        $reschedulePdo,
+        (int) $consultation['id'],
+        RequestEventHelper::EVENT_CONSULTATION_RESCHEDULE_APPROVED,
+        RequestEventHelper::TYPE_CONSULTATION,
+        'Consultation Reschedule Approved',
+        'The administrator approved the customer to schedule a new consultation appointment.',
+        false
+    );
+
 
     header(
         'Location: ?page=needs-admin-review&success=The customer has been invited to schedule a new consultation.'
     );
 
     exit;
-
 }
+
 
 require VIEW_PATH . '/layouts/header-admin.php';
 
@@ -155,22 +233,17 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
     </div>
 
-
 </div>
 
 
-
 <!-- Customer + Service -->
-
 
 <div class="row mb-4">
 
 
     <div class="col-md-6">
 
-
         <div class="card shadow-sm h-100">
-
 
             <div class="card-header">
 
@@ -178,42 +251,33 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
             </div>
 
-
             <div class="card-body">
-
 
                 <p>
                     <strong>Name:</strong>
                     <?= htmlspecialchars($consultation['customer_name']) ?>
                 </p>
 
-
                 <p>
                     <strong>Email:</strong>
                     <?= htmlspecialchars($consultation['email']) ?>
                 </p>
-
 
                 <p class="mb-0">
                     <strong>Phone:</strong>
                     <?= htmlspecialchars($consultation['phone']) ?>
                 </p>
 
-
             </div>
 
         </div>
 
-
     </div>
-
 
 
     <div class="col-md-6">
 
-
         <div class="card shadow-sm h-100">
-
 
             <div class="card-header">
 
@@ -221,50 +285,45 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
             </div>
 
-
             <div class="card-body">
-
 
                 <p>
                     <strong>Service:</strong>
                     <?= htmlspecialchars($consultation['service_name']) ?>
                 </p>
 
-
                 <p class="mb-0">
                     <strong>Quoted Price:</strong>
 
-                    <?php if ((float)$consultation['quoted_price'] > 0): ?>
+                    <?php if ((float) $consultation['quoted_price'] > 0): ?>
 
-                        AED <?= number_format($consultation['quoted_price'], 2) ?>
+                        AED <?= number_format(
+                            $consultation['quoted_price'],
+                            2
+                        ) ?>
 
                     <?php else: ?>
 
-                        <span class="text-muted">Pending</span>
+                        <span class="text-muted">
+                            Pending
+                        </span>
 
                     <?php endif; ?>
-                </p>
 
+                </p>
 
             </div>
 
         </div>
 
-
     </div>
-
 
 </div>
 
 
-
-
-
 <!-- Current Appointment -->
 
-
 <div class="card shadow-sm mb-4">
-
 
     <div class="card-header bg-secondary text-white">
 
@@ -272,56 +331,58 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
     </div>
 
-
     <div class="card-body bg-light">
 
-
         <div class="row mb-4">
-
 
             <div class="col-md-4">
 
                 <strong>Date</strong><br>
 
-                <?= formatDate($consultation['slot_date']) ?>
+                <?= formatDate(
+                    $consultation['slot_date']
+                ) ?>
 
             </div>
-
 
 
             <div class="col-md-4">
 
                 <strong>Time</strong><br>
 
-                <?= formatTime($consultation['slot_time']) ?>
+                <?= formatTime(
+                    $consultation['slot_time']
+                ) ?>
 
             </div>
-
 
 
             <div class="col-md-4">
 
                 <strong>Assigned Agent</strong><br>
 
-                <?= htmlspecialchars($consultation['agent_name']) ?>
+                <?= htmlspecialchars(
+                    $consultation['agent_name']
+                ) ?>
 
             </div>
-
 
         </div>
 
 
-
         <div class="row">
-
 
             <div class="col-md-6">
 
                 <strong>Meeting Method</strong><br>
 
-                <?= !empty($consultation['consultation_method'])
+                <?= !empty(
+                    $consultation['consultation_method']
+                )
 
-                    ? htmlspecialchars($consultation['consultation_method'])
+                    ? htmlspecialchars(
+                        $consultation['consultation_method']
+                    )
 
                     : 'Not Assigned';
 
@@ -329,14 +390,12 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
             </div>
 
-
         </div>
-
 
     </div>
 
-
 </div>
+
 
 <!-- Consultation Review -->
 
@@ -348,38 +407,33 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
     </div>
 
-
     <div class="card-body">
-
 
         <p>
 
-            This consultation requires a new appointment because it could not be completed.
+            This consultation requires a new appointment
+            because it could not be completed.
 
         </p>
 
-
         <strong>Reason</strong>
-
 
         <div class="border rounded bg-light p-3 mt-2">
 
-            <?= htmlspecialchars($consultation['incomplete_reason']) ?>
+            <?= htmlspecialchars(
+                $consultation['incomplete_reason'] ?? ''
+            ) ?>
 
         </div>
-
 
     </div>
 
 </div>
 
 
-
 <!-- Agent Notes -->
 
-
 <div class="card shadow-sm mb-4">
-
 
     <div class="card-header bg-warning">
 
@@ -387,22 +441,21 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
     </div>
 
-
     <div class="card-body">
-
 
         <?php if (!empty($consultation['completion_notes'])): ?>
 
-
             <div class="border rounded bg-light p-3">
 
-                <?= nl2br(htmlspecialchars($consultation['completion_notes'])) ?>
+                <?= nl2br(
+                    htmlspecialchars(
+                        $consultation['completion_notes']
+                    )
+                ) ?>
 
             </div>
 
-
         <?php else: ?>
-
 
             <span class="text-muted">
 
@@ -410,14 +463,12 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
             </span>
 
-
         <?php endif; ?>
-
 
     </div>
 
-
 </div>
+
 
 <form method="POST">
 
@@ -435,11 +486,12 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
                 The consultation could not be completed.
 
-                Send this request back to the customer so they can choose
-                a new consultation date and time using the existing
-                reschedule workflow.
+                Send this request back to the customer so they
+                can choose a new consultation date and time using
+                the existing reschedule workflow.
 
             </p>
+
 
             <div class="mb-4">
 
@@ -453,20 +505,20 @@ require VIEW_PATH . '/layouts/header-admin.php';
                     name="admin_instruction"
                     class="form-control"
                     rows="7"
-                    placeholder="Example: Please choose another appointment that better suits your availability.">
-
-<?= htmlspecialchars($consultation['admin_instruction'] ?? '') ?>
-
-                </textarea>
+                    placeholder="Example: Please choose another appointment that better suits your availability."><?= htmlspecialchars(
+                        $consultation['admin_instruction'] ?? ''
+                    ) ?></textarea>
 
                 <div class="form-text">
 
-                    These instructions will be displayed to the customer 
-                    before they select a new consultation date and time.
+                    These instructions will be displayed to the
+                    customer before they select a new consultation
+                    date and time.
 
                 </div>
 
             </div>
+
 
             <div class="d-flex justify-content-between">
 
@@ -494,5 +546,6 @@ require VIEW_PATH . '/layouts/header-admin.php';
     </div>
 
 </form>
+
 
 <?php require VIEW_PATH . '/layouts/footer.php'; ?>

@@ -1,13 +1,16 @@
 <?php
 
-if (!isset($_SESSION['user'])) {
-
-    header('Location: ?page=login');
-    exit;
-}
-
 require_once HELPER_PATH . '/auth.php';
-require CONFIG_PATH . '/database.php';
+
+requireAdminLogin();
+
+if (isset($_SESSION['demo_user'])) {
+    require_once CONFIG_PATH . '/demo-database.php';
+    $servicesPdo = $demoPdo;
+} else {
+    require CONFIG_PATH . '/database.php';
+    $servicesPdo = $pdo;
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
@@ -34,10 +37,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         );
     }
 
-    $stmt = $pdo->prepare("
-        INSERT INTO services (title, description, image)
-        VALUES (?, ?, ?)
-    ");
+    $stmt = $servicesPdo->prepare("
+    INSERT INTO services (title, description, image)
+    VALUES (?, ?, ?)
+");
 
     $stmt->execute([
         $title,
