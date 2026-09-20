@@ -91,7 +91,7 @@ $contactedLeads = $adminPdo->query("
     WHERE status = 'Contacted'
 ")->fetchColumn();
 
-$convertedLeads = $pdo->query("
+$convertedLeads = $adminPdo->query("
     SELECT COUNT(*)
     FROM contract_leads
     WHERE status = 'Converted'
@@ -139,13 +139,26 @@ $totalRefunded = $adminPdo->query("
 |--------------------------------------------------------------------------
 | Demo Requests
 |--------------------------------------------------------------------------
+|
+| Demo provisioning requests belong to the Main/Dev environment.
+| They are not part of the Demo tenant database.
+|
+| Therefore the Demo Dashboard does not query demo_requests.
+|
 */
 
-$demoRequestsActionCount = $pdo->query("
-    SELECT COUNT(*)
-    FROM demo_requests
-    WHERE status IN ('Confirmed', 'Customer Confirmed')
-")->fetchColumn();
+$demoRequestsActionCount = 0;
+
+if (
+    !isset($_SESSION['demo_user']) &&
+    !isset($_SESSION['demo_super_admin'])
+) {
+    $demoRequestsActionCount = $pdo->query("
+        SELECT COUNT(*)
+        FROM demo_requests
+        WHERE status IN ('Confirmed', 'Customer Confirmed')
+    ")->fetchColumn();
+}
 
 $netRevenue = $totalRevenue - $totalRefunded;
 //$totalRevenue = $totalPayments - $totalRefunded;
