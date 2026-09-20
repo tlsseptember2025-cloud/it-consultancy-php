@@ -54,8 +54,14 @@ switch ($page) {
     */
 
     case 'home':
+
+    if ($isDemoEnvironment) {
+        require VIEW_PATH . '/public/demo-login.php';
+    } else {
         require VIEW_PATH . '/public/home.php';
-        break;
+    }
+
+    break;
 
 
 
