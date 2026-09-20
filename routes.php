@@ -27,11 +27,18 @@ ROUTES ORGANIZATION
 
 require_once CONFIG_PATH . '/database.php';
 
+/**
+ * Determine application context from the hostname.
+ */
+$host = strtolower($_SERVER['HTTP_HOST'] ?? '');
+
+$isDemoEnvironment = (
+    $host === 'demo.wahbibconsultancy.com'
+);
+
 if (
-    isset($_SESSION['demo_super_admin']) ||
-    isset($_SESSION['demo_user']) ||
-    isset($_SESSION['demo_customer']) ||
-    isset($_SESSION['demo_agent'])
+    $isDemoEnvironment &&
+    !isset($demoPdo)
 ) {
     require_once CONFIG_PATH . '/demo-database.php';
 }
