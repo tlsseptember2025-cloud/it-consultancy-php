@@ -45,6 +45,306 @@ if (
 
 $page = $_GET['page'] ?? 'home';
 
+/**
+ * Demo Environment Route Protection
+ *
+ * Demo is a completely separate application environment.
+ * Access is controlled by the Demo session role.
+ */
+if ($isDemoEnvironment) {
+
+    /**
+     * Public Demo routes
+     */
+    $demoPublicRoutes = [
+        'home',
+        'demo-login',
+        'demo-change-password',
+        'customer-forgot-password',
+        'customer-reset-password',
+        'rules',
+    ];
+
+    /**
+     * Routes available to Demo Super Admin
+     */
+    $demoSuperAdminRoutes = [
+        'dashboard',
+        'demo-super-admin',
+        'logout',
+        'notifications',
+        'open-notification',
+        'mark-all-notifications-read',
+        'messages',
+        'archived-messages',
+        'services-admin',
+        'add-service',
+        'edit-service',
+        'delete-service',
+        'pricing',
+        'add-pricing',
+        'edit-pricing',
+        'delete-pricing',
+        'customers',
+        'view-customer',
+        'agents',
+        'view-agent',
+        'requests',
+        'view-request',
+        'closed-requests',
+        'review-closed-request',
+        'archived-requests',
+        'view-archived-request',
+        'retention-review',
+        'review-retention',
+        'export-retention',
+        'refunds',
+        'refund-requests',
+        'complete-refund',
+        'archived-refunds',
+        'view-refund',
+        'payments',
+        'view-payment',
+        'edit-payment',
+        'delete-payment',
+        'consultation-slots',
+        'review-consultation',
+        'admin-review-consultation',
+        'admin-final-approve-consultation',
+        'admin-reschedule-consultation',
+        'admin-assign-agent',
+        'admin-contact-customer',
+        'admin-close-request',
+        'service-slots',
+        'review-service',
+        'approve-service',
+        'reject-service',
+        'approve-service-schedule',
+        'complete-service',
+        'review-refund',
+        'missed-consultation-approvals',
+        'review-missed-consultation',
+        'visitor-message',
+        'close-conversation',
+        'create-proposal',
+        'view-proposal',
+        'admin-view-proposal',
+        'send-proposal',
+        'contract-leads',
+        'update-contract-lead',
+        'archive-contract-lead',
+        'pending-contract-leads',
+        'view-contract-lead',
+        'complete-service-form',
+    ];
+
+    /**
+     * Routes available to Demo Admin
+     */
+    $demoAdminRoutes = [
+        'dashboard',
+        'logout',
+        'notifications',
+        'open-notification',
+        'mark-all-notifications-read',
+        'messages',
+        'archived-messages',
+
+        'services-admin',
+        'add-service',
+        'edit-service',
+        'delete-service',
+
+        'pricing',
+        'add-pricing',
+        'edit-pricing',
+        'delete-pricing',
+
+        'customers',
+        'view-customer',
+
+        'agents',
+        'view-agent',
+
+        'requests',
+        'add-request',
+        'view-request',
+        'edit-request',
+        'closed-requests',
+        'review-closed-request',
+        'archived-requests',
+        'view-archived-request',
+        'retention-review',
+        'review-retention',
+        'export-retention',
+
+        'refunds',
+        'add-refund',
+        'refund-requests',
+        'complete-refund',
+        'archived-refunds',
+        'view-refund',
+
+        'payments',
+        'view-payment',
+        'edit-payment',
+        'delete-payment',
+
+        'consultation-slots',
+        'review-consultation',
+        'approve-consultation',
+        'confirm-consultation-booking',
+        'reject-consultation',
+        'complete-consultation',
+        'admin-review-consultation',
+        'admin-final-approve-consultation',
+        'admin-reschedule-consultation',
+        'admin-assign-agent',
+        'admin-contact-customer',
+        'admin-close-request',
+
+        'service-slots',
+        'approve-service-schedule',
+        'review-service',
+        'approve-service',
+        'reject-service',
+        'complete-service',
+        'review-refund',
+
+        'missed-consultation-approvals',
+        'review-missed-consultation',
+
+        'visitor-message',
+        'close-conversation',
+        'create-proposal',
+        'admin-view-proposal',
+        'send-proposal',
+
+        'contract-leads',
+        'update-contract-lead',
+        'archive-contract-lead',
+        'pending-contract-leads',
+        'view-contract-lead',
+
+        'complete-service-form',
+    ];
+
+    /**
+     * Routes available to Demo Agent
+     */
+    $demoAgentRoutes = [
+        'agent-dashboard',
+        'agent-logout',
+        'agent-change-password',
+        'agent-reset-password',
+        'agent-jobs',
+        'view-service-job',
+        'contact-customer',
+        'consultation-closure-agreement',
+        'approved-closures',
+        'complete-consultation-closure',
+        'explain-overdue-consultation',
+        'explain-missed-service',
+        'respond-service-review',
+        'agent-consultations',
+        'view-consultation',
+        'cannot-complete-consultation',
+        'explain-missed-consultation',
+        'agent-profile',
+        'agent-notifications',
+        'agent-open-notification',
+        'agent-mark-all-notifications-read',
+        'view-service-job',
+    ];
+
+    /**
+     * Routes available to Demo Customer
+     */
+    $demoCustomerRoutes = [
+        'customer-dashboard',
+        'customer-logout',
+        'customer-profile',
+        'customer-requests',
+        'customer-view-inactive-request',
+        'customer-request-service',
+        'customer-request-refund',
+        'customer-payments',
+        'customer-refunds',
+        'customer-upload-slip',
+        'customer-notifications',
+        'schedule-consultation',
+        'confirm-consultation',
+        'reschedule-consultation',
+        'confirm-reschedule-consultation',
+        'refund-history',
+        'customer-view-refund',
+        'schedule-service',
+        'confirm-service',
+        'reschedule-service',
+        'confirm-reschedule-service',
+        'confirm-service-completion',
+        'confirm-consultation-completion',
+        'customer-rate-agent',
+        'view-proposal',
+        'accept-proposal-confirm',
+        'reject-proposal',
+    ];
+
+    /**
+     * Public routes do not require authentication.
+     */
+    if (in_array($page, $demoPublicRoutes, true)) {
+
+        // Continue normally.
+
+    } else {
+
+        /**
+         * Determine the authenticated Demo role.
+         */
+        $demoRole = null;
+
+        if (isset($_SESSION['demo_super_admin'])) {
+            $demoRole = 'super_admin';
+        } elseif (isset($_SESSION['demo_user'])) {
+            $demoRole = 'admin';
+        } elseif (isset($_SESSION['demo_customer'])) {
+            $demoRole = 'customer';
+        } elseif (isset($_SESSION['demo_agent'])) {
+            $demoRole = 'agent';
+        }
+
+        /**
+         * No Demo authentication.
+         */
+        if ($demoRole === null) {
+            header('Location: ?page=demo-login');
+            exit;
+        }
+
+        /**
+         * Check whether the requested route is allowed
+         * for the authenticated Demo role.
+         */
+        $allowedRoutes = match ($demoRole) {
+            'super_admin' => $demoSuperAdminRoutes,
+            'admin'       => $demoAdminRoutes,
+            'customer'    => $demoCustomerRoutes,
+            'agent'       => $demoAgentRoutes,
+            default       => [],
+        };
+
+        /**
+         * Deny unauthorized Demo routes.
+         */
+        if (!in_array($page, $allowedRoutes, true)) {
+            http_response_code(403);
+            echo '403 - Access denied';
+            exit;
+        }
+    }
+}
+
 switch ($page) {
 
     /*
