@@ -116,7 +116,7 @@ jobs:
           DEMO_DB_NAME=$DEMO_DB_NAME
           DEMO_DB_USER=$DEMO_DB_USER
           DEMO_DB_PASS=$DEMO_DB_PASS
-          DEMO_DB_SSL_CA=$DEMO_DB_SSL_CA
+          DEMO_DB_SSL_CA=app/storage/certs/demo-ca.pem
 
           EOF
 
