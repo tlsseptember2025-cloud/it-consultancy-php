@@ -55,6 +55,7 @@ jobs:
             --exclude-glob .htpasswd \
             --exclude-glob storage/logs \
             --exclude-glob app/storage/certs/ca.pem \
+            --exclude-glob app/storage/certs/demo-ca.pem \
             ./ "$SFTP_PATH"
 
           bye
