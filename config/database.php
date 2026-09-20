@@ -3,36 +3,67 @@
 require_once __DIR__ . '/workflow.php';
 
 /**
+ * Demo Database Configuration
+ *
+ * Demo database credentials are supplied through the server
+ * .env configuration file.
+ */
+
+
+/**
  * Load Environment Configuration
  */
 
-$env = parse_ini_file(dirname(__DIR__) . '/.env');
+$envFile = dirname(__DIR__) . '/.env';
+
+if (!file_exists($envFile)) {
+    die('Unable to load environment configuration.');
+}
+
+$env = parse_ini_file($envFile);
 
 if ($env === false) {
-    die('Unable to load .env configuration file.');
+    die('Unable to load environment configuration.');
 }
 
 
 /**
- * Database Configuration
+ * Demo Database Configuration
  */
 
-$host     = $env['DB_HOST'];
-$port     = $env['DB_PORT'];
-$dbname   = $env['DB_NAME'];
-$username = $env['DB_USER'];
-$password = $env['DB_PASS'];
+$host     = $env['DEMO_DB_HOST'] ?? '';
+$port     = $env['DEMO_DB_PORT'] ?? '';
+$dbname   = $env['DEMO_DB_NAME'] ?? '';
+$username = $env['DEMO_DB_USER'] ?? '';
+$password = $env['DEMO_DB_PASS'] ?? '';
+$sslCa    = $env['DEMO_DB_SSL_CA'] ?? '';
+
+
+/**
+ * Validate Required Configuration
+ */
+
+if (
+    empty($host) ||
+    empty($port) ||
+    empty($dbname) ||
+    empty($username) ||
+    empty($password) ||
+    empty($sslCa)
+) {
+    die('Demo database configuration is missing.');
+}
 
 
 /**
  * SSL Certificate
  */
 
-$sslCa = dirname(__DIR__) . '/' . $env['DB_SSL_CA'];
+$sslCaPath = dirname(__DIR__) . '/' . ltrim($sslCa, '/');
 
 
 /**
- * Database Connection
+ * Demo Database Connection
  */
 
 try {
@@ -41,10 +72,10 @@ try {
 
     $options = [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::MYSQL_ATTR_SSL_CA => $sslCa,
+        PDO::MYSQL_ATTR_SSL_CA => $sslCaPath,
     ];
 
-    $pdo = new PDO(
+    $demoPdo = new PDO(
         $dsn,
         $username,
         $password,
@@ -54,27 +85,15 @@ try {
 
     /**
      * Set MySQL Session Timezone
-     *
-     * UAE operates on UTC+04:00.
-     *
-     * This ensures MySQL functions such as:
-     *
-     *     NOW()
-     *     CURRENT_TIMESTAMP
-     *     DATE_ADD(NOW(), ...)
-     *
-     * use UAE time for this database connection.
-     *
-     * No database table or column changes are required.
      */
 
-    $pdo->exec("
+    $demoPdo->exec("
         SET time_zone = '+04:00'
     ");
 
 
 } catch (PDOException $e) {
 
-    die('Database connection failed: ' . $e->getMessage());
+    die('Demo database connection failed: ' . $e->getMessage());
 
 }
