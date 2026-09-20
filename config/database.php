@@ -3,67 +3,36 @@
 require_once __DIR__ . '/workflow.php';
 
 /**
- * Demo Database Configuration
- *
- * Demo database credentials are supplied through the server
- * .env configuration file.
- */
-
-
-/**
  * Load Environment Configuration
  */
 
-$envFile = dirname(__DIR__) . '/.env';
-
-if (!file_exists($envFile)) {
-    die('Unable to load environment configuration.');
-}
-
-$env = parse_ini_file($envFile);
+$env = parse_ini_file(dirname(__DIR__) . '/.env');
 
 if ($env === false) {
-    die('Unable to load environment configuration.');
+    die('Unable to load .env configuration file.');
 }
 
 
 /**
- * Demo Database Configuration
+ * Database Configuration
  */
 
-$host     = $env['DEMO_DB_HOST'] ?? '';
-$port     = $env['DEMO_DB_PORT'] ?? '';
-$dbname   = $env['DEMO_DB_NAME'] ?? '';
-$username = $env['DEMO_DB_USER'] ?? '';
-$password = $env['DEMO_DB_PASS'] ?? '';
-$sslCa    = $env['DEMO_DB_SSL_CA'] ?? '';
-
-
-/**
- * Validate Required Configuration
- */
-
-if (
-    empty($host) ||
-    empty($port) ||
-    empty($dbname) ||
-    empty($username) ||
-    empty($password) ||
-    empty($sslCa)
-) {
-    die('Demo database configuration is missing.');
-}
+$host     = $env['DB_HOST'];
+$port     = $env['DB_PORT'];
+$dbname   = $env['DB_NAME'];
+$username = $env['DB_USER'];
+$password = $env['DB_PASS'];
 
 
 /**
  * SSL Certificate
  */
 
-$sslCaPath = dirname(__DIR__) . '/' . ltrim($sslCa, '/');
+$sslCa = dirname(__DIR__) . '/' . $env['DB_SSL_CA'];
 
 
 /**
- * Demo Database Connection
+ * Database Connection
  */
 
 try {
@@ -72,28 +41,24 @@ try {
 
     $options = [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::MYSQL_ATTR_SSL_CA => $sslCaPath,
+        PDO::MYSQL_ATTR_SSL_CA => $sslCa,
     ];
 
-    $demoPdo = new PDO(
+    $pdo = new PDO(
         $dsn,
         $username,
         $password,
         $options
     );
 
-
     /**
      * Set MySQL Session Timezone
      */
 
-    $demoPdo->exec("
-        SET time_zone = '+04:00'
-    ");
-
+    $pdo->exec("SET time_zone = '+04:00'");
 
 } catch (PDOException $e) {
 
-    die('Demo database connection failed: ' . $e->getMessage());
+    die('Database connection failed: ' . $e->getMessage());
 
 }
