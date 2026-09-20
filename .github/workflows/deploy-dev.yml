@@ -63,10 +63,15 @@ jobs:
 
       # ------------------------------------------------------------
       # Create DEV environment file
+      #
+      # Contains both:
+      #   1. Main System configuration
+      #   2. Demo System configuration
       # ------------------------------------------------------------
 
       - name: Create development environment file
         env:
+          # Main System
           DB_HOST: ${{ secrets.DB_HOST }}
           DB_PORT: ${{ secrets.DB_PORT }}
           DB_NAME: ${{ secrets.DB_NAME }}
@@ -75,8 +80,23 @@ jobs:
           DB_SSL_CA: ${{ secrets.DB_SSL_CA }}
           APP_URL: ${{ secrets.APP_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
+
+          # Demo System
+          DEMO_APP_URL: ${{ secrets.DEMO_APP_URL }}
+          DEMO_DB_HOST: ${{ secrets.DEMO_DB_HOST }}
+          DEMO_DB_PORT: ${{ secrets.DEMO_DB_PORT }}
+          DEMO_DB_NAME: ${{ secrets.DEMO_DB_NAME }}
+          DEMO_DB_USER: ${{ secrets.DEMO_DB_USER }}
+          DEMO_DB_PASS: ${{ secrets.DEMO_DB_PASS }}
+          DEMO_DB_SSL_CA: ${{ secrets.DEMO_DB_SSL_CA }}
+
         run: |
           cat > .env <<EOF
+
+          # ----------------------------------------------------------
+          # Main System
+          # ----------------------------------------------------------
+
           DB_HOST=$DB_HOST
           DB_PORT=$DB_PORT
           DB_NAME=$DB_NAME
@@ -85,6 +105,19 @@ jobs:
           DB_SSL_CA=$DB_SSL_CA
           APP_URL=$APP_URL
           CRON_SECRET=$CRON_SECRET
+
+          # ----------------------------------------------------------
+          # Demo System
+          # ----------------------------------------------------------
+
+          DEMO_APP_URL=$DEMO_APP_URL
+          DEMO_DB_HOST=$DEMO_DB_HOST
+          DEMO_DB_PORT=$DEMO_DB_PORT
+          DEMO_DB_NAME=$DEMO_DB_NAME
+          DEMO_DB_USER=$DEMO_DB_USER
+          DEMO_DB_PASS=$DEMO_DB_PASS
+          DEMO_DB_SSL_CA=$DEMO_DB_SSL_CA
+
           EOF
 
 
@@ -123,7 +156,7 @@ jobs:
       # Upload DEV password file
       # ------------------------------------------------------------
 
-      - name: Upload development password file
+      - name: Upload DEV password file
         env:
           SFTP_HOST: ${{ secrets.SFTP_HOST }}
           SFTP_PORT: ${{ secrets.SFTP_PORT }}
@@ -169,7 +202,7 @@ jobs:
       # Upload DEV password protection
       # ------------------------------------------------------------
 
-      - name: Upload development password protection file
+      - name: Upload DEV password protection file
         env:
           SFTP_HOST: ${{ secrets.SFTP_HOST }}
           SFTP_PORT: ${{ secrets.SFTP_PORT }}
