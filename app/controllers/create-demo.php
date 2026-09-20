@@ -7,15 +7,20 @@
 | Step 1.11
 |
 | Creates:
-| - Demo tenant (already created in Step 1.9)
-| - Company Demo Admin (already created in Step 1.10)
 | - Demo Customer
-| - Demo Agent
+| - Demo Agent 1
+| - Demo Agent 2
+|
+| Company Demo Admin was already created in Step 1.10.
 |
 | Usernames are based on the company domain:
-| - loops_admin
-| - loops_customer
-| - loops_agent
+| - loopsautomation_admin
+| - loopsautomation_customer
+| - loopsautomation_agent1
+| - loopsautomation_agent2
+|
+| Passwords and email addresses are NOT assigned here.
+| They are assigned during Demo Setup.
 |--------------------------------------------------------------------------
 */
 
@@ -117,10 +122,10 @@ if (!empty($request['demo_created_at'])) {
 |--------------------------------------------------------------------------
 */
 
-$companyDomain  = trim($request['company_domain'] ?? '');
-$companyName    = trim($request['company_name'] ?? '');
+$companyDomain   = trim($request['company_domain'] ?? '');
+$companyName     = trim($request['company_name'] ?? '');
 $registeredEmail = trim($request['email'] ?? '');
-$customerName   = trim($request['full_name'] ?? '');
+$customerName    = trim($request['full_name'] ?? '');
 
 if ($companyDomain === '') {
     die('The Demo request does not contain a company domain.');
@@ -187,60 +192,13 @@ if ($tenant['company_domain'] !== $companyDomain) {
 
 /*
 |--------------------------------------------------------------------------
-| Generate Stable Usernames
+| Generate Stable Username Base
 |--------------------------------------------------------------------------
 |
 | Example:
-| loopsautomation.com
-|
-| becomes:
-| loops_admin
-| loops_customer
-| loops_agent
-|
-|--------------------------------------------------------------------------
-*/
-
-$domainWithoutWww = preg_replace(
-    '/^www\./i',
-    '',
-    strtolower($companyDomain)
-);
-
-$domainBase = preg_replace(
-    '/[^a-z0-9]+/',
-    '_',
-    $domainWithoutWww
-);
-
-$domainBase = trim($domainBase, '_');
-
-if ($domainBase === '') {
-    die('Unable to generate Demo usernames from the company domain.');
-}
-
-
-/*
-|--------------------------------------------------------------------------
-| Generate Stable Demo Usernames
-|--------------------------------------------------------------------------
-|
-| The username is based on the company domain,
-| without the final domain extension.
-|
-| Examples:
 |
 | loopsautomation.com
 | → loopsautomation
-| → loopsautomation_admin
-| → loopsautomation_customer
-| → loopsautomation_agent
-|
-| acme.com
-| → acme
-| → acme_admin
-| → acme_customer
-| → acme_agent
 |
 |--------------------------------------------------------------------------
 */
@@ -257,9 +215,10 @@ if (count($domainParts) < 2) {
     die('The company domain is not valid.');
 }
 
+
 /*
 |--------------------------------------------------------------------------
-| Remove the final domain extension
+| Remove Final Domain Extension
 |--------------------------------------------------------------------------
 */
 
@@ -267,9 +226,10 @@ array_pop($domainParts);
 
 $usernameBase = implode('_', $domainParts);
 
+
 /*
 |--------------------------------------------------------------------------
-| Sanitize username base
+| Sanitize Username Base
 |--------------------------------------------------------------------------
 */
 
@@ -292,10 +252,10 @@ if ($usernameBase === '') {
 |--------------------------------------------------------------------------
 */
 
-$adminUsername    = $usernameBase . '_admin';
-$customerUsername = $usernameBase . '_customer';
-$agentUsername    = $usernameBase . '_agent';
-
+$adminUsername     = $usernameBase . '_admin';
+$customerUsername  = $usernameBase . '_customer';
+$agent1Username    = $usernameBase . '_agent1';
+$agent2Username    = $usernameBase . '_agent2';
 
 
 /*
@@ -330,7 +290,7 @@ $existingAdmin = $stmt->fetch(PDO::FETCH_ASSOC);
 if (!$existingAdmin) {
     die(
         'Company Demo Admin was not found. '
-        . 'Complete Step 1.10 before creating Customer and Agent.'
+        . 'Complete Step 1.10 before creating Customer and Agents.'
     );
 }
 
@@ -385,7 +345,7 @@ $existingCustomer = $stmt->fetch(PDO::FETCH_ASSOC);
 
 /*
 |--------------------------------------------------------------------------
-| Check Existing Demo Agent
+| Check Existing Demo Agent 1
 |--------------------------------------------------------------------------
 */
 
@@ -408,10 +368,41 @@ $stmt = $demoPdo->prepare("
 
 $stmt->execute([
     $tenantId,
-    $agentUsername
+    $agent1Username
 ]);
 
-$existingAgent = $stmt->fetch(PDO::FETCH_ASSOC);
+$existingAgent1 = $stmt->fetch(PDO::FETCH_ASSOC);
+
+
+/*
+|--------------------------------------------------------------------------
+| Check Existing Demo Agent 2
+|--------------------------------------------------------------------------
+*/
+
+$stmt = $demoPdo->prepare("
+    SELECT
+        id,
+        username,
+        email,
+        demo_tenant_id,
+        is_demo_account,
+        force_password_change,
+        status,
+        active
+    FROM agents
+    WHERE demo_tenant_id = ?
+      AND is_demo_account = 1
+      AND username = ?
+    LIMIT 1
+");
+
+$stmt->execute([
+    $tenantId,
+    $agent2Username
+]);
+
+$existingAgent2 = $stmt->fetch(PDO::FETCH_ASSOC);
 
 
 /*
@@ -428,18 +419,26 @@ if ($existingCustomer) {
     );
 }
 
-if ($existingAgent) {
+if ($existingAgent1) {
     die(
-        'Demo Agent already exists for this tenant. '
+        'Demo Agent 1 already exists for this tenant. '
         . 'Username: '
-        . htmlspecialchars($existingAgent['username'])
+        . htmlspecialchars($existingAgent1['username'])
+    );
+}
+
+if ($existingAgent2) {
+    die(
+        'Demo Agent 2 already exists for this tenant. '
+        . 'Username: '
+        . htmlspecialchars($existingAgent2['username'])
     );
 }
 
 
 /*
 |--------------------------------------------------------------------------
-| Check Username Uniqueness
+| Check Customer Username Uniqueness
 |--------------------------------------------------------------------------
 */
 
@@ -460,6 +459,12 @@ if ($stmt->fetch()) {
 }
 
 
+/*
+|--------------------------------------------------------------------------
+| Check Agent 1 Username Uniqueness
+|--------------------------------------------------------------------------
+*/
+
 $stmt = $demoPdo->prepare("
     SELECT id
     FROM agents
@@ -467,18 +472,57 @@ $stmt = $demoPdo->prepare("
     LIMIT 1
 ");
 
-$stmt->execute([$agentUsername]);
+$stmt->execute([$agent1Username]);
 
 if ($stmt->fetch()) {
     die(
-        'The Demo Agent username is already in use: '
-        . htmlspecialchars($agentUsername)
+        'The Demo Agent 1 username is already in use: '
+        . htmlspecialchars($agent1Username)
     );
 }
 
+
 /*
 |--------------------------------------------------------------------------
-| Create Demo Customer + Demo Agent
+| Check Agent 2 Username Uniqueness
+|--------------------------------------------------------------------------
+*/
+
+$stmt = $demoPdo->prepare("
+    SELECT id
+    FROM agents
+    WHERE username = ?
+    LIMIT 1
+");
+
+$stmt->execute([$agent2Username]);
+
+if ($stmt->fetch()) {
+    die(
+        'The Demo Agent 2 username is already in use: '
+        . htmlspecialchars($agent2Username)
+    );
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Create Demo Customer + Demo Agent 1 + Demo Agent 2
+|--------------------------------------------------------------------------
+|
+| Important:
+|
+| Passwords are intentionally NULL at this stage.
+|
+| Demo Setup will later:
+| - collect Customer email
+| - collect Agent 1 email
+| - collect Agent 2 email
+| - generate temporary passwords
+| - hash the passwords
+| - save the credentials
+| - send each account its own credentials
+|
 |--------------------------------------------------------------------------
 */
 
@@ -494,62 +538,98 @@ try {
     */
 
     $stmt = $demoPdo->prepare("
-    INSERT INTO customers
-    (
-        username,
-        name,
-        email,
-        phone,
-        company,
-        password,
-        demo_tenant_id,
-        is_demo_account,
-        force_password_change
-    )
-    VALUES
-(?, ?, NULL, NULL, ?, NULL, ?, 1, 0)
-");
+        INSERT INTO customers
+        (
+            username,
+            name,
+            email,
+            phone,
+            company,
+            password,
+            demo_tenant_id,
+            is_demo_account,
+            force_password_change
+        )
+        VALUES
+        (?, ?, NULL, NULL, ?, NULL, ?, 1, 1)
+    ");
 
-$stmt->execute([
-    $customerUsername,
-    $customerName,
-    $companyName,
-    $tenantId
-]);
+    $stmt->execute([
+        $customerUsername,
+        $customerName,
+        $companyName,
+        $tenantId
+    ]);
 
     $customerId = (int)$demoPdo->lastInsertId();
 
 
     /*
     |--------------------------------------------------------------------------
-    | Create Demo Agent
+    | Create Demo Agent 1
     |--------------------------------------------------------------------------
     */
 
     $stmt = $demoPdo->prepare("
-    INSERT INTO agents
-    (
-        username,
-        name,
-        email,
-        password,
-        demo_tenant_id,
-        is_demo_account,
-        force_password_change,
-        position,
-        status,
-        active
-    )
-    VALUES(?, ?, NULL, NULL, ?, 1, 0, ?, 'Active', 1)");
+        INSERT INTO agents
+        (
+            username,
+            name,
+            email,
+            password,
+            demo_tenant_id,
+            is_demo_account,
+            force_password_change,
+            position,
+            status,
+            active
+        )
+        VALUES
+        (?, ?, NULL, NULL, ?, 1, 1, ?, 'Active', 1)
+    ");
 
-$stmt->execute([
-    $agentUsername,
-    'Demo Agent',
-    $tenantId,
-    'IT Consultant'
-]);
+    $stmt->execute([
+        $agent1Username,
+        'Demo Agent 1',
+        $tenantId,
+        'IT Consultant'
+    ]);
 
-    $agentId = (int)$demoPdo->lastInsertId();
+    $agent1Id = (int)$demoPdo->lastInsertId();
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Create Demo Agent 2
+    |--------------------------------------------------------------------------
+    */
+
+    $stmt = $demoPdo->prepare("
+        INSERT INTO agents
+        (
+            username,
+            name,
+            email,
+            password,
+            demo_tenant_id,
+            is_demo_account,
+            force_password_change,
+            position,
+            status,
+            active
+        )
+        VALUES
+        (?, ?, NULL, NULL, ?, 1, 1, ?, 'Active', 1)
+    ");
+
+    $stmt->execute([
+        $agent2Username,
+        'Demo Agent 2',
+        $tenantId,
+        'IT Consultant'
+    ]);
+
+    $agent2Id = (int)$demoPdo->lastInsertId();
 
 
     /*
@@ -567,7 +647,7 @@ $stmt->execute([
     }
 
     die(
-        'The Demo Customer and Demo Agent could not be created. '
+        'The Demo Customer and Demo Agents could not be created. '
         . 'Please check the Demo database.'
     );
 }
@@ -623,7 +703,7 @@ $stmt->execute([
                     <div class="alert alert-success">
 
                         <strong>
-                            Demo Customer and Demo Agent were created successfully.
+                            Demo Customer and both Demo Agents were created successfully.
                         </strong>
 
                     </div>
@@ -651,16 +731,10 @@ $stmt->execute([
                                 <strong>
                                     <?= htmlspecialchars($adminUsername) ?>
                                 </strong>
-                            </td>
-                        </tr>
 
+                                <br>
 
-                        <tr>
-                            <th>
-                                Admin ID
-                            </th>
-
-                            <td>
+                                ID:
                                 <?= $adminId ?>
                             </td>
                         </tr>
@@ -686,18 +760,36 @@ $stmt->execute([
 
                         <tr>
                             <th>
-                                Demo Agent
+                                Demo Agent 1
                             </th>
 
                             <td>
                                 <strong>
-                                    <?= htmlspecialchars($agentUsername) ?>
+                                    <?= htmlspecialchars($agent1Username) ?>
                                 </strong>
 
                                 <br>
 
                                 ID:
-                                <?= $agentId ?>
+                                <?= $agent1Id ?>
+                            </td>
+                        </tr>
+
+
+                        <tr>
+                            <th>
+                                Demo Agent 2
+                            </th>
+
+                            <td>
+                                <strong>
+                                    <?= htmlspecialchars($agent2Username) ?>
+                                </strong>
+
+                                <br>
+
+                                ID:
+                                <?= $agent2Id ?>
                             </td>
                         </tr>
 
@@ -706,31 +798,76 @@ $stmt->execute([
 
                     <div class="alert alert-info">
 
-                        <strong>Demo Customer and Demo Agent setup is pending.</strong>
+                        <h5>
+                            Next Step
+                        </h5>
 
-                        <div class="small mt-2">
-                            The Company Demo Admin will provide the Customer and Agent
-                            email addresses during Demo Setup.
-                        </div>
+                        <p class="mb-0">
+
+                            The three account records have been created,
+                            but their email addresses and passwords have
+                            intentionally not been assigned yet.
+
+                            <br><br>
+
+                            The Demo Admin will complete the setup by
+                            entering:
+
+                            <br>
+
+                            <strong>Customer Email</strong><br>
+                            <strong>Agent 1 Email</strong><br>
+                            <strong>Agent 2 Email</strong>
+
+                            <br><br>
+
+                            Demo Setup will then generate separate
+                            temporary passwords and send each account
+                            its own credentials.
+
+                        </p>
 
                     </div>
 
 
-                    <div class="alert alert-info">
+                    <div class="alert alert-warning">
+
+                        <strong>
+                            Passwords are not displayed here.
+                        </strong>
+
+                        <br>
+
+                        All three accounts currently have:
+
+                        <br>
+
+                        <code>force_password_change = 1</code>
+
+                        <br><br>
+
+                        Their passwords will be assigned during
+                        Demo Setup.
+
+                    </div>
+
+
+                    <div class="alert alert-secondary">
 
                         <strong>
                             Step 1.11 complete.
                         </strong>
 
-                        <br>
+                        <br><br>
 
-                        The Demo Tenant now has all three Demo accounts:
+                        The Demo Tenant now has:
 
                         <br><br>
 
                         <code><?= htmlspecialchars($adminUsername) ?></code><br>
                         <code><?= htmlspecialchars($customerUsername) ?></code><br>
-                        <code><?= htmlspecialchars($agentUsername) ?></code>
+                        <code><?= htmlspecialchars($agent1Username) ?></code><br>
+                        <code><?= htmlspecialchars($agent2Username) ?></code>
 
                     </div>
 

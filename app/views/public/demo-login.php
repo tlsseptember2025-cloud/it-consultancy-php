@@ -1,28 +1,56 @@
 <?php
 
+/*
+|--------------------------------------------------------------------------
+| DEMO LOGIN
+|--------------------------------------------------------------------------
+|
+| Demo Admin    -> Email
+| Demo Customer -> Username
+| Demo Agent 1  -> Username
+| Demo Agent 2  -> Username
+|
+|--------------------------------------------------------------------------
+*/
+
+
 require_once CONFIG_PATH . '/demo-database.php';
+
 
 $error = '';
 
+
+/*
+|--------------------------------------------------------------------------
+| Process Login
+|--------------------------------------------------------------------------
+*/
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    $login = trim($_POST['login'] ?? '');
-    $password = trim($_POST['password'] ?? '');
+    $login = trim(
+        $_POST['login'] ?? ''
+    );
+
+    $password = $_POST['password'] ?? '';
+
 
     if ($login === '' || $password === '') {
 
-        $error = 'Please enter your username/email and password.';
+        $error =
+            'Please enter your username/email and password.';
 
     } else {
 
+
         /*
-         * ------------------------------------------------------------
-         * Check Demo Customer
-         * ------------------------------------------------------------
-         *
-         * Customer login uses the immutable username.
-         *
-         */
+        |--------------------------------------------------------------------------
+        | Check Demo Customer
+        |--------------------------------------------------------------------------
+        |
+        | Customer logs in using USERNAME.
+        |
+        */
 
         $stmt = $demoPdo->prepare("
             SELECT
@@ -40,15 +68,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             LIMIT 1
         ");
 
-        $stmt->execute([$login]);
+        $stmt->execute([
+            $login
+        ]);
 
         $customer = $stmt->fetch(PDO::FETCH_ASSOC);
+
 
         if (
             $customer &&
             !empty($customer['password']) &&
-            password_verify($password, $customer['password'])
+            password_verify(
+                $password,
+                $customer['password']
+            )
         ) {
+
+            /*
+            |--------------------------------------------------------------------------
+            | Check Tenant
+            |--------------------------------------------------------------------------
+            */
 
             if (
                 $customer['tenant_status'] !== 'Active' ||
@@ -58,46 +98,82 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 )
             ) {
 
-                $error = 'This Demo account has expired.';
+                $error =
+                    'This Demo account has expired.';
 
             } else {
+
+                /*
+                |--------------------------------------------------------------------------
+                | Clear Other Sessions
+                |--------------------------------------------------------------------------
+                */
 
                 unset(
                     $_SESSION['user'],
                     $_SESSION['customer'],
                     $_SESSION['agent'],
                     $_SESSION['demo_user'],
-                    $_SESSION['demo_agent']
+                    $_SESSION['demo_agent'],
+                    $_SESSION['demo_super_admin']
                 );
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | Store Demo Customer Session
+                |--------------------------------------------------------------------------
+                */
 
                 $_SESSION['demo_customer'] = $customer;
 
+
                 /*
-                 * ----------------------------------------------------
-                 * First Login Password Change
-                 * ----------------------------------------------------
-                 */
+                |--------------------------------------------------------------------------
+                | First Login Password Change
+                |--------------------------------------------------------------------------
+                */
 
-                if ((int) $customer['force_password_change'] === 1) {
+                if (
+                    (int)$customer['force_password_change'] === 1
+                ) {
 
-                    header('Location: ?page=demo-change-password');
+                    header(
+                        'Location: ?page=demo-change-password'
+                    );
+
                     exit;
                 }
 
-                header('Location: ?page=customer-dashboard');
+
+                /*
+                |--------------------------------------------------------------------------
+                | Customer Dashboard
+                |--------------------------------------------------------------------------
+                */
+
+                header(
+                    'Location: ?page=customer-dashboard'
+                );
+
                 exit;
             }
         }
 
 
         /*
-         * ------------------------------------------------------------
-         * Check Demo Agent
-         * ------------------------------------------------------------
-         *
-         * Agent login uses the immutable username.
-         *
-         */
+        |--------------------------------------------------------------------------
+        | Check Demo Agent
+        |--------------------------------------------------------------------------
+        |
+        | Both Agent 1 and Agent 2 use this same authentication logic.
+        |
+        | Their usernames are:
+        |
+        | {domain}_agent1
+        | {domain}_agent2
+        |
+        */
 
         if ($error === '') {
 
@@ -115,18 +191,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                   AND a.is_demo_account = 1
                   AND a.demo_tenant_id IS NOT NULL
                   AND a.status = 'Active'
+                  AND a.active = 1
                 LIMIT 1
             ");
 
-            $stmt->execute([$login]);
+            $stmt->execute([
+                $login
+            ]);
 
             $agent = $stmt->fetch(PDO::FETCH_ASSOC);
+
 
             if (
                 $agent &&
                 !empty($agent['password']) &&
-                password_verify($password, $agent['password'])
+                password_verify(
+                    $password,
+                    $agent['password']
+                )
             ) {
+
+                /*
+                |--------------------------------------------------------------------------
+                | Check Tenant
+                |--------------------------------------------------------------------------
+                */
 
                 if (
                     $agent['tenant_status'] !== 'Active' ||
@@ -136,33 +225,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     )
                 ) {
 
-                    $error = 'This Demo account has expired.';
+                    $error =
+                        'This Demo account has expired.';
 
                 } else {
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Clear Other Sessions
+                    |--------------------------------------------------------------------------
+                    */
 
                     unset(
                         $_SESSION['user'],
                         $_SESSION['customer'],
                         $_SESSION['agent'],
                         $_SESSION['demo_user'],
-                        $_SESSION['demo_customer']
+                        $_SESSION['demo_customer'],
+                        $_SESSION['demo_super_admin']
                     );
+
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Store Demo Agent Session
+                    |--------------------------------------------------------------------------
+                    */
 
                     $_SESSION['demo_agent'] = $agent;
 
+
                     /*
-                     * ------------------------------------------------
-                     * First Login Password Change
-                     * ------------------------------------------------
-                     */
+                    |--------------------------------------------------------------------------
+                    | First Login Password Change
+                    |--------------------------------------------------------------------------
+                    */
 
-                    if ((int) $agent['force_password_change'] === 1) {
+                    if (
+                        (int)$agent['force_password_change'] === 1
+                    ) {
 
-                        header('Location: ?page=demo-change-password');
+                        header(
+                            'Location: ?page=demo-change-password'
+                        );
+
                         exit;
                     }
 
-                    header('Location: ?page=agent-dashboard');
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Agent Dashboard
+                    |--------------------------------------------------------------------------
+                    */
+
+                    header(
+                        'Location: ?page=agent-dashboard'
+                    );
+
                     exit;
                 }
             }
@@ -170,15 +290,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 
         /*
-         * ------------------------------------------------------------
-         * Check Demo Admin
-         * ------------------------------------------------------------
-         *
-         * Demo Admin currently continues to use EMAIL login.
-         *
-         * Customer and Agent use USERNAME login.
-         *
-         */
+        |--------------------------------------------------------------------------
+        | Check Demo Admin
+        |--------------------------------------------------------------------------
+        |
+        | Demo Admin logs in using EMAIL.
+        |
+        */
 
         if ($error === '') {
 
@@ -199,15 +317,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 LIMIT 1
             ");
 
-            $stmt->execute([$login]);
+            $stmt->execute([
+                $login
+            ]);
 
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
 
             if (
                 $user &&
                 !empty($user['password']) &&
-                password_verify($password, $user['password'])
+                password_verify(
+                    $password,
+                    $user['password']
+                )
             ) {
+
+                /*
+                |--------------------------------------------------------------------------
+                | Check Tenant
+                |--------------------------------------------------------------------------
+                */
 
                 if (
                     $user['tenant_status'] !== 'Active' ||
@@ -217,9 +347,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     )
                 ) {
 
-                    $error = 'This Demo account has expired.';
+                    $error =
+                        'This Demo account has expired.';
 
                 } else {
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Clear Other Sessions
+                    |--------------------------------------------------------------------------
+                    */
 
                     unset(
                         $_SESSION['user'],
@@ -230,36 +367,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $_SESSION['demo_super_admin']
                     );
 
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Store Demo Admin Session
+                    |--------------------------------------------------------------------------
+                    */
+
                     $_SESSION['demo_user'] = $user;
 
 
                     /*
-                     * ------------------------------------------------
-                     * First Login Password Change
-                     * ------------------------------------------------
-                     *
-                     * Demo Admin must change the temporary password
-                     * on the first login before accessing Demo Setup.
-                     *
-                     */
+                    |--------------------------------------------------------------------------
+                    | First Login Password Change
+                    |--------------------------------------------------------------------------
+                    */
 
-                    if ((int) $user['force_password_change'] === 1) {
+                    if (
+                        (int)$user['force_password_change'] === 1
+                    ) {
 
-                        header('Location: ?page=demo-change-password');
+                        header(
+                            'Location: ?page=demo-change-password'
+                        );
+
                         exit;
                     }
 
 
                     /*
-                     * ------------------------------------------------
-                     * Check Demo Setup Status
-                     * ------------------------------------------------
-                     *
-                     * Customer and Agent accounts are created during
-                     * provisioning, but their passwords remain NULL
-                     * until Demo Setup is completed.
-                     *
-                     */
+                    |--------------------------------------------------------------------------
+                    | Determine Username Base
+                    |--------------------------------------------------------------------------
+                    */
+
+                    $usernameBase = preg_replace(
+                        '/_admin$/',
+                        '',
+                        $user['username']
+                    );
+
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Check Complete Demo Setup
+                    |--------------------------------------------------------------------------
+                    |
+                    | The Demo is complete only when:
+                    |
+                    | Customer password exists
+                    | Agent 1 password exists
+                    | Agent 2 password exists
+                    |
+                    */
 
                     $setupStmt = $demoPdo->prepare("
                         SELECT
@@ -279,49 +439,75 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                   AND is_demo_account = 1
                                   AND username = ?
                                 LIMIT 1
-                            ) AS agent_password
+                            ) AS agent1_password,
+
+                            (
+                                SELECT password
+                                FROM agents
+                                WHERE demo_tenant_id = ?
+                                  AND is_demo_account = 1
+                                  AND username = ?
+                                LIMIT 1
+                            ) AS agent2_password
                     ");
 
-                    $usernameBase = preg_replace(
-                        '/_admin$/',
-                        '',
-                        $user['username']
-                    );
-
                     $setupStmt->execute([
-                        (int) $user['demo_tenant_id'],
+
+                        /*
+                        | Customer
+                        */
+                        (int)$user['demo_tenant_id'],
                         $usernameBase . '_customer',
-                        (int) $user['demo_tenant_id'],
-                        $usernameBase . '_agent'
+
+                        /*
+                        | Agent 1
+                        */
+                        (int)$user['demo_tenant_id'],
+                        $usernameBase . '_agent1',
+
+                        /*
+                        | Agent 2
+                        */
+                        (int)$user['demo_tenant_id'],
+                        $usernameBase . '_agent2'
+
                     ]);
 
-                    $setupStatus = $setupStmt->fetch(PDO::FETCH_ASSOC);
+                    $setupStatus =
+                        $setupStmt->fetch(PDO::FETCH_ASSOC);
 
 
                     /*
-                     * ------------------------------------------------
-                     * Setup Required
-                     * ------------------------------------------------
-                     */
+                    |--------------------------------------------------------------------------
+                    | Setup Required
+                    |--------------------------------------------------------------------------
+                    */
 
                     if (
                         !$setupStatus ||
                         empty($setupStatus['customer_password']) ||
-                        empty($setupStatus['agent_password'])
+                        empty($setupStatus['agent1_password']) ||
+                        empty($setupStatus['agent2_password'])
                     ) {
 
-                        header('Location: ?page=demo-setup');
+                        header(
+                            'Location: ?page=demo-setup'
+                        );
+
                         exit;
                     }
 
 
                     /*
-                     * ------------------------------------------------
-                     * Setup Already Completed
-                     * ------------------------------------------------
-                     */
+                    |--------------------------------------------------------------------------
+                    | Setup Complete
+                    |--------------------------------------------------------------------------
+                    */
 
-                    header('Location: ?page=dashboard');
+                    header(
+                        'Location: ?page=dashboard'
+                    );
+
                     exit;
                 }
             }
@@ -329,22 +515,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 
         /*
-         * ------------------------------------------------------------
-         * Invalid Login
-         * ------------------------------------------------------------
-         */
+        |--------------------------------------------------------------------------
+        | Invalid Login
+        |--------------------------------------------------------------------------
+        */
 
         if ($error === '') {
 
-            $error = 'Invalid Demo username/email or password.';
+            $error =
+                'Invalid Demo username/email or password.';
         }
     }
 }
 
 
+/*
+|--------------------------------------------------------------------------
+| Public Header
+|--------------------------------------------------------------------------
+*/
+
 require dirname(__DIR__) . '/layouts/header-public.php';
 
 ?>
+
 
 <div class="row justify-content-center mt-5">
 
@@ -354,32 +548,51 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 
             <div class="card-body">
 
+
                 <h2 class="mb-2 text-center">
+
                     Demo Login
+
                 </h2>
 
+
                 <p class="text-muted text-center mb-4">
+
                     Sign in to your Demo account.
+
                 </p>
+
 
                 <?php if ($error): ?>
 
                     <div class="alert alert-danger">
+
                         <?= htmlspecialchars($error) ?>
+
                     </div>
 
                 <?php endif; ?>
 
-                <form method="POST" autocomplete="off">
+
+                <form
+                    method="POST"
+                    action="?page=demo-login"
+                    autocomplete="off">
+
 
                     <div class="mb-3">
 
-                        <label>
+                        <label
+                            for="login"
+                            class="form-label">
+
                             Username / Email
+
                         </label>
 
                         <input
                             type="text"
+                            id="login"
                             name="login"
                             class="form-control"
                             autocomplete="off"
@@ -387,20 +600,27 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 
                     </div>
 
+
                     <div class="mb-3">
 
-                        <label>
+                        <label
+                            for="password"
+                            class="form-label">
+
                             Password
+
                         </label>
 
                         <input
                             type="password"
+                            id="password"
                             name="password"
                             class="form-control"
-                            autocomplete="new-password"
+                            autocomplete="current-password"
                             required>
 
                     </div>
+
 
                     <button
                         type="submit"
@@ -409,6 +629,7 @@ require dirname(__DIR__) . '/layouts/header-public.php';
                         Sign In
 
                     </button>
+
 
                     <p class="mt-3 text-center mb-2">
 
@@ -420,7 +641,9 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 
                     </p>
 
+
                     <hr>
+
 
                     <p class="text-center mb-2">
 
@@ -434,6 +657,7 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 
                     </p>
 
+
                     <p class="text-center mb-0">
 
                         <a
@@ -446,7 +670,9 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 
                     </p>
 
+
                 </form>
+
 
             </div>
 
@@ -456,4 +682,9 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 
 </div>
 
-<?php require dirname(__DIR__) . '/layouts/footer.php'; ?>
+
+<?php
+
+require dirname(__DIR__) . '/layouts/footer.php';
+
+?>
