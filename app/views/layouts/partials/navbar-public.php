@@ -1,3 +1,16 @@
+<?php
+
+$isDemoEnvironment = (
+    strtolower($_SERVER['HTTP_HOST'] ?? '') === 'demo.wahbibconsultancy.com'
+);
+
+$isDemoLoggedIn =
+    isset($_SESSION['demo_super_admin']) ||
+    isset($_SESSION['demo_user']) ||
+    isset($_SESSION['demo_customer']) ||
+    isset($_SESSION['demo_agent']);
+?>
+
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark py-3">
 
     <div class="container-fluid">
@@ -17,52 +30,56 @@
 
         </a>
 
-        <button
-            class="navbar-toggler"
-            type="button"
-            data-bs-toggle="collapse"
-            data-bs-target="#navbarNav"
-            aria-controls="navbarNav"
-            aria-expanded="false"
-            aria-label="Toggle navigation">
+        <?php if (!$isDemoEnvironment): ?>
 
-            <span class="navbar-toggler-icon"></span>
+            <button
+                class="navbar-toggler"
+                type="button"
+                data-bs-toggle="collapse"
+                data-bs-target="#navbarNav"
+                aria-controls="navbarNav"
+                aria-expanded="false"
+                aria-label="Toggle navigation">
 
-        </button>
+                <span class="navbar-toggler-icon"></span>
 
-        <div
-            class="collapse navbar-collapse"
-            id="navbarNav">
+            </button>
 
-            <ul class="navbar-nav ms-auto align-items-lg-center">
+            <div
+                class="collapse navbar-collapse"
+                id="navbarNav">
 
-                <li class="nav-item">
-                    <a class="nav-link" href="?page=services">
-                        Services
-                    </a>
-                </li>
+                <ul class="navbar-nav ms-auto align-items-lg-center">
 
-                <li class="nav-item">
-                    <a class="nav-link" href="?page=contact">
-                        Contact
-                    </a>
-                </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="?page=services">
+                            Services
+                        </a>
+                    </li>
 
-                <li class="nav-item">
-                    <a class="nav-link" href="?page=customer-register">
-                        Register
-                    </a>
-                </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="?page=contact">
+                            Contact
+                        </a>
+                    </li>
 
-                <li class="nav-item">
-                    <a class="nav-link" href="?page=public-login">
-                        Login
-                    </a>
-                </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="?page=customer-register">
+                            Register
+                        </a>
+                    </li>
 
-            </ul>
+                    <li class="nav-item">
+                        <a class="nav-link" href="?page=public-login">
+                            Login
+                        </a>
+                    </li>
 
-        </div>
+                </ul>
+
+            </div>
+
+        <?php endif; ?>
 
     </div>
 
