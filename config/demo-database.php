@@ -70,8 +70,7 @@ try {
     $dsn = "mysql:host=$host;port=$port;dbname=$dbname;charset=utf8mb4";
 
     $options = [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::MYSQL_ATTR_SSL_CA => $sslCaPath,
+    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
     ];
 
     $demoPdo = new PDO(
