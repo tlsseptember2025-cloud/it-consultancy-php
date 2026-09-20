@@ -1,4 +1,5 @@
 <?php
+
 session_start();
 
 define('ROOT_PATH', dirname(__DIR__));
@@ -11,9 +12,14 @@ define('CONTROLLER_PATH', APP_PATH . '/controllers');
 
 require_once CONFIG_PATH . '/settings.php';
 
-require_once HELPER_PATH . '/slot_generator.php';
-
-require_once ROOT_PATH . '/routes.php';
+/*
+|--------------------------------------------------------------------------
+| Error Reporting
+|--------------------------------------------------------------------------
+| Enable PHP errors before routes are loaded so that fatal errors inside
+| controllers/views can be seen during development.
+|--------------------------------------------------------------------------
+*/
 
 if (defined('APP_MODE') && APP_MODE === 'development') {
     ini_set('display_errors', 1);
@@ -25,6 +31,10 @@ if (defined('APP_MODE') && APP_MODE === 'development') {
 
 ini_set('log_errors', 1);
 error_reporting(E_ALL);
+
+require_once HELPER_PATH . '/slot_generator.php';
+
+require_once ROOT_PATH . '/routes.php';
 
 ensureConsultationSlots($pdo);
 ensureServiceSlots($pdo);
