@@ -60,6 +60,10 @@ if (
 
 $sslCaPath = dirname(__DIR__) . '/' . ltrim($sslCa, '/');
 
+if (!file_exists($sslCaPath)) {
+    die('Demo CA certificate not found: ' . $sslCaPath);
+}
+
 
 /**
  * Demo Database Connection
