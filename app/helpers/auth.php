@@ -13,9 +13,31 @@ function requireCustomerLogin(): void
 
 /**
  * Require Main Admin Login
+ *
+ * On the Main/Dev environment:
+ * - Requires $_SESSION['user']
+ *
+ * On the Demo environment:
+ * - Requires $_SESSION['demo_user']
  */
 function requireAdminLogin(): void
 {
+    $host = strtolower($_SERVER['HTTP_HOST'] ?? '');
+
+    $isDemoEnvironment = (
+        $host === 'demo.wahbibconsultancy.com'
+    );
+
+    if ($isDemoEnvironment) {
+
+        if (!isset($_SESSION['demo_user'])) {
+            header('Location: ?page=demo-login');
+            exit;
+        }
+
+        return;
+    }
+
     if (!isset($_SESSION['user'])) {
         header('Location: ?page=login');
         exit;
