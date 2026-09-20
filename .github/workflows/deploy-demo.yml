@@ -61,14 +61,22 @@ jobs:
           DEMO_DB_SSL_CA: ${{ secrets.DEMO_DB_SSL_CA }}
 
         run: |
-          cat > demo.env <<EOF
+          cat > .env <<EOF
+          DB_HOST=$DEMO_DB_HOST
+          DB_PORT=$DEMO_DB_PORT
+          DB_NAME=$DEMO_DB_NAME
+          DB_USER=$DEMO_DB_USER
+          DB_PASS=$DEMO_DB_PASS
+          DB_SSL_CA=app/storage/certs/ca.pem
+          APP_URL=$DEMO_APP_URL
+
           DEMO_APP_URL=$DEMO_APP_URL
           DEMO_DB_HOST=$DEMO_DB_HOST
           DEMO_DB_PORT=$DEMO_DB_PORT
           DEMO_DB_NAME=$DEMO_DB_NAME
           DEMO_DB_USER=$DEMO_DB_USER
           DEMO_DB_PASS=$DEMO_DB_PASS
-          DEMO_DB_SSL_CA=$DEMO_DB_SSL_CA
+          DEMO_DB_SSL_CA=app/storage/certs/ca.pem
           EOF
 
           lftp -c "
@@ -77,8 +85,8 @@ jobs:
             set net:timeout 20;
             set sftp:connect-program 'ssh -a -x -o StrictHostKeyChecking=no';
             open -u $SFTP_USERNAME,$SFTP_PASSWORD sftp://$SFTP_HOST:$SFTP_PORT;
-            put -O \"$SFTP_PATH\" demo.env;
+            put -O \"$SFTP_PATH\" .env;
             bye
           "
 
-          rm -f demo.env
+          rm -f .env
