@@ -5,16 +5,37 @@ require_once __DIR__ . '/workflow.php';
 /**
  * Demo Database Configuration
  *
- * Demo database credentials are supplied through the server/runtime
- * environment. They must not be stored in the repository .env file.
+ * Demo database credentials are loaded from the server .env file.
  */
 
-$host     = getenv('DEMO_DB_HOST');
-$port     = getenv('DEMO_DB_PORT');
-$dbname   = getenv('DEMO_DB_NAME');
-$username = getenv('DEMO_DB_USER');
-$password = getenv('DEMO_DB_PASS');
-$sslCa    = getenv('DEMO_DB_SSL_CA');
+
+/**
+ * Load Environment Configuration
+ */
+
+$envFile = dirname(__DIR__) . '/.env';
+
+if (!file_exists($envFile)) {
+    die('Unable to load environment configuration.');
+}
+
+$env = parse_ini_file($envFile);
+
+if ($env === false) {
+    die('Unable to load environment configuration.');
+}
+
+
+/**
+ * Demo Database Configuration
+ */
+
+$host     = $env['DEMO_DB_HOST'] ?? '';
+$port     = $env['DEMO_DB_PORT'] ?? '';
+$dbname   = $env['DEMO_DB_NAME'] ?? '';
+$username = $env['DEMO_DB_USER'] ?? '';
+$password = $env['DEMO_DB_PASS'] ?? '';
+$sslCa    = $env['DEMO_DB_SSL_CA'] ?? '';
 
 
 /**
@@ -22,12 +43,12 @@ $sslCa    = getenv('DEMO_DB_SSL_CA');
  */
 
 if (
-    $host === false ||
-    $port === false ||
-    $dbname === false ||
-    $username === false ||
-    $password === false ||
-    $sslCa === false
+    empty($host) ||
+    empty($port) ||
+    empty($dbname) ||
+    empty($username) ||
+    empty($password) ||
+    empty($sslCa)
 ) {
     die('Demo database configuration is missing.');
 }
