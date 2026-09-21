@@ -594,61 +594,70 @@ $messagesNeedingAttention = $adminPdo->query("
 
 
             <!-- Company Support Leads -->
-            <div class="card shadow-sm border-success">
+            <?php if (
+    !isset($_SESSION['demo_user']) &&
+    !isset($_SESSION['demo_super_admin'])
+): ?>
 
-                <div class="card-header bg-success text-white">
-                    <strong>🏢 Company Support Leads</strong>
-                </div>
+    <!-- Company Support Leads -->
+    <div class="card shadow-sm border-success">
 
-                <div class="card-body text-center">
+        <div class="card-header bg-success text-white">
+            <strong>🏢 Company Support Leads</strong>
+        </div>
 
-                    <p class="mb-2">
-                        🆕 New:
-                        <strong><?= $newLeads ?></strong>
-                    </p>
+        <div class="card-body text-center">
 
-                    <p class="mb-2">
-                        📞 Contacted:
-                        <strong><?= $contactedLeads ?></strong>
-                    </p>
+            <p class="mb-2">
+                🆕 New:
+                <strong><?= $newLeads ?></strong>
+            </p>
 
-                    <p class="mb-2">
-                        🤝 Converted:
-                        <strong><?= $convertedLeads ?></strong>
-                    </p>
+            <p class="mb-2">
+                📞 Contacted:
+                <strong><?= $contactedLeads ?></strong>
+            </p>
 
-                    <p class="mb-3">
-                        📁 Closed:
-                        <strong><?= $closedLeads ?></strong>
-                    </p>
+            <p class="mb-2">
+                🤝 Converted:
+                <strong><?= $convertedLeads ?></strong>
+            </p>
 
-                    <p class="mb-3">
-                        🗄️ Archived:
-                        <strong><?= $archivedLeads ?></strong>
-                    </p>
+            <p class="mb-3">
+                📁 Closed:
+                <strong><?= $closedLeads ?></strong>
+            </p>
 
-                    <a
-                        href="?page=contract-leads"
-                        class="btn btn-success">
+            <p class="mb-3">
+                🗄️ Archived:
+                <strong><?= $archivedLeads ?></strong>
+            </p>
 
-                        View Leads
+            <a
+                href="?page=contract-leads"
+                class="btn btn-success">
 
-                    </a>
+                View Leads
 
-                    <a
-                        href="?page=pending-contract-leads"
-                        class="btn btn-warning mt-2">
+            </a>
 
-                        🔍 Pending Reviews
-                        <?php if ($pendingLeads > 0): ?>
-                            (<?= (int)$pendingLeads ?>)
-                        <?php endif; ?>
+            <a
+                href="?page=pending-contract-leads"
+                class="btn btn-warning mt-2">
 
-                    </a>
+                🔍 Pending Reviews
 
-                </div>
+                <?php if ($pendingLeads > 0): ?>
+                    (<?= (int)$pendingLeads ?>)
+                <?php endif; ?>
 
-            </div>
+            </a>
+
+        </div>
+
+    </div>
+
+<?php endif; ?>
 
         </div>
 

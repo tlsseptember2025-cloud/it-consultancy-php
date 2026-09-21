@@ -4,13 +4,20 @@ require_once HELPER_PATH . '/auth.php';
 
 requireAdminLogin();
 
+
 if (isset($_SESSION['demo_user'])) {
+
     require_once CONFIG_PATH . '/demo-database.php';
+
     $customersPdo = $demoPdo;
+
 } else {
+
     require CONFIG_PATH . '/database.php';
+
     $customersPdo = $pdo;
 }
+
 
 require dirname(__DIR__) . '/layouts/header-admin.php';
 
@@ -41,6 +48,10 @@ if (isset($_SESSION['demo_user'])) {
 
     $demoTenantId = (int) $_SESSION['demo_user']['demo_tenant_id'];
 
+    if ($demoTenantId <= 0) {
+        die('Invalid Demo tenant.');
+    }
+
     $stmt = $customersPdo->prepare("
         SELECT *
         FROM customers
@@ -49,7 +60,9 @@ if (isset($_SESSION['demo_user'])) {
         ORDER BY created_at DESC
     ");
 
-    $stmt->execute([$demoTenantId]);
+    $stmt->execute([
+        $demoTenantId
+    ]);
 
 } else {
 
@@ -60,12 +73,12 @@ if (isset($_SESSION['demo_user'])) {
            OR registration_status IS NULL
         ORDER BY created_at DESC
     ");
-
 }
 
 $customers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 ?>
+
 
 <div class="d-flex justify-content-between align-items-center mb-4">
 
@@ -133,27 +146,21 @@ $customers = $stmt->fetchAll(PDO::FETCH_ASSOC);
                             <tr>
 
                                 <td>
-
                                     <?= htmlspecialchars(
                                         $customer['name']
                                     ) ?>
-
                                 </td>
 
                                 <td>
-
                                     <?= htmlspecialchars(
                                         $customer['email']
                                     ) ?>
-
                                 </td>
 
                                 <td>
-
                                     <?= htmlspecialchars(
                                         $customer['phone']
                                     ) ?>
-
                                 </td>
 
                                 <td>
@@ -266,44 +273,44 @@ $customers = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     <tr>
 
                         <td>
-
                             <?= htmlspecialchars(
                                 $customer['name']
                             ) ?>
-
                         </td>
 
                         <td>
-
                             <?= htmlspecialchars(
                                 $customer['email']
                             ) ?>
-
                         </td>
 
                         <td>
-
                             <?= htmlspecialchars(
                                 $customer['phone']
                             ) ?>
-
                         </td>
 
                         <td>
-
                             <?= htmlspecialchars(
                                 $customer['company'] ?? ''
                             ) ?>
-
                         </td>
 
                         <td>
 
-                            <span class="badge bg-success">
+                            <?php if (($customer['status'] ?? 'Active') === 'Suspended'): ?>
 
-                                Approved
+                                <span class="badge bg-danger">
+                                    Suspended
+                                </span>
 
-                            </span>
+                            <?php else: ?>
+
+                                <span class="badge bg-success">
+                                    Active
+                                </span>
+
+                            <?php endif; ?>
 
                         </td>
 
