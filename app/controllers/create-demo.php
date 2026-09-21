@@ -640,6 +640,109 @@ try {
 
     $demoPdo->commit();
 
+    /*
+    |--------------------------------------------------------------------------
+    | Record Demo Domain History
+    |--------------------------------------------------------------------------
+    |
+    | The domain is recorded only after the Demo tenant and all three
+    | Demo account records have been created successfully.
+    |
+    | This prevents an incomplete/failed Demo creation from consuming
+    | the company's Demo entitlement.
+    |--------------------------------------------------------------------------
+    */
+
+    try {
+
+        $historyStmt = $pdo->prepare("
+            INSERT INTO demo_domain_history
+            (
+                company_domain
+            )
+            VALUES
+            (?)
+        ");
+
+        $historyStmt->execute([
+            $companyDomain
+        ]);
+
+    } catch (PDOException $e) {
+
+        /*
+        | The Demo itself has already been committed.
+        | Log the history failure so it can be investigated without
+        | hiding the successfully created Demo.
+        */
+
+        error_log(
+            'Demo domain history insert failed for '
+            . $companyDomain
+            . ': '
+            . $e->getMessage()
+        );
+
+        die(
+            'The Demo was created, but the company domain could not '
+            . 'be recorded in Demo history. Please contact the administrator.'
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Mark Demo Request as Created
+    |--------------------------------------------------------------------------
+    |
+    | This is done only after:
+    | - Demo tenant exists
+    | - Company Demo Admin exists
+    | - Demo Customer exists
+    | - Demo Agent 1 exists
+    | - Demo Agent 2 exists
+    | - Demo domain history has been recorded
+    |
+    |--------------------------------------------------------------------------
+    */
+
+    try {
+
+        $requestStmt = $pdo->prepare("
+            UPDATE demo_requests
+            SET
+                status = 'Demo Created',
+                demo_created_at = NOW()
+            WHERE id = ?
+              AND status = 'Customer Confirmed'
+              AND demo_created_at IS NULL
+        ");
+
+        $requestStmt->execute([
+            $requestId
+        ]);
+
+        if ($requestStmt->rowCount() !== 1) {
+
+            throw new RuntimeException(
+                'The Demo request could not be marked as created.'
+            );
+        }
+
+    } catch (PDOException $e) {
+
+        error_log(
+            'Demo request status update failed for request #'
+            . $requestId
+            . ': '
+            . $e->getMessage()
+        );
+
+        die(
+            'The Demo was created, but the Demo request could not '
+            . 'be marked as created. Please contact the administrator.'
+        );
+    }
+
 } catch (PDOException $e) {
 
     if ($demoPdo->inTransaction()) {

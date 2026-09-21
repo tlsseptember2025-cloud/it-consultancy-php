@@ -4,66 +4,43 @@
 |--------------------------------------------------------------------------
 | DEMO SETUP
 |--------------------------------------------------------------------------
-| Step 1.12
+| Company Demo Admin only.
 |
-| Demo Admin completes the initial Demo account setup.
+| The Main / Dev Admin creates:
+|   1. Demo Tenant
+|   2. Company Demo Admin
 |
-| Required:
-| - Customer Email
-| - Agent 1 Email
-| - Agent 2 Email
+| The Company Demo Admin completes this page by entering:
+|   1. Customer Email
+|   2. Agent 1 Email
+|   3. Agent 2 Email
 |
-| The system then:
-| - Generates a separate temporary password for each account
-| - Saves each password as a hash
-| - Sets force_password_change = 1
-| - Sends Customer credentials only to Customer email
-| - Sends Agent 1 credentials only to Agent 1 email
-| - Sends Agent 2 credentials only to Agent 2 email
-|
+| This page creates the three Demo accounts and sends each account
+| its own temporary credentials.
 |--------------------------------------------------------------------------
 */
 
 
-/*
-|--------------------------------------------------------------------------
-| Database + Email
-|--------------------------------------------------------------------------
-*/
-
+require_once CONFIG_PATH . '/database.php';
 require_once CONFIG_PATH . '/demo-database.php';
 require_once APP_PATH . '/helpers/email.php';
 
 
 /*
 |--------------------------------------------------------------------------
-| Require Demo Admin
+| Require Company Demo Admin
 |--------------------------------------------------------------------------
 */
 
 if (!isset($_SESSION['demo_user'])) {
-
     header('Location: ?page=demo-login');
     exit;
 }
 
+$demoAdminId = (int)($_SESSION['demo_user']['id'] ?? 0);
 
-/*
-|--------------------------------------------------------------------------
-| Get Demo Admin Session
-|--------------------------------------------------------------------------
-*/
-
-$demoAdmin = $_SESSION['demo_user'];
-
-$adminId = (int)($demoAdmin['id'] ?? 0);
-$tenantId = (int)($demoAdmin['demo_tenant_id'] ?? 0);
-
-
-if ($adminId <= 0 || $tenantId <= 0) {
-
+if ($demoAdminId <= 0) {
     unset($_SESSION['demo_user']);
-
     header('Location: ?page=demo-login');
     exit;
 }
@@ -71,73 +48,57 @@ if ($adminId <= 0 || $tenantId <= 0) {
 
 /*
 |--------------------------------------------------------------------------
-| Reload Demo Admin + Tenant
+| Load Demo Admin
 |--------------------------------------------------------------------------
 */
 
 $stmt = $demoPdo->prepare("
     SELECT
-        u.*,
+        u.id,
+        u.username,
+        u.email,
+        u.password,
+        u.demo_tenant_id,
+        u.is_demo_account,
+        u.is_super_admin,
+        u.force_password_change,
         t.company_name,
         t.company_domain,
         t.registered_email,
+        t.demo_request_id,
+        t.started_at,
         t.expires_at,
         t.status AS tenant_status
     FROM users u
     INNER JOIN demo_tenants t
         ON t.id = u.demo_tenant_id
     WHERE u.id = ?
-      AND u.demo_tenant_id = ?
       AND u.is_demo_account = 1
       AND u.is_super_admin = 0
+      AND u.demo_tenant_id IS NOT NULL
     LIMIT 1
 ");
 
-$stmt->execute([
-    $adminId,
-    $tenantId
-]);
+$stmt->execute([$demoAdminId]);
 
-$admin = $stmt->fetch(PDO::FETCH_ASSOC);
+$demoAdmin = $stmt->fetch(PDO::FETCH_ASSOC);
 
-
-if (!$admin) {
-
+if (!$demoAdmin) {
     unset($_SESSION['demo_user']);
-
     header('Location: ?page=demo-login');
     exit;
 }
 
-
-/*
-|--------------------------------------------------------------------------
-| Verify Tenant
-|--------------------------------------------------------------------------
-*/
-
-if ($admin['tenant_status'] !== 'Active') {
-
-    unset($_SESSION['demo_user']);
-
-    header('Location: ?page=demo-login');
-    exit;
-}
-
-
-/*
-|--------------------------------------------------------------------------
-| Verify Demo Expiration
-|--------------------------------------------------------------------------
-*/
+$tenantId = (int)$demoAdmin['demo_tenant_id'];
 
 if (
-    $admin['expires_at'] !== null &&
-    strtotime($admin['expires_at']) <= time()
+    $demoAdmin['tenant_status'] !== 'Active' ||
+    (
+        $demoAdmin['expires_at'] !== null &&
+        strtotime($demoAdmin['expires_at']) <= time()
+    )
 ) {
-
     unset($_SESSION['demo_user']);
-
     header('Location: ?page=demo-login');
     exit;
 }
@@ -145,30 +106,59 @@ if (
 
 /*
 |--------------------------------------------------------------------------
-| Generate Demo Usernames
-|--------------------------------------------------------------------------
-|
-| Example:
-|
-| loopsautomation_admin
-| loopsautomation_customer
-| loopsautomation_agent1
-| loopsautomation_agent2
-|
+| Demo Admin must finish password change first
 |--------------------------------------------------------------------------
 */
 
-$usernameBase = preg_replace(
-    '/_admin$/',
-    '',
-    $admin['username']
-);
-
-if ($usernameBase === '') {
-
-    die('Unable to determine the Demo username base.');
+if ((int)$demoAdmin['force_password_change'] === 1) {
+    header('Location: ?page=demo-change-password');
+    exit;
 }
 
+
+/*
+|--------------------------------------------------------------------------
+| Build Agreed Usernames
+|--------------------------------------------------------------------------
+|
+| loopsautomation.com
+|        ↓
+| loopsautomation
+|
+| Final usernames:
+|   loopsautomation_customer
+|   loopsautomation_agent1
+|   loopsautomation_agent2
+|--------------------------------------------------------------------------
+*/
+
+$domainWithoutWww = preg_replace(
+    '/^www\./i',
+    '',
+    strtolower(trim($demoAdmin['company_domain']))
+);
+
+$domainParts = explode('.', $domainWithoutWww);
+
+if (count($domainParts) < 2) {
+    die('The Demo company domain is invalid.');
+}
+
+array_pop($domainParts);
+
+$usernameBase = implode('_', $domainParts);
+
+$usernameBase = preg_replace(
+    '/[^a-z0-9_]+/',
+    '_',
+    $usernameBase
+);
+
+$usernameBase = trim($usernameBase, '_');
+
+if ($usernameBase === '') {
+    die('Unable to generate Demo usernames from the company domain.');
+}
 
 $customerUsername = $usernameBase . '_customer';
 $agent1Username   = $usernameBase . '_agent1';
@@ -177,7 +167,10 @@ $agent2Username   = $usernameBase . '_agent2';
 
 /*
 |--------------------------------------------------------------------------
-| Load Demo Customer
+| Check Existing Setup
+|--------------------------------------------------------------------------
+|
+| A completed setup has all three accounts with passwords and emails.
 |--------------------------------------------------------------------------
 */
 
@@ -188,9 +181,7 @@ $stmt = $demoPdo->prepare("
         name,
         email,
         password,
-        force_password_change,
-        is_demo_account,
-        demo_tenant_id
+        force_password_change
     FROM customers
     WHERE demo_tenant_id = ?
       AND is_demo_account = 1
@@ -206,21 +197,6 @@ $stmt->execute([
 $customer = $stmt->fetch(PDO::FETCH_ASSOC);
 
 
-if (!$customer) {
-
-    die(
-        'Demo Customer account was not found. '
-        . 'Complete Demo provisioning first.'
-    );
-}
-
-
-/*
-|--------------------------------------------------------------------------
-| Load Demo Agent 1
-|--------------------------------------------------------------------------
-*/
-
 $stmt = $demoPdo->prepare("
     SELECT
         id,
@@ -230,9 +206,7 @@ $stmt = $demoPdo->prepare("
         password,
         force_password_change,
         status,
-        active,
-        is_demo_account,
-        demo_tenant_id
+        active
     FROM agents
     WHERE demo_tenant_id = ?
       AND is_demo_account = 1
@@ -248,21 +222,6 @@ $stmt->execute([
 $agent1 = $stmt->fetch(PDO::FETCH_ASSOC);
 
 
-if (!$agent1) {
-
-    die(
-        'Demo Agent 1 account was not found. '
-        . 'Complete Demo provisioning first.'
-    );
-}
-
-
-/*
-|--------------------------------------------------------------------------
-| Load Demo Agent 2
-|--------------------------------------------------------------------------
-*/
-
 $stmt = $demoPdo->prepare("
     SELECT
         id,
@@ -272,9 +231,7 @@ $stmt = $demoPdo->prepare("
         password,
         force_password_change,
         status,
-        active,
-        is_demo_account,
-        demo_tenant_id
+        active
     FROM agents
     WHERE demo_tenant_id = ?
       AND is_demo_account = 1
@@ -290,73 +247,47 @@ $stmt->execute([
 $agent2 = $stmt->fetch(PDO::FETCH_ASSOC);
 
 
-if (!$agent2) {
-
-    die(
-        'Demo Agent 2 account was not found. '
-        . 'Complete Demo provisioning first.'
-    );
-}
-
-
-/*
-|--------------------------------------------------------------------------
-| Check If Setup Is Already Complete
-|--------------------------------------------------------------------------
-*/
-
-if (
+$setupComplete =
+    $customer &&
+    $agent1 &&
+    $agent2 &&
+    !empty($customer['email']) &&
     !empty($customer['password']) &&
+    !empty($agent1['email']) &&
     !empty($agent1['password']) &&
-    !empty($agent2['password'])
-) {
+    !empty($agent2['email']) &&
+    !empty($agent2['password']);
 
+
+if ($setupComplete) {
     header('Location: ?page=dashboard');
     exit;
 }
 
 
-/*
-|--------------------------------------------------------------------------
-| Form Values
-|--------------------------------------------------------------------------
-*/
+$error = '';
 
 $customerEmail = '';
 $agent1Email = '';
 $agent2Email = '';
 
-$error = '';
-
-$customerEmailSent = false;
-$agent1EmailSent = false;
-$agent2EmailSent = false;
-
 
 /*
 |--------------------------------------------------------------------------
-| Process Setup
+| Handle Demo Setup
 |--------------------------------------------------------------------------
 */
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    $customerEmail = trim(
-        $_POST['customer_email'] ?? ''
-    );
-
-    $agent1Email = trim(
-        $_POST['agent1_email'] ?? ''
-    );
-
-    $agent2Email = trim(
-        $_POST['agent2_email'] ?? ''
-    );
+    $customerEmail = trim($_POST['customer_email'] ?? '');
+    $agent1Email   = trim($_POST['agent1_email'] ?? '');
+    $agent2Email   = trim($_POST['agent2_email'] ?? '');
 
 
     /*
     |--------------------------------------------------------------------------
-    | Validate Customer Email
+    | Validate Customer
     |--------------------------------------------------------------------------
     */
 
@@ -364,160 +295,138 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $customerEmail === '' ||
         !filter_var($customerEmail, FILTER_VALIDATE_EMAIL)
     ) {
-
-        $error =
-            'Please enter a valid Customer email address.';
+        $error = 'Please enter a valid Customer email address.';
     }
 
 
     /*
     |--------------------------------------------------------------------------
-    | Validate Agent 1 Email
+    | Validate Agent 1
     |--------------------------------------------------------------------------
     */
 
-    elseif (
-        $agent1Email === '' ||
-        !filter_var($agent1Email, FILTER_VALIDATE_EMAIL)
+    if (
+        $error === '' &&
+        (
+            $agent1Email === '' ||
+            !filter_var($agent1Email, FILTER_VALIDATE_EMAIL)
+        )
     ) {
-
-        $error =
-            'Please enter a valid Agent 1 email address.';
+        $error = 'Please enter a valid Agent 1 email address.';
     }
 
 
     /*
     |--------------------------------------------------------------------------
-    | Validate Agent 2 Email
+    | Validate Agent 2
     |--------------------------------------------------------------------------
     */
 
-    elseif (
-        $agent2Email === '' ||
-        !filter_var($agent2Email, FILTER_VALIDATE_EMAIL)
+    if (
+        $error === '' &&
+        (
+            $agent2Email === '' ||
+            !filter_var($agent2Email, FILTER_VALIDATE_EMAIL)
+        )
     ) {
-
-        $error =
-            'Please enter a valid Agent 2 email address.';
+        $error = 'Please enter a valid Agent 2 email address.';
     }
 
 
     /*
     |--------------------------------------------------------------------------
-    | Emails Must Be Different
+    | Prevent Duplicate Emails
     |--------------------------------------------------------------------------
     */
 
-    elseif (
-        strtolower($customerEmail) === strtolower($agent1Email) ||
-        strtolower($customerEmail) === strtolower($agent2Email) ||
-        strtolower($agent1Email) === strtolower($agent2Email)
-    ) {
+    $emails = [
+        strtolower($customerEmail),
+        strtolower($agent1Email),
+        strtolower($agent2Email)
+    ];
 
+    if (
+        $error === '' &&
+        count(array_unique($emails)) !== 3
+    ) {
         $error =
-            'Customer, Agent 1 and Agent 2 must use three different email addresses.';
+            'Customer, Agent 1, and Agent 2 must use '
+            . 'three different email addresses.';
     }
 
 
     /*
     |--------------------------------------------------------------------------
-    | Verify Agents Are Active
+    | Generate Temporary Passwords
     |--------------------------------------------------------------------------
     */
 
-    elseif (
-        $agent1['status'] !== 'Active' ||
-        (int)$agent1['active'] !== 1
-    ) {
+    if ($error === '') {
 
-        $error =
-            'Demo Agent 1 is not active.';
-    }
-
-
-    elseif (
-        $agent2['status'] !== 'Active' ||
-        (int)$agent2['active'] !== 1
-    ) {
-
-        $error =
-            'Demo Agent 2 is not active.';
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | Save Credentials
-    |--------------------------------------------------------------------------
-    */
-
-    else {
-
-        /*
-        |--------------------------------------------------------------------------
-        | Generate Separate Temporary Passwords
-        |--------------------------------------------------------------------------
-        */
-
-        $customerTemporaryPassword =
-            bin2hex(random_bytes(8));
-
-        $agent1TemporaryPassword =
-            bin2hex(random_bytes(8));
-
-        $agent2TemporaryPassword =
-            bin2hex(random_bytes(8));
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | Hash Passwords
-        |--------------------------------------------------------------------------
-        */
+        $customerPassword = bin2hex(random_bytes(8));
+        $agent1Password   = bin2hex(random_bytes(8));
+        $agent2Password   = bin2hex(random_bytes(8));
 
         $customerPasswordHash = password_hash(
-            $customerTemporaryPassword,
+            $customerPassword,
             PASSWORD_DEFAULT
         );
 
         $agent1PasswordHash = password_hash(
-            $agent1TemporaryPassword,
+            $agent1Password,
             PASSWORD_DEFAULT
         );
 
         $agent2PasswordHash = password_hash(
-            $agent2TemporaryPassword,
+            $agent2Password,
             PASSWORD_DEFAULT
         );
 
 
-        if (
-            $customerPasswordHash === false ||
-            $agent1PasswordHash === false ||
-            $agent2PasswordHash === false
-        ) {
+        try {
 
-            $error =
-                'The temporary passwords could not be generated. Please try again.';
-
-        } else {
-
-            try {
-
-                /*
-                |--------------------------------------------------------------------------
-                | Begin Transaction
-                |--------------------------------------------------------------------------
-                */
-
-                $demoPdo->beginTransaction();
+            $demoPdo->beginTransaction();
 
 
-                /*
-                |--------------------------------------------------------------------------
-                | Update Customer
-                |--------------------------------------------------------------------------
-                */
+            /*
+            |--------------------------------------------------------------------------
+            | Create or Update Customer
+            |--------------------------------------------------------------------------
+            */
+
+            if (!$customer) {
+
+                $stmt = $demoPdo->prepare("
+                    INSERT INTO customers
+                    (
+                        username,
+                        name,
+                        email,
+                        phone,
+                        company,
+                        password,
+                        demo_tenant_id,
+                        is_demo_account,
+                        force_password_change
+                    )
+                    VALUES
+                    (?, ?, ?, NULL, ?, ?, ?, 1, 1)
+                ");
+
+                $stmt->execute([
+                    $customerUsername,
+                    'Demo Customer',
+                    $customerEmail,
+                    $demoAdmin['company_name'],
+                    $customerPasswordHash,
+                    $tenantId
+                ]);
+
+                $customerId = (int)$demoPdo->lastInsertId();
+
+            } else {
+
+                $customerId = (int)$customer['id'];
 
                 $stmt = $demoPdo->prepare("
                     UPDATE customers
@@ -533,24 +442,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->execute([
                     $customerEmail,
                     $customerPasswordHash,
-                    (int)$customer['id'],
+                    $customerId,
                     $tenantId
                 ]);
+            }
 
 
-                if ($stmt->rowCount() !== 1) {
+            /*
+            |--------------------------------------------------------------------------
+            | Create or Update Agent 1
+            |--------------------------------------------------------------------------
+            */
 
-                    throw new RuntimeException(
-                        'The Demo Customer account could not be updated.'
-                    );
-                }
+            if (!$agent1) {
 
+                $stmt = $demoPdo->prepare("
+                    INSERT INTO agents
+                    (
+                        username,
+                        name,
+                        email,
+                        password,
+                        demo_tenant_id,
+                        is_demo_account,
+                        force_password_change,
+                        position,
+                        status,
+                        active
+                    )
+                    VALUES
+                    (?, ?, ?, ?, ?, 1, 1, ?, 'Active', 1)
+                ");
 
-                /*
-                |--------------------------------------------------------------------------
-                | Update Agent 1
-                |--------------------------------------------------------------------------
-                */
+                $stmt->execute([
+                    $agent1Username,
+                    'Demo Agent 1',
+                    $agent1Email,
+                    $agent1PasswordHash,
+                    $tenantId,
+                    'IT Consultant'
+                ]);
+
+                $agent1Id = (int)$demoPdo->lastInsertId();
+
+            } else {
+
+                $agent1Id = (int)$agent1['id'];
 
                 $stmt = $demoPdo->prepare("
                     UPDATE agents
@@ -568,24 +505,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->execute([
                     $agent1Email,
                     $agent1PasswordHash,
-                    (int)$agent1['id'],
+                    $agent1Id,
                     $tenantId
                 ]);
+            }
 
 
-                if ($stmt->rowCount() !== 1) {
+            /*
+            |--------------------------------------------------------------------------
+            | Create or Update Agent 2
+            |--------------------------------------------------------------------------
+            */
 
-                    throw new RuntimeException(
-                        'The Demo Agent 1 account could not be updated.'
-                    );
-                }
+            if (!$agent2) {
 
+                $stmt = $demoPdo->prepare("
+                    INSERT INTO agents
+                    (
+                        username,
+                        name,
+                        email,
+                        password,
+                        demo_tenant_id,
+                        is_demo_account,
+                        force_password_change,
+                        position,
+                        status,
+                        active
+                    )
+                    VALUES
+                    (?, ?, ?, ?, ?, 1, 1, ?, 'Active', 1)
+                ");
 
-                /*
-                |--------------------------------------------------------------------------
-                | Update Agent 2
-                |--------------------------------------------------------------------------
-                */
+                $stmt->execute([
+                    $agent2Username,
+                    'Demo Agent 2',
+                    $agent2Email,
+                    $agent2PasswordHash,
+                    $tenantId,
+                    'IT Consultant'
+                ]);
+
+                $agent2Id = (int)$demoPdo->lastInsertId();
+
+            } else {
+
+                $agent2Id = (int)$agent2['id'];
 
                 $stmt = $demoPdo->prepare("
                     UPDATE agents
@@ -603,60 +568,124 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->execute([
                     $agent2Email,
                     $agent2PasswordHash,
-                    (int)$agent2['id'],
+                    $agent2Id,
                     $tenantId
                 ]);
+            }
 
 
-                if ($stmt->rowCount() !== 1) {
+            $demoPdo->commit();
 
-                    throw new RuntimeException(
-                        'The Demo Agent 2 account could not be updated.'
+
+            /*
+            |--------------------------------------------------------------------------
+            | Finalize Main Demo Request
+            |--------------------------------------------------------------------------
+            |
+            | Demo Setup is the point at which all three Demo accounts have
+            | actually been configured. The Demo entitlement is recorded now.
+            |--------------------------------------------------------------------------
+            */
+
+            $requestId = (int)$demoAdmin['demo_request_id'];
+
+            if ($requestId > 0) {
+
+                try {
+
+                    $historyStmt = $pdo->prepare("
+                        INSERT INTO demo_domain_history
+                        (
+                            company_domain
+                        )
+                        SELECT ?
+                        WHERE NOT EXISTS
+                        (
+                            SELECT 1
+                            FROM demo_domain_history
+                            WHERE company_domain = ?
+                        )
+                    ");
+
+                    $historyStmt->execute([
+                        $demoAdmin['company_domain'],
+                        $demoAdmin['company_domain']
+                    ]);
+
+
+                    $requestStmt = $pdo->prepare("
+                        UPDATE demo_requests
+                        SET
+                            status = 'Demo Created',
+                            demo_created_at = NOW()
+                        WHERE id = ?
+                          AND status = 'Customer Confirmed'
+                          AND demo_created_at IS NULL
+                    ");
+
+                    $requestStmt->execute([
+                        $requestId
+                    ]);
+
+                } catch (PDOException $e) {
+
+                    error_log(
+                        'Demo finalization failed for request #'
+                        . $requestId
+                        . ': '
+                        . $e->getMessage()
                     );
+
+                    /*
+                    | The Demo accounts were successfully created.
+                    | Do not destroy them because Main DB finalization
+                    | failed. Report the issue to the Admin instead.
+                    */
+
+                    $error =
+                        'The three Demo accounts were created, but the '
+                        . 'Main Demo record could not be finalized. '
+                        . 'Please contact the administrator.';
+
+                }
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Send Customer Credentials
+            |--------------------------------------------------------------------------
+            */
+
+            if ($error === '') {
+
+                $demoAppUrl = '';
+
+                $envFile = dirname(__DIR__, 2) . '/.env';
+
+                if (is_file($envFile)) {
+
+                    $env = parse_ini_file($envFile);
+
+                    if (is_array($env)) {
+                        $demoAppUrl =
+                            trim($env['DEMO_APP_URL'] ?? '');
+                    }
                 }
 
+                if ($demoAppUrl === '') {
+                    $demoAppUrl =
+                        trim((string)getenv('DEMO_APP_URL'));
+                }
 
-                /*
-                |--------------------------------------------------------------------------
-                | Commit Database Changes
-                |--------------------------------------------------------------------------
-                */
-
-                $demoPdo->commit();
-
-
-                /*
-                |--------------------------------------------------------------------------
-                | Demo Login URL
-                |--------------------------------------------------------------------------
-                */
+                if ($demoAppUrl === '') {
+                    $demoAppUrl = rtrim(APP_URL, '/');
+                }
 
                 $loginLink =
-                    rtrim(APP_URL, '/')
+                    rtrim($demoAppUrl, '/')
                     . '/?page=demo-login';
 
-
-                /*
-                |--------------------------------------------------------------------------
-                | Safe Company Name
-                |--------------------------------------------------------------------------
-                */
-
-                $safeCompanyName = htmlspecialchars(
-                    $admin['company_name'] ?? '',
-                    ENT_QUOTES,
-                    'UTF-8'
-                );
-
-
-                /*
-                |--------------------------------------------------------------------------
-                | CUSTOMER EMAIL
-                |--------------------------------------------------------------------------
-                |
-                | Customer receives ONLY Customer credentials.
-                |
-                */
 
                 $safeCustomerUsername = htmlspecialchars(
                     $customerUsername,
@@ -665,100 +694,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 );
 
                 $safeCustomerPassword = htmlspecialchars(
-                    $customerTemporaryPassword,
+                    $customerPassword,
                     ENT_QUOTES,
                     'UTF-8'
                 );
-
-                $customerEmailBody = "
-
-                    <h2>Welcome to Your Demo</h2>
-
-                    <p>
-                        Your Demo Customer account has been created.
-                    </p>
-
-                    <p>
-                        <strong>Company:</strong>
-                        {$safeCompanyName}
-                    </p>
-
-                    <table
-                        cellpadding='8'
-                        cellspacing='0'
-                        border='1'
-                        style='
-                            border-collapse:collapse;
-                            width:100%;
-                            max-width:600px;
-                        '>
-
-                        <tr>
-                            <td><strong>Account</strong></td>
-                            <td>Customer</td>
-                        </tr>
-
-                        <tr>
-                            <td><strong>Username</strong></td>
-                            <td>
-                                <code>{$safeCustomerUsername}</code>
-                            </td>
-                        </tr>
-
-                        <tr>
-                            <td><strong>Temporary Password</strong></td>
-                            <td>
-                                <code>{$safeCustomerPassword}</code>
-                            </td>
-                        </tr>
-
-                    </table>
-
-                    <p style='margin-top:20px;'>
-                        <strong>Demo Login:</strong>
-                        <a href='{$loginLink}'>
-                            Open Demo Login
-                        </a>
-                    </p>
-
-                    <p>
-                        This is a temporary password.
-                        You must change it when you first log in.
-                    </p>
-
-                    <p>
-                        Please keep these credentials secure.
-                    </p>
-
-                    <p>
-                        Kind Regards,<br>
-                        <strong>IT Consultancy Team</strong>
-                    </p>
-
-                ";
-
-
-                /*
-                |--------------------------------------------------------------------------
-                | Send Customer Email
-                |--------------------------------------------------------------------------
-                */
-
-                $customerEmailSent = sendEmail(
-                    $customerEmail,
-                    'Your Demo Customer Credentials',
-                    $customerEmailBody
-                );
-
-
-                /*
-                |--------------------------------------------------------------------------
-                | AGENT 1 EMAIL
-                |--------------------------------------------------------------------------
-                |
-                | Agent 1 receives ONLY Agent 1 credentials.
-                |
-                */
 
                 $safeAgent1Username = htmlspecialchars(
                     $agent1Username,
@@ -767,100 +706,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 );
 
                 $safeAgent1Password = htmlspecialchars(
-                    $agent1TemporaryPassword,
+                    $agent1Password,
                     ENT_QUOTES,
                     'UTF-8'
                 );
-
-                $agent1EmailBody = "
-
-                    <h2>Welcome to Your Demo</h2>
-
-                    <p>
-                        Your Demo Agent 1 account has been created.
-                    </p>
-
-                    <p>
-                        <strong>Company:</strong>
-                        {$safeCompanyName}
-                    </p>
-
-                    <table
-                        cellpadding='8'
-                        cellspacing='0'
-                        border='1'
-                        style='
-                            border-collapse:collapse;
-                            width:100%;
-                            max-width:600px;
-                        '>
-
-                        <tr>
-                            <td><strong>Account</strong></td>
-                            <td>Agent 1</td>
-                        </tr>
-
-                        <tr>
-                            <td><strong>Username</strong></td>
-                            <td>
-                                <code>{$safeAgent1Username}</code>
-                            </td>
-                        </tr>
-
-                        <tr>
-                            <td><strong>Temporary Password</strong></td>
-                            <td>
-                                <code>{$safeAgent1Password}</code>
-                            </td>
-                        </tr>
-
-                    </table>
-
-                    <p style='margin-top:20px;'>
-                        <strong>Demo Login:</strong>
-                        <a href='{$loginLink}'>
-                            Open Demo Login
-                        </a>
-                    </p>
-
-                    <p>
-                        This is a temporary password.
-                        You must change it when you first log in.
-                    </p>
-
-                    <p>
-                        Please keep these credentials secure.
-                    </p>
-
-                    <p>
-                        Kind Regards,<br>
-                        <strong>IT Consultancy Team</strong>
-                    </p>
-
-                ";
-
-
-                /*
-                |--------------------------------------------------------------------------
-                | Send Agent 1 Email
-                |--------------------------------------------------------------------------
-                */
-
-                $agent1EmailSent = sendEmail(
-                    $agent1Email,
-                    'Your Demo Agent 1 Credentials',
-                    $agent1EmailBody
-                );
-
-
-                /*
-                |--------------------------------------------------------------------------
-                | AGENT 2 EMAIL
-                |--------------------------------------------------------------------------
-                |
-                | Agent 2 receives ONLY Agent 2 credentials.
-                |
-                */
 
                 $safeAgent2Username = htmlspecialchars(
                     $agent2Username,
@@ -869,434 +718,370 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 );
 
                 $safeAgent2Password = htmlspecialchars(
-                    $agent2TemporaryPassword,
+                    $agent2Password,
                     ENT_QUOTES,
                     'UTF-8'
                 );
 
-                $agent2EmailBody = "
+                $safeLoginLink = htmlspecialchars(
+                    $loginLink,
+                    ENT_QUOTES,
+                    'UTF-8'
+                );
 
-                    <h2>Welcome to Your Demo</h2>
+
+                $customerEmailBody = "
+                    <h2>Demo Customer Account</h2>
 
                     <p>
-                        Your Demo Agent 2 account has been created.
+                        Your Demo Customer account has been created.
                     </p>
 
                     <p>
-                        <strong>Company:</strong>
-                        {$safeCompanyName}
+                        <strong>Username:</strong>
+                        {$safeCustomerUsername}
                     </p>
 
-                    <table
-                        cellpadding='8'
-                        cellspacing='0'
-                        border='1'
-                        style='
-                            border-collapse:collapse;
-                            width:100%;
-                            max-width:600px;
-                        '>
+                    <p>
+                        <strong>Temporary Password:</strong>
+                        <code>{$safeCustomerPassword}</code>
+                    </p>
 
-                        <tr>
-                            <td><strong>Account</strong></td>
-                            <td>Agent 2</td>
-                        </tr>
-
-                        <tr>
-                            <td><strong>Username</strong></td>
-                            <td>
-                                <code>{$safeAgent2Username}</code>
-                            </td>
-                        </tr>
-
-                        <tr>
-                            <td><strong>Temporary Password</strong></td>
-                            <td>
-                                <code>{$safeAgent2Password}</code>
-                            </td>
-                        </tr>
-
-                    </table>
-
-                    <p style='margin-top:20px;'>
+                    <p>
                         <strong>Demo Login:</strong>
-                        <a href='{$loginLink}'>
+                        <a href=\"{$safeLoginLink}\">
                             Open Demo Login
                         </a>
                     </p>
 
                     <p>
-                        This is a temporary password.
-                        You must change it when you first log in.
-                    </p>
-
-                    <p>
-                        Please keep these credentials secure.
+                        You will be required to change your temporary
+                        password when you first sign in.
                     </p>
 
                     <p>
                         Kind Regards,<br>
                         <strong>IT Consultancy Team</strong>
                     </p>
-
                 ";
 
 
-                /*
-                |--------------------------------------------------------------------------
-                | Send Agent 2 Email
-                |--------------------------------------------------------------------------
-                */
+                $agent1EmailBody = "
+                    <h2>Demo Agent 1 Account</h2>
 
-                $agent2EmailSent = sendEmail(
+                    <p>
+                        Your Demo Agent 1 account has been created.
+                    </p>
+
+                    <p>
+                        <strong>Username:</strong>
+                        {$safeAgent1Username}
+                    </p>
+
+                    <p>
+                        <strong>Temporary Password:</strong>
+                        <code>{$safeAgent1Password}</code>
+                    </p>
+
+                    <p>
+                        <strong>Demo Login:</strong>
+                        <a href=\"{$safeLoginLink}\">
+                            Open Demo Login
+                        </a>
+                    </p>
+
+                    <p>
+                        You will be required to change your temporary
+                        password when you first sign in.
+                    </p>
+
+                    <p>
+                        Kind Regards,<br>
+                        <strong>IT Consultancy Team</strong>
+                    </p>
+                ";
+
+
+                $agent2EmailBody = "
+                    <h2>Demo Agent 2 Account</h2>
+
+                    <p>
+                        Your Demo Agent 2 account has been created.
+                    </p>
+
+                    <p>
+                        <strong>Username:</strong>
+                        {$safeAgent2Username}
+                    </p>
+
+                    <p>
+                        <strong>Temporary Password:</strong>
+                        <code>{$safeAgent2Password}</code>
+                    </p>
+
+                    <p>
+                        <strong>Demo Login:</strong>
+                        <a href=\"{$safeLoginLink}\">
+                            Open Demo Login
+                        </a>
+                    </p>
+
+                    <p>
+                        You will be required to change your temporary
+                        password when you first sign in.
+                    </p>
+
+                    <p>
+                        Kind Regards,<br>
+                        <strong>IT Consultancy Team</strong>
+                    </p>
+                ";
+
+
+                $customerSent = sendEmail(
+                    $customerEmail,
+                    'Your Demo Customer Account',
+                    $customerEmailBody
+                );
+
+                $agent1Sent = sendEmail(
+                    $agent1Email,
+                    'Your Demo Agent 1 Account',
+                    $agent1EmailBody
+                );
+
+                $agent2Sent = sendEmail(
                     $agent2Email,
-                    'Your Demo Agent 2 Credentials',
+                    'Your Demo Agent 2 Account',
                     $agent2EmailBody
                 );
 
 
-                /*
-                |--------------------------------------------------------------------------
-                | Final Setup Result
-                |--------------------------------------------------------------------------
-                */
-
                 if (
-                    $customerEmailSent &&
-                    $agent1EmailSent &&
-                    $agent2EmailSent
+                    !$customerSent ||
+                    !$agent1Sent ||
+                    !$agent2Sent
                 ) {
-
-                    header('Location: ?page=dashboard');
-                    exit;
+                    $error =
+                        'The Demo accounts were created, but one or more '
+                        . 'credential emails could not be sent. '
+                        . 'Please check the mail configuration.';
                 }
-
-
-                /*
-                |--------------------------------------------------------------------------
-                | Email Failure
-                |--------------------------------------------------------------------------
-                |
-                | Database credentials have already been saved.
-                |
-                | We do NOT silently pretend that all emails were sent.
-                |
-                */
-
-                $failedRecipients = [];
-
-                if (!$customerEmailSent) {
-                    $failedRecipients[] = 'Customer';
-                }
-
-                if (!$agent1EmailSent) {
-                    $failedRecipients[] = 'Agent 1';
-                }
-
-                if (!$agent2EmailSent) {
-                    $failedRecipients[] = 'Agent 2';
-                }
-
-
-                $error =
-                    'The Demo accounts were created, but the credential email '
-                    . 'could not be sent to: '
-                    . implode(', ', $failedRecipients)
-                    . '. Please review the email configuration and complete '
-                    . 'the setup again if necessary.';
-
-
-            } catch (PDOException $e) {
-
-                if ($demoPdo->inTransaction()) {
-                    $demoPdo->rollBack();
-                }
-
-                error_log(
-                    'Demo setup failed: '
-                    . $e->getMessage()
-                );
-
-                $error =
-                    'The Demo accounts could not be configured. '
-                    . 'Please try again.';
-
-            } catch (RuntimeException $e) {
-
-                if ($demoPdo->inTransaction()) {
-                    $demoPdo->rollBack();
-                }
-
-                error_log(
-                    'Demo setup failed: '
-                    . $e->getMessage()
-                );
-
-                $error = $e->getMessage();
             }
+
+
+            if ($error === '') {
+
+                header('Location: ?page=dashboard&demo_setup=complete');
+                exit;
+            }
+
+        } catch (PDOException $e) {
+
+            if ($demoPdo->inTransaction()) {
+                $demoPdo->rollBack();
+            }
+
+            error_log(
+                'Demo Setup failed for tenant #'
+                . $tenantId
+                . ': '
+                . $e->getMessage()
+            );
+
+            $error =
+                'Demo Setup could not be completed. '
+                . 'Please check the Demo database.';
         }
     }
 }
 
 
-/*
-|--------------------------------------------------------------------------
-| Public Header
-|--------------------------------------------------------------------------
-*/
-
-require dirname(__DIR__) . '/layouts/header-public.php';
-
 ?>
 
 
-<div class="row justify-content-center mt-5">
+<!DOCTYPE html>
+<html lang="en">
 
-    <div class="col-lg-7 col-md-9">
+<head>
 
-        <div class="card shadow-sm">
+    <meta charset="UTF-8">
 
-            <div class="card-header bg-dark text-white">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1"
+    >
 
-                <h4 class="mb-0">
-                    Demo Setup
-                </h4>
+    <title>Demo Setup</title>
 
-            </div>
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        rel="stylesheet"
+    >
 
-
-            <div class="card-body">
-
-
-                <h5 class="mb-3">
-
-                    Complete Demo Account Setup
-
-                </h5>
+</head>
 
 
-                <p class="text-muted">
-
-                    Enter a separate email address for each Demo account.
-                    Each person will receive only their own login credentials.
-
-                </p>
+<body class="bg-light">
 
 
-                <?php if ($error !== ''): ?>
+<div class="container py-5">
 
-                    <div class="alert alert-danger">
+    <div class="row justify-content-center">
 
-                        <?= htmlspecialchars($error) ?>
+        <div class="col-lg-7">
 
-                    </div>
+            <div class="card shadow-sm">
 
-                <?php endif; ?>
+                <div class="card-header bg-dark text-white">
 
-
-                <div class="alert alert-info">
-
-                    <strong>
-                        Three separate Demo accounts will be configured:
-                    </strong>
-
-                    <ul class="mb-0 mt-2">
-
-                        <li>
-                            Customer:
-                            <code>
-                                <?= htmlspecialchars($customerUsername) ?>
-                            </code>
-                        </li>
-
-                        <li>
-                            Agent 1:
-                            <code>
-                                <?= htmlspecialchars($agent1Username) ?>
-                            </code>
-                        </li>
-
-                        <li>
-                            Agent 2:
-                            <code>
-                                <?= htmlspecialchars($agent2Username) ?>
-                            </code>
-                        </li>
-
-                    </ul>
+                    <h4 class="mb-0">
+                        Demo Setup
+                    </h4>
 
                 </div>
 
 
-                <form
-                    method="POST"
-                    action="?page=demo-setup"
-                    autocomplete="off">
+                <div class="card-body">
 
-
-                    <!-- ==================================================
-                         CUSTOMER EMAIL
-                         ================================================== -->
-
-                    <div class="mb-4">
-
-                        <label
-                            for="customer_email"
-                            class="form-label">
-
-                            <strong>
-                                Customer Email
-                            </strong>
-
-                        </label>
-
-                        <input
-                            type="email"
-                            class="form-control"
-                            id="customer_email"
-                            name="customer_email"
-                            value="<?= htmlspecialchars($customerEmail) ?>"
-                            autocomplete="off"
-                            required>
-
-                        <div class="form-text">
-
-                            The Customer will receive only the Customer
-                            username and temporary password.
-
-                        </div>
-
-                    </div>
-
-
-                    <!-- ==================================================
-                         AGENT 1 EMAIL
-                         ================================================== -->
-
-                    <div class="mb-4">
-
-                        <label
-                            for="agent1_email"
-                            class="form-label">
-
-                            <strong>
-                                Agent 1 Email
-                            </strong>
-
-                        </label>
-
-                        <input
-                            type="email"
-                            class="form-control"
-                            id="agent1_email"
-                            name="agent1_email"
-                            value="<?= htmlspecialchars($agent1Email) ?>"
-                            autocomplete="off"
-                            required>
-
-                        <div class="form-text">
-
-                            Agent 1 will receive only the Agent 1
-                            username and temporary password.
-
-                        </div>
-
-                    </div>
-
-
-                    <!-- ==================================================
-                         AGENT 2 EMAIL
-                         ================================================== -->
-
-                    <div class="mb-4">
-
-                        <label
-                            for="agent2_email"
-                            class="form-label">
-
-                            <strong>
-                                Agent 2 Email
-                            </strong>
-
-                        </label>
-
-                        <input
-                            type="email"
-                            class="form-control"
-                            id="agent2_email"
-                            name="agent2_email"
-                            value="<?= htmlspecialchars($agent2Email) ?>"
-                            autocomplete="off"
-                            required>
-
-                        <div class="form-text">
-
-                            Agent 2 will receive only the Agent 2
-                            username and temporary password.
-
-                        </div>
-
-                    </div>
-
-
-                    <!-- ==================================================
-                         INFORMATION
-                         ================================================== -->
-
-                    <div class="alert alert-warning">
+                    <div class="alert alert-info">
 
                         <strong>
-                            Important
+                            Company Demo Admin Setup
                         </strong>
 
-                        <ul class="mb-0 mt-2">
+                        <br><br>
 
-                            <li>
-                                All three email addresses must be different.
-                            </li>
+                        You are the Company Demo Admin.
 
-                            <li>
-                                Three separate temporary passwords will
-                                be generated.
-                            </li>
+                        <br><br>
 
-                            <li>
-                                Each account must change its password
-                                on first login.
-                            </li>
-
-                            <li>
-                                The temporary passwords will not be
-                                displayed on this page.
-                            </li>
-
-                        </ul>
+                        Complete the setup by entering a separate
+                        email address for each Demo role.
 
                     </div>
 
 
-                    <button
-                        type="submit"
-                        class="btn btn-primary w-100">
+                    <?php if ($error !== ''): ?>
 
-                        Complete Demo Setup
+                        <div class="alert alert-danger">
+                            <?= htmlspecialchars($error) ?>
+                        </div>
 
-                    </button>
-
-
-                </form>
+                    <?php endif; ?>
 
 
-                <div class="text-center mt-3">
+                    <form
+                        method="POST"
+                        action="?page=demo-setup"
+                        autocomplete="off"
+                    >
 
-                    <a href="?page=demo-logout">
 
-                        Sign out of Demo
+                        <div class="mb-3">
 
-                    </a>
+                            <label
+                                for="customer_email"
+                                class="form-label"
+                            >
+                                Demo Customer Email
+                            </label>
+
+                            <input
+                                type="email"
+                                class="form-control"
+                                id="customer_email"
+                                name="customer_email"
+                                value="<?= htmlspecialchars($customerEmail) ?>"
+                                required
+                            >
+
+                        </div>
+
+
+                        <div class="mb-3">
+
+                            <label
+                                for="agent1_email"
+                                class="form-label"
+                            >
+                                Demo Agent 1 Email
+                            </label>
+
+                            <input
+                                type="email"
+                                class="form-control"
+                                id="agent1_email"
+                                name="agent1_email"
+                                value="<?= htmlspecialchars($agent1Email) ?>"
+                                required
+                            >
+
+                        </div>
+
+
+                        <div class="mb-4">
+
+                            <label
+                                for="agent2_email"
+                                class="form-label"
+                            >
+                                Demo Agent 2 Email
+                            </label>
+
+                            <input
+                                type="email"
+                                class="form-control"
+                                id="agent2_email"
+                                name="agent2_email"
+                                value="<?= htmlspecialchars($agent2Email) ?>"
+                                required
+                            >
+
+                        </div>
+
+
+                        <div class="alert alert-warning">
+
+                            <strong>
+                                Important
+                            </strong>
+
+                            <br><br>
+
+                            Each email address must belong to the
+                            person who will use that Demo account.
+
+                            <br><br>
+
+                            Separate temporary passwords will be
+                            generated and sent to the three email
+                            addresses.
+
+                        </div>
+
+
+                        <button
+                            type="submit"
+                            class="btn btn-primary w-100"
+                        >
+                            Complete Demo Setup
+                        </button>
+
+
+                    </form>
+
+
+                    <div class="text-center mt-3">
+
+                        <a href="?page=dashboard">
+                            Back to Demo Dashboard
+                        </a>
+
+                    </div>
+
 
                 </div>
-
 
             </div>
 
@@ -1307,8 +1092,6 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 </div>
 
 
-<?php
+</body>
 
-require dirname(__DIR__) . '/layouts/footer.php';
-
-?>
+</html>

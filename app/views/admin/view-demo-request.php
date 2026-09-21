@@ -668,6 +668,17 @@ function formatDemoDate(?string $date): string
 
                             </a>
 
+                        <?php elseif ($request['status'] === 'Customer Confirmed'): ?>
+
+                            <a
+                                href="?page=create-demo-tenant&id=<?= (int)$request['id'] ?>"
+                                class="btn btn-success"
+                                onclick="return confirm('Create the Demo tenant for this customer?');">
+
+                                Create Demo Tenant
+
+                            </a>
+
                         <?php endif; ?>
 
                         <a

@@ -143,6 +143,7 @@ if ($isDemoEnvironment) {
      */
     $demoAdminRoutes = [
         'dashboard',
+        'demo-setup',
         'logout',
         'notifications',
         'open-notification',
@@ -408,6 +409,14 @@ case 'demo-requests':
 
 case 'view-demo-request':
     require VIEW_PATH . '/admin/view-demo-request.php';
+    break;
+
+case 'create-demo-tenant':
+    require CONTROLLER_PATH . '/create-demo-tenant.php';
+    break;
+
+case 'create-demo-admin':
+    require CONTROLLER_PATH . '/create-demo-admin.php';
     break;
 
 case 'demo-super-admin':

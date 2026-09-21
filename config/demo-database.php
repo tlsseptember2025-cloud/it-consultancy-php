@@ -30,12 +30,12 @@ if ($env === false) {
  * Demo Database Configuration
  */
 
-$host     = $env['DEMO_DB_HOST'] ?? '';
-$port     = $env['DEMO_DB_PORT'] ?? '';
-$dbname   = $env['DEMO_DB_NAME'] ?? '';
-$username = $env['DEMO_DB_USER'] ?? '';
-$password = $env['DEMO_DB_PASS'] ?? '';
-$sslCa    = $env['DEMO_DB_SSL_CA'] ?? '';
+$host     = getenv('DEMO_DB_HOST')     ?: ($env['DEMO_DB_HOST'] ?? '');
+$port     = getenv('DEMO_DB_PORT')     ?: ($env['DEMO_DB_PORT'] ?? '');
+$dbname   = getenv('DEMO_DB_NAME')     ?: ($env['DEMO_DB_NAME'] ?? '');
+$username = getenv('DEMO_DB_USER')     ?: ($env['DEMO_DB_USER'] ?? '');
+$password = getenv('DEMO_DB_PASS')     ?: ($env['DEMO_DB_PASS'] ?? '');
+$sslCa    = getenv('DEMO_DB_SSL_CA')   ?: ($env['DEMO_DB_SSL_CA'] ?? '');
 
 
 /**
