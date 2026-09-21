@@ -1194,7 +1194,7 @@ case 'agent-mark-all-notifications-read':
     case 'reject-customer-registration':
     require VIEW_PATH . '/admin/reject-customer-registration.php';
     break;
-
+    
     /*
     |--------------------------------------------------------------------------
     | Default

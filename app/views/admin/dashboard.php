@@ -3,7 +3,34 @@
 require_once APP_PATH . '/helpers/DateHelper.php';
 require_once HELPER_PATH . '/auth.php';
 
-requireAdminLogin();
+if (
+    !isset($_SESSION['user']) &&
+    !isset($_SESSION['demo_user']) &&
+    !isset($_SESSION['demo_super_admin'])
+) {
+    header('Location: ?page=login');
+    exit;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Load the correct database before the shared Admin header
+|--------------------------------------------------------------------------
+|
+| The shared navbar is loaded by header-admin.php and also uses
+| $demoPdo for Demo Admin / Demo Super Admin sessions.
+|
+| Therefore the Demo database connection must exist BEFORE the
+| shared header is included.
+|--------------------------------------------------------------------------
+*/
+
+if (
+    isset($_SESSION['demo_super_admin']) ||
+    isset($_SESSION['demo_user'])
+) {
+    require_once CONFIG_PATH . '/demo-database.php';
+}
 
 $adminPdo = $pdo;
 

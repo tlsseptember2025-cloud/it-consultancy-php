@@ -335,11 +335,32 @@ if ($demoAppUrl === '') {
 
 $demoLoginUrl = '';
 
-if ($demoAppUrl !== '') {
-    $demoLoginUrl =
-        rtrim($demoAppUrl, '/')
-        . '/?page=demo-login';
+if ($demoAppUrl === '') {
+    $demoAppUrl = trim((string)getenv('APP_URL'));
 }
+
+if ($demoAppUrl === '' && defined('APP_URL')) {
+    $demoAppUrl = APP_URL;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Demo Login URL
+|--------------------------------------------------------------------------
+|
+| The Demo Admin must always receive a direct link to the Demo portal.
+| DEMO_APP_URL is preferred for each environment. The public Demo URL
+| is the final fallback so the email never loses the login link.
+|--------------------------------------------------------------------------
+*/
+
+if ($demoAppUrl === '') {
+    $demoAppUrl = 'https://demo.wahbibconsultancy.com';
+}
+
+$demoLoginUrl =
+    rtrim($demoAppUrl, '/')
+    . '/?page=demo-login';
 
 
 /*
@@ -424,7 +445,8 @@ $emailBody = "
 
     <p>
         Please use the temporary credentials below to access
-        the Demo portal.
+        the Demo portal. The Company Demo Admin signs in using the
+        registered email address.
     </p>
 
     <table
@@ -438,8 +460,8 @@ $emailBody = "
         '>
 
         <tr>
-            <th align='left'>Username</th>
-            <td><code>{$safeUsername}</code></td>
+            <th align='left'>Demo Admin Email</th>
+            <td><code>{$registeredEmail}</code></td>
         </tr>
 
         <tr>
@@ -457,7 +479,8 @@ $emailBody = "
 
     <ol>
         <li>
-            Sign in to the Demo portal using the temporary credentials.
+            Sign in to the Demo portal using the registered email address and
+            the temporary password.
         </li>
 
         <li>
