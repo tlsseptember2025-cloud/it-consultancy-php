@@ -89,6 +89,7 @@ if ($isDemoEnvironment) {
         'delete-pricing',
         'customers',
         'view-customer',
+        'customer-status',
         'agents',
         'view-agent',
         'requests',
@@ -148,6 +149,7 @@ if ($isDemoEnvironment) {
         'demo-setup',
         'customers',
         'view-customer',
+        'customer-status',
         'suspension-attachment',
         'admin-suspension-chat',
         'agents',
@@ -170,7 +172,7 @@ if ($isDemoEnvironment) {
 
         'customers',
         'view-customer',
-
+        'customer-status',
         'agents',
         'view-agent',
 

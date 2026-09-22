@@ -284,7 +284,9 @@ $outstandingBalance =
             <strong>Phone:</strong>
 
             <?= htmlspecialchars(
-                $customer['phone']
+                $customer['phone'] ?? '',
+                ENT_QUOTES,
+                'UTF-8'
             ) ?>
 
         </p>
