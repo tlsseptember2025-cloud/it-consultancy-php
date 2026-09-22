@@ -1,416 +1,13 @@
 <?php
 
-require_once HELPER_PATH . '/email.php';
+require_once CONFIG_PATH . '/database.php';
+require_once HELPER_PATH . '/GuestChatHelper.php';
 
-/*
-|--------------------------------------------------------------------------
-| Contract Lead Form
-|--------------------------------------------------------------------------
-*/
-
-$success = '';
-$error = '';
-
-/*
-|--------------------------------------------------------------------------
-| Anti-Spam
-|--------------------------------------------------------------------------
-|
-| Honeypot field:
-| Real users never see or fill this field.
-| Basic bots often do.
-|
-*/
-
-if (
-    $_SERVER['REQUEST_METHOD'] === 'POST'
-    && isset($_POST['submit_contract_lead'])
-) {
-
-    /*
-    |--------------------------------------------------------------------------
-    | Honeypot spam protection
-    |--------------------------------------------------------------------------
-    */
-
-    if (!empty($_POST['website'])) {
-
-        $error =
-            'Unable to submit the form. Please try again.';
-
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | Basic submission-time protection
-    |--------------------------------------------------------------------------
-    |
-    | A normal user should need at least a few seconds
-    | to read and complete the form.
-    |
-    */
-
-    if (
-        empty($error)
-        &&
-        isset($_POST['form_started_at'])
-    ) {
-
-        $formStartedAt = (int) $_POST['form_started_at'];
-
-        if (
-            $formStartedAt > 0
-            &&
-            (time() - $formStartedAt) < 3
-        ) {
-
-            $error =
-                'Unable to submit the form. Please try again.';
-
-        }
-
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | Collect Form Data
-    |--------------------------------------------------------------------------
-    */
-
-    if (empty($error)) {
-
-        $companyName =
-            trim($_POST['company_name'] ?? '');
-
-        $contactPerson =
-            trim($_POST['contact_person'] ?? '');
-
-        $email =
-            trim($_POST['email'] ?? '');
-
-        $phone =
-            trim($_POST['phone'] ?? '');
-
-        $contractTerm =
-            trim($_POST['contract_term'] ?? '');
-
-        $supportCoverage =
-            trim($_POST['support_coverage'] ?? '');
-
-        $startTimeframe =
-            trim($_POST['start_timeframe'] ?? '');
-
-        $supportServices =
-            $_POST['support_services'] ?? [];
-
-        $marketingConsent =
-            isset($_POST['marketing_consent'])
-            ? 1
-            : 0;
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | Validate Required Fields
-        |--------------------------------------------------------------------------
-        */
-
-        if (
-            $companyName === '' ||
-            $contactPerson === '' ||
-            $email === '' ||
-            $phone === ''
-        ) {
-
-            $error =
-                'Please complete all required fields.';
-
-        }
-
-        elseif (
-            !filter_var(
-                $email,
-                FILTER_VALIDATE_EMAIL
-            )
-        ) {
-
-            $error =
-                'Please enter a valid email address.';
-
-        }
-
-        elseif (
-            !is_array($supportServices)
-            ||
-            empty($supportServices)
-        ) {
-
-            $error =
-                'Please select at least one service you are interested in.';
-
-        }
-
-        elseif (
-    !in_array(
-        $contractTerm,
-        [
-            'Monthly',
-            'Annual',
-            'Not Sure'
-        ],
-        true
-    )
-) {
-
-    $error =
-        'Please select a contract preference.';
-
-}
-
-       elseif (
-    !in_array(
-        $supportCoverage,
-        [
-            'Business Hours',
-            'Extended Hours',
-            '24/7',
-            'Not Sure'
-        ],
-        true
-    )
-) {
-
-            $error =
-                'Please select your preferred support coverage.';
-
-        }
-
-       elseif (
-    !in_array(
-        $startTimeframe,
-        [
-            'Immediately',
-            'Within 30 Days',
-            'Within 3 Months',
-            'Just Exploring'
-        ],
-        true
-    )
-) {
-
-    $error =
-        'Please select when you would like to start.';
-
-}
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | Validate Service Selections
-        |--------------------------------------------------------------------------
-        */
-
-        if (empty($error)) {
-
-            $allowedServices = [
-
-                'Remote IT Support',
-
-                'Software Services',
-
-                'E-commerce Website',
-
-                'Corporate Website',
-
-                'Website Maintenance'
-
-            ];
-
-
-            $supportServices =
-                array_values(
-                    array_intersect(
-                        $allowedServices,
-                        $supportServices
-                    )
-                );
-
-
-            if (empty($supportServices)) {
-
-                $error =
-                    'Please select at least one valid service.';
-
-            }
-
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | Save Lead
-        |--------------------------------------------------------------------------
-        */
-
-        if (empty($error)) {
-
-            /*
-            |--------------------------------------------------------------------------
-            | Store Service Selections as JSON
-            |--------------------------------------------------------------------------
-            */
-
-            $supportServicesJson =
-                json_encode(
-                    $supportServices,
-                    JSON_UNESCAPED_UNICODE
-                );
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | Insert Lead
-            |--------------------------------------------------------------------------
-            */
-
-            $stmt = $pdo->prepare("
-                INSERT INTO contract_leads
-            (
-                company_name,
-                contact_person,
-                email,
-                phone,
-                contract_term,
-                support_services,
-                support_coverage,
-                start_timeframe,
-                marketing_consent,
-                status,
-                approval_status
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ");
-
-
-            $stmt->execute([
-
-                $companyName,
-                $contactPerson,
-                $email,
-                $phone,
-                $contractTerm,
-                $supportServicesJson,
-                $supportCoverage,
-                $startTimeframe,
-                $marketingConsent,
-                'New',
-                'Pending'
-
-            ]);
-            /*
-            |--------------------------------------------------------------------------
-            | Email Notification
-            |--------------------------------------------------------------------------
-            */
-
-            sendContractLeadNotification(
-
-                $companyName,
-
-                $contactPerson,
-
-                $email,
-
-                $phone,
-
-                null,
-
-                implode(
-                    ', ',
-                    $supportServices
-                )
-                .
-                "\n\nContract Preference: "
-                .
-                $contractTerm
-                .
-                "\n\nSupport Coverage: "
-                .
-                $supportCoverage
-                .
-                "\n\nPreferred Start Timeframe: "
-                .
-                $startTimeframe
-
-            );
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | Success Message
-            |--------------------------------------------------------------------------
-            */
-
-            $success =
-                'Thank you for your interest! We will contact you shortly.';
-
-        }
-
-    }
-
-}
-
-
-/*
-|--------------------------------------------------------------------------
-| Public Header
-|--------------------------------------------------------------------------
-*/
+$guestChatAvailability = getGuestChatAvailability($pdo);
 
 require dirname(__DIR__) . '/layouts/header-public.php';
 
 ?>
-
-
-<?php if (!empty($success)): ?>
-
-    <div
-        class="alert alert-success alert-dismissible fade show"
-        role="alert">
-
-        <?= htmlspecialchars($success) ?>
-
-        <button
-            type="button"
-            class="btn-close"
-            data-bs-dismiss="alert">
-        </button>
-
-    </div>
-
-<?php endif; ?>
-
-
-<?php if (!empty($error)): ?>
-
-    <div
-        class="alert alert-danger alert-dismissible fade show"
-        role="alert">
-
-        <?= htmlspecialchars($error) ?>
-
-        <button
-            type="button"
-            class="btn-close"
-            data-bs-dismiss="alert">
-        </button>
-
-    </div>
-
-<?php endif; ?>
-
 
 <!--
 |--------------------------------------------------------------------------
@@ -757,7 +354,7 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 
 <!--
 |--------------------------------------------------------------------------
-| Business IT Support Lead Form
+| Live Chat
 |--------------------------------------------------------------------------
 -->
 
@@ -765,530 +362,199 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 
     <div class="card-body p-4">
 
+        <div class="text-center">
 
-        <h3 class="mb-3">
+            <h3 class="mb-3">
+                💬 Live Support Chat
+            </h3>
 
-            🏢 Business IT Support Plans
+            <?php if ($guestChatAvailability['available']): ?>
 
-        </h3>
+                <p class="text-muted mb-4">
+                    Need help or have a question?
+                    Chat directly with our support team.
+                </p>
 
+                <a
+                    href="?page=guest-chat"
+                    class="btn btn-primary btn-lg px-4">
 
-        <p class="text-muted">
+                    Start Live Chat
 
-            Looking for reliable monthly or annual IT support,
-            software services or website services for your company?
+                </a>
 
-            Tell us what you are interested in and we'll contact you
-            with a suitable solution.
-
-        </p>
-
-
-        <form method="POST">
-
-
-            <!--
-            |--------------------------------------------------------------------------
-            | Anti-Spam Honeypot
-            |--------------------------------------------------------------------------
-            -->
-
-            <div
-                style="
-                    position:absolute;
-                    left:-9999px;
-                    width:1px;
-                    height:1px;
-                    overflow:hidden;
-                "
-                aria-hidden="true">
-
-                <label for="website">
-
-                    Website
-
-                </label>
-
-                <input
-                    type="text"
-                    name="website"
-                    id="website"
-                    tabindex="-1"
-                    autocomplete="off">
-
-            </div>
-
-
-            <!--
-            |--------------------------------------------------------------------------
-            | Submission Time
-            |--------------------------------------------------------------------------
-            -->
-
-            <input
-                type="hidden"
-                name="form_started_at"
-                value="<?= time() ?>">
-
-
-            <!--
-            |--------------------------------------------------------------------------
-            | Company Information
-            |--------------------------------------------------------------------------
-            -->
-
-            <div class="row">
-
-
-                <div class="col-md-6 mb-3">
-
-                    <label
-                        class="form-label"
-                        for="company_name">
-
-                        Company Name
-
-                    </label>
-
-                    <input
-                        type="text"
-                        name="company_name"
-                        id="company_name"
-                        class="form-control"
-                        required>
-
+                <div class="mt-3 text-muted small">
+                    Available during office hours when at least one Admin is online.
                 </div>
 
+            <?php else: ?>
 
-                <div class="col-md-6 mb-3">
+                <div
+                    class="border rounded p-4 text-start"
+                    style="background:#fff8e1;">
 
-                    <label
-                        class="form-label"
-                        for="contact_person">
+                    <div class="d-flex align-items-center mb-3">
 
-                        Contact Person
+                        <span
+                            class="badge bg-danger fs-6 me-2 px-3 py-2">
 
-                    </label>
+                            Unavailable
 
-                    <input
-                        type="text"
-                        name="contact_person"
-                        id="contact_person"
-                        class="form-control"
-                        required>
+                        </span>
 
-                </div>
+                        <h4 class="mb-0">
 
+                            Live Chat is currently unavailable
 
-            </div>
+                        </h4>
 
-
-            <div class="row">
+                    </div>
 
 
-                <div class="col-md-6 mb-3">
+                    <div class="alert alert-warning mb-4">
 
-                    <label
-                        class="form-label"
-                        for="email">
+                        <strong>Why can't I start a chat?</strong>
 
-                        Email Address
+                        <div class="mt-1">
 
-                    </label>
+                            <?php if (!$guestChatAvailability['office_open']): ?>
 
-                    <input
-                        type="email"
-                        name="email"
-                        id="email"
-                        class="form-control"
-                        required>
+                                Our office is currently outside its configured working hours.
 
-                </div>
+                            <?php elseif (!$guestChatAvailability['admin_online']): ?>
 
+                                Our office is currently open, but no Admin is online.
 
-                <div class="col-md-6 mb-3">
+                            <?php endif; ?>
 
-                    <label
-                        class="form-label"
-                        for="phone">
+                        </div>
 
-                        Phone Number
-
-                    </label>
-
-                    <input
-                        type="text"
-                        name="phone"
-                        id="phone"
-                        class="form-control"
-                        required>
-
-                </div>
+                    </div>
 
 
-            </div>
-
-
-            <!--
-            |--------------------------------------------------------------------------
-            | Service Interest
-            |--------------------------------------------------------------------------
-            -->
-
-            <div class="card border mb-4">
-
-                <div class="card-body">
-
-
-                    <h5 class="mb-2">
-
-                        What services are you interested in?
-
+                    <h5 class="mb-3">
+                        Live Chat is available when BOTH conditions are met:
                     </h5>
 
 
-                    <p class="text-muted small mb-4">
+                    <div class="row g-3 mb-4">
 
-                        Select all that apply.
+                        <div class="col-md-6">
 
-                    </p>
+                            <div class="border rounded p-3 h-100 bg-white">
 
+                                <h6 class="fw-bold mb-2">
 
-                    <!--
-                    |--------------------------------------------------------------------------
-                    | IT Support / Software Services
-                    |--------------------------------------------------------------------------
-                    -->
+                                    🕐 Office Hours
 
-                    <h6 class="fw-bold mb-3">
+                                </h6>
 
-                        IT Support / Software Services
+                                <div class="small">
 
-                    </h6>
+                                    <div>
+                                        <strong>Monday–Thursday:</strong>
+                                        10:00 AM – 4:00 PM
+                                    </div>
 
+                                    <div>
+                                        <strong>Friday:</strong>
+                                        10:00 AM – 12:00 PM
+                                    </div>
 
-                    <div class="form-check mb-3">
+                                    <div>
+                                        <strong>Saturday–Sunday:</strong>
+                                        Closed
+                                    </div>
 
-                        <input
-                            class="form-check-input"
-                            type="checkbox"
-                            name="support_services[]"
-                            value="Remote IT Support"
-                            id="remoteIT">
+                                </div>
 
-                        <label
-                            class="form-check-label"
-                            for="remoteIT">
+                                <div class="mt-2">
 
-                            Remote IT Support
+                                    <?php if ($guestChatAvailability['office_open']): ?>
 
-                        </label>
+                                        <span class="badge bg-success">
+                                            Office currently open
+                                        </span>
 
-                    </div>
+                                    <?php else: ?>
 
+                                        <span class="badge bg-danger">
+                                            Office currently closed
+                                        </span>
 
-                    <div class="form-check mb-4">
+                                    <?php endif; ?>
 
-                        <input
-                            class="form-check-input"
-                            type="checkbox"
-                            name="support_services[]"
-                            value="Software Services"
-                            id="softwareServices">
+                                </div>
 
-                        <label
-                            class="form-check-label"
-                            for="softwareServices">
+                            </div>
 
-                            Software Services
-
-                        </label>
-
-                    </div>
+                        </div>
 
 
-                    <hr>
+                        <div class="col-md-6">
 
+                            <div class="border rounded p-3 h-100 bg-white">
 
-                    <!--
-                    |--------------------------------------------------------------------------
-                    | Website Services
-                    |--------------------------------------------------------------------------
-                    -->
+                                <h6 class="fw-bold mb-2">
 
-                    <h6 class="fw-bold mt-4 mb-3">
+                                    👤 Admin Availability
 
-                        Website Services
+                                </h6>
 
-                    </h6>
+                                <div class="small">
 
+                                    At least one Admin must be logged in
+                                    and currently active.
 
-                    <div class="form-check mb-3">
+                                </div>
 
-                        <input
-                            class="form-check-input"
-                            type="checkbox"
-                            name="support_services[]"
-                            value="E-commerce Website"
-                            id="ecommerceWebsite">
+                                <div class="mt-2">
 
-                        <label
-                            class="form-check-label"
-                            for="ecommerceWebsite">
+                                    <?php if ($guestChatAvailability['admin_online']): ?>
 
-                            E-commerce Website
+                                        <span class="badge bg-success">
+                                            Admin currently online
+                                        </span>
 
-                        </label>
+                                    <?php else: ?>
 
-                    </div>
+                                        <span class="badge bg-danger">
+                                            No Admin currently online
+                                        </span>
 
+                                    <?php endif; ?>
 
-                    <div class="form-check mb-3">
+                                </div>
 
-                        <input
-                            class="form-check-input"
-                            type="checkbox"
-                            name="support_services[]"
-                            value="Corporate Website"
-                            id="corporateWebsite">
+                            </div>
 
-                        <label
-                            class="form-check-label"
-                            for="corporateWebsite">
-
-                            Corporate Website
-
-                        </label>
+                        </div>
 
                     </div>
 
 
-                    <div class="form-check">
+                    <div class="text-center">
 
-                        <input
-                            class="form-check-input"
-                            type="checkbox"
-                            name="support_services[]"
-                            value="Website Maintenance"
-                            id="websiteMaintenance">
+                        <button
+                            type="button"
+                            class="btn btn-secondary btn-lg px-4"
+                            disabled>
 
-                        <label
-                            class="form-check-label"
-                            for="websiteMaintenance">
+                            Live Chat Unavailable
 
-                            Website Maintenance
-
-                        </label>
+                        </button>
 
                     </div>
-
 
                 </div>
 
-            </div>
+            <?php endif; ?>
 
-
-            <!--
-            |--------------------------------------------------------------------------
-            | Support Coverage
-            |--------------------------------------------------------------------------
-            -->
-
-            <div class="mb-3">
-
-
-                <label
-                    class="form-label"
-                    for="support_coverage">
-
-                    Preferred Support Coverage
-
-                </label>
-
-
-                <select
-    name="support_coverage"
-    id="support_coverage"
-    class="form-select"
-    required>
-
-    <option value="">
-        Select support coverage
-    </option>
-
-    <option value="Business Hours">
-        Business Hours
-    </option>
-
-    <option value="Extended Hours">
-        Extended Hours
-    </option>
-
-    <option value="24/7">
-        24/7
-    </option>
-
-    <option value="Not Sure">
-        Not Sure
-    </option>
-
-</select>
-
-            </div>
-
-
-            <!--
-            |--------------------------------------------------------------------------
-            | Contract Preference
-            |--------------------------------------------------------------------------
-            -->
-
-            <div class="mb-3">
-
-
-                <label
-                    class="form-label"
-                    for="contract_term">
-
-                    Contract Preference
-
-                </label>
-
-
-                <select
-    name="contract_term"
-    class="form-select"
-    required>
-
-    <option value="">
-        Select contract preference
-    </option>
-
-    <option value="Monthly">
-        Monthly
-    </option>
-
-    <option value="Annual">
-        Annual
-    </option>
-
-    <option value="Not Sure">
-        Not Sure
-    </option>
-
-</select>
-
-
-            </div>
-
-
-            <!--
-            |--------------------------------------------------------------------------
-            | Start Timeframe
-            |--------------------------------------------------------------------------
-            -->
-
-            <div class="mb-4">
-
-
-                <label
-                    class="form-label"
-                    for="start_timeframe">
-
-                    When would you like to start?
-
-                </label>
-
-
-                <select
-                    name="start_timeframe"
-                    id="start_timeframe"
-                    class="form-select"
-                    required>
-
-
-                    <option value="">
-
-                        Select timeframe
-
-                    </option>
-
-
-                   <option value="Immediately">
-    Immediately
-</option>
-
-<option value="Within 30 Days">
-    Within 30 Days
-</option>
-
-<option value="Within 3 Months">
-    Within 3 Months
-</option>
-
-<option value="Just Exploring">
-    Just Exploring
-</option>
-
-
-                </select>
-
-
-            </div>
-
-
-            <!--
-            |--------------------------------------------------------------------------
-            | Marketing Consent
-            |--------------------------------------------------------------------------
-            -->
-
-            <div class="form-check mb-4">
-
-
-                <input
-                    class="form-check-input"
-                    type="checkbox"
-                    name="marketing_consent"
-                    value="1"
-                    id="marketingConsent">
-
-
-                <label
-                    class="form-check-label"
-                    for="marketingConsent">
-
-                    I would like to receive occasional updates and special offers.
-
-                </label>
-
-
-            </div>
-
-
-            <!--
-            |--------------------------------------------------------------------------
-            | Submit
-            |--------------------------------------------------------------------------
-            -->
-
-            <button
-                type="submit"
-                name="submit_contract_lead"
-                class="btn btn-success btn-lg">
-
-                I'm Interested
-
-            </button>
-
-
-        </form>
-
+        </div>
 
     </div>
 
 </div>
-
 
 <?php
 

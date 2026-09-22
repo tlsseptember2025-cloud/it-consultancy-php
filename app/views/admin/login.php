@@ -1,106 +1,77 @@
 <?php
 
 if (isset($_SESSION['user'])) {
-
     header('Location: ?page=dashboard');
     exit;
 }
 
 require_once CONFIG_PATH . '/database.php';
 
-$totalCustomers = $pdo->query("
-    SELECT COUNT(*)
-    FROM customers
-")->fetchColumn();
-
-$totalRequests = $pdo->query("
-    SELECT COUNT(*)
-    FROM requests
-")->fetchColumn();
-
-$totalServices = $pdo->query("
-    SELECT COUNT(*)
-    FROM services
-")->fetchColumn();
-
-$unreadMessages = $pdo->query("
-    SELECT COUNT(*)
-    FROM messages
-    WHERE status = 'unread'
-")->fetchColumn();
-
-$totalPayments = $pdo->query("
-    SELECT COUNT(*)
-    FROM payments
-")->fetchColumn();
-
-$totalRevenue = $pdo->query("
-    SELECT COALESCE(SUM(amount),0)
-    FROM payments
-")->fetchColumn();
-
-$totalQuoted = $pdo->query("
-    SELECT COALESCE(SUM(quoted_price),0)
-    FROM requests
-")->fetchColumn();
-
-$outstandingBalance = $totalQuoted - $totalRevenue;
-
-$latestRequest = $pdo->query("
-    SELECT
-        customers.name,
-        services.title,
-        requests.status
-    FROM requests
-    JOIN customers
-        ON customers.id = requests.customer_id
-    JOIN services
-        ON services.id = requests.service_id
-    ORDER BY requests.id DESC
-    LIMIT 1
-")->fetch();
-
-$latestPayment = $pdo->query("
-    SELECT
-        customers.name,
-        payments.amount,
-        payments.status
-    FROM payments
-    JOIN requests
-        ON requests.id = payments.request_id
-    JOIN customers
-        ON customers.id = requests.customer_id
-    ORDER BY payments.id DESC
-    LIMIT 1
-")->fetch();
-
-$latestMessage = $pdo->query("
-    SELECT *
-    FROM messages
-    ORDER BY id DESC
-    LIMIT 1
-")->fetch();
-
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    $email = trim($_POST['email']);
-    $password = trim($_POST['password']);
+    $email = trim($_POST['email'] ?? '');
+    $password = trim($_POST['password'] ?? '');
 
     $stmt = $pdo->prepare("
-        SELECT * FROM users WHERE email = ?
+        SELECT *
+        FROM users
+        WHERE email = ?
+        LIMIT 1
     ");
 
     $stmt->execute([$email]);
 
-    $user = $stmt->fetch();
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if ($user && password_verify($password, $user['password'])) {
 
+        /*
+         * Clear any other role sessions before creating
+         * the Main/Dev Admin session.
+         */
         clearRoleSessions();
 
+        /*
+         * Main/Dev Admin session.
+         *
+         * The existing system stores the Admin email
+         * in $_SESSION['user'], so this remains unchanged.
+         */
         $_SESSION['user'] = $user['email'];
+
+        /*
+         * -------------------------------------------------
+         * Guest Live Chat - Admin Presence
+         * -------------------------------------------------
+         *
+         * Record this Admin as currently online.
+         *
+         * admin_presence has one row per Admin because
+         * admin_id is UNIQUE.
+         */
+        $presenceStmt = $pdo->prepare("
+            INSERT INTO admin_presence
+                (
+                    admin_id,
+                    last_seen,
+                    is_online
+                )
+            VALUES
+                (
+                    ?,
+                    CURRENT_TIMESTAMP,
+                    1
+                )
+            ON DUPLICATE KEY UPDATE
+                last_seen = CURRENT_TIMESTAMP,
+                is_online = 1
+        ");
+
+        $presenceStmt->execute([
+            (int) $user['id']
+        ]);
 
         header('Location: ?page=dashboard');
         exit;
@@ -130,9 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <?php if ($error): ?>
 
                     <div class="alert alert-danger">
-
-                        <?= $error ?>
-
+                        <?= htmlspecialchars($error) ?>
                     </div>
 
                 <?php endif; ?>
@@ -170,9 +139,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
 
                     <button class="btn btn-primary w-100">
-
                         Login
-
                     </button>
 
                 </form>

@@ -927,6 +927,30 @@ case 'create-demo':
         require VIEW_PATH . '/admin/admin-close-request.php';
         break;
 
+        case 'admin-heartbeat':
+        require VIEW_PATH . '/admin/admin-heartbeat.php';
+        break;
+
+        case 'guest-chat':
+        require VIEW_PATH . '/public/guest-chat.php';
+        break;
+
+        case 'guest-chat-conversation':
+        require VIEW_PATH . '/public/guest-chat-conversation.php';
+        break;
+
+        case 'guest-chats':
+            require VIEW_PATH . '/admin/guest-chats.php';
+            break;
+
+        case 'guest-chat-conversation-admin':
+            require VIEW_PATH . '/admin/guest-chat-conversation.php';
+            break;
+
+        case 'guest-chat-attachment':
+            require CONTROLLER_PATH . '/guest-chat-attachment.php';
+            break;
+
     /*
     |--------------------------------------------------------------------------
     | Services

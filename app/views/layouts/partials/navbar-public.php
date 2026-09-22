@@ -1,86 +1,792 @@
 <?php
 
-$isDemoEnvironment = (
-    strtolower($_SERVER['HTTP_HOST'] ?? '') === 'demo.wahbibconsultancy.com'
-);
+require_once HELPER_PATH . '/GuestChatHelper.php';
 
-$isDemoLoggedIn =
-    isset($_SESSION['demo_super_admin']) ||
-    isset($_SESSION['demo_user']) ||
-    isset($_SESSION['demo_customer']) ||
-    isset($_SESSION['demo_agent']);
+$guestChatAvailability = getGuestChatAvailability($pdo);
+
+$customerNotificationCount = 0;
+$customerNotifications = [];
+
+if (isset($_SESSION['customer'])) {
+
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM notifications
+        WHERE recipient_type = 'customer'
+          AND recipient_id = ?
+          AND is_read = 0
+    ");
+
+    $stmt->execute([
+        (int) $_SESSION['customer']['id']
+    ]);
+
+    $customerNotificationCount = (int) $stmt->fetchColumn();
+
+    $stmt = $pdo->prepare("
+        SELECT *
+        FROM notifications
+        WHERE recipient_type = 'customer'
+          AND recipient_id = ?
+          AND is_read = 0
+        ORDER BY created_at DESC
+        LIMIT 5
+    ");
+
+    $stmt->execute([
+        (int) $_SESSION['customer']['id']
+    ]);
+
+    $customerNotifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
 ?>
+
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <title>IT Consultancy</title>
+
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+        rel="stylesheet">
+
+</head>
+
+<body>
+
 
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark py-3">
 
     <div class="container-fluid">
 
         <a
-            class="navbar-brand d-flex align-items-center fw-bold"
-            href="?page=home"
-            title="<?= COMPANY_TAGLINE ?>">
+            class="navbar-brand"
+            href="?page=home">
 
-            <img
-                src="uploads/assets/logo.png"
-                alt="<?= COMPANY_NAME ?>"
-                height="40"
-                class="me-2">
-
-            <span><?= COMPANY_NAME ?></span>
+            IT Consultancy
 
         </a>
 
-        <?php if (!$isDemoEnvironment): ?>
 
-            <button
-                class="navbar-toggler"
-                type="button"
-                data-bs-toggle="collapse"
-                data-bs-target="#navbarNav"
-                aria-controls="navbarNav"
-                aria-expanded="false"
-                aria-label="Toggle navigation">
+        <button
+            class="navbar-toggler"
+            type="button"
+            data-bs-toggle="collapse"
+            data-bs-target="#navbarNav">
 
-                <span class="navbar-toggler-icon"></span>
+            <span class="navbar-toggler-icon"></span>
 
-            </button>
+        </button>
 
-            <div
-                class="collapse navbar-collapse"
-                id="navbarNav">
 
-                <ul class="navbar-nav ms-auto align-items-lg-center">
+        <div
+            class="collapse navbar-collapse"
+            id="navbarNav">
 
-                    <li class="nav-item">
-                        <a class="nav-link" href="?page=services">
-                            Services
+            <div class="navbar-nav ms-auto">
+
+
+                <!-- =========================================================
+                     DEMO ADMIN MENU
+                     ========================================================= -->
+
+                <?php if (isset($_SESSION['demo_user'])): ?>
+
+                    <a
+                        class="nav-link"
+                        href="?page=demo-dashboard">
+
+                        Dashboard
+
+                    </a>
+
+
+                    <span
+                        class="nav-link text-warning fw-semibold">
+
+                        Demo Admin
+
+                    </span>
+
+
+                    <a
+                        class="nav-link text-danger"
+                        href="?page=demo-logout">
+
+                        Logout
+
+                    </a>
+
+
+                <!-- =========================================================
+                     DEMO CUSTOMER MENU
+                     ========================================================= -->
+
+                <?php elseif (isset($_SESSION['demo_customer'])): ?>
+
+                    <a
+                        class="nav-link"
+                        href="?page=demo-customer-dashboard">
+
+                        Dashboard
+
+                    </a>
+
+
+                    <span
+                        class="nav-link text-warning fw-semibold">
+
+                        Demo Customer
+
+                    </span>
+
+
+                    <a
+                        class="nav-link text-danger"
+                        href="?page=demo-logout">
+
+                        Logout
+
+                    </a>
+
+
+                <!-- =========================================================
+                     DEMO AGENT MENU
+                     ========================================================= -->
+
+                <?php elseif (isset($_SESSION['demo_agent'])): ?>
+
+                    <a
+                        class="nav-link"
+                        href="?page=demo-agent-dashboard">
+
+                        Dashboard
+
+                    </a>
+
+
+                    <span
+                        class="nav-link text-warning fw-semibold">
+
+                        Demo Agent
+
+                    </span>
+
+
+                    <a
+                        class="nav-link text-danger"
+                        href="?page=demo-logout">
+
+                        Logout
+
+                    </a>
+
+
+                <!-- =========================================================
+                     NORMAL ADMIN MENU
+                     ========================================================= -->
+
+                <?php elseif (isset($_SESSION['user'])): ?>
+
+
+                    <?php
+
+                    $notificationCount = 0;
+
+                    try {
+
+                        require dirname(__DIR__, 3) . '/config/database.php';
+
+                        $stmt = $pdo->query("
+                            SELECT COUNT(*)
+                            FROM notifications
+                            WHERE recipient_type = 'admin'
+                              AND is_read = 0
+                        ");
+
+                        $notificationCount = (int) $stmt->fetchColumn();
+
+                    } catch (Exception $e) {
+
+                        $notificationCount = 0;
+
+                    }
+
+                    ?>
+
+
+                    <!-- ADMIN MENU -->
+
+                    <a
+                        class="nav-link"
+                        href="?page=dashboard">
+
+                        Dashboard
+
+                    </a>
+
+
+                    <a
+                        class="nav-link"
+                        href="?page=services-admin">
+
+                        Services
+
+                    </a>
+
+
+                    <a
+                        class="nav-link"
+                        href="?page=customers">
+
+                        Customers
+
+                    </a>
+
+
+                    <!-- REQUESTS -->
+
+                    <div class="nav-item dropdown">
+
+                        <a
+                            class="nav-link dropdown-toggle"
+                            href="#"
+                            role="button"
+                            data-bs-toggle="dropdown">
+
+                            Requests
+
                         </a>
+
+
+                        <ul class="dropdown-menu">
+
+                            <li>
+
+                                <a
+                                    class="dropdown-item"
+                                    href="?page=requests">
+
+                                    Current Requests
+
+                                </a>
+
+                            </li>
+
+
+                            <li>
+
+                                <a
+                                    class="dropdown-item"
+                                    href="?page=archived-requests">
+
+                                    Archived Requests
+
+                                </a>
+
+                            </li>
+
+                        </ul>
+
+                    </div>
+
+
+                    <!-- FINANCE -->
+
+                    <div class="nav-item dropdown">
+
+                        <a
+                            class="nav-link dropdown-toggle"
+                            href="#"
+                            role="button"
+                            data-bs-toggle="dropdown">
+
+                            Finance
+
+                        </a>
+
+
+                        <ul class="dropdown-menu">
+
+                            <li>
+
+                                <a
+                                    class="dropdown-item"
+                                    href="?page=payments">
+
+                                    Payments
+
+                                </a>
+
+                            </li>
+
+
+                            <li>
+
+                                <a
+                                    class="dropdown-item"
+                                    href="?page=refund-requests">
+
+                                    Refund Requests
+
+                                </a>
+
+                            </li>
+
+
+                            <li>
+
+                                <a
+                                    class="dropdown-item"
+                                    href="?page=refunds">
+
+                                    Approved Refunds
+
+                                </a>
+
+                            </li>
+
+                        </ul>
+
+                    </div>
+
+
+                    <!-- SYSTEM -->
+
+                    <div class="nav-item dropdown">
+
+                        <a
+                            class="nav-link dropdown-toggle"
+                            href="#"
+                            role="button"
+                            data-bs-toggle="dropdown">
+
+                            System
+
+                        </a>
+
+
+                        <ul class="dropdown-menu">
+
+                            <li>
+
+                                <a
+                                    class="dropdown-item"
+                                    href="?page=messages">
+
+                                    Active Messages
+
+                                </a>
+
+                            </li>
+
+
+                            <li>
+
+                                <a
+                                    class="dropdown-item"
+                                    href="?page=archived-messages">
+
+                                    Archived Messages
+
+                                </a>
+
+                            </li>
+
+
+                            <li>
+
+                                <a
+                                    class="dropdown-item"
+                                    href="?page=backup">
+
+                                    Database Backup
+
+                                </a>
+
+                            </li>
+
+                        </ul>
+
+                    </div>
+
+
+                    <!-- ADMIN NOTIFICATIONS -->
+
+                    <li class="nav-item dropdown">
+
+                        <a
+                            class="nav-link position-relative"
+                            href="#"
+                            id="notificationsDropdown"
+                            role="button"
+                            data-bs-toggle="dropdown"
+                            aria-expanded="false">
+
+                            🔔
+
+                            <?php if ($notificationCount > 0): ?>
+
+                                <span
+                                    id="notification-count"
+                                    class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+
+                                    <?= $notificationCount ?>
+
+                                </span>
+
+                            <?php endif; ?>
+
+                        </a>
+
+
+                        <ul
+                            class="dropdown-menu dropdown-menu-end"
+                            style="width: 380px;"
+                            id="notification-list">
+
+
+                            <?php
+
+                            $stmt = $pdo->query("
+                                SELECT *
+                                FROM notifications
+                                WHERE recipient_type = 'admin'
+                                  AND is_read = 0
+                                ORDER BY created_at DESC
+                                LIMIT 10
+                            ");
+
+                            $notifications = $stmt->fetchAll();
+
+                            ?>
+
+
+                            <?php if (empty($notifications)): ?>
+
+                                <li class="dropdown-item text-muted">
+
+                                    No notifications
+
+                                </li>
+
+                            <?php else: ?>
+
+                                <?php foreach ($notifications as $notification): ?>
+
+                                    <li>
+
+                                        <a
+                                            class="dropdown-item"
+                                            href="?page=open-notification&id=<?= $notification['id'] ?>">
+
+                                            <strong>
+
+                                                <?= htmlspecialchars(
+                                                    $notification['title']
+                                                ) ?>
+
+                                            </strong>
+
+                                            <br>
+
+                                            <small>
+
+                                                <?= htmlspecialchars(
+                                                    $notification['message']
+                                                ) ?>
+
+                                            </small>
+
+                                            <br>
+
+                                            <small class="text-muted">
+
+                                                <?= $notification['created_at'] ?>
+
+                                            </small>
+
+                                        </a>
+
+                                    </li>
+
+
+                                    <li>
+
+                                        <hr class="dropdown-divider">
+
+                                    </li>
+
+                                <?php endforeach; ?>
+
+                            <?php endif; ?>
+
+
+                            <li>
+
+                                <hr class="dropdown-divider">
+
+                            </li>
+
+
+                            <li>
+
+                                <a
+                                    class="dropdown-item text-center"
+                                    href="?page=notifications">
+
+                                    View All Notifications
+
+                                </a>
+
+                            </li>
+
+                        </ul>
+
                     </li>
 
-                    <li class="nav-item">
-                        <a class="nav-link" href="?page=contact">
-                            Contact
+
+                    <!-- ADMIN LOGOUT -->
+
+                    <a
+                        class="nav-link text-danger"
+                        href="?page=logout">
+
+                        Logout
+
+                    </a>
+
+
+                <!-- =========================================================
+                     NORMAL CUSTOMER MENU
+                     ========================================================= -->
+
+                <?php elseif (isset($_SESSION['customer'])): ?>
+
+
+                    <a
+                        class="nav-link"
+                        href="?page=customer-dashboard">
+
+                        Dashboard
+
+                    </a>
+
+
+                    <a
+                        class="nav-link"
+                        href="?page=customer-requests">
+
+                        My Requests
+
+                    </a>
+
+
+                    <a
+                        class="nav-link"
+                        href="?page=customer-payments">
+
+                        My Payments
+
+                    </a>
+
+
+                    <a
+                        class="nav-link"
+                        href="?page=customer-refunds">
+
+                        My Refunds
+
+                    </a>
+
+
+                    <!-- CUSTOMER NOTIFICATIONS -->
+
+                    <li class="nav-item dropdown">
+
+                        <a
+                            class="nav-link position-relative"
+                            href="#"
+                            data-bs-toggle="dropdown">
+
+                            🔔
+
+                            <?php if ($customerNotificationCount > 0): ?>
+
+                                <span
+                                    class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+
+                                    <?= $customerNotificationCount ?>
+
+                                </span>
+
+                            <?php endif; ?>
+
                         </a>
+
+
+                        <ul
+                            class="dropdown-menu dropdown-menu-end"
+                            style="min-width:350px;">
+
+
+                            <?php if (empty($customerNotifications)): ?>
+
+                                <li>
+
+                                    <span
+                                        class="dropdown-item-text text-muted">
+
+                                        No new notifications
+
+                                    </span>
+
+                                </li>
+
+                            <?php else: ?>
+
+                                <?php foreach (
+                                    $customerNotifications
+                                    as $notification
+                                ): ?>
+
+                                    <li>
+
+                                        <a
+                                            class="dropdown-item"
+                                            href="?page=customer-notifications">
+
+                                            <strong>
+
+                                                <?= htmlspecialchars(
+                                                    $notification['title']
+                                                ) ?>
+
+                                            </strong>
+
+                                            <br>
+
+                                            <small class="text-muted">
+
+                                                <?= htmlspecialchars(
+                                                    $notification['message']
+                                                ) ?>
+
+                                            </small>
+
+                                        </a>
+
+                                    </li>
+
+                                <?php endforeach; ?>
+
+                            <?php endif; ?>
+
+
+                            <li>
+
+                                <hr class="dropdown-divider">
+
+                            </li>
+
+
+                            <li>
+
+                                <a
+                                    class="dropdown-item text-center fw-bold"
+                                    href="?page=customer-notifications">
+
+                                    View All Notifications
+
+                                </a>
+
+                            </li>
+
+                        </ul>
+
                     </li>
 
-                    <li class="nav-item">
-                        <a class="nav-link" href="?page=customer-register">
-                            Register
-                        </a>
-                    </li>
 
-                    <li class="nav-item">
-                        <a class="nav-link" href="?page=public-login">
-                            Login
-                        </a>
-                    </li>
+                    <!-- CUSTOMER LOGOUT -->
 
-                </ul>
+                    <a
+                        class="nav-link text-danger"
+                        href="?page=customer-logout">
+
+                        Logout
+
+                    </a>
+
+
+                <!-- =========================================================
+                     PUBLIC MENU
+                     ========================================================= -->
+
+                <?php else: ?>
+
+
+                    <a
+                        class="nav-link"
+                        href="?page=home">
+
+                        Home
+
+                    </a>
+
+
+                    <a
+                        class="nav-link"
+                        href="?page=services">
+
+                        Services
+
+                    </a>
+
+
+                    <?php if ($guestChatAvailability['available']): ?>
+
+                        <a
+                            class="nav-link"
+                            href="?page=guest-chat">
+
+                            Live Chat
+
+                        </a>
+
+                    <?php endif; ?>
+
+
+                    <a
+                        class="nav-link"
+                        href="?page=customer-register">
+
+                        Register
+
+                    </a>
+
+
+                    <a
+                        class="nav-link"
+                        href="?page=public-login">
+
+                        Login
+
+                    </a>
+
+
+                <?php endif; ?>
+
 
             </div>
 
-        <?php endif; ?>
+        </div>
 
     </div>
 
 </nav>
+
+
+<div class="container py-4">

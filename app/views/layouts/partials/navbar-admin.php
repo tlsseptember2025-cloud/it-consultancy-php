@@ -469,56 +469,69 @@ try {
 
 
                 <?php if (
-    !isset($_SESSION['demo_user']) &&
-    !isset($_SESSION['demo_super_admin'])
-): ?>
+                    !isset($_SESSION['demo_user']) &&
+                    !isset($_SESSION['demo_super_admin'])
+                ): ?>
 
-    <!-- Communications - Main Admin Only -->
+                    <!-- Communications -->
 
-    <li class="nav-item dropdown">
+                    <li class="nav-item dropdown">
 
-        <a
-            class="nav-link dropdown-toggle"
-            href="#"
-            role="button"
-            data-bs-toggle="dropdown"
-            aria-expanded="false">
+                        <a
+                            class="nav-link dropdown-toggle"
+                            href="#"
+                            role="button"
+                            data-bs-toggle="dropdown"
+                            aria-expanded="false">
 
-            Communications
+                            Communications
 
-        </a>
+                        </a>
 
-        <ul class="dropdown-menu">
+                        <ul class="dropdown-menu">
 
-            <li>
+                            <li>
 
-                <a
-                    class="dropdown-item"
-                    href="?page=messages">
+                                <a
+                                    class="dropdown-item"
+                                    href="?page=guest-chats">
 
-                    Active Messages
+                                    Guest Chats
 
-                </a>
+                                </a>
 
-            </li>
+                            </li>
 
-            <li>
+                            <li>
 
-                <a
-                    class="dropdown-item"
-                    href="?page=archived-messages">
+                                <a
+                                    class="dropdown-item"
+                                    href="?page=messages">
 
-                    Archived Messages
+                                    Active Messages
 
-                </a>
+                                </a>
 
-            </li>
+                            </li>
 
-        </ul>
+                            <li>
 
-    </li>
+                                <a
+                                    class="dropdown-item"
+                                    href="?page=archived-messages">
 
-<?php endif; ?>
+                                    Archived Messages
+
+                                </a>
+
+                            </li>
+
+                        </ul>
+
+                    </li>
+
+                <?php endif; ?>
+
 
                 <!-- Notifications -->
 
