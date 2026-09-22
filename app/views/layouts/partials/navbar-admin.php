@@ -2,14 +2,39 @@
 
 require_once APP_PATH . '/helpers/DateHelper.php';
 
+/*
+|--------------------------------------------------------------------------
+| Select Admin Database
+|--------------------------------------------------------------------------
+|
+| Main Admin:
+|     $pdo
+|
+| Demo Admin / Demo Super Admin:
+|     $demoPdo
+|
+*/
+
 $adminPdo = $pdo;
 
 if (
     isset($_SESSION['demo_super_admin']) ||
     isset($_SESSION['demo_user'])
 ) {
+
+    if (!isset($demoPdo)) {
+        require_once CONFIG_PATH . '/demo-database.php';
+    }
+
     $adminPdo = $demoPdo;
 }
+
+
+/*
+|--------------------------------------------------------------------------
+| Notification Count
+|--------------------------------------------------------------------------
+*/
 
 $notificationCount = 0;
 
@@ -31,18 +56,34 @@ try {
 }
 
 
-$stmt = $adminPdo->prepare("
-    SELECT COUNT(*) AS total
-    FROM requests
-    WHERE workflow_stage = ?
-");
+/*
+|--------------------------------------------------------------------------
+| Needs Admin Review Count
+|--------------------------------------------------------------------------
+*/
 
-$stmt->execute([
-    'Needs Admin Review'
-]);
+$needsAdminReviewCount = 0;
 
-$needsAdminReviewCount = (int) $stmt->fetch(PDO::FETCH_ASSOC)['total'];
+try {
 
+    $stmt = $adminPdo->prepare("
+        SELECT COUNT(*) AS total
+        FROM requests
+        WHERE workflow_stage = ?
+    ");
+
+    $stmt->execute([
+        'Needs Admin Review'
+    ]);
+
+    $needsAdminReviewCount =
+        (int) $stmt->fetch(PDO::FETCH_ASSOC)['total'];
+
+} catch (Exception $e) {
+
+    $needsAdminReviewCount = 0;
+
+}
 
 ?>
 
@@ -59,6 +100,7 @@ $needsAdminReviewCount = (int) $stmt->fetch(PDO::FETCH_ASSOC)['total'];
 
         </a>
 
+
         <button
             class="navbar-toggler"
             type="button"
@@ -72,91 +114,93 @@ $needsAdminReviewCount = (int) $stmt->fetch(PDO::FETCH_ASSOC)['total'];
 
         </button>
 
+
         <div
             class="collapse navbar-collapse"
             id="navbarNav">
 
             <ul class="navbar-nav ms-auto align-items-lg-center">
 
+
                 <!-- Services -->
 
-               <!-- Services -->
+                <li class="nav-item dropdown">
 
-<li class="nav-item dropdown">
+                    <a
+                        class="nav-link dropdown-toggle"
+                        href="#"
+                        role="button"
+                        data-bs-toggle="dropdown"
+                        aria-expanded="false">
 
-    <a
-        class="nav-link dropdown-toggle"
-        href="#"
-        role="button"
-        data-bs-toggle="dropdown"
-        aria-expanded="false">
+                        Services
 
-        Services
+                    </a>
 
-    </a>
+                    <ul class="dropdown-menu">
 
-    <ul class="dropdown-menu">
+                        <li>
 
-        <li>
+                            <a
+                                class="dropdown-item"
+                                href="?page=services-admin">
 
-            <a
-                class="dropdown-item"
-                href="?page=services-admin">
+                                Services
 
-                Services
+                            </a>
 
-            </a>
+                        </li>
 
-        </li>
+                        <li>
 
-        <li>
+                            <a
+                                class="dropdown-item"
+                                href="?page=pricing">
 
-            <a
-                class="dropdown-item"
-                href="?page=pricing">
+                                Price List
 
-                Price List
+                            </a>
 
-            </a>
+                        </li>
 
-        </li>
+                    </ul>
 
-    </ul>
+                </li>
 
-</li>
 
                 <!-- Customers -->
 
                 <li class="nav-item dropdown">
 
-    <a
-        class="nav-link dropdown-toggle"
-        href="#"
-        role="button"
-        data-bs-toggle="dropdown"
-        aria-expanded="false">
+                    <a
+                        class="nav-link dropdown-toggle"
+                        href="#"
+                        role="button"
+                        data-bs-toggle="dropdown"
+                        aria-expanded="false">
 
-        Customers
+                        Customers
 
-    </a>
+                    </a>
 
-    <ul class="dropdown-menu">
+                    <ul class="dropdown-menu">
 
-        <li>
+                        <li>
 
-            <a
-                class="dropdown-item"
-                href="?page=customers">
+                            <a
+                                class="dropdown-item"
+                                href="?page=customers">
 
-                Customers
+                                Customers
 
-            </a>
+                            </a>
 
-        </li>
+                        </li>
 
-    </ul>
+                    </ul>
 
-</li>
+                </li>
+
 
                 <!-- Agents -->
 
@@ -191,177 +235,180 @@ $needsAdminReviewCount = (int) $stmt->fetch(PDO::FETCH_ASSOC)['total'];
 
                 </li>
 
+
                 <!-- Requests -->
 
-<li class="nav-item dropdown">
+                <li class="nav-item dropdown">
 
-    <a
-        class="nav-link dropdown-toggle <?= $needsAdminReviewCount > 0 ? 'text-warning fw-semibold' : '' ?>"
-        href="#"
-        role="button"
-        data-bs-toggle="dropdown"
-        aria-expanded="false">
+                    <a
+                        class="nav-link dropdown-toggle <?= $needsAdminReviewCount > 0 ? 'text-warning fw-semibold' : '' ?>"
+                        href="#"
+                        role="button"
+                        data-bs-toggle="dropdown"
+                        aria-expanded="false">
 
-        Requests
+                        Requests
 
-        <?php if ($needsAdminReviewCount > 0): ?>
+                        <?php if ($needsAdminReviewCount > 0): ?>
 
-            <span class="badge bg-warning text-dark ms-1">
-                <?= $needsAdminReviewCount ?>
-            </span>
+                            <span class="badge bg-warning text-dark ms-1">
+                                <?= $needsAdminReviewCount ?>
+                            </span>
 
-        <?php endif; ?>
+                        <?php endif; ?>
 
-    </a>
-
-
-    <ul class="dropdown-menu">
-
-        <!-- Current Requests -->
-
-        <li>
-
-            <a
-                class="dropdown-item"
-                href="?page=requests">
-
-                Current Requests
-
-            </a>
-
-        </li>
+                    </a>
 
 
-        <!-- Needs Admin Review -->
+                    <ul class="dropdown-menu">
 
-        <li>
+                        <!-- Current Requests -->
 
-            <a
-                class="dropdown-item <?= $needsAdminReviewCount > 0 ? 'text-warning fw-semibold' : '' ?>"
-                href="?page=needs-admin-review">
+                        <li>
 
-                Needs Admin Review
+                            <a
+                                class="dropdown-item"
+                                href="?page=requests">
 
-                <?php if ($needsAdminReviewCount > 0): ?>
+                                Current Requests
 
-                    <span class="badge bg-warning text-dark float-end">
-                        <?= $needsAdminReviewCount ?>
-                    </span>
+                            </a>
 
-                <?php endif; ?>
-
-            </a>
-
-        </li>
+                        </li>
 
 
-        <!-- Awaiting Customer Response -->
+                        <!-- Needs Admin Review -->
 
-        <li>
+                        <li>
 
-            <a
-                class="dropdown-item"
-                href="?page=awaiting-customer-response">
+                            <a
+                                class="dropdown-item <?= $needsAdminReviewCount > 0 ? 'text-warning fw-semibold' : '' ?>"
+                                href="?page=needs-admin-review">
 
-                Awaiting Customer Response
+                                Needs Admin Review
 
-            </a>
+                                <?php if ($needsAdminReviewCount > 0): ?>
 
-        </li>
+                                    <span class="badge bg-warning text-dark float-end">
+                                        <?= $needsAdminReviewCount ?>
+                                    </span>
 
+                                <?php endif; ?>
 
-        <!-- Closed Requests -->
+                            </a>
 
-        <li>
-
-            <a
-                class="dropdown-item"
-                href="?page=closed-requests">
-
-                Closed Requests
-
-            </a>
-
-        </li>
+                        </li>
 
 
-        <!-- Archived Requests -->
+                        <!-- Awaiting Customer Response -->
 
-        <li>
+                        <li>
 
-            <a
-                class="dropdown-item"
-                href="?page=archived-requests">
+                            <a
+                                class="dropdown-item"
+                                href="?page=awaiting-customer-response">
 
-                Archived Requests
+                                Awaiting Customer Response
 
-            </a>
+                            </a>
 
-        </li>
+                        </li>
 
 
-        <!-- Retention Review -->
+                        <!-- Closed Requests -->
 
-        <li>
+                        <li>
 
-            <a
-                class="dropdown-item"
-                href="?page=retention-review">
+                            <a
+                                class="dropdown-item"
+                                href="?page=closed-requests">
 
-                Retention Review
+                                Closed Requests
 
-            </a>
+                            </a>
 
-        </li>
+                        </li>
 
-    </ul>
 
-</li>
+                        <!-- Archived Requests -->
+
+                        <li>
+
+                            <a
+                                class="dropdown-item"
+                                href="?page=archived-requests">
+
+                                Archived Requests
+
+                            </a>
+
+                        </li>
+
+
+                        <!-- Retention Review -->
+
+                        <li>
+
+                            <a
+                                class="dropdown-item"
+                                href="?page=retention-review">
+
+                                Retention Review
+
+                            </a>
+
+                        </li>
+
+                    </ul>
+
+                </li>
+
 
                 <!-- Consultations -->
 
-<li class="nav-item dropdown">
+                <li class="nav-item dropdown">
 
-    <a
-        class="nav-link dropdown-toggle"
-        href="#"
-        role="button"
-        data-bs-toggle="dropdown"
-        aria-expanded="false">
+                    <a
+                        class="nav-link dropdown-toggle"
+                        href="#"
+                        role="button"
+                        data-bs-toggle="dropdown"
+                        aria-expanded="false">
 
-        Consultations
+                        Consultations
 
-    </a>
+                    </a>
 
-    <ul class="dropdown-menu">
+                    <ul class="dropdown-menu">
 
-        <li>
+                        <li>
 
-            <a
-                class="dropdown-item"
-                href="?page=closure-agreements">
+                            <a
+                                class="dropdown-item"
+                                href="?page=closure-agreements">
 
-                Pending Closure Agreements
+                                Pending Closure Agreements
 
-            </a>
+                            </a>
 
-        </li>
+                        </li>
 
-        <li>
+                        <li>
 
-            <a
-                class="dropdown-item"
-                href="?page=approved-closures">
+                            <a
+                                class="dropdown-item"
+                                href="?page=approved-closures">
 
-                Approved Closures
+                                Approved Closures
 
-            </a>
+                            </a>
 
-        </li>
+                        </li>
 
-    </ul>
+                    </ul>
 
-</li>
+                </li>
+
 
                 <!-- Finance -->
 
@@ -420,50 +467,58 @@ $needsAdminReviewCount = (int) $stmt->fetch(PDO::FETCH_ASSOC)['total'];
 
                 </li>
 
-                                <!-- System -->
 
-                <li class="nav-item dropdown">
+                <?php if (
+    !isset($_SESSION['demo_user']) &&
+    !isset($_SESSION['demo_super_admin'])
+): ?>
 
-                    <a
-                        class="nav-link dropdown-toggle"
-                        href="#"
-                        role="button"
-                        data-bs-toggle="dropdown"
-                        aria-expanded="false">
+    <!-- Communications - Main Admin Only -->
 
-                        Communications
+    <li class="nav-item dropdown">
 
-                    </a>
+        <a
+            class="nav-link dropdown-toggle"
+            href="#"
+            role="button"
+            data-bs-toggle="dropdown"
+            aria-expanded="false">
 
-                    <ul class="dropdown-menu">
+            Communications
 
-                        <li>
+        </a>
 
-                            <a
-                                class="dropdown-item"
-                                href="?page=messages">
+        <ul class="dropdown-menu">
 
-                                Active Messages
+            <li>
 
-                            </a>
+                <a
+                    class="dropdown-item"
+                    href="?page=messages">
 
-                        </li>
+                    Active Messages
 
-                        <li>
+                </a>
 
-                            <a
-                                class="dropdown-item"
-                                href="?page=archived-messages">
+            </li>
 
-                                Archived Messages
+            <li>
 
-                            </a>
+                <a
+                    class="dropdown-item"
+                    href="?page=archived-messages">
 
-                        </li>
+                    Archived Messages
 
-                    </ul>
+                </a>
 
-                </li>
+            </li>
+
+        </ul>
+
+    </li>
+
+<?php endif; ?>
 
                 <!-- Notifications -->
 
@@ -493,6 +548,7 @@ $needsAdminReviewCount = (int) $stmt->fetch(PDO::FETCH_ASSOC)['total'];
 
                     </a>
 
+
                     <ul
                         class="dropdown-menu dropdown-menu-end"
                         style="width: 380px;"
@@ -513,6 +569,7 @@ $needsAdminReviewCount = (int) $stmt->fetch(PDO::FETCH_ASSOC)['total'];
 
                         ?>
 
+
                         <?php if (empty($notifications)): ?>
 
                             <li class="dropdown-item text-muted">
@@ -529,7 +586,7 @@ $needsAdminReviewCount = (int) $stmt->fetch(PDO::FETCH_ASSOC)['total'];
 
                                     <a
                                         class="dropdown-item"
-                                        href="?page=open-notification&id=<?= $notification['id'] ?>">
+                                        href="?page=open-notification&id=<?= (int) $notification['id'] ?>">
 
                                         <strong>
 
@@ -567,6 +624,7 @@ $needsAdminReviewCount = (int) $stmt->fetch(PDO::FETCH_ASSOC)['total'];
 
                         <?php endif; ?>
 
+
                         <li>
 
                             <a
@@ -583,6 +641,7 @@ $needsAdminReviewCount = (int) $stmt->fetch(PDO::FETCH_ASSOC)['total'];
 
                 </li>
 
+
                 <!-- Logout -->
 
                 <li class="nav-item">
@@ -596,6 +655,7 @@ $needsAdminReviewCount = (int) $stmt->fetch(PDO::FETCH_ASSOC)['total'];
                     </a>
 
                 </li>
+
 
             </ul>
 

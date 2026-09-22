@@ -71,7 +71,9 @@ if ($isDemoEnvironment) {
     $demoSuperAdminRoutes = [
         'dashboard',
         'demo-super-admin',
+        'admin-suspension-chat',
         'logout',
+        'suspension-attachment',
         'notifications',
         'open-notification',
         'mark-all-notifications-read',
@@ -144,6 +146,11 @@ if ($isDemoEnvironment) {
     $demoAdminRoutes = [
         'dashboard',
         'demo-setup',
+        'customers',
+        'view-customer',
+        'suspension-attachment',
+        'admin-suspension-chat',
+        'agents',
         'logout',
         'notifications',
         'open-notification',
@@ -262,34 +269,36 @@ if ($isDemoEnvironment) {
      * Routes available to Demo Customer
      */
     $demoCustomerRoutes = [
-        'customer-dashboard',
-        'customer-logout',
-        'customer-profile',
-        'customer-requests',
-        'customer-view-inactive-request',
-        'customer-request-service',
-        'customer-request-refund',
-        'customer-payments',
-        'customer-refunds',
-        'customer-upload-slip',
-        'customer-notifications',
-        'schedule-consultation',
-        'confirm-consultation',
-        'reschedule-consultation',
-        'confirm-reschedule-consultation',
-        'refund-history',
-        'customer-view-refund',
-        'schedule-service',
-        'confirm-service',
-        'reschedule-service',
-        'confirm-reschedule-service',
-        'confirm-service-completion',
-        'confirm-consultation-completion',
-        'customer-rate-agent',
-        'view-proposal',
-        'accept-proposal-confirm',
-        'reject-proposal',
-    ];
+    'customer-dashboard',
+    'customer-suspension-chat',
+    'suspension-attachment',
+    'customer-logout',
+    'customer-profile',
+    'customer-requests',
+    'customer-view-inactive-request',
+    'customer-request-service',
+    'customer-request-refund',
+    'customer-payments',
+    'customer-refunds',
+    'customer-upload-slip',
+    'customer-notifications',
+    'schedule-consultation',
+    'confirm-consultation',
+    'reschedule-consultation',
+    'confirm-reschedule-consultation',
+    'refund-history',
+    'customer-view-refund',
+    'schedule-service',
+    'confirm-service',
+    'reschedule-service',
+    'confirm-reschedule-service',
+    'confirm-service-completion',
+    'confirm-consultation-completion',
+    'customer-rate-agent',
+    'view-proposal',
+    'accept-proposal-confirm',
+    'reject-proposal',
+];
 
     /**
      * Public routes do not require authentication.
@@ -345,6 +354,156 @@ if ($isDemoEnvironment) {
         }
     }
 }
+
+
+/*
+|--------------------------------------------------------------------------
+| Suspended Customer Route Protection
+|--------------------------------------------------------------------------
+|
+| Suspended customers may access only:
+|
+| - Suspension Chat
+| - Suspension Chat Attachments
+| - Customer Logout
+| - Payment Slip Upload when "Payment Required" is active
+|
+| All normal customer portal routes are blocked.
+|--------------------------------------------------------------------------
+*/
+
+$isSuspendedCustomer = false;
+$hasPaymentRequiredSuspension = false;
+
+if (
+    isset($_SESSION['customer']) ||
+    isset($_SESSION['demo_customer'])
+) {
+
+    /*
+     * Determine which database and customer ID to use.
+     */
+    if ($isDemoEnvironment && isset($_SESSION['demo_customer'])) {
+
+        $suspendedCustomerId =
+            (int) $_SESSION['demo_customer']['id'];
+
+        $suspensionPdo = $demoPdo;
+
+        $customerStatusStmt = $suspensionPdo->prepare("
+            SELECT status
+            FROM customers
+            WHERE id = ?
+              AND is_demo_account = 1
+            LIMIT 1
+        ");
+
+        $customerStatusStmt->execute([
+            $suspendedCustomerId
+        ]);
+
+    } elseif (!$isDemoEnvironment && isset($_SESSION['customer'])) {
+
+        $suspendedCustomerId =
+            (int) $_SESSION['customer']['id'];
+
+        $suspensionPdo = $pdo;
+
+        $customerStatusStmt = $suspensionPdo->prepare("
+            SELECT status
+            FROM customers
+            WHERE id = ?
+            LIMIT 1
+        ");
+
+        $customerStatusStmt->execute([
+            $suspendedCustomerId
+        ]);
+
+    } else {
+
+        $suspendedCustomerId = 0;
+        $suspensionPdo = null;
+        $customerStatusStmt = null;
+    }
+
+
+    /*
+     * Check the customer's current database status.
+     *
+     * This deliberately does not rely only on the session because
+     * an Admin may suspend or reactivate the customer while the
+     * customer's browser session is still active.
+     */
+    if ($customerStatusStmt) {
+
+        $currentCustomerStatus =
+            $customerStatusStmt->fetchColumn();
+
+        if ($currentCustomerStatus === 'Suspended') {
+
+            $isSuspendedCustomer = true;
+
+
+            /*
+             * Check whether Payment Required is currently active.
+             */
+            $paymentRequiredStmt = $suspensionPdo->prepare("
+                SELECT COUNT(*)
+                FROM customer_suspensions
+                WHERE customer_id = ?
+                  AND reason = 'Payment Required'
+                  AND active = 1
+            ");
+
+            $paymentRequiredStmt->execute([
+                $suspendedCustomerId
+            ]);
+
+            $hasPaymentRequiredSuspension =
+                ((int) $paymentRequiredStmt->fetchColumn() > 0);
+        }
+    }
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Enforce Suspended Customer Access
+|--------------------------------------------------------------------------
+*/
+
+if ($isSuspendedCustomer) {
+
+    $allowedSuspendedCustomerRoutes = [
+        'customer-suspension-chat',
+        'suspension-attachment',
+        'customer-logout'
+    ];
+
+
+    /*
+     * Payment slip upload is available only when the active
+     * suspension includes Payment Required.
+     */
+    if ($hasPaymentRequiredSuspension) {
+        $allowedSuspendedCustomerRoutes[] =
+            'customer-upload-slip';
+    }
+
+
+    if (!in_array($page, $allowedSuspendedCustomerRoutes, true)) {
+
+        if ($isDemoEnvironment) {
+            header('Location: ?page=customer-suspension-chat');
+        } else {
+            header('Location: ?page=customer-suspension-chat');
+        }
+
+        exit;
+    }
+}
+
 
 switch ($page) {
 
@@ -638,6 +797,18 @@ case 'create-demo':
 
     case 'customer-dashboard':
         require VIEW_PATH . '/customer/customer-dashboard.php';
+        break;
+
+    case 'customer-suspension-chat':
+        require VIEW_PATH . '/customer/customer-suspension-chat.php';
+        break;
+
+    case 'admin-suspension-chat':
+        require VIEW_PATH . '/admin/admin-suspension-chat.php';
+        break;
+
+    case 'suspension-attachment':
+        require CONTROLLER_PATH . '/suspension-attachment.php';
         break;
 
     case 'customer-view-inactive-request':

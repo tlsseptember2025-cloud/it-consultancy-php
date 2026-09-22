@@ -1,13 +1,43 @@
 <?php
 
-if (!isset($_SESSION['user'])) {
+require_once HELPER_PATH . '/auth.php';
+require_once HELPER_PATH . '/email.php';
 
-    header("Location: ?page=login");
+
+/*
+|--------------------------------------------------------------------------
+| Determine Admin Context
+|--------------------------------------------------------------------------
+*/
+
+$isMainAdmin      = isset($_SESSION['user']);
+$isDemoAdmin      = isset($_SESSION['demo_user']);
+$isDemoSuperAdmin = isset($_SESSION['demo_super_admin']);
+
+if (!$isMainAdmin && !$isDemoAdmin && !$isDemoSuperAdmin) {
+    header('Location: ?page=login');
     exit;
 }
 
-require CONFIG_PATH . '/database.php';
-require_once HELPER_PATH . '/email.php';
+
+/*
+|--------------------------------------------------------------------------
+| Select Database
+|--------------------------------------------------------------------------
+*/
+
+if ($isDemoAdmin || $isDemoSuperAdmin) {
+
+    require_once CONFIG_PATH . '/demo-database.php';
+
+    $adminPdo = $demoPdo;
+
+} else {
+
+    require_once CONFIG_PATH . '/database.php';
+
+    $adminPdo = $pdo;
+}
 
 
 /*
@@ -21,6 +51,7 @@ $customerId = (int) ($_GET['id'] ?? 0);
 if ($customerId <= 0) {
 
     $_SESSION['error'] = 'Invalid customer registration.';
+
     header('Location: ?page=customers');
     exit;
 }
@@ -32,27 +63,106 @@ if ($customerId <= 0) {
 |--------------------------------------------------------------------------
 */
 
-$stmt = $pdo->prepare("
-    SELECT
-        id,
-        name,
-        email,
-        registration_status
-    FROM customers
-    WHERE id = ?
-    LIMIT 1
-");
+if ($isDemoAdmin) {
 
-$stmt->execute([
-    $customerId
-]);
+    /*
+    |--------------------------------------------------------------------------
+    | Demo Admin
+    |--------------------------------------------------------------------------
+    | Only approve a customer belonging to this Demo tenant.
+    */
+
+    $demoTenantId = (int) ($_SESSION['demo_user']['demo_tenant_id'] ?? 0);
+
+    if ($demoTenantId <= 0) {
+
+        $_SESSION['error'] = 'Demo tenant information is missing.';
+
+        header('Location: ?page=customers');
+        exit;
+    }
+
+    $stmt = $adminPdo->prepare("
+        SELECT
+            id,
+            name,
+            email,
+            registration_status
+        FROM customers
+        WHERE id = ?
+          AND demo_tenant_id = ?
+          AND is_demo_account = 1
+        LIMIT 1
+    ");
+
+    $stmt->execute([
+        $customerId,
+        $demoTenantId
+    ]);
+
+} elseif ($isDemoSuperAdmin) {
+
+    /*
+    |--------------------------------------------------------------------------
+    | Demo Super Admin
+    |--------------------------------------------------------------------------
+    | May approve Demo customers across all Demo tenants.
+    */
+
+    $stmt = $adminPdo->prepare("
+        SELECT
+            id,
+            name,
+            email,
+            registration_status
+        FROM customers
+        WHERE id = ?
+          AND is_demo_account = 1
+        LIMIT 1
+    ");
+
+    $stmt->execute([
+        $customerId
+    ]);
+
+} else {
+
+    /*
+    |--------------------------------------------------------------------------
+    | Main Admin
+    |--------------------------------------------------------------------------
+    */
+
+    $stmt = $adminPdo->prepare("
+        SELECT
+            id,
+            name,
+            email,
+            registration_status
+        FROM customers
+        WHERE id = ?
+        LIMIT 1
+    ");
+
+    $stmt->execute([
+        $customerId
+    ]);
+}
 
 $customer = $stmt->fetch(PDO::FETCH_ASSOC);
 
 
+/*
+|--------------------------------------------------------------------------
+| Customer Not Found / Not Accessible
+|--------------------------------------------------------------------------
+*/
+
 if (!$customer) {
 
-    $_SESSION['error'] = 'Customer registration not found.';
+    $_SESSION['error'] =
+        'Customer registration not found or you do not have access to it.';
+
     header('Location: ?page=customers');
     exit;
 }
@@ -83,23 +193,82 @@ if (
 |--------------------------------------------------------------------------
 */
 
-$stmt = $pdo->prepare("
-    UPDATE customers
+if ($isDemoAdmin) {
 
-    SET
-        registration_status = 'Approved',
-        approved_at = NOW(),
-        rejection_reason = NULL,
-        rejected_at = NULL
+    /*
+    |--------------------------------------------------------------------------
+    | Demo Admin Approval
+    |--------------------------------------------------------------------------
+    */
 
-    WHERE
-        id = ?
-        AND registration_status = 'Pending Admin Approval'
-");
+    $stmt = $adminPdo->prepare("
+        UPDATE customers
+        SET
+            registration_status = 'Approved',
+            approved_at = NOW(),
+            rejection_reason = NULL,
+            rejected_at = NULL
+        WHERE
+            id = ?
+            AND demo_tenant_id = ?
+            AND is_demo_account = 1
+            AND registration_status = 'Pending Admin Approval'
+    ");
 
-$stmt->execute([
-    $customerId
-]);
+    $stmt->execute([
+        $customerId,
+        $demoTenantId
+    ]);
+
+} elseif ($isDemoSuperAdmin) {
+
+    /*
+    |--------------------------------------------------------------------------
+    | Demo Super Admin Approval
+    |--------------------------------------------------------------------------
+    */
+
+    $stmt = $adminPdo->prepare("
+        UPDATE customers
+        SET
+            registration_status = 'Approved',
+            approved_at = NOW(),
+            rejection_reason = NULL,
+            rejected_at = NULL
+        WHERE
+            id = ?
+            AND is_demo_account = 1
+            AND registration_status = 'Pending Admin Approval'
+    ");
+
+    $stmt->execute([
+        $customerId
+    ]);
+
+} else {
+
+    /*
+    |--------------------------------------------------------------------------
+    | Main Admin Approval
+    |--------------------------------------------------------------------------
+    */
+
+    $stmt = $adminPdo->prepare("
+        UPDATE customers
+        SET
+            registration_status = 'Approved',
+            approved_at = NOW(),
+            rejection_reason = NULL,
+            rejected_at = NULL
+        WHERE
+            id = ?
+            AND registration_status = 'Pending Admin Approval'
+    ");
+
+    $stmt->execute([
+        $customerId
+    ]);
+}
 
 
 if ($stmt->rowCount() !== 1) {

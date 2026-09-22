@@ -63,8 +63,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             === 'Approved'
         ) {
 
+            // Store the complete current customer record in the session.
             $_SESSION['customer'] = $customer;
 
+            /*
+             * Suspended customers are restricted to the
+             * suspension communication area.
+             *
+             * They do not enter the normal customer dashboard.
+             */
+            if (($customer['status'] ?? 'Active') === 'Suspended') {
+
+                header('Location: ?page=customer-suspension-chat');
+                exit;
+
+            }
+
+            /*
+             * Active customers continue to the normal
+             * customer dashboard.
+             */
             header('Location: ?page=customer-dashboard');
             exit;
 

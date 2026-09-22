@@ -2,8 +2,6 @@
 
 require_once HELPER_PATH . '/auth.php';
 
-requireAdminLogin();
-
 
 /*
 |--------------------------------------------------------------------------
@@ -11,21 +9,37 @@ requireAdminLogin();
 |--------------------------------------------------------------------------
 */
 
+$isMainAdmin = isset($_SESSION['user']);
 $isDemoAdmin = isset($_SESSION['demo_user']);
 $isDemoSuperAdmin = isset($_SESSION['demo_super_admin']);
-
-$customerStatusPdo = $pdo;
 
 
 /*
 |--------------------------------------------------------------------------
-| Load Correct Database
+| Authentication
 |--------------------------------------------------------------------------
 */
 
+if (!$isMainAdmin && !$isDemoAdmin && !$isDemoSuperAdmin) {
+
+    header('Location: ?page=login');
+    exit;
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Select Correct Database
+|--------------------------------------------------------------------------
+*/
+
+$customerStatusPdo = $pdo;
+
 if ($isDemoAdmin || $isDemoSuperAdmin) {
 
-    require_once CONFIG_PATH . '/demo-database.php';
+    if (!isset($demoPdo)) {
+        require_once CONFIG_PATH . '/demo-database.php';
+    }
 
     $customerStatusPdo = $demoPdo;
 }
@@ -40,6 +54,7 @@ if ($isDemoAdmin || $isDemoSuperAdmin) {
 $customerId = isset($_GET['id'])
     ? (int) $_GET['id']
     : 0;
+
 
 if ($customerId <= 0) {
 
@@ -58,12 +73,11 @@ $demoTenantId = null;
 
 if ($isDemoAdmin) {
 
-    $demoTenantId = (int) (
-        $_SESSION['demo_user']['demo_tenant_id']
-        ?? 0
-    );
+    $demoTenantId =
+        (int) ($_SESSION['demo_user']['demo_tenant_id'] ?? 0);
 
     if ($demoTenantId <= 0) {
+
         die('Invalid Demo tenant.');
     }
 }
@@ -76,6 +90,12 @@ if ($isDemoAdmin) {
 */
 
 if ($isDemoAdmin) {
+
+    /*
+    |--------------------------------------------------------------------------
+    | Demo Admin - Tenant Restricted
+    |--------------------------------------------------------------------------
+    */
 
     $stmt = $customerStatusPdo->prepare("
         SELECT *
@@ -93,6 +113,12 @@ if ($isDemoAdmin) {
 
 } else {
 
+    /*
+    |--------------------------------------------------------------------------
+    | Main Admin OR Demo Super Admin
+    |--------------------------------------------------------------------------
+    */
+
     $stmt = $customerStatusPdo->prepare("
         SELECT *
         FROM customers
@@ -105,7 +131,9 @@ if ($isDemoAdmin) {
     ]);
 }
 
+
 $customer = $stmt->fetch(PDO::FETCH_ASSOC);
+
 
 if (!$customer) {
 
@@ -132,15 +160,8 @@ $suspensionReasons = [
 | Determine Whether Customer Has an Outstanding Payment
 |--------------------------------------------------------------------------
 |
-| Payment Required should only be available when the customer actually
-| has money outstanding on at least one request.
-|
-| A Paid payment by itself is not enough to make this decision because
-| a customer may have multiple requests. We therefore compare each
-| request's quoted price against its recorded Paid payments.
-|
-| If there is no request with an outstanding balance, Payment Required
-| must not be offered.
+| Payment Required is available only when the customer actually has
+| an unpaid balance on at least one request.
 |
 */
 
@@ -163,9 +184,11 @@ $outstandingPaymentStmt = $customerStatusPdo->prepare("
       )
 ");
 
+
 $outstandingPaymentStmt->execute([
     $customerId
 ]);
+
 
 $hasOutstandingPayment =
     ((int) $outstandingPaymentStmt->fetchColumn()) > 0;
@@ -189,40 +212,69 @@ $suspensionStmt = $customerStatusPdo->prepare("
     ORDER BY created_at ASC
 ");
 
+
 $suspensionStmt->execute([
     $customerId
 ]);
 
-$activeSuspensions = $suspensionStmt->fetchAll(PDO::FETCH_ASSOC);
 
-$activeSuspensionReasons = array_column(
-    $activeSuspensions,
-    'reason'
-);
+$activeSuspensions =
+    $suspensionStmt->fetchAll(PDO::FETCH_ASSOC);
+
+
+$activeSuspensionReasons =
+    array_column(
+        $activeSuspensions,
+        'reason'
+    );
 
 
 /*
 |--------------------------------------------------------------------------
 | Determine Available Suspension Reasons
 |--------------------------------------------------------------------------
-|
-| Do not offer a reason that is already active.
-| Offer Payment Required only when an outstanding payment exists.
-|
 */
 
 $availableSuspensionReasons = array_values(
     array_filter(
         $suspensionReasons,
-        function ($reason) use ($hasOutstandingPayment, $activeSuspensionReasons) {
+        function ($reason) use (
+            $hasOutstandingPayment,
+            $activeSuspensionReasons
+        ) {
 
-            if (in_array($reason, $activeSuspensionReasons, true)) {
+            /*
+            |--------------------------------------------------------------------------
+            | Do not duplicate an active reason
+            |--------------------------------------------------------------------------
+            */
+
+            if (
+                in_array(
+                    $reason,
+                    $activeSuspensionReasons,
+                    true
+                )
+            ) {
+
                 return false;
             }
 
-            if ($reason === 'Payment Required' && !$hasOutstandingPayment) {
+
+            /*
+            |--------------------------------------------------------------------------
+            | Payment Required only when money is outstanding
+            |--------------------------------------------------------------------------
+            */
+
+            if (
+                $reason === 'Payment Required' &&
+                !$hasOutstandingPayment
+            ) {
+
                 return false;
             }
+
 
             return true;
         }
@@ -237,14 +289,16 @@ $availableSuspensionReasons = array_values(
 */
 
 if (
-    $_SERVER['REQUEST_METHOD'] === 'POST'
-    &&
+    $_SERVER['REQUEST_METHOD'] === 'POST' &&
     isset($_POST['suspend_customer'])
 ) {
 
-    $selectedReasons = $_POST['suspension_reasons'] ?? [];
+    $selectedReasons =
+        $_POST['suspension_reasons'] ?? [];
+
 
     if (!is_array($selectedReasons)) {
+
         $selectedReasons = [];
     }
 
@@ -265,7 +319,8 @@ if (
 
     if (empty($selectedReasons)) {
 
-        $error = 'Please select at least one suspension reason.';
+        $error =
+            'Please select at least one suspension reason.';
 
     } else {
 
@@ -278,9 +333,6 @@ if (
             |--------------------------------------------------------------------------
             | Insert Selected Reasons
             |--------------------------------------------------------------------------
-            |
-            | Do not create duplicate active reasons.
-            |
             */
 
             foreach ($selectedReasons as $reason) {
@@ -355,18 +407,29 @@ if (
             }
 
 
+            if ($updateStmt->rowCount() !== 1) {
+
+                throw new RuntimeException(
+                    'The customer could not be suspended.'
+                );
+            }
+
+
             $customerStatusPdo->commit();
 
 
             header(
-                'Location: ?page=customer-status&id=' . $customerId
+                'Location: ?page=customer-status&id=' .
+                $customerId
             );
 
             exit;
 
+
         } catch (Throwable $e) {
 
             if ($customerStatusPdo->inTransaction()) {
+
                 $customerStatusPdo->rollBack();
             }
 
@@ -383,20 +446,17 @@ if (
 */
 
 if (
-    $_SERVER['REQUEST_METHOD'] === 'POST'
-    &&
+    $_SERVER['REQUEST_METHOD'] === 'POST' &&
     isset($_POST['resolve_suspension'])
 ) {
 
-    $suspensionId = (int) (
-        $_POST['suspension_id'] ?? 0
-    );
+    $suspensionId =
+        (int) ($_POST['suspension_id'] ?? 0);
 
 
     if ($suspensionId <= 0) {
 
         die('Invalid suspension reason.');
-
     }
 
 
@@ -462,46 +522,25 @@ if (
 
         /*
         |--------------------------------------------------------------------------
-        | Check Remaining Active Suspension Reasons
+        | Do NOT Automatically Reactivate
         |--------------------------------------------------------------------------
-        */
-
-        $remainingStmt = $customerStatusPdo->prepare("
-            SELECT COUNT(*)
-            FROM customer_suspensions
-            WHERE customer_id = ?
-              AND active = 1
-        ");
-
-        $remainingStmt->execute([
-            $customerId
-        ]);
-
-        $remainingReasons = (int) $remainingStmt->fetchColumn();
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | Do Not Automatically Reactivate
-        |--------------------------------------------------------------------------
-        |
-        | Even when no active suspension reasons remain, the customer stays
-        | Suspended until Admin explicitly chooses Reactivate Customer.
-        |
         */
 
         $customerStatusPdo->commit();
 
 
         header(
-            'Location: ?page=customer-status&id=' . $customerId
+            'Location: ?page=customer-status&id=' .
+            $customerId
         );
 
         exit;
 
+
     } catch (Throwable $e) {
 
         if ($customerStatusPdo->inTransaction()) {
+
             $customerStatusPdo->rollBack();
         }
 
@@ -515,18 +554,23 @@ if (
 | Explicit Admin Reactivation
 |--------------------------------------------------------------------------
 |
-| Reactivation is always a separate manual Admin action.
-| It is only allowed when no active suspension reasons remain.
+| Customer may only be reactivated when there are no active
+| suspension reasons remaining.
 |
 */
 
 if (
-    $_SERVER['REQUEST_METHOD'] === 'POST'
-    &&
+    $_SERVER['REQUEST_METHOD'] === 'POST' &&
     isset($_POST['reactivate_customer'])
 ) {
 
     try {
+
+        /*
+        |--------------------------------------------------------------------------
+        | Check Remaining Active Reasons
+        |--------------------------------------------------------------------------
+        */
 
         $remainingStmt = $customerStatusPdo->prepare("
             SELECT COUNT(*)
@@ -539,7 +583,10 @@ if (
             $customerId
         ]);
 
-        $remainingReasons = (int) $remainingStmt->fetchColumn();
+
+        $remainingReasons =
+            (int) $remainingStmt->fetchColumn();
+
 
         if ($remainingReasons > 0) {
 
@@ -548,7 +595,15 @@ if (
             );
         }
 
+
         $customerStatusPdo->beginTransaction();
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Reactivate Customer
+        |--------------------------------------------------------------------------
+        */
 
         if ($isDemoAdmin) {
 
@@ -580,6 +635,7 @@ if (
             ]);
         }
 
+
         if ($updateStmt->rowCount() !== 1) {
 
             throw new RuntimeException(
@@ -587,17 +643,22 @@ if (
             );
         }
 
+
         $customerStatusPdo->commit();
 
+
         header(
-            'Location: ?page=customer-status&id=' . $customerId
+            'Location: ?page=customer-status&id=' .
+            $customerId
         );
 
         exit;
 
+
     } catch (Throwable $e) {
 
         if ($customerStatusPdo->inTransaction()) {
+
             $customerStatusPdo->rollBack();
         }
 
@@ -608,18 +669,95 @@ if (
 
 /*
 |--------------------------------------------------------------------------
-| Determine Current Suspension State
+| Refresh Customer and Suspension State
+|--------------------------------------------------------------------------
+|
+| This ensures the page displays the current database state after
+| an action.
+|
+*/
+
+if ($isDemoAdmin) {
+
+    $stmt = $customerStatusPdo->prepare("
+        SELECT *
+        FROM customers
+        WHERE id = ?
+          AND demo_tenant_id = ?
+          AND is_demo_account = 1
+        LIMIT 1
+    ");
+
+    $stmt->execute([
+        $customerId,
+        $demoTenantId
+    ]);
+
+} else {
+
+    $stmt = $customerStatusPdo->prepare("
+        SELECT *
+        FROM customers
+        WHERE id = ?
+        LIMIT 1
+    ");
+
+    $stmt->execute([
+        $customerId
+    ]);
+}
+
+
+$customer = $stmt->fetch(PDO::FETCH_ASSOC);
+
+
+if (!$customer) {
+
+    die('Customer not found.');
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Refresh Active Suspension Reasons
 |--------------------------------------------------------------------------
 */
 
-$hasActiveSuspensions = !empty($activeSuspensions);
+$suspensionStmt = $customerStatusPdo->prepare("
+    SELECT
+        id,
+        reason,
+        created_at,
+        resolved_at
+    FROM customer_suspensions
+    WHERE customer_id = ?
+      AND active = 1
+    ORDER BY created_at ASC
+");
 
 
+$suspensionStmt->execute([
+    $customerId
+]);
+
+
+$activeSuspensions =
+    $suspensionStmt->fetchAll(PDO::FETCH_ASSOC);
+
+
+$hasActiveSuspensions =
+    !empty($activeSuspensions);
+
+
+/*
+|--------------------------------------------------------------------------
+| Admin Header
+|--------------------------------------------------------------------------
+*/
 
 require dirname(__DIR__) . '/layouts/header-admin.php';
 
 ?>
-
 
 <div class="container mt-4">
 
@@ -644,7 +782,9 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                     <h4 class="mb-4">
 
                         <?= htmlspecialchars(
-                            $customer['name']
+                            $customer['name'],
+                            ENT_QUOTES,
+                            'UTF-8'
                         ) ?>
 
                     </h4>
@@ -660,7 +800,9 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                             </strong>
 
                             <?= htmlspecialchars(
-                                $customer['email']
+                                $customer['email'],
+                                ENT_QUOTES,
+                                'UTF-8'
                             ) ?>
 
                         </div>
@@ -673,7 +815,9 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                             </strong>
 
                             <?= htmlspecialchars(
-                                $customer['company'] ?? '-'
+                                $customer['company'] ?? '-',
+                                ENT_QUOTES,
+                                'UTF-8'
                             ) ?>
 
                         </div>
@@ -685,7 +829,7 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                                 Current Status:
                             </strong>
 
-                            <?php if ($customer['status'] === 'Suspended'): ?>
+                            <?php if (($customer['status'] ?? 'Active') === 'Suspended'): ?>
 
                                 <span class="badge bg-danger">
                                     Suspended
@@ -719,9 +863,13 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                                             class="border rounded p-2 mb-2 d-flex justify-content-between align-items-center">
 
                                             <span>
+
                                                 <?= htmlspecialchars(
-                                                    $suspension['reason']
+                                                    $suspension['reason'],
+                                                    ENT_QUOTES,
+                                                    'UTF-8'
                                                 ) ?>
+
                                             </span>
 
 
@@ -766,14 +914,18 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
 
                         <div class="alert alert-danger">
 
-                            <?= htmlspecialchars($error) ?>
+                            <?= htmlspecialchars(
+                                $error,
+                                ENT_QUOTES,
+                                'UTF-8'
+                            ) ?>
 
                         </div>
 
                     <?php endif; ?>
 
 
-                    <?php if ($customer['status'] === 'Active'): ?>
+                    <?php if (($customer['status'] ?? 'Active') === 'Active'): ?>
 
 
                         <div class="alert alert-warning">
@@ -783,7 +935,11 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                             Select all reasons that currently require
                             the customer account to be suspended.
 
+                            <br>
+
                             You may select more than one reason.
+
+                            <br>
 
                             The customer record and data will not be deleted.
 
@@ -808,7 +964,9 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
 
                                     <div class="alert alert-info mb-0">
 
-                                        There are currently no applicable suspension reasons available for this customer.
+                                        There are currently no applicable
+                                        suspension reasons available for
+                                        this customer.
 
                                     </div>
 
@@ -816,26 +974,34 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
 
                                     <?php foreach ($availableSuspensionReasons as $reason): ?>
 
-                                    <div class="form-check mb-2">
+                                        <div class="form-check mb-2">
 
-                                        <input
-                                            class="form-check-input"
-                                            type="checkbox"
-                                            name="suspension_reasons[]"
-                                            value="<?= htmlspecialchars($reason) ?>"
-                                            id="reason_<?= md5($reason) ?>"
-                                        >
+                                            <input
+                                                class="form-check-input"
+                                                type="checkbox"
+                                                name="suspension_reasons[]"
+                                                value="<?= htmlspecialchars(
+                                                    $reason,
+                                                    ENT_QUOTES,
+                                                    'UTF-8'
+                                                ) ?>"
+                                                id="reason_<?= md5($reason) ?>"
+                                            >
 
 
-                                        <label
-                                            class="form-check-label"
-                                            for="reason_<?= md5($reason) ?>">
+                                            <label
+                                                class="form-check-label"
+                                                for="reason_<?= md5($reason) ?>">
 
-                                            <?= htmlspecialchars($reason) ?>
+                                                <?= htmlspecialchars(
+                                                    $reason,
+                                                    ENT_QUOTES,
+                                                    'UTF-8'
+                                                ) ?>
 
-                                        </label>
+                                            </label>
 
-                                    </div>
+                                        </div>
 
                                     <?php endforeach; ?>
 
@@ -845,14 +1011,18 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                             </div>
 
 
-                            <button
-                                type="submit"
-                                name="suspend_customer"
-                                class="btn btn-warning">
+                            <?php if (!empty($availableSuspensionReasons)): ?>
 
-                                Suspend Customer
+                                <button
+                                    type="submit"
+                                    name="suspend_customer"
+                                    class="btn btn-warning">
 
-                            </button>
+                                    Suspend Customer
+
+                                </button>
+
+                            <?php endif; ?>
 
 
                             <a
@@ -900,7 +1070,10 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
 
                             </div>
 
-                            <form method="POST" class="mb-3">
+
+                            <form
+                                method="POST"
+                                class="mb-3">
 
                                 <button
                                     type="submit"
@@ -914,11 +1087,13 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
 
                             </form>
 
+
                         <?php else: ?>
 
                             <p class="text-muted mb-0">
 
                                 Resolve each active suspension reason above.
+
                                 The customer remains Suspended until all
                                 reasons are resolved and Admin explicitly
                                 reactivates the account.

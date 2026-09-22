@@ -5,44 +5,85 @@ require_once HELPER_PATH . '/auth.php';
 require_once HELPER_PATH . '/email.php';
 require_once HELPER_PATH . '/notifications.php';
 
-requireAdminLogin();
-
-$id = (int) ($_GET['id'] ?? 0);
-
-if ($id <= 0) {
-    die('Invalid payment slip.');
-}
 
 /*
 |--------------------------------------------------------------------------
-| Select Database
-|--------------------------------------------------------------------------
-| Main Admin:
-|   - Uses the existing Main System database ($pdo)
-|   - Uses the existing Main Admin session
-|
-| Demo Admin:
-|   - Uses the Demo database ($demoPdo)
-|   - Is restricted to the current Demo tenant
+| Determine Admin Type
 |--------------------------------------------------------------------------
 */
 
-$isDemoAdmin = isset($_SESSION['demo_user']);
+$isDemoAdmin =
+    isset($_SESSION['demo_user']);
+
+$isDemoSuperAdmin =
+    isset($_SESSION['demo_super_admin']);
+
+$isMainAdmin =
+    isset($_SESSION['user']);
+
+
+/*
+|--------------------------------------------------------------------------
+| Authentication
+|--------------------------------------------------------------------------
+*/
+
+if (!$isMainAdmin && !$isDemoAdmin && !$isDemoSuperAdmin) {
+
+    header("Location: ?page=login");
+    exit;
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Payment Slip ID
+|--------------------------------------------------------------------------
+*/
+
+$id = (int) ($_GET['id'] ?? 0);
+
+
+if ($id <= 0) {
+
+    die('Invalid payment slip.');
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Select Correct Database
+|--------------------------------------------------------------------------
+*/
 
 $approvalPdo = $pdo;
 $demoTenantId = null;
 
-if ($isDemoAdmin) {
+if ($isDemoAdmin || $isDemoSuperAdmin) {
 
     require_once CONFIG_PATH . '/demo-database.php';
 
     $approvalPdo = $demoPdo;
-    $demoTenantId = (int) ($_SESSION['demo_user']['demo_tenant_id'] ?? 0);
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Demo Admin Tenant
+|--------------------------------------------------------------------------
+*/
+
+if ($isDemoAdmin) {
+
+    $demoTenantId =
+        (int) ($_SESSION['demo_user']['demo_tenant_id'] ?? 0);
 
     if ($demoTenantId <= 0) {
+
         die('Invalid Demo tenant.');
     }
 }
+
 
 /*
 |--------------------------------------------------------------------------
@@ -51,6 +92,12 @@ if ($isDemoAdmin) {
 */
 
 if ($isDemoAdmin) {
+
+    /*
+    |--------------------------------------------------------------------------
+    | Demo Admin - Tenant Restricted
+    |--------------------------------------------------------------------------
+    */
 
     $stmt = $approvalPdo->prepare("
         SELECT
@@ -80,9 +127,47 @@ if ($isDemoAdmin) {
         $demoTenantId
     ]);
 
+} elseif ($isDemoSuperAdmin) {
+
+    /*
+    |--------------------------------------------------------------------------
+    | Demo Super Admin - Full Demo Database Access
+    |--------------------------------------------------------------------------
+    */
+
+    $stmt = $approvalPdo->prepare("
+        SELECT
+            ps.id,
+            ps.status AS slip_status,
+            ps.request_id,
+            c.id AS customer_id,
+            c.name,
+            c.email,
+            r.quoted_price,
+            s.title AS service_title
+        FROM payment_slips ps
+        INNER JOIN customers c
+            ON c.id = ps.customer_id
+        INNER JOIN requests r
+            ON r.id = ps.request_id
+        INNER JOIN services s
+            ON s.id = r.service_id
+        WHERE ps.id = ?
+        LIMIT 1
+    ");
+
+    $stmt->execute([
+        $id
+    ]);
+
 } else {
 
-    // Original Main Admin lookup preserved.
+    /*
+    |--------------------------------------------------------------------------
+    | Main Admin
+    |--------------------------------------------------------------------------
+    */
+
     $stmt = $approvalPdo->prepare("
         SELECT
             ps.id,
@@ -109,31 +194,35 @@ if ($isDemoAdmin) {
     ]);
 }
 
+
 $request = $stmt->fetch(PDO::FETCH_ASSOC);
 
+
 if (!$request) {
+
     die('Payment slip not found.');
 }
 
+
 /*
 |--------------------------------------------------------------------------
-| Prevent Duplicate Approval
+| Only Pending Payment Slips Can Be Approved
 |--------------------------------------------------------------------------
 */
 
-if ($request['slip_status'] === 'Approved') {
+if (($request['slip_status'] ?? '') !== 'Pending') {
+
     header('Location: ?page=requests');
     exit;
 }
 
+
 /*
 |--------------------------------------------------------------------------
-| Prevent Approval When This Request Is Already Paid
+| Prevent Duplicate Paid Payment
 |--------------------------------------------------------------------------
 |
-| Payment status is tied to the request, not directly to the customer.
-| If this request already has a Paid payment, another payment slip
-| must not be approved.
+| A request can only have one Paid payment record.
 |
 */
 
@@ -149,9 +238,15 @@ $paidPaymentStmt->execute([
     $request['request_id']
 ]);
 
+
 if ($paidPaymentStmt->fetch()) {
-    die('Payment has already been recorded as Paid for this request. This payment slip cannot be approved again.');
+
+    die(
+        'Payment has already been recorded as Paid for this request. ' .
+        'This payment slip cannot be approved again.'
+    );
 }
+
 
 /*
 |--------------------------------------------------------------------------
@@ -163,14 +258,11 @@ try {
 
     $approvalPdo->beginTransaction();
 
+
     /*
     |--------------------------------------------------------------------------
     | Re-check Paid Status Inside Transaction
     |--------------------------------------------------------------------------
-    |
-    | The first check prevents normal duplicate approval.
-    | This second check protects the approval transaction itself.
-    |
     */
 
     $paidPaymentStmt = $approvalPdo->prepare("
@@ -186,11 +278,20 @@ try {
         $request['request_id']
     ]);
 
+
     if ($paidPaymentStmt->fetch()) {
+
         throw new RuntimeException(
             'Payment has already been recorded as Paid for this request.'
         );
     }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Approve Payment Slip
+    |--------------------------------------------------------------------------
+    */
 
     if ($isDemoAdmin) {
 
@@ -214,7 +315,12 @@ try {
 
     } else {
 
-        // Original Main Admin update preserved, with Pending protection.
+        /*
+        |--------------------------------------------------------------------------
+        | Main Admin OR Demo Super Admin
+        |--------------------------------------------------------------------------
+        */
+
         $stmt = $approvalPdo->prepare("
             UPDATE payment_slips
             SET status = 'Approved'
@@ -227,14 +333,24 @@ try {
         ]);
     }
 
+
     if ($stmt->rowCount() !== 1) {
-        throw new RuntimeException('The payment slip could not be approved. It may already have been processed.');
+
+        throw new RuntimeException(
+            'The payment slip could not be approved. ' .
+            'It may already have been processed.'
+        );
     }
+
 
     /*
     |--------------------------------------------------------------------------
-    | Record Payment
+    | Record Full Payment
     |--------------------------------------------------------------------------
+    |
+    | Full payment only.
+    | The amount comes from the request quoted price.
+    |
     */
 
     $stmt = $approvalPdo->prepare("
@@ -252,8 +368,9 @@ try {
     $stmt->execute([
         $request['request_id'],
         $request['quoted_price'],
-        'Payment approved from deposit slip review'
+        'Payment approved from payment receipt review'
     ]);
+
 
     /*
     |--------------------------------------------------------------------------
@@ -261,7 +378,11 @@ try {
     |--------------------------------------------------------------------------
     */
 
-    if ($isDemoAdmin) {
+    if ($isDemoAdmin || $isDemoSuperAdmin) {
+
+        $adminId = $isDemoAdmin
+            ? (int) ($_SESSION['demo_user']['id'] ?? 0)
+            : (int) ($_SESSION['demo_super_admin']['id'] ?? 0);
 
         RequestEventHelper::add(
             $approvalPdo,
@@ -271,7 +392,7 @@ try {
             'Payment Received',
             'The customer payment was received and approved by the administrator.',
             RequestEventHelper::SOURCE_ADMINISTRATOR,
-            (int) ($_SESSION['demo_user']['id'] ?? 0),
+            $adminId,
             true
         );
 
@@ -287,6 +408,7 @@ try {
             true
         );
     }
+
 
     /*
     |--------------------------------------------------------------------------
@@ -317,7 +439,12 @@ try {
 
     } else {
 
-        // Original Main Admin update preserved.
+        /*
+        |--------------------------------------------------------------------------
+        | Main Admin OR Demo Super Admin
+        |--------------------------------------------------------------------------
+        */
+
         $stmt = $approvalPdo->prepare("
             UPDATE requests
             SET
@@ -331,9 +458,14 @@ try {
         ]);
     }
 
+
     if ($stmt->rowCount() !== 1) {
-        throw new RuntimeException('The request workflow could not be updated.');
+
+        throw new RuntimeException(
+            'The request workflow could not be updated.'
+        );
     }
+
 
     /*
     |--------------------------------------------------------------------------
@@ -341,7 +473,11 @@ try {
     |--------------------------------------------------------------------------
     */
 
-    if ($isDemoAdmin) {
+    if ($isDemoAdmin || $isDemoSuperAdmin) {
+
+        $adminId = $isDemoAdmin
+            ? (int) ($_SESSION['demo_user']['id'] ?? 0)
+            : (int) ($_SESSION['demo_super_admin']['id'] ?? 0);
 
         RequestEventHelper::add(
             $approvalPdo,
@@ -351,7 +487,7 @@ try {
             'Payment Approved',
             'The administrator approved the customer payment receipt.',
             RequestEventHelper::SOURCE_ADMINISTRATOR,
-            (int) ($_SESSION['demo_user']['id'] ?? 0),
+            $adminId,
             true
         );
 
@@ -368,34 +504,55 @@ try {
         );
     }
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | Commit Transaction
+    |--------------------------------------------------------------------------
+    */
+
     $approvalPdo->commit();
+
 
 } catch (Throwable $e) {
 
     if ($approvalPdo->inTransaction()) {
+
         $approvalPdo->rollBack();
     }
 
     die($e->getMessage());
 }
 
+
 /*
 |--------------------------------------------------------------------------
-| Send Email
+| Customer Email
 |--------------------------------------------------------------------------
 */
 
 $loginBaseUrl = APP_URL;
 
-if ($isDemoAdmin) {
-    $loginBaseUrl = getenv('DEMO_APP_URL') ?: APP_URL;
+if ($isDemoAdmin || $isDemoSuperAdmin) {
+
+    $loginBaseUrl =
+        getenv('DEMO_APP_URL') ?: APP_URL;
 }
+
 
 sendEmail(
     $request['email'],
     'Payment Approved - Schedule Your Service',
     "
-    <h2>Hello " . htmlspecialchars($request['name'], ENT_QUOTES, 'UTF-8') . ",</h2>
+    <h2>
+        Hello " .
+        htmlspecialchars(
+            $request['name'],
+            ENT_QUOTES,
+            'UTF-8'
+        ) .
+    ",
+    </h2>
 
     <p>
         We are pleased to inform you that your payment has been approved.
@@ -403,16 +560,30 @@ sendEmail(
 
     <p>
         <strong>Service:</strong>
-        " . htmlspecialchars($request['service_title'], ENT_QUOTES, 'UTF-8') . "
+        " .
+        htmlspecialchars(
+            $request['service_title'],
+            ENT_QUOTES,
+            'UTF-8'
+        ) .
+    "
     </p>
 
     <p>
-        You can now log in to your account and schedule your service at a convenient date and time.
+        You can now log in to your account and schedule your service
+        at a convenient date and time.
     </p>
 
     <p>
+
         <a
-            href='" . htmlspecialchars($loginBaseUrl, ENT_QUOTES, 'UTF-8') . "/?page=public-login'
+            href='" .
+                htmlspecialchars(
+                    $loginBaseUrl . '/?page=public-login',
+                    ENT_QUOTES,
+                    'UTF-8'
+                ) .
+            "'
             style='
                 background:#198754;
                 color:white;
@@ -424,6 +595,7 @@ sendEmail(
         >
             Schedule Service
         </a>
+
     </p>
 
     <p>
@@ -435,6 +607,7 @@ sendEmail(
     </p>
     "
 );
+
 
 /*
 |--------------------------------------------------------------------------
@@ -450,6 +623,7 @@ createNotification(
     'Your payment has been approved. You may now schedule your service.',
     '?page=customer-requests'
 );
+
 
 /*
 |--------------------------------------------------------------------------

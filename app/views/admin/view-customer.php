@@ -2,7 +2,22 @@
 
 require_once HELPER_PATH . '/auth.php';
 
-requireAdminLogin();
+
+/*
+|--------------------------------------------------------------------------
+| Determine Admin Context
+|--------------------------------------------------------------------------
+*/
+
+$isMainAdmin      = isset($_SESSION['user']);
+$isDemoAdmin      = isset($_SESSION['demo_user']);
+$isDemoSuperAdmin = isset($_SESSION['demo_super_admin']);
+
+if (!$isMainAdmin && !$isDemoAdmin && !$isDemoSuperAdmin) {
+
+    header('Location: ?page=login');
+    exit;
+}
 
 
 /*
@@ -11,21 +26,17 @@ requireAdminLogin();
 |--------------------------------------------------------------------------
 */
 
-if (isset($_SESSION['demo_user'])) {
+if ($isDemoAdmin || $isDemoSuperAdmin) {
 
     require_once CONFIG_PATH . '/demo-database.php';
 
     $customerPdo = $demoPdo;
 
-    $demoTenantId = (int) $_SESSION['demo_user']['demo_tenant_id'];
-
 } else {
 
-    require CONFIG_PATH . '/database.php';
+    require_once CONFIG_PATH . '/database.php';
 
     $customerPdo = $pdo;
-
-    $demoTenantId = null;
 }
 
 
@@ -40,7 +51,11 @@ $id = isset($_GET['id'])
     : 0;
 
 if ($id <= 0) {
-    die('Invalid customer ID');
+
+    $_SESSION['error'] = 'Invalid customer ID.';
+
+    header('Location: ?page=customers');
+    exit;
 }
 
 
@@ -50,7 +65,27 @@ if ($id <= 0) {
 |--------------------------------------------------------------------------
 */
 
-if (isset($_SESSION['demo_user'])) {
+if ($isDemoAdmin) {
+
+    /*
+    |--------------------------------------------------------------------------
+    | Demo Admin
+    |--------------------------------------------------------------------------
+    | Demo Admin may only view customers belonging to their own tenant.
+    */
+
+    $demoTenantId = (int) (
+        $_SESSION['demo_user']['demo_tenant_id'] ?? 0
+    );
+
+    if ($demoTenantId <= 0) {
+
+        $_SESSION['error'] =
+            'Demo tenant information is missing.';
+
+        header('Location: ?page=customers');
+        exit;
+    }
 
     $stmt = $customerPdo->prepare("
         SELECT *
@@ -66,7 +101,34 @@ if (isset($_SESSION['demo_user'])) {
         $demoTenantId
     ]);
 
+} elseif ($isDemoSuperAdmin) {
+
+    /*
+    |--------------------------------------------------------------------------
+    | Demo Super Admin
+    |--------------------------------------------------------------------------
+    | Demo Super Admin may view Demo customers across all tenants.
+    */
+
+    $stmt = $customerPdo->prepare("
+        SELECT *
+        FROM customers
+        WHERE id = ?
+          AND is_demo_account = 1
+        LIMIT 1
+    ");
+
+    $stmt->execute([
+        $id
+    ]);
+
 } else {
+
+    /*
+    |--------------------------------------------------------------------------
+    | Main Admin
+    |--------------------------------------------------------------------------
+    */
 
     $stmt = $customerPdo->prepare("
         SELECT *
@@ -81,6 +143,22 @@ if (isset($_SESSION['demo_user'])) {
 }
 
 $customer = $stmt->fetch(PDO::FETCH_ASSOC);
+
+
+/*
+|--------------------------------------------------------------------------
+| Customer Not Found / Not Accessible
+|--------------------------------------------------------------------------
+*/
+
+if (!$customer) {
+
+    $_SESSION['error'] =
+        'Customer not found or you do not have access to this customer.';
+
+    header('Location: ?page=customers');
+    exit;
+}
 
 
 /*
@@ -164,19 +242,8 @@ foreach ($payments as $payment) {
 $outstandingBalance =
     $totalRequestsValue - $totalPaid;
 
-
-/*
-|--------------------------------------------------------------------------
-| Customer Not Found
-|--------------------------------------------------------------------------
-*/
-
-if (!$customer) {
-
-    die('Customer not found');
-}
-
 ?>
+
 
 <?php require dirname(__DIR__) . '/layouts/header-admin.php'; ?>
 
@@ -228,7 +295,7 @@ if (!$customer) {
             <strong>Company:</strong>
 
             <?= htmlspecialchars(
-                $customer['company']
+                $customer['company'] ?? ''
             ) ?>
 
         </p>
@@ -240,7 +307,7 @@ if (!$customer) {
 
             <?= nl2br(
                 htmlspecialchars(
-                    $customer['notes']
+                    $customer['notes'] ?? ''
                 )
             ) ?>
 

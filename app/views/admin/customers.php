@@ -2,10 +2,41 @@
 
 require_once HELPER_PATH . '/auth.php';
 
-requireAdminLogin();
+
+/*
+|--------------------------------------------------------------------------
+| Determine Admin Type
+|--------------------------------------------------------------------------
+*/
+
+$isMainAdmin = isset($_SESSION['user']);
+$isDemoAdmin = isset($_SESSION['demo_user']);
+$isDemoSuperAdmin = isset($_SESSION['demo_super_admin']);
 
 
-if (isset($_SESSION['demo_user'])) {
+/*
+|--------------------------------------------------------------------------
+| Authentication
+|--------------------------------------------------------------------------
+*/
+
+if (
+    !$isMainAdmin &&
+    !$isDemoAdmin &&
+    !$isDemoSuperAdmin
+) {
+    header('Location: ?page=login');
+    exit;
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Select Correct Database
+|--------------------------------------------------------------------------
+*/
+
+if ($isDemoAdmin || $isDemoSuperAdmin) {
 
     require_once CONFIG_PATH . '/demo-database.php';
 
@@ -19,7 +50,24 @@ if (isset($_SESSION['demo_user'])) {
 }
 
 
-require dirname(__DIR__) . '/layouts/header-admin.php';
+/*
+|--------------------------------------------------------------------------
+| Demo Tenant
+|--------------------------------------------------------------------------
+*/
+
+$demoTenantId = null;
+
+if ($isDemoAdmin) {
+
+    $demoTenantId = (int) (
+        $_SESSION['demo_user']['demo_tenant_id'] ?? 0
+    );
+
+    if ($demoTenantId <= 0) {
+        die('Invalid Demo tenant.');
+    }
+}
 
 
 /*
@@ -28,12 +76,40 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
 |--------------------------------------------------------------------------
 */
 
-$stmt = $customersPdo->query("
-    SELECT *
-    FROM customers
-    WHERE registration_status = 'Pending Admin Approval'
-    ORDER BY created_at DESC
-");
+if ($isDemoAdmin) {
+
+    $stmt = $customersPdo->prepare("
+        SELECT *
+        FROM customers
+        WHERE registration_status = 'Pending Admin Approval'
+          AND demo_tenant_id = ?
+          AND is_demo_account = 1
+        ORDER BY created_at DESC
+    ");
+
+    $stmt->execute([
+        $demoTenantId
+    ]);
+
+} elseif ($isDemoSuperAdmin) {
+
+    $stmt = $customersPdo->query("
+        SELECT *
+        FROM customers
+        WHERE registration_status = 'Pending Admin Approval'
+          AND is_demo_account = 1
+        ORDER BY created_at DESC
+    ");
+
+} else {
+
+    $stmt = $customersPdo->query("
+        SELECT *
+        FROM customers
+        WHERE registration_status = 'Pending Admin Approval'
+        ORDER BY created_at DESC
+    ");
+}
 
 $pendingRegistrations = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -44,13 +120,13 @@ $pendingRegistrations = $stmt->fetchAll(PDO::FETCH_ASSOC);
 |--------------------------------------------------------------------------
 */
 
-if (isset($_SESSION['demo_user'])) {
+if ($isDemoAdmin) {
 
-    $demoTenantId = (int) $_SESSION['demo_user']['demo_tenant_id'];
-
-    if ($demoTenantId <= 0) {
-        die('Invalid Demo tenant.');
-    }
+    /*
+    |--------------------------------------------------------------------------
+    | Demo Admin - Own Tenant Only
+    |--------------------------------------------------------------------------
+    */
 
     $stmt = $customersPdo->prepare("
         SELECT *
@@ -64,7 +140,28 @@ if (isset($_SESSION['demo_user'])) {
         $demoTenantId
     ]);
 
+} elseif ($isDemoSuperAdmin) {
+
+    /*
+    |--------------------------------------------------------------------------
+    | Demo Super Admin - All Demo Customers
+    |--------------------------------------------------------------------------
+    */
+
+    $stmt = $customersPdo->query("
+        SELECT *
+        FROM customers
+        WHERE is_demo_account = 1
+        ORDER BY created_at DESC
+    ");
+
 } else {
+
+    /*
+    |--------------------------------------------------------------------------
+    | Main Admin - All Main Customers
+    |--------------------------------------------------------------------------
+    */
 
     $stmt = $customersPdo->query("
         SELECT *
@@ -76,6 +173,15 @@ if (isset($_SESSION['demo_user'])) {
 }
 
 $customers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+
+/*
+|--------------------------------------------------------------------------
+| Admin Header
+|--------------------------------------------------------------------------
+*/
+
+require dirname(__DIR__) . '/layouts/header-admin.php';
 
 ?>
 
@@ -120,6 +226,7 @@ $customers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             </p>
 
+
             <div class="table-responsive">
 
                 <table class="table table-bordered table-hover align-middle">
@@ -139,6 +246,7 @@ $customers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                     </thead>
 
+
                     <tbody>
 
                         <?php foreach ($pendingRegistrations as $customer): ?>
@@ -147,25 +255,33 @@ $customers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                                 <td>
                                     <?= htmlspecialchars(
-                                        $customer['name']
+                                        $customer['name'],
+                                        ENT_QUOTES,
+                                        'UTF-8'
                                     ) ?>
                                 </td>
 
                                 <td>
                                     <?= htmlspecialchars(
-                                        $customer['email']
+                                        $customer['email'],
+                                        ENT_QUOTES,
+                                        'UTF-8'
                                     ) ?>
                                 </td>
 
                                 <td>
                                     <?= htmlspecialchars(
-                                        $customer['phone']
+                                        $customer['phone'] ?? '',
+                                        ENT_QUOTES,
+                                        'UTF-8'
                                     ) ?>
                                 </td>
 
                                 <td>
 
-                                    <?php if ((int) $customer['email_verified'] === 1): ?>
+                                    <?php if (
+                                        (int) $customer['email_verified'] === 1
+                                    ): ?>
 
                                         <span class="badge bg-success">
                                             Verified
@@ -184,9 +300,7 @@ $customers = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                 <td>
 
                                     <span class="badge bg-warning text-dark">
-
                                         Pending Admin Approval
-
                                     </span>
 
                                 </td>
@@ -250,6 +364,7 @@ $customers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         </thead>
 
+
         <tbody>
 
             <?php if (empty($customers)): ?>
@@ -274,31 +389,41 @@ $customers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                         <td>
                             <?= htmlspecialchars(
-                                $customer['name']
+                                $customer['name'],
+                                ENT_QUOTES,
+                                'UTF-8'
                             ) ?>
                         </td>
 
                         <td>
                             <?= htmlspecialchars(
-                                $customer['email']
+                                $customer['email'],
+                                ENT_QUOTES,
+                                'UTF-8'
                             ) ?>
                         </td>
 
                         <td>
                             <?= htmlspecialchars(
-                                $customer['phone']
+                                $customer['phone'] ?? '',
+                                ENT_QUOTES,
+                                'UTF-8'
                             ) ?>
                         </td>
 
                         <td>
                             <?= htmlspecialchars(
-                                $customer['company'] ?? ''
+                                $customer['company'] ?? '',
+                                ENT_QUOTES,
+                                'UTF-8'
                             ) ?>
                         </td>
 
                         <td>
 
-                            <?php if (($customer['status'] ?? 'Active') === 'Suspended'): ?>
+                            <?php if (
+                                ($customer['status'] ?? 'Active') === 'Suspended'
+                            ): ?>
 
                                 <span class="badge bg-danger">
                                     Suspended
@@ -324,6 +449,7 @@ $customers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                             </a>
 
+
                             <a
                                 href="?page=customer-status&id=<?= (int) $customer['id'] ?>"
                                 class="btn btn-sm btn-warning">
@@ -332,13 +458,20 @@ $customers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                             </a>
 
-                            <a
-                                href="?page=messages&id=<?= (int) $customer['id'] ?>"
-                                class="btn btn-sm btn-primary">
 
-                                Messages
+                            <?php if (
+                                ($customer['status'] ?? 'Active') === 'Suspended'
+                            ): ?>
 
-                            </a>
+                                <a
+                                    href="?page=admin-suspension-chat&id=<?= (int) $customer['id'] ?>"
+                                    class="btn btn-sm btn-danger">
+
+                                    Suspension Chat
+
+                                </a>
+
+                            <?php endif; ?>
 
                         </td>
 
@@ -355,4 +488,8 @@ $customers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 </div>
 
 
-<?php require dirname(__DIR__) . '/layouts/footer.php'; ?>
+<?php
+
+require dirname(__DIR__) . '/layouts/footer.php';
+
+?>

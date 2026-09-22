@@ -1,18 +1,77 @@
 <?php
 
 require_once APP_PATH . '/helpers/DateHelper.php';
+require_once HELPER_PATH . '/auth.php';
 
-if (!isset($_SESSION['user'])) {
+
+/*
+|--------------------------------------------------------------------------
+| Admin Authentication
+|--------------------------------------------------------------------------
+|
+| Main Admin:
+|     $_SESSION['user']
+|
+| Demo Admin:
+|     $_SESSION['demo_user']
+|
+| Demo Super Admin:
+|     $_SESSION['demo_super_admin']
+|
+*/
+
+$isDemoAdmin =
+    isset($_SESSION['demo_user']) ||
+    isset($_SESSION['demo_super_admin']);
+
+$isMainAdmin = isset($_SESSION['user']);
+
+
+if (!$isMainAdmin && !$isDemoAdmin) {
+
     header("Location: ?page=login");
     exit;
 }
 
-require_once HELPER_PATH . '/auth.php';
-require CONFIG_PATH . '/database.php';
-require dirname(__DIR__) . '/layouts/header-admin.php';
+
+/*
+|--------------------------------------------------------------------------
+| Select Correct Database
+|--------------------------------------------------------------------------
+*/
+
+if ($isDemoAdmin) {
+
+    if (!isset($demoPdo)) {
+        require_once CONFIG_PATH . '/demo-database.php';
+    }
+
+    $adminPdo = $demoPdo;
+
+} else {
+
+    require_once CONFIG_PATH . '/database.php';
+
+    $adminPdo = $pdo;
+}
 
 
-$stmt = $pdo->query("
+/*
+|--------------------------------------------------------------------------
+| Admin Header
+|--------------------------------------------------------------------------
+*/
+
+require_once dirname(__DIR__) . '/layouts/header-admin.php';
+
+
+/*
+|--------------------------------------------------------------------------
+| Load Notifications
+|--------------------------------------------------------------------------
+*/
+
+$stmt = $adminPdo->query("
     SELECT *
     FROM notifications
     WHERE recipient_type = 'admin'
@@ -27,6 +86,7 @@ $notifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
     Notification History
 </h1>
 
+
 <div class="mb-3">
 
     <a
@@ -40,6 +100,7 @@ $notifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 </div>
 
+
 <div class="card">
 
     <div class="card-body">
@@ -49,14 +110,21 @@ $notifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
             <thead>
 
                 <tr>
+
                     <th>Status</th>
+
                     <th>Title</th>
+
                     <th>Message</th>
+
                     <th>Date</th>
+
                     <th>Action</th>
+
                 </tr>
 
             </thead>
+
 
             <tbody>
 
@@ -68,36 +136,56 @@ $notifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                             <?php if ($notification['is_read']): ?>
 
-    <span class="badge bg-success">
-        ✓ Read
-    </span>
+                                <span class="badge bg-success">
+                                    ✓ Read
+                                </span>
 
-<?php else: ?>
+                            <?php else: ?>
 
-    <span class="badge bg-warning text-dark">
-        🔔 New
-    </span>
+                                <span class="badge bg-warning text-dark">
+                                    🔔 New
+                                </span>
 
-<?php endif; ?>
+                            <?php endif; ?>
 
                         </td>
+
 
                         <td>
-                            <?= htmlspecialchars($notification['title']) ?>
+
+                            <?= htmlspecialchars(
+                                $notification['title'],
+                                ENT_QUOTES,
+                                'UTF-8'
+                            ) ?>
+
                         </td>
 
-                        <td>
-                            <?= htmlspecialchars($notification['message']) ?>
-                        </td>
 
                         <td>
-                            <?= formatDateTime($notification['created_at']) ?>
+
+                            <?= htmlspecialchars(
+                                $notification['message'],
+                                ENT_QUOTES,
+                                'UTF-8'
+                            ) ?>
+
                         </td>
+
+
+                        <td>
+
+                            <?= formatDateTime(
+                                $notification['created_at']
+                            ) ?>
+
+                        </td>
+
 
                         <td>
 
                             <a
-                                href="?page=open-notification&id=<?= $notification['id'] ?>"
+                                href="?page=open-notification&id=<?= (int) $notification['id'] ?>"
                                 class="btn btn-sm btn-primary">
 
                                 Open
@@ -117,5 +205,6 @@ $notifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
     </div>
 
 </div>
+
 
 <?php require dirname(__DIR__) . '/layouts/footer.php'; ?>

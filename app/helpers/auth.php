@@ -12,6 +12,52 @@ function requireCustomerLogin(): void
 }
 
 /**
+ * Require Customer Normal Access
+ *
+ * Suspended customers are not allowed to continue into
+ * normal customer pages.
+ *
+ * They must use the dedicated suspension communication page.
+ *
+ * IMPORTANT:
+ * - This does NOT replace requireCustomerLogin().
+ * - The suspension chat page must NOT call this function.
+ * - Existing Admin/Agent authentication is unchanged.
+ */
+function requireCustomerNormalAccess(): void
+{
+    requireCustomerLogin();
+
+    $customerStatus = $_SESSION['customer']['status'] ?? 'Active';
+
+    if ($customerStatus === 'Suspended') {
+        header('Location: ?page=customer-suspension-chat');
+        exit;
+    }
+}
+
+/**
+ * Require Demo Customer Normal Access
+ *
+ * Suspended Demo customers are redirected to the
+ * dedicated suspension communication page.
+ *
+ * The suspension chat page itself should use
+ * requireDemoCustomer() instead of this function.
+ */
+function requireDemoCustomerNormalAccess(): void
+{
+    requireDemoCustomer();
+
+    $customerStatus = $_SESSION['demo_customer']['status'] ?? 'Active';
+
+    if ($customerStatus === 'Suspended') {
+        header('Location: ?page=customer-suspension-chat');
+        exit;
+    }
+}
+
+/**
  * Require Main Admin Login
  *
  * On the Main/Dev environment:

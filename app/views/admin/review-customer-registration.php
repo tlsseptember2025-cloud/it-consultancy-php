@@ -1,12 +1,41 @@
 <?php
 
-if (!isset($_SESSION['user'])) {
+require_once HELPER_PATH . '/auth.php';
 
-    header("Location: ?page=login");
+/*
+|--------------------------------------------------------------------------
+| Determine Admin Context
+|--------------------------------------------------------------------------
+*/
+
+$isMainAdmin      = isset($_SESSION['user']);
+$isDemoAdmin      = isset($_SESSION['demo_user']);
+$isDemoSuperAdmin = isset($_SESSION['demo_super_admin']);
+
+if (!$isMainAdmin && !$isDemoAdmin && !$isDemoSuperAdmin) {
+    header('Location: ?page=login');
     exit;
 }
 
-require CONFIG_PATH . '/database.php';
+
+/*
+|--------------------------------------------------------------------------
+| Select Database
+|--------------------------------------------------------------------------
+*/
+
+if ($isDemoAdmin || $isDemoSuperAdmin) {
+
+    require_once CONFIG_PATH . '/demo-database.php';
+
+    $adminPdo = $demoPdo;
+
+} else {
+
+    require_once CONFIG_PATH . '/database.php';
+
+    $adminPdo = $pdo;
+}
 
 
 /*
@@ -30,33 +59,132 @@ if ($customerId <= 0) {
 |--------------------------------------------------------------------------
 */
 
-$stmt = $pdo->prepare("
-    SELECT
-        id,
-        name,
-        email,
-        phone,
-        company,
-        notes,
-        created_at,
-        email_verified,
-        registration_status,
-        rejection_reason,
-        approved_at,
-        rejected_at
-    FROM customers
-    WHERE id = ?
-    LIMIT 1
-");
+if ($isDemoAdmin) {
 
-$stmt->execute([
-    $customerId
-]);
+    /*
+    |--------------------------------------------------------------------------
+    | Demo Admin
+    |--------------------------------------------------------------------------
+    | Demo Admin may only review customers belonging to their own tenant.
+    */
+
+    $demoTenantId = (int) ($_SESSION['demo_user']['demo_tenant_id'] ?? 0);
+
+    if ($demoTenantId <= 0) {
+
+        $_SESSION['error'] = 'Demo tenant information is missing.';
+        header('Location: ?page=customers');
+        exit;
+    }
+
+    $stmt = $adminPdo->prepare("
+        SELECT
+            id,
+            name,
+            email,
+            phone,
+            company,
+            notes,
+            created_at,
+            email_verified,
+            registration_status,
+            rejection_reason,
+            approved_at,
+            rejected_at,
+            demo_tenant_id,
+            is_demo_account
+        FROM customers
+        WHERE id = ?
+          AND demo_tenant_id = ?
+          AND is_demo_account = 1
+        LIMIT 1
+    ");
+
+    $stmt->execute([
+        $customerId,
+        $demoTenantId
+    ]);
+
+} elseif ($isDemoSuperAdmin) {
+
+    /*
+    |--------------------------------------------------------------------------
+    | Demo Super Admin
+    |--------------------------------------------------------------------------
+    | Demo Super Admin may review Demo customers across all Demo tenants.
+    */
+
+    $stmt = $adminPdo->prepare("
+        SELECT
+            id,
+            name,
+            email,
+            phone,
+            company,
+            notes,
+            created_at,
+            email_verified,
+            registration_status,
+            rejection_reason,
+            approved_at,
+            rejected_at,
+            demo_tenant_id,
+            is_demo_account
+        FROM customers
+        WHERE id = ?
+          AND is_demo_account = 1
+        LIMIT 1
+    ");
+
+    $stmt->execute([
+        $customerId
+    ]);
+
+} else {
+
+    /*
+    |--------------------------------------------------------------------------
+    | Main Admin
+    |--------------------------------------------------------------------------
+    */
+
+    $stmt = $adminPdo->prepare("
+        SELECT
+            id,
+            name,
+            email,
+            phone,
+            company,
+            notes,
+            created_at,
+            email_verified,
+            registration_status,
+            rejection_reason,
+            approved_at,
+            rejected_at
+        FROM customers
+        WHERE id = ?
+        LIMIT 1
+    ");
+
+    $stmt->execute([
+        $customerId
+    ]);
+}
 
 $customer = $stmt->fetch(PDO::FETCH_ASSOC);
 
 
+/*
+|--------------------------------------------------------------------------
+| Customer Not Found / Not Accessible
+|--------------------------------------------------------------------------
+*/
+
 if (!$customer) {
+
+    $_SESSION['error'] =
+        'This customer registration could not be found or you do not have access to it.';
 
     header('Location: ?page=customers');
     exit;
@@ -81,6 +209,12 @@ if (
     exit;
 }
 
+
+/*
+|--------------------------------------------------------------------------
+| Admin Header
+|--------------------------------------------------------------------------
+*/
 
 require dirname(__DIR__) . '/layouts/header-admin.php';
 
