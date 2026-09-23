@@ -30,13 +30,10 @@ if (
 
     $stmt = $pdo->prepare("
         UPDATE notifications
-
-        SET
-            is_read = 1
-
-        WHERE
-            recipient_type = 'agent'
-            AND recipient_id = ?
+        SET is_read = 1
+        WHERE recipient_type = 'agent'
+          AND recipient_id = ?
+          AND is_read = 0
     ");
 
     $stmt->execute([
@@ -75,6 +72,23 @@ $stmt->execute([
 $notifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 
+/*
+|--------------------------------------------------------------------------
+| Check for unread notifications
+|--------------------------------------------------------------------------
+*/
+
+$hasUnread = false;
+
+foreach ($notifications as $notification) {
+
+    if ((int) $notification['is_read'] === 0) {
+        $hasUnread = true;
+        break;
+    }
+}
+
+
 require VIEW_PATH . '/layouts/header-agent.php';
 
 ?>
@@ -95,13 +109,14 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
         </div>
 
-        <?php if (!empty($notifications)): ?>
+        <?php if ($hasUnread): ?>
 
             <form method="POST">
 
                 <button
                     type="submit"
                     name="mark_all_read"
+                    value="1"
                     class="btn btn-outline-success">
 
                     <i class="bi bi-check2-all"></i>
@@ -145,7 +160,7 @@ require VIEW_PATH . '/layouts/header-agent.php';
             <?php foreach ($notifications as $notification): ?>
 
                 <?php
-                    $isUnread = (int)$notification['is_read'] === 0;
+                    $isUnread = (int) $notification['is_read'] === 0;
                 ?>
 
                 <a

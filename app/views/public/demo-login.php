@@ -633,10 +633,8 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 
                     <p class="mt-3 text-center mb-2">
 
-                        <a href="?page=demo-forgot-password">
-
+                        <a href="?page=demo-password-recovery">
                             Forgot Demo Password?
-
                         </a>
 
                     </p>

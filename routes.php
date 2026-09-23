@@ -478,8 +478,20 @@ case 'create-demo':
         require VIEW_PATH . '/public/demo-login.php';
         break;
 
+    case 'demo-password-recovery':
+        require VIEW_PATH . '/public/demo-password-recovery.php';
+        break;
+
     case 'customer-register':
         require VIEW_PATH . '/public/customer-register.php';
+        break;
+
+    case 'demo-password-recovery-requests':
+        require VIEW_PATH . '/admin/demo-password-recovery-requests.php';
+        break;
+
+    case 'admin-demo-password-recovery':
+        require CONTROLLER_PATH . '/admin-demo-password-recovery.php';
         break;
 
     case 'customer-logout':
