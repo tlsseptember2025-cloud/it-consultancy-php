@@ -85,6 +85,7 @@ if (
 
     }
 
+
     /*
     |--------------------------------------------------------------------------
     | Basic submission-time protection
@@ -116,9 +117,10 @@ if (
 
     }
 
+
     /*
     |--------------------------------------------------------------------------
-    | Collect form data
+    | Collect Form Data
     |--------------------------------------------------------------------------
     */
 
@@ -156,7 +158,7 @@ if (
 
         /*
         |--------------------------------------------------------------------------
-        | Validate required fields
+        | Validate Required Fields
         |--------------------------------------------------------------------------
         */
 
@@ -172,7 +174,12 @@ if (
 
         }
 
-        elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        elseif (
+            !filter_var(
+                $email,
+                FILTER_VALIDATE_EMAIL
+            )
+        ) {
 
             $error =
                 'Please enter a valid email address.';
@@ -191,31 +198,66 @@ if (
         }
 
         elseif (
-            !in_array(
-                $contractTerm,
-                ['Monthly', 'Yearly'],
-                true
-            )
-        ) {
+    !in_array(
+        $contractTerm,
+        [
+            'Monthly',
+            'Annual',
+            'Not Sure'
+        ],
+        true
+    )
+) {
+
+    $error =
+        'Please select a contract preference.';
+
+}
+
+       elseif (
+    !in_array(
+        $supportCoverage,
+        [
+            'Business Hours',
+            'Extended Hours',
+            '24/7',
+            'Not Sure'
+        ],
+        true
+    )
+) {
 
             $error =
-                'Please select a contract preference.';
+                'Please select your preferred support coverage.';
 
         }
 
+       elseif (
+    !in_array(
+        $startTimeframe,
+        [
+            'Immediately',
+            'Within 30 Days',
+            'Within 3 Months',
+            'Just Exploring'
+        ],
+        true
+    )
+) {
+
+    $error =
+        'Please select when you would like to start.';
+
+}
+
+
         /*
         |--------------------------------------------------------------------------
-        | Save Lead
+        | Validate Service Selections
         |--------------------------------------------------------------------------
         */
 
         if (empty($error)) {
-
-            /*
-            |--------------------------------------------------------------------------
-            | Clean service selections
-            |--------------------------------------------------------------------------
-            */
 
             $allowedServices = [
 
@@ -230,6 +272,7 @@ if (
                 'Website Maintenance'
 
             ];
+
 
             $supportServices =
                 array_values(
@@ -250,11 +293,17 @@ if (
         }
 
 
+        /*
+        |--------------------------------------------------------------------------
+        | Save Lead
+        |--------------------------------------------------------------------------
+        */
+
         if (empty($error)) {
 
             /*
             |--------------------------------------------------------------------------
-            | Store structured service selections as JSON
+            | Store Service Selections as JSON
             |--------------------------------------------------------------------------
             */
 
@@ -273,46 +322,41 @@ if (
 
             $stmt = $pdo->prepare("
                 INSERT INTO contract_leads
-                (
-                    company_name,
-                    contact_person,
-                    email,
-                    phone,
-                    contract_term,
-                    support_services,
-                    support_coverage,
-                    start_timeframe,
-                    marketing_consent
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (
+                company_name,
+                contact_person,
+                email,
+                phone,
+                contract_term,
+                support_services,
+                support_coverage,
+                start_timeframe,
+                marketing_consent,
+                status,
+                approval_status
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
+
 
             $stmt->execute([
 
                 $companyName,
-
                 $contactPerson,
-
                 $email,
-
                 $phone,
-
                 $contractTerm,
-
                 $supportServicesJson,
-
                 $supportCoverage,
-
                 $startTimeframe,
-
-                $marketingConsent
+                $marketingConsent,
+                'New',
+                'Pending'
 
             ]);
-
-
             /*
             |--------------------------------------------------------------------------
-            | Email notification
+            | Email Notification
             |--------------------------------------------------------------------------
             */
 
@@ -350,7 +394,7 @@ if (
 
             /*
             |--------------------------------------------------------------------------
-            | Success
+            | Success Message
             |--------------------------------------------------------------------------
             */
 
@@ -377,7 +421,9 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 
 <?php if (!empty($success)): ?>
 
-    <div class="alert alert-success alert-dismissible fade show" role="alert">
+    <div
+        class="alert alert-success alert-dismissible fade show"
+        role="alert">
 
         <?= htmlspecialchars($success) ?>
 
@@ -394,7 +440,9 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 
 <?php if (!empty($error)): ?>
 
-    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+    <div
+        class="alert alert-danger alert-dismissible fade show"
+        role="alert">
 
         <?= htmlspecialchars($error) ?>
 
@@ -427,18 +475,29 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 
         <p class="col-md-8 fs-4">
 
-            Manage customers, services, requests, invoices,
-            payments, consultations and more from one platform.
+    Manage customers, services, requests, invoices,
+    payments, consultations and more from one platform.
+    WAHBIB CONSULTATION LLC
 
-        </p>
+</p>
 
-        <a
-            class="btn btn-primary btn-lg"
-            href="?page=demo">
+<a
+    href="?page=demo-request"
+    class="btn btn-primary btn-lg">
 
-            Explore Demo
+    Request a Demo
 
-        </a>
+</a>
+
+
+ <a
+        class="btn btn-outline-primary btn-lg"
+        href="?page=demo-login">
+
+        Demo Login
+
+    </a>
+
 
     </div>
 
@@ -727,7 +786,9 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 
                 <p>
 
-                                    </p>
+                    Separate administrator and customer portals with secure authentication.
+
+                </p>
 
             </div>
 
@@ -735,20 +796,17 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 
     </div>
 
+
 </div>
 
 
 <!--
 |--------------------------------------------------------------------------
-| Business Contract Application + Live Support Chat
+| Business IT Support Lead Form
 |--------------------------------------------------------------------------
 -->
 
-<div class="row mt-5 mb-5">
-
-    <div class="col-12 mb-4">
-
-<div class="card shadow-sm">
+<div class="card shadow-sm mt-5 mb-5">
 
     <div class="card-body p-4">
 
@@ -776,7 +834,7 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 
             <!--
             |--------------------------------------------------------------------------
-            | Anti-spam honeypot
+            | Anti-Spam Honeypot
             |--------------------------------------------------------------------------
             -->
 
@@ -790,18 +848,27 @@ require dirname(__DIR__) . '/layouts/header-public.php';
                 "
                 aria-hidden="true">
 
-                <label>
+                <label for="website">
+
                     Website
+
                 </label>
 
                 <input
                     type="text"
                     name="website"
+                    id="website"
                     tabindex="-1"
                     autocomplete="off">
 
             </div>
 
+
+            <!--
+            |--------------------------------------------------------------------------
+            | Submission Time
+            |--------------------------------------------------------------------------
+            -->
 
             <input
                 type="hidden"
@@ -820,7 +887,9 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 
                 <div class="col-md-6 mb-3">
 
-                    <label class="form-label">
+                    <label
+                        class="form-label"
+                        for="company_name">
 
                         Company Name
 
@@ -829,6 +898,7 @@ require dirname(__DIR__) . '/layouts/header-public.php';
                     <input
                         type="text"
                         name="company_name"
+                        id="company_name"
                         class="form-control"
                         required>
 
@@ -837,7 +907,9 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 
                 <div class="col-md-6 mb-3">
 
-                    <label class="form-label">
+                    <label
+                        class="form-label"
+                        for="contact_person">
 
                         Contact Person
 
@@ -846,6 +918,7 @@ require dirname(__DIR__) . '/layouts/header-public.php';
                     <input
                         type="text"
                         name="contact_person"
+                        id="contact_person"
                         class="form-control"
                         required>
 
@@ -860,7 +933,9 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 
                 <div class="col-md-6 mb-3">
 
-                    <label class="form-label">
+                    <label
+                        class="form-label"
+                        for="email">
 
                         Email Address
 
@@ -869,6 +944,7 @@ require dirname(__DIR__) . '/layouts/header-public.php';
                     <input
                         type="email"
                         name="email"
+                        id="email"
                         class="form-control"
                         required>
 
@@ -877,7 +953,9 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 
                 <div class="col-md-6 mb-3">
 
-                    <label class="form-label">
+                    <label
+                        class="form-label"
+                        for="phone">
 
                         Phone Number
 
@@ -886,6 +964,7 @@ require dirname(__DIR__) . '/layouts/header-public.php';
                     <input
                         type="text"
                         name="phone"
+                        id="phone"
                         class="form-control"
                         required>
 
@@ -895,37 +974,55 @@ require dirname(__DIR__) . '/layouts/header-public.php';
             </div>
 
 
-            <!--
-            |--------------------------------------------------------------------------
-            | Service Interest
-            |--------------------------------------------------------------------------
-            -->
+            <div class="row g-4 mb-4">
 
-            <div class="card border mb-4">
+                <!--
+                |--------------------------------------------------------------------------
+                | Service Interest
+                |--------------------------------------------------------------------------
+                -->
 
-                <div class="card-body">
+                <div class="col-lg-7">
 
+                <!--
+                |--------------------------------------------------------------------------
+                | Service Interest
+                |--------------------------------------------------------------------------
+                -->
 
-                    <h5 class="mb-3">
+                <div class="card border mb-4">
 
-                        What services are you interested in?
-
-                    </h5>
-
-
-                    <p class="text-muted small">
-
-                        Select all that apply.
-
-                    </p>
+                    <div class="card-body">
 
 
-                    <!-- IT Support / Software -->
+                        <h5 class="mb-2">
 
-                    <div class="mb-4">
+                            What services are you interested in?
+
+                        </h5>
 
 
-                        <div class="form-check">
+                        <p class="text-muted small mb-4">
+
+                            Select all that apply.
+
+                        </p>
+
+
+                        <!--
+                        |--------------------------------------------------------------------------
+                        | IT Support / Software Services
+                        |--------------------------------------------------------------------------
+                        -->
+
+                        <h6 class="fw-bold mb-3">
+
+                            IT Support / Software Services
+
+                        </h6>
+
+
+                        <div class="form-check mb-3">
 
                             <input
                                 class="form-check-input"
@@ -938,31 +1035,50 @@ require dirname(__DIR__) . '/layouts/header-public.php';
                                 class="form-check-label"
                                 for="remoteIT">
 
-                                <strong>
-                                    IT Support / Software Services
-                                </strong>
-                                <br>
-
-                                <span class="text-muted">
-
-                                    Remote IT Support
-
-                                </span>
+                                Remote IT Support
 
                             </label>
 
                         </div>
 
 
-                    </div>
+                        <div class="form-check mb-4">
+
+                            <input
+                                class="form-check-input"
+                                type="checkbox"
+                                name="support_services[]"
+                                value="Software Services"
+                                id="softwareServices">
+
+                            <label
+                                class="form-check-label"
+                                for="softwareServices">
+
+                                Software Services
+
+                            </label>
+
+                        </div>
 
 
-                    <!-- Website Services -->
-
-                    <div>
+                        <hr>
 
 
-                        <div class="form-check">
+                        <!--
+                        |--------------------------------------------------------------------------
+                        | Website Services
+                        |--------------------------------------------------------------------------
+                        -->
+
+                        <h6 class="fw-bold mt-4 mb-3">
+
+                            Website Services
+
+                        </h6>
+
+
+                        <div class="form-check mb-3">
 
                             <input
                                 class="form-check-input"
@@ -975,16 +1091,47 @@ require dirname(__DIR__) . '/layouts/header-public.php';
                                 class="form-check-label"
                                 for="ecommerceWebsite">
 
-                                <strong>
-                                    Website Services
-                                </strong>
-                                <br>
+                                E-commerce Website
 
-                                <span class="text-muted">
+                            </label>
 
-                                    E-commerce Website
+                        </div>
 
-                                </span>
+
+                        <div class="form-check mb-3">
+
+                            <input
+                                class="form-check-input"
+                                type="checkbox"
+                                name="support_services[]"
+                                value="Corporate Website"
+                                id="corporateWebsite">
+
+                            <label
+                                class="form-check-label"
+                                for="corporateWebsite">
+
+                                Corporate Website
+
+                            </label>
+
+                        </div>
+
+
+                        <div class="form-check">
+
+                            <input
+                                class="form-check-input"
+                                type="checkbox"
+                                name="support_services[]"
+                                value="Website Maintenance"
+                                id="websiteMaintenance">
+
+                            <label
+                                class="form-check-label"
+                                for="websiteMaintenance">
+
+                                Website Maintenance
 
                             </label>
 
@@ -993,176 +1140,174 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 
                     </div>
 
+                </div>
+
+
 
                 </div>
 
-            </div>
 
+                <!--
+                |--------------------------------------------------------------------------
+                | Contract Preferences
+                |--------------------------------------------------------------------------
+                -->
 
-            <!--
-            |--------------------------------------------------------------------------
-            | Support Coverage
-            |--------------------------------------------------------------------------
-            -->
+                <div class="col-lg-5">
 
-            <div class="mb-3">
+                <!--
+                |--------------------------------------------------------------------------
+                | Support Coverage
+                |--------------------------------------------------------------------------
+                -->
 
+                <div class="mb-3">
 
-                <label class="form-label">
 
-                    Preferred Support Coverage
+                    <label
+                        class="form-label"
+                        for="support_coverage">
 
-                </label>
+                        Preferred Support Coverage
 
+                    </label>
 
-                <select
-                    name="support_coverage"
-                    class="form-select"
-                    required>
 
+                    <select
+        name="support_coverage"
+        id="support_coverage"
+        class="form-select"
+        required>
 
-                    <option value="">
+        <option value="">
+            Select support coverage
+        </option>
 
-                        Select support coverage
+        <option value="Business Hours">
+            Business Hours
+        </option>
 
-                    </option>
+        <option value="Extended Hours">
+            Extended Hours
+        </option>
 
+        <option value="24/7">
+            24/7
+        </option>
 
-                    <option value="Remote">
+        <option value="Not Sure">
+            Not Sure
+        </option>
 
-                        Remote
+    </select>
 
-                    </option>
+                </div>
 
 
-                    <option value="On-site">
 
-                        On-site
+                <!--
+                |--------------------------------------------------------------------------
+                | Contract Preference
+                |--------------------------------------------------------------------------
+                -->
 
-                    </option>
+                <div class="mb-3">
 
 
-                    <option value="Hybrid">
+                    <label
+                        class="form-label"
+                        for="contract_term">
 
-                        Hybrid
+                        Contract Preference
 
-                    </option>
+                    </label>
 
 
-                </select>
+                    <select
+        name="contract_term"
+        class="form-select"
+        required>
 
+        <option value="">
+            Select contract preference
+        </option>
 
-            </div>
+        <option value="Monthly">
+            Monthly
+        </option>
 
+        <option value="Annual">
+            Annual
+        </option>
 
-            <!--
-            |--------------------------------------------------------------------------
-            | Contract Preference
-            |--------------------------------------------------------------------------
-            -->
+        <option value="Not Sure">
+            Not Sure
+        </option>
 
-            <div class="mb-3">
+    </select>
 
 
-                <label class="form-label">
+                </div>
 
-                    Contract Preference
 
-                </label>
 
+                <!--
+                |--------------------------------------------------------------------------
+                | Start Timeframe
+                |--------------------------------------------------------------------------
+                -->
 
-                <select
-                    name="contract_term"
-                    class="form-select"
-                    required>
+                <div class="mb-4">
 
 
-                    <option value="">
+                    <label
+                        class="form-label"
+                        for="start_timeframe">
 
-                        Select contract preference
+                        When would you like to start?
 
-                    </option>
+                    </label>
 
 
-                    <option value="Monthly">
+                    <select
+                        name="start_timeframe"
+                        id="start_timeframe"
+                        class="form-select"
+                        required>
 
-                        Monthly
 
-                    </option>
+                        <option value="">
 
+                            Select timeframe
 
-                    <option value="Yearly">
+                        </option>
 
-                        Yearly
 
-                    </option>
+                       <option value="Immediately">
+        Immediately
+    </option>
 
+    <option value="Within 30 Days">
+        Within 30 Days
+    </option>
 
-                </select>
+    <option value="Within 3 Months">
+        Within 3 Months
+    </option>
 
+    <option value="Just Exploring">
+        Just Exploring
+    </option>
 
-            </div>
 
+                    </select>
 
-            <!--
-            |--------------------------------------------------------------------------
-            | Start Timeframe
-            |--------------------------------------------------------------------------
-            -->
 
-            <div class="mb-4">
+                </div>
 
 
-                <label class="form-label">
 
-                    When would you like to start?
-
-                </label>
-
-
-                <select
-                    name="start_timeframe"
-                    class="form-select"
-                    required>
-
-
-                    <option value="">
-
-                        Select timeframe
-
-                    </option>
-
-
-                    <option value="Immediately">
-
-                        Immediately
-
-                    </option>
-
-
-                    <option value="Within 1 Month">
-
-                        Within 1 Month
-
-                    </option>
-
-
-                    <option value="1-3 Months">
-
-                        1–3 Months
-
-                    </option>
-
-
-                    <option value="Just Exploring">
-
-                        Just Exploring
-
-                    </option>
-
-
-                </select>
-
+                </div>
 
             </div>
 
@@ -1207,9 +1352,7 @@ require dirname(__DIR__) . '/layouts/header-public.php';
                 name="submit_contract_lead"
                 class="btn btn-success btn-lg">
 
-
                 I'm Interested
-
 
             </button>
 
@@ -1220,415 +1363,6 @@ require dirname(__DIR__) . '/layouts/header-public.php';
     </div>
 
 </div>
-
-    </div>
-
-    <div class="col-12">
-
-<!--
-|--------------------------------------------------------------------------
-| Live Chat
-|--------------------------------------------------------------------------
--->
-
-<div class="card shadow-sm">
-
-    <div class="card-body p-4">
-
-        <div class="text-center">
-
-            <h3 class="mb-3">
-                💬 Live Support Chat
-            </h3>
-
-            <?php if ($guestChatAvailability['available']): ?>
-
-                <p class="text-muted mb-4">
-                    Need help or have a question?
-                    Chat directly with our support team.
-                </p>
-
-                <a
-                    href="?page=guest-chat"
-                    class="btn btn-primary btn-lg px-4">
-
-                    Start Live Chat
-
-                </a>
-
-                <div class="mt-3 text-muted small">
-                    Available during office hours when at least one Admin is online.
-                </div>
-
-            <?php else: ?>
-
-                <div
-                    class="border rounded p-4 text-start"
-                    style="background:#fff8e1;">
-
-                    <div class="d-flex align-items-center mb-3">
-
-                        <span
-                            class="badge bg-danger fs-6 me-2 px-3 py-2">
-
-                            Unavailable
-
-                        </span>
-
-                        <h4 class="mb-0">
-
-                            Live Chat is currently unavailable
-
-                        </h4>
-
-                    </div>
-
-
-                    <div class="alert alert-warning mb-4">
-
-                        <strong>Why can't I start a chat?</strong>
-
-                        <div class="mt-1">
-
-                            <?php if (!$guestChatAvailability['office_open']): ?>
-
-                                Our office is currently outside its configured working hours.
-
-                            <?php elseif (!$guestChatAvailability['admin_online']): ?>
-
-                                Our office is currently open, but no Admin is online.
-
-                            <?php endif; ?>
-
-                        </div>
-
-                    </div>
-
-
-                    <h5 class="mb-3">
-                        Live Chat is available when BOTH conditions are met:
-                    </h5>
-
-
-                    <div class="row g-3 mb-4">
-
-                        <div class="col-md-6">
-
-                            <div class="border rounded p-3 h-100 bg-white">
-
-                                <div class="d-flex justify-content-between align-items-start gap-3">
-
-                                    <div>
-
-                                        <h6 class="fw-bold mb-2">
-                                            🕐 Today's Office Hours
-                                        </h6>
-
-                                        <div class="small">
-
-                                            <strong>
-                                                <?= htmlspecialchars(
-                                                    $todayName,
-                                                    ENT_QUOTES,
-                                                    'UTF-8'
-                                                ) ?>
-                                            </strong>
-
-                                            <span class="ms-1">
-                                                <?= htmlspecialchars(
-                                                    $todayTimingText,
-                                                    ENT_QUOTES,
-                                                    'UTF-8'
-                                                ) ?>
-                                            </span>
-
-                                        </div>
-
-                                        <div class="mt-2">
-
-                                            <?php if ($guestChatAvailability['office_open']): ?>
-
-                                                <span class="badge bg-success">
-                                                    Office currently open
-                                                </span>
-
-                                            <?php elseif ($todayIsOpen): ?>
-
-                                                <span class="badge bg-danger">
-                                                    Office currently closed
-                                                </span>
-
-                                            <?php else: ?>
-
-                                                <span class="badge bg-secondary">
-                                                    Closed today
-                                                </span>
-
-                                            <?php endif; ?>
-
-                                        </div>
-
-                                    </div>
-
-                                    <div
-                                        class="text-center border rounded px-3 py-2"
-                                        style="min-width:190px; background:#f8f9fa;">
-
-                                        <div class="small text-muted mb-1">
-                                            Current time
-                                        </div>
-
-                                        <div
-                                            id="guestChatLiveClock"
-                                            class="fw-bold fs-4"
-                                            style="font-variant-numeric:tabular-nums;">
-                                            --:--:--
-                                        </div>
-
-                                        <?php if ($todayIsOpen && $todayOpenTime && $todayCloseTime): ?>
-
-                                            <div
-                                                id="guestChatCountdown"
-                                                class="small fw-semibold mt-1">
-                                                Loading...
-                                            </div>
-
-                                        <?php endif; ?>
-
-                                    </div>
-
-                                </div>
-
-                            </div>
-
-                        </div>
-
-
-                        <div class="col-md-6">
-
-                            <div class="border rounded p-3 h-100 bg-white">
-
-                                <h6 class="fw-bold mb-2">
-
-                                    👤 Admin Availability
-
-                                </h6>
-
-                                <div class="small">
-
-                                    At least one Admin must be logged in
-                                    and currently active.
-
-                                </div>
-
-                                <div class="mt-2">
-
-                                    <?php if ($guestChatAvailability['admin_online']): ?>
-
-                                        <span class="badge bg-success">
-                                            Admin currently online
-                                        </span>
-
-                                    <?php else: ?>
-
-                                        <span class="badge bg-danger">
-                                            No Admin currently online
-                                        </span>
-
-                                    <?php endif; ?>
-
-                                </div>
-
-                            </div>
-
-                        </div>
-
-                    </div>
-
-
-                    <div class="text-center">
-
-                        <button
-                            type="button"
-                            class="btn btn-secondary btn-lg px-4"
-                            disabled>
-
-                            Live Chat Unavailable
-
-                        </button>
-
-                    </div>
-
-                </div>
-
-            <?php endif; ?>
-
-        </div>
-
-    </div>
-
-</div>
-
-<?php if ($todayIsOpen && $todayOpenTime && $todayCloseTime): ?>
-
-<script>
-(function () {
-
-    const clockElement =
-        document.getElementById('guestChatLiveClock');
-
-    const countdownElement =
-        document.getElementById('guestChatCountdown');
-
-    if (!clockElement || !countdownElement) {
-        return;
-    }
-
-    const openTime = <?= json_encode($todayOpenTime) ?>;
-    const closeTime = <?= json_encode($todayCloseTime) ?>;
-
-    function getDubaiNow() {
-
-        const now = new Date();
-
-        const parts = new Intl.DateTimeFormat(
-            'en-CA',
-            {
-                timeZone: 'Asia/Dubai',
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit',
-                hourCycle: 'h23'
-            }
-        ).formatToParts(now);
-
-        const values = {};
-
-        parts.forEach(function (part) {
-            if (part.type !== 'literal') {
-                values[part.type] = part.value;
-            }
-        });
-
-        return new Date(
-            Number(values.year),
-            Number(values.month) - 1,
-            Number(values.day),
-            Number(values.hour),
-            Number(values.minute),
-            Number(values.second)
-        );
-    }
-
-    function timeToSeconds(value) {
-
-        const parts = String(value).split(':');
-
-        return (
-            (Number(parts[0]) * 3600) +
-            (Number(parts[1]) * 60) +
-            Number(parts[2] || 0)
-        );
-
-    }
-
-    function formatDuration(totalSeconds) {
-
-        totalSeconds = Math.max(0, Math.floor(totalSeconds));
-
-        const hours =
-            Math.floor(totalSeconds / 3600);
-
-        const minutes =
-            Math.floor((totalSeconds % 3600) / 60);
-
-        const seconds =
-            totalSeconds % 60;
-
-        return (
-            String(hours).padStart(2, '0') +
-            ':' +
-            String(minutes).padStart(2, '0') +
-            ':' +
-            String(seconds).padStart(2, '0')
-        );
-
-    }
-
-    function updateClock() {
-
-        const now = getDubaiNow();
-
-        clockElement.textContent =
-            new Intl.DateTimeFormat(
-                'en-US',
-                {
-                    timeZone: 'Asia/Dubai',
-                    hour: 'numeric',
-                    minute: '2-digit',
-                    second: '2-digit',
-                    hour12: true
-                }
-            ).format(new Date());
-
-        const currentSeconds =
-            (now.getHours() * 3600) +
-            (now.getMinutes() * 60) +
-            now.getSeconds();
-
-        const openingSeconds =
-            timeToSeconds(openTime);
-
-        const closingSeconds =
-            timeToSeconds(closeTime);
-
-        if (
-            currentSeconds >= openingSeconds &&
-            currentSeconds < closingSeconds
-        ) {
-
-            countdownElement.textContent =
-                'Closes in ' +
-                formatDuration(
-                    closingSeconds - currentSeconds
-                );
-
-            countdownElement.className =
-                'small fw-semibold mt-1 text-success';
-
-        } else if (currentSeconds < openingSeconds) {
-
-            countdownElement.textContent =
-                'Opens in ' +
-                formatDuration(
-                    openingSeconds - currentSeconds
-                );
-
-            countdownElement.className =
-                'small fw-semibold mt-1 text-primary';
-
-        } else {
-
-            countdownElement.textContent =
-                'Office hours ended';
-
-            countdownElement.className =
-                'small fw-semibold mt-1 text-danger';
-
-        }
-
-    }
-
-    updateClock();
-    setInterval(updateClock, 1000);
-
-})();
-</script>
-
-<?php endif; ?>
 
 <?php
 

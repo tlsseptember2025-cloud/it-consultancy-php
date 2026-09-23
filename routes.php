@@ -71,14 +71,10 @@ if ($isDemoEnvironment) {
     $demoSuperAdminRoutes = [
         'dashboard',
         'demo-super-admin',
-        'admin-suspension-chat',
         'logout',
-        'suspension-attachment',
         'notifications',
         'open-notification',
         'mark-all-notifications-read',
-        'messages',
-        'archived-messages',
         'services-admin',
         'add-service',
         'edit-service',
@@ -89,7 +85,6 @@ if ($isDemoEnvironment) {
         'delete-pricing',
         'customers',
         'view-customer',
-        'customer-status',
         'agents',
         'view-agent',
         'requests',
@@ -108,8 +103,6 @@ if ($isDemoEnvironment) {
         'view-refund',
         'payments',
         'view-payment',
-        'edit-payment',
-        'delete-payment',
         'consultation-slots',
         'review-consultation',
         'admin-review-consultation',
@@ -127,8 +120,6 @@ if ($isDemoEnvironment) {
         'review-refund',
         'missed-consultation-approvals',
         'review-missed-consultation',
-        'visitor-message',
-        'close-conversation',
         'create-proposal',
         'view-proposal',
         'admin-view-proposal',
@@ -147,18 +138,10 @@ if ($isDemoEnvironment) {
     $demoAdminRoutes = [
         'dashboard',
         'demo-setup',
-        'customers',
-        'view-customer',
-        'customer-status',
-        'suspension-attachment',
-        'admin-suspension-chat',
-        'agents',
         'logout',
         'notifications',
         'open-notification',
         'mark-all-notifications-read',
-        'messages',
-        'archived-messages',
 
         'services-admin',
         'add-service',
@@ -172,7 +155,7 @@ if ($isDemoEnvironment) {
 
         'customers',
         'view-customer',
-        'customer-status',
+
         'agents',
         'view-agent',
 
@@ -189,7 +172,6 @@ if ($isDemoEnvironment) {
         'export-retention',
 
         'refunds',
-        'add-refund',
         'refund-requests',
         'complete-refund',
         'archived-refunds',
@@ -197,8 +179,6 @@ if ($isDemoEnvironment) {
 
         'payments',
         'view-payment',
-        'edit-payment',
-        'delete-payment',
 
         'consultation-slots',
         'review-consultation',
@@ -224,8 +204,6 @@ if ($isDemoEnvironment) {
         'missed-consultation-approvals',
         'review-missed-consultation',
 
-        'visitor-message',
-        'close-conversation',
         'create-proposal',
         'admin-view-proposal',
         'send-proposal',
@@ -271,36 +249,34 @@ if ($isDemoEnvironment) {
      * Routes available to Demo Customer
      */
     $demoCustomerRoutes = [
-    'customer-dashboard',
-    'customer-suspension-chat',
-    'suspension-attachment',
-    'customer-logout',
-    'customer-profile',
-    'customer-requests',
-    'customer-view-inactive-request',
-    'customer-request-service',
-    'customer-request-refund',
-    'customer-payments',
-    'customer-refunds',
-    'customer-upload-slip',
-    'customer-notifications',
-    'schedule-consultation',
-    'confirm-consultation',
-    'reschedule-consultation',
-    'confirm-reschedule-consultation',
-    'refund-history',
-    'customer-view-refund',
-    'schedule-service',
-    'confirm-service',
-    'reschedule-service',
-    'confirm-reschedule-service',
-    'confirm-service-completion',
-    'confirm-consultation-completion',
-    'customer-rate-agent',
-    'view-proposal',
-    'accept-proposal-confirm',
-    'reject-proposal',
-];
+        'customer-dashboard',
+        'customer-logout',
+        'customer-profile',
+        'customer-requests',
+        'customer-view-inactive-request',
+        'customer-request-service',
+        'customer-request-refund',
+        'customer-payments',
+        'customer-refunds',
+        'customer-upload-slip',
+        'customer-notifications',
+        'schedule-consultation',
+        'confirm-consultation',
+        'reschedule-consultation',
+        'confirm-reschedule-consultation',
+        'refund-history',
+        'customer-view-refund',
+        'schedule-service',
+        'confirm-service',
+        'reschedule-service',
+        'confirm-reschedule-service',
+        'confirm-service-completion',
+        'confirm-consultation-completion',
+        'customer-rate-agent',
+        'view-proposal',
+        'accept-proposal-confirm',
+        'reject-proposal',
+    ];
 
     /**
      * Public routes do not require authentication.
@@ -357,156 +333,6 @@ if ($isDemoEnvironment) {
     }
 }
 
-
-/*
-|--------------------------------------------------------------------------
-| Suspended Customer Route Protection
-|--------------------------------------------------------------------------
-|
-| Suspended customers may access only:
-|
-| - Suspension Chat
-| - Suspension Chat Attachments
-| - Customer Logout
-| - Payment Slip Upload when "Payment Required" is active
-|
-| All normal customer portal routes are blocked.
-|--------------------------------------------------------------------------
-*/
-
-$isSuspendedCustomer = false;
-$hasPaymentRequiredSuspension = false;
-
-if (
-    isset($_SESSION['customer']) ||
-    isset($_SESSION['demo_customer'])
-) {
-
-    /*
-     * Determine which database and customer ID to use.
-     */
-    if ($isDemoEnvironment && isset($_SESSION['demo_customer'])) {
-
-        $suspendedCustomerId =
-            (int) $_SESSION['demo_customer']['id'];
-
-        $suspensionPdo = $demoPdo;
-
-        $customerStatusStmt = $suspensionPdo->prepare("
-            SELECT status
-            FROM customers
-            WHERE id = ?
-              AND is_demo_account = 1
-            LIMIT 1
-        ");
-
-        $customerStatusStmt->execute([
-            $suspendedCustomerId
-        ]);
-
-    } elseif (!$isDemoEnvironment && isset($_SESSION['customer'])) {
-
-        $suspendedCustomerId =
-            (int) $_SESSION['customer']['id'];
-
-        $suspensionPdo = $pdo;
-
-        $customerStatusStmt = $suspensionPdo->prepare("
-            SELECT status
-            FROM customers
-            WHERE id = ?
-            LIMIT 1
-        ");
-
-        $customerStatusStmt->execute([
-            $suspendedCustomerId
-        ]);
-
-    } else {
-
-        $suspendedCustomerId = 0;
-        $suspensionPdo = null;
-        $customerStatusStmt = null;
-    }
-
-
-    /*
-     * Check the customer's current database status.
-     *
-     * This deliberately does not rely only on the session because
-     * an Admin may suspend or reactivate the customer while the
-     * customer's browser session is still active.
-     */
-    if ($customerStatusStmt) {
-
-        $currentCustomerStatus =
-            $customerStatusStmt->fetchColumn();
-
-        if ($currentCustomerStatus === 'Suspended') {
-
-            $isSuspendedCustomer = true;
-
-
-            /*
-             * Check whether Payment Required is currently active.
-             */
-            $paymentRequiredStmt = $suspensionPdo->prepare("
-                SELECT COUNT(*)
-                FROM customer_suspensions
-                WHERE customer_id = ?
-                  AND reason = 'Payment Required'
-                  AND active = 1
-            ");
-
-            $paymentRequiredStmt->execute([
-                $suspendedCustomerId
-            ]);
-
-            $hasPaymentRequiredSuspension =
-                ((int) $paymentRequiredStmt->fetchColumn() > 0);
-        }
-    }
-}
-
-
-/*
-|--------------------------------------------------------------------------
-| Enforce Suspended Customer Access
-|--------------------------------------------------------------------------
-*/
-
-if ($isSuspendedCustomer) {
-
-    $allowedSuspendedCustomerRoutes = [
-        'customer-suspension-chat',
-        'suspension-attachment',
-        'customer-logout'
-    ];
-
-
-    /*
-     * Payment slip upload is available only when the active
-     * suspension includes Payment Required.
-     */
-    if ($hasPaymentRequiredSuspension) {
-        $allowedSuspendedCustomerRoutes[] =
-            'customer-upload-slip';
-    }
-
-
-    if (!in_array($page, $allowedSuspendedCustomerRoutes, true)) {
-
-        if ($isDemoEnvironment) {
-            header('Location: ?page=customer-suspension-chat');
-        } else {
-            header('Location: ?page=customer-suspension-chat');
-        }
-
-        exit;
-    }
-}
-
-
 switch ($page) {
 
     /*
@@ -529,10 +355,6 @@ switch ($page) {
 
     case 'services':
         require VIEW_PATH . '/public/services.php';
-        break;
-
-    case 'contact':
-        require VIEW_PATH . '/public/contact.php';
         break;
 
     case 'demo-request':
@@ -598,14 +420,6 @@ case 'create-demo':
     | Messages & Notifications
     |--------------------------------------------------------------------------
     */
-
-    case 'messages':
-        require VIEW_PATH . '/admin/messages.php';
-        break;
-
-    case 'archived-messages':
-        require VIEW_PATH . '/admin/archived-messages.php';
-        break;
 
     case 'notifications':
         require VIEW_PATH . '/admin/notifications.php';
@@ -801,18 +615,6 @@ case 'create-demo':
         require VIEW_PATH . '/customer/customer-dashboard.php';
         break;
 
-    case 'customer-suspension-chat':
-        require VIEW_PATH . '/customer/customer-suspension-chat.php';
-        break;
-
-    case 'admin-suspension-chat':
-        require VIEW_PATH . '/admin/admin-suspension-chat.php';
-        break;
-
-    case 'suspension-attachment':
-        require CONTROLLER_PATH . '/suspension-attachment.php';
-        break;
-
     case 'customer-view-inactive-request':
         require VIEW_PATH . '/customer/view-inactive-request.php';
         break;
@@ -867,26 +669,6 @@ case 'create-demo':
         require VIEW_PATH . '/admin/view-slip.php';
         break;
 
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | General
-    |--------------------------------------------------------------------------
-    */
-
-    case 'edit':
-        require VIEW_PATH . '/admin/edit.php';
-        break;
-
-    case 'delete':
-        require VIEW_PATH . '/admin/delete.php';
-        break;
-
-    case 'view':
-        require VIEW_PATH . '/admin/view.php';
-        break;
-
     /*
     |--------------------------------------------------------------------------
     | Admin Dashboard
@@ -927,30 +709,6 @@ case 'create-demo':
         require VIEW_PATH . '/admin/admin-close-request.php';
         break;
 
-        case 'admin-heartbeat':
-        require VIEW_PATH . '/admin/admin-heartbeat.php';
-        break;
-
-        case 'guest-chat':
-        require VIEW_PATH . '/public/guest-chat.php';
-        break;
-
-        case 'guest-chat-conversation':
-        require VIEW_PATH . '/public/guest-chat-conversation.php';
-        break;
-
-        case 'guest-chats':
-            require VIEW_PATH . '/admin/guest-chats.php';
-            break;
-
-        case 'guest-chat-conversation-admin':
-            require VIEW_PATH . '/admin/guest-chat-conversation.php';
-            break;
-
-        case 'guest-chat-attachment':
-            require CONTROLLER_PATH . '/guest-chat-attachment.php';
-            break;
-
     /*
     |--------------------------------------------------------------------------
     | Services
@@ -983,22 +741,9 @@ case 'create-demo':
         require VIEW_PATH . '/admin/customers.php';
         break;
 
-    case 'add-customer':
-        require VIEW_PATH . '/admin/add-customer.php';
-        break;
-
-    case 'edit-customer':
-        require VIEW_PATH . '/admin/edit-customer.php';
-        break;
-
     case 'view-customer':
         require VIEW_PATH . '/admin/view-customer.php';
         break;
-
-    case 'delete-customer':
-        require VIEW_PATH . '/admin/delete-customer.php';
-        break;
-
 
     /*
     |--------------------------------------------------------------------------
@@ -1028,21 +773,12 @@ case 'create-demo':
         require VIEW_PATH . '/admin/requests.php';
         break;
 
-    case 'add-request':
-        require VIEW_PATH . '/admin/add-request.php';
-        break;
 
     case 'view-request':
         require VIEW_PATH . '/admin/view-request.php';
         break;
 
-    case 'edit-request':
-        require VIEW_PATH . '/admin/edit-request.php';
-        break;
 
-    case 'delete-request':
-        require VIEW_PATH . '/admin/delete-request.php';
-        break;
 
     case 'closed-requests':
         require VIEW_PATH . '/admin/closed-requests.php';
@@ -1071,13 +807,7 @@ case 'create-demo':
     case 'export-retention':
     require VIEW_PATH . '/admin/export-retention.php';
     break;
-
-    case 'test':
-
-    require APP_PATH . '/controllers/test.php';
-
-    break;
-    
+ 
         /*
     |--------------------------------------------------------------------------
     | Refunds
@@ -1087,11 +817,6 @@ case 'create-demo':
     case 'refunds':
         require VIEW_PATH . '/admin/refunds.php';
         break;
-
-    case 'add-refund':
-        require VIEW_PATH . '/admin/add-refund.php';
-        break;
-
     case 'refund-requests':
         require VIEW_PATH . '/admin/refund-requests.php';
         break;
@@ -1108,19 +833,6 @@ case 'create-demo':
         require VIEW_PATH . '/admin/view-refund.php';
         break;
 
-    case 'delete-refund':
-
-        $stmt = $pdo->prepare("
-            DELETE FROM refunds
-            WHERE id = ?
-        ");
-
-        $stmt->execute([
-            $_GET['id']
-        ]);
-
-        header('Location: ?page=refunds');
-        exit;
 
     /*
     |--------------------------------------------------------------------------
@@ -1132,21 +844,12 @@ case 'create-demo':
         require VIEW_PATH . '/admin/payments.php';
         break;
 
-    case 'add-payment':
-        require VIEW_PATH . '/admin/add-payment.php';
-        break;
 
     case 'view-payment':
         require VIEW_PATH . '/admin/view-payment.php';
         break;
 
-    case 'edit-payment':
-        require VIEW_PATH . '/admin/edit-payment.php';
-        break;
 
-    case 'delete-payment':
-        require VIEW_PATH . '/admin/delete-payment.php';
-        break;
 
     /*
     |--------------------------------------------------------------------------
@@ -1242,6 +945,14 @@ case 'agent-mark-all-notifications-read':
     require VIEW_PATH . '/agent/mark-all-notifications-read.php';
     break;
 
+case 'guest-chats':
+    require VIEW_PATH . '/admin/guest-chats.php';
+    break;
+
+case 'guest-chat-conversation-admin':
+    require VIEW_PATH . '/admin/guest-chat-conversation.php';
+    break;
+
     /*
     |--------------------------------------------------------------------------
     | Service Scheduling
@@ -1297,14 +1008,6 @@ case 'agent-mark-all-notifications-read':
     | Visitor Messages & Proposals
     |--------------------------------------------------------------------------
     */
-
-    case 'visitor-message':
-        require VIEW_PATH . '/admin/visitor-message.php';
-        break;
-
-    case 'close-conversation':
-        require VIEW_PATH . '/admin/close-conversation.php';
-        break;
 
     case 'create-proposal':
         require VIEW_PATH . '/admin/create-proposal.php';

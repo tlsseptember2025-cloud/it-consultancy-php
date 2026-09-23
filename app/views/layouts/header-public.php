@@ -34,6 +34,8 @@ body {
 
 <?php require __DIR__ . '/partials/navbar-public.php'; ?>
 
+<?php require __DIR__ . '/partials/guest-chat-widget.php'; ?>
+
 <div class="container py-4">
 
 <?php require __DIR__ . '/partials/flash-messages.php'; ?>

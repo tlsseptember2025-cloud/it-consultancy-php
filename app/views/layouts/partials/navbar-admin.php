@@ -502,31 +502,7 @@ try {
 
                             </li>
 
-                            <li>
-
-                                <a
-                                    class="dropdown-item"
-                                    href="?page=messages">
-
-                                    Active Messages
-
-                                </a>
-
-                            </li>
-
-                            <li>
-
-                                <a
-                                    class="dropdown-item"
-                                    href="?page=archived-messages">
-
-                                    Archived Messages
-
-                                </a>
-
-                            </li>
-
-                        </ul>
+</ul>
 
                     </li>
 

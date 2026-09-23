@@ -363,13 +363,28 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 
                     </div>
 
-                    <button
-                        type="submit"
-                        class="btn btn-primary w-100">
+                   <div class="d-flex gap-2">
 
-                        Request Demo
+    <button
+        type="submit"
+        name="request_demo"
+        class="btn btn-primary flex-grow-1">
 
-                    </button>
+        Request Demo
+
+    </button>
+
+    <a
+        href="?page=home"
+        class="btn btn-secondary">
+
+        Cancel
+
+    </a>
+
+</div>
+
+
 
                 </form>
 

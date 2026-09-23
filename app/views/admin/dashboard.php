@@ -3,34 +3,7 @@
 require_once APP_PATH . '/helpers/DateHelper.php';
 require_once HELPER_PATH . '/auth.php';
 
-if (
-    !isset($_SESSION['user']) &&
-    !isset($_SESSION['demo_user']) &&
-    !isset($_SESSION['demo_super_admin'])
-) {
-    header('Location: ?page=login');
-    exit;
-}
-
-/*
-|--------------------------------------------------------------------------
-| Load the correct database before the shared Admin header
-|--------------------------------------------------------------------------
-|
-| The shared navbar is loaded by header-admin.php and also uses
-| $demoPdo for Demo Admin / Demo Super Admin sessions.
-|
-| Therefore the Demo database connection must exist BEFORE the
-| shared header is included.
-|--------------------------------------------------------------------------
-*/
-
-if (
-    isset($_SESSION['demo_super_admin']) ||
-    isset($_SESSION['demo_user'])
-) {
-    require_once CONFIG_PATH . '/demo-database.php';
-}
+requireAdminLogin();
 
 $adminPdo = $pdo;
 
@@ -439,26 +412,6 @@ $refundRequests = $adminPdo->query("
     LIMIT 3
 ")->fetchAll(PDO::FETCH_ASSOC);
 
-/*
-|--------------------------------------------------------------------------
-| Messages Needing Attention
-|--------------------------------------------------------------------------
-*/
-
-$messagesNeedingAttention = $adminPdo->query("
-    SELECT
-        id,
-        name,
-        email,
-        message,
-        created_at
-    FROM messages
-    WHERE status = 'unread'
-    ORDER BY created_at DESC
-    LIMIT 3
-")->fetchAll(PDO::FETCH_ASSOC);
-
-
 ?>
 
 <style>
@@ -594,70 +547,61 @@ $messagesNeedingAttention = $adminPdo->query("
 
 
             <!-- Company Support Leads -->
-            <?php if (
-    !isset($_SESSION['demo_user']) &&
-    !isset($_SESSION['demo_super_admin'])
-): ?>
+            <div class="card shadow-sm border-success">
 
-    <!-- Company Support Leads -->
-    <div class="card shadow-sm border-success">
+                <div class="card-header bg-success text-white">
+                    <strong>🏢 Company Support Leads</strong>
+                </div>
 
-        <div class="card-header bg-success text-white">
-            <strong>🏢 Company Support Leads</strong>
-        </div>
+                <div class="card-body text-center">
 
-        <div class="card-body text-center">
+                    <p class="mb-2">
+                        🆕 New:
+                        <strong><?= $newLeads ?></strong>
+                    </p>
 
-            <p class="mb-2">
-                🆕 New:
-                <strong><?= $newLeads ?></strong>
-            </p>
+                    <p class="mb-2">
+                        📞 Contacted:
+                        <strong><?= $contactedLeads ?></strong>
+                    </p>
 
-            <p class="mb-2">
-                📞 Contacted:
-                <strong><?= $contactedLeads ?></strong>
-            </p>
+                    <p class="mb-2">
+                        🤝 Converted:
+                        <strong><?= $convertedLeads ?></strong>
+                    </p>
 
-            <p class="mb-2">
-                🤝 Converted:
-                <strong><?= $convertedLeads ?></strong>
-            </p>
+                    <p class="mb-3">
+                        📁 Closed:
+                        <strong><?= $closedLeads ?></strong>
+                    </p>
 
-            <p class="mb-3">
-                📁 Closed:
-                <strong><?= $closedLeads ?></strong>
-            </p>
+                    <p class="mb-3">
+                        🗄️ Archived:
+                        <strong><?= $archivedLeads ?></strong>
+                    </p>
 
-            <p class="mb-3">
-                🗄️ Archived:
-                <strong><?= $archivedLeads ?></strong>
-            </p>
+                    <a
+                        href="?page=contract-leads"
+                        class="btn btn-success">
 
-            <a
-                href="?page=contract-leads"
-                class="btn btn-success">
+                        View Leads
 
-                View Leads
+                    </a>
 
-            </a>
+                    <a
+                        href="?page=pending-contract-leads"
+                        class="btn btn-warning mt-2">
 
-            <a
-                href="?page=pending-contract-leads"
-                class="btn btn-warning mt-2">
+                        🔍 Pending Reviews
+                        <?php if ($pendingLeads > 0): ?>
+                            (<?= (int)$pendingLeads ?>)
+                        <?php endif; ?>
 
-                🔍 Pending Reviews
+                    </a>
 
-                <?php if ($pendingLeads > 0): ?>
-                    (<?= (int)$pendingLeads ?>)
-                <?php endif; ?>
+                </div>
 
-            </a>
-
-        </div>
-
-    </div>
-
-<?php endif; ?>
+            </div>
 
         </div>
 
@@ -1263,74 +1207,6 @@ if ($item['review_type'] === 'consultation_overdue') {
 
                                 <span class="badge bg-danger">
                                     Pending Review
-                                </span>
-
-                            </div>
-
-                        </div>
-
-                    </a>
-
-                <?php endforeach; ?>
-
-            <?php endif; ?>
-
-        </div>
-
-    </div>
-
-</div>
-
-<!-- Messages Needing Attention -->
-<div class="col-lg-6">
-
-    <div class="card shadow-sm border-danger">
-
-        <div class="card-header bg-danger text-white">
-            <strong>✉️ Messages Needing Attention</strong>
-        </div>
-
-        <div class="card-body p-0">
-
-            <?php if (empty($messagesNeedingAttention)): ?>
-
-                <div class="p-4 text-muted text-center">
-                    No messages currently need attention.
-                </div>
-
-            <?php else: ?>
-
-                <?php foreach ($messagesNeedingAttention as $message): ?>
-
-                    <a
-                        href="?page=view&id=<?= (int)$message['id'] ?>"
-                        class="text-decoration-none text-dark d-block"
-                    >
-
-                        <div class="p-3 border-bottom dashboard-action-item">
-
-                            <div class="fw-bold">
-                                <?= htmlspecialchars($message['name']) ?>
-                            </div>
-
-                            <div class="small text-muted">
-                                <?= htmlspecialchars($message['email']) ?>
-                            </div>
-
-                            <div class="mt-2">
-                                <?= htmlspecialchars(
-                                    mb_substr($message['message'], 0, 80)
-                                ) ?>
-
-                                <?php if (mb_strlen($message['message']) > 80): ?>
-                                    ...
-                                <?php endif; ?>
-                            </div>
-
-                            <div class="mt-2">
-
-                                <span class="badge bg-danger">
-                                    Unread
                                 </span>
 
                             </div>
