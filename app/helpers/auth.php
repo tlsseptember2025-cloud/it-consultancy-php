@@ -6,8 +6,10 @@
 function requireCustomerLogin(): void
 {
     if (!isset($_SESSION['customer'])) {
+
         header('Location: ?page=public-login');
         exit;
+
     }
 }
 
@@ -31,8 +33,10 @@ function requireCustomerNormalAccess(): void
     $customerStatus = $_SESSION['customer']['status'] ?? 'Active';
 
     if ($customerStatus === 'Suspended') {
+
         header('Location: ?page=customer-suspension-chat');
         exit;
+
     }
 }
 
@@ -52,22 +56,41 @@ function requireDemoCustomerNormalAccess(): void
     $customerStatus = $_SESSION['demo_customer']['status'] ?? 'Active';
 
     if ($customerStatus === 'Suspended') {
+
         header('Location: ?page=customer-suspension-chat');
         exit;
+
     }
 }
 
 /**
  * Require Main Admin Login
  *
- * On the Main/Dev environment:
+ * Main/Dev Admin:
  * - Requires $_SESSION['user']
  *
- * On the Demo environment:
+ * Demo Admin:
  * - Requires $_SESSION['demo_user']
+ *
+ * The Demo Admin session is checked first so the shared
+ * Admin pages work correctly even when the Demo application
+ * is being tested locally.
  */
 function requireAdminLogin(): void
 {
+    /**
+     * Demo Admin session takes priority.
+     *
+     * Demo Admin uses the same Admin pages as Main/Dev,
+     * but its authentication session is stored separately.
+     */
+    if (isset($_SESSION['demo_user'])) {
+        return;
+    }
+
+    /**
+     * Demo environment without a Demo Admin session.
+     */
     $host = strtolower($_SERVER['HTTP_HOST'] ?? '');
 
     $isDemoEnvironment = (
@@ -76,17 +99,19 @@ function requireAdminLogin(): void
 
     if ($isDemoEnvironment) {
 
-        if (!isset($_SESSION['demo_user'])) {
-            header('Location: ?page=demo-login');
-            exit;
-        }
+        header('Location: ?page=demo-login');
+        exit;
 
-        return;
     }
 
+    /**
+     * Main/Dev Admin authentication.
+     */
     if (!isset($_SESSION['user'])) {
+
         header('Location: ?page=login');
         exit;
+
     }
 }
 
@@ -107,8 +132,10 @@ function requireDemoLogin(): void
         !isset($_SESSION['demo_customer']) &&
         !isset($_SESSION['demo_agent'])
     ) {
+
         header('Location: ?page=demo-login');
         exit;
+
     }
 }
 
@@ -118,8 +145,10 @@ function requireDemoLogin(): void
 function requireDemoSuperAdmin(): void
 {
     if (!isset($_SESSION['demo_super_admin'])) {
+
         header('Location: ?page=demo-login');
         exit;
+
     }
 }
 
@@ -129,8 +158,10 @@ function requireDemoSuperAdmin(): void
 function requireDemoAdmin(): void
 {
     if (!isset($_SESSION['demo_user'])) {
+
         header('Location: ?page=demo-login');
         exit;
+
     }
 }
 
@@ -140,8 +171,10 @@ function requireDemoAdmin(): void
 function requireDemoCustomer(): void
 {
     if (!isset($_SESSION['demo_customer'])) {
+
         header('Location: ?page=demo-login');
         exit;
+
     }
 }
 
@@ -151,8 +184,10 @@ function requireDemoCustomer(): void
 function requireDemoAgent(): void
 {
     if (!isset($_SESSION['demo_agent'])) {
+
         header('Location: ?page=demo-login');
         exit;
+
     }
 }
 

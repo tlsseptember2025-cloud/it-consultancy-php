@@ -467,6 +467,16 @@ $refundRequests = $adminPdo->query("
 
 </style>
 
+<?php if (!empty($_SESSION['admin_password_change_success'])): ?>
+
+    <div class="alert alert-success mx-3 mt-3">
+        <?= htmlspecialchars($_SESSION['admin_password_change_success']) ?>
+    </div>
+
+    <?php unset($_SESSION['admin_password_change_success']); ?>
+
+<?php endif; ?>
+
 <div class="container-fluid mt-4 dashboard-layout">
 
     <div class="row g-4">

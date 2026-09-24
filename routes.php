@@ -57,13 +57,14 @@ if ($isDemoEnvironment) {
      * Public Demo routes
      */
     $demoPublicRoutes = [
-        'home',
-        'demo-login',
-        'demo-change-password',
-        'customer-forgot-password',
-        'customer-reset-password',
-        'rules',
-    ];
+    'home',
+    'demo-login',
+    'demo-change-password',
+    'customer-forgot-password',
+    'customer-reset-password',
+    'demo-super-admin-forgot-password',
+    'rules',
+];
 
     /**
      * Routes available to Demo Super Admin
@@ -377,9 +378,26 @@ switch ($page) {
     require VIEW_PATH . '/public/confirm-demo-customer.php';
     break;
 
+    case 'demo-super-admin-forgot-password':
+        require VIEW_PATH . '/public/demo-super-admin-forgot-password.php';
+        break;
 
+    case 'demo-super-admin-reset-password':
+        require VIEW_PATH . '/public/demo-super-admin-reset-password.php';
+        break;
 
+    case 'admin-change-password':
+        require VIEW_PATH . '/admin/admin-change-password.php';
+        break;
 
+    case 'admin-recovery-credential':
+        require VIEW_PATH . '/admin/admin-recovery-credential.php';
+        break;
+
+    case 'admin-account-recovery':
+    require VIEW_PATH . '/public/admin-account-recovery.php';
+    break;
+    
     /*
 |--------------------------------------------------------------------------
 | Demo Requests

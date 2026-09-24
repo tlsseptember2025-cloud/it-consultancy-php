@@ -643,6 +643,46 @@ try {
                 </li>
 
 
+                <?php if (
+                    !isset($_SESSION['demo_user'])
+                ): ?>
+
+                    <!-- Account -->
+
+                    <li class="nav-item dropdown">
+
+                        <a
+                            class="nav-link dropdown-toggle"
+                            href="#"
+                            role="button"
+                            data-bs-toggle="dropdown"
+                            aria-expanded="false">
+
+                            Account
+
+                        </a>
+
+                        <ul class="dropdown-menu dropdown-menu-end">
+
+                            <li>
+
+                                <a
+                                    class="dropdown-item"
+                                    href="?page=admin-change-password">
+
+                                    Change Password
+
+                                </a>
+
+                            </li>
+
+                        </ul>
+
+                    </li>
+
+                <?php endif; ?>
+
+
                 <!-- Logout -->
 
                 <li class="nav-item">

@@ -2,7 +2,24 @@
 
 require_once HELPER_PATH . '/GuestChatHelper.php';
 
+/*
+|--------------------------------------------------------------------------
+| Guest Chat Availability
+|--------------------------------------------------------------------------
+|
+| Public and Demo users use the current application database context.
+| Keep the existing helper behavior unchanged.
+|
+*/
+
 $guestChatAvailability = getGuestChatAvailability($pdo);
+
+
+/*
+|--------------------------------------------------------------------------
+| Customer Notification Count
+|--------------------------------------------------------------------------
+*/
 
 $customerNotificationCount = 0;
 $customerNotifications = [];
@@ -23,6 +40,7 @@ if (isset($_SESSION['customer'])) {
 
     $customerNotificationCount = (int) $stmt->fetchColumn();
 
+
     $stmt = $pdo->prepare("
         SELECT *
         FROM notifications
@@ -42,22 +60,6 @@ if (isset($_SESSION['customer'])) {
 
 ?>
 
-<!DOCTYPE html>
-<html>
-
-<head>
-
-    <title>IT Consultancy</title>
-
-    <link
-        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
-        rel="stylesheet">
-
-</head>
-
-<body>
-
-
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark py-3">
 
     <div class="container-fluid">
@@ -66,7 +68,7 @@ if (isset($_SESSION['customer'])) {
             class="navbar-brand"
             href="?page=home">
 
-            IT Consultancy
+            <?= htmlspecialchars(COMPANY_NAME) ?>
 
         </a>
 
@@ -75,7 +77,10 @@ if (isset($_SESSION['customer'])) {
             class="navbar-toggler"
             type="button"
             data-bs-toggle="collapse"
-            data-bs-target="#navbarNav">
+            data-bs-target="#navbarNav"
+            aria-controls="navbarNav"
+            aria-expanded="false"
+            aria-label="Toggle navigation">
 
             <span class="navbar-toggler-icon"></span>
 
@@ -90,31 +95,29 @@ if (isset($_SESSION['customer'])) {
 
 
                 <!-- =========================================================
-                     DEMO ADMIN MENU
+                     DEMO SUPER ADMIN
                      ========================================================= -->
 
-                <?php if (isset($_SESSION['demo_user'])): ?>
+                <?php if (isset($_SESSION['demo_super_admin'])): ?>
 
                     <a
                         class="nav-link"
-                        href="?page=demo-dashboard">
+                        href="?page=demo-super-admin">
 
                         Dashboard
 
                     </a>
 
-
                     <span
                         class="nav-link text-warning fw-semibold">
 
-                        Demo Admin
+                        Demo Super Admin
 
                     </span>
 
-
                     <a
                         class="nav-link text-danger"
-                        href="?page=demo-logout">
+                        href="?page=logout">
 
                         Logout
 
@@ -122,103 +125,10 @@ if (isset($_SESSION['customer'])) {
 
 
                 <!-- =========================================================
-                     DEMO CUSTOMER MENU
+                     DEMO ADMIN
                      ========================================================= -->
 
-                <?php elseif (isset($_SESSION['demo_customer'])): ?>
-
-                    <a
-                        class="nav-link"
-                        href="?page=demo-customer-dashboard">
-
-                        Dashboard
-
-                    </a>
-
-
-                    <span
-                        class="nav-link text-warning fw-semibold">
-
-                        Demo Customer
-
-                    </span>
-
-
-                    <a
-                        class="nav-link text-danger"
-                        href="?page=demo-logout">
-
-                        Logout
-
-                    </a>
-
-
-                <!-- =========================================================
-                     DEMO AGENT MENU
-                     ========================================================= -->
-
-                <?php elseif (isset($_SESSION['demo_agent'])): ?>
-
-                    <a
-                        class="nav-link"
-                        href="?page=demo-agent-dashboard">
-
-                        Dashboard
-
-                    </a>
-
-
-                    <span
-                        class="nav-link text-warning fw-semibold">
-
-                        Demo Agent
-
-                    </span>
-
-
-                    <a
-                        class="nav-link text-danger"
-                        href="?page=demo-logout">
-
-                        Logout
-
-                    </a>
-
-
-                <!-- =========================================================
-                     NORMAL ADMIN MENU
-                     ========================================================= -->
-
-                <?php elseif (isset($_SESSION['user'])): ?>
-
-
-                    <?php
-
-                    $notificationCount = 0;
-
-                    try {
-
-                        require dirname(__DIR__, 3) . '/config/database.php';
-
-                        $stmt = $pdo->query("
-                            SELECT COUNT(*)
-                            FROM notifications
-                            WHERE recipient_type = 'admin'
-                              AND is_read = 0
-                        ");
-
-                        $notificationCount = (int) $stmt->fetchColumn();
-
-                    } catch (Exception $e) {
-
-                        $notificationCount = 0;
-
-                    }
-
-                    ?>
-
-
-                    <!-- ADMIN MENU -->
+                <?php elseif (isset($_SESSION['demo_user'])): ?>
 
                     <a
                         class="nav-link"
@@ -228,6 +138,95 @@ if (isset($_SESSION['customer'])) {
 
                     </a>
 
+                    <span
+                        class="nav-link text-warning fw-semibold">
+
+                        Demo Admin
+
+                    </span>
+
+                    <a
+                        class="nav-link text-danger"
+                        href="?page=logout">
+
+                        Logout
+
+                    </a>
+
+
+                <!-- =========================================================
+                     DEMO CUSTOMER
+                     ========================================================= -->
+
+                <?php elseif (isset($_SESSION['demo_customer'])): ?>
+
+                    <a
+                        class="nav-link"
+                        href="?page=customer-dashboard">
+
+                        Dashboard
+
+                    </a>
+
+                    <span
+                        class="nav-link text-warning fw-semibold">
+
+                        Demo Customer
+
+                    </span>
+
+                    <a
+                        class="nav-link text-danger"
+                        href="?page=customer-logout">
+
+                        Logout
+
+                    </a>
+
+
+                <!-- =========================================================
+                     DEMO AGENT
+                     ========================================================= -->
+
+                <?php elseif (isset($_SESSION['demo_agent'])): ?>
+
+                    <a
+                        class="nav-link"
+                        href="?page=agent-dashboard">
+
+                        Dashboard
+
+                    </a>
+
+                    <span
+                        class="nav-link text-warning fw-semibold">
+
+                        Demo Agent
+
+                    </span>
+
+                    <a
+                        class="nav-link text-danger"
+                        href="?page=agent-logout">
+
+                        Logout
+
+                    </a>
+
+
+                <!-- =========================================================
+                     MAIN / DEV ADMIN
+                     ========================================================= -->
+
+                <?php elseif (isset($_SESSION['user'])): ?>
+
+                    <a
+                        class="nav-link"
+                        href="?page=dashboard">
+
+                        Dashboard
+
+                    </a>
 
                     <a
                         class="nav-link"
@@ -236,7 +235,6 @@ if (isset($_SESSION['customer'])) {
                         Services
 
                     </a>
-
 
                     <a
                         class="nav-link"
@@ -247,15 +245,14 @@ if (isset($_SESSION['customer'])) {
                     </a>
 
 
-                    <!-- REQUESTS -->
-
                     <div class="nav-item dropdown">
 
                         <a
                             class="nav-link dropdown-toggle"
                             href="#"
                             role="button"
-                            data-bs-toggle="dropdown">
+                            data-bs-toggle="dropdown"
+                            aria-expanded="false">
 
                             Requests
 
@@ -276,7 +273,6 @@ if (isset($_SESSION['customer'])) {
 
                             </li>
 
-
                             <li>
 
                                 <a
@@ -294,15 +290,14 @@ if (isset($_SESSION['customer'])) {
                     </div>
 
 
-                    <!-- FINANCE -->
-
                     <div class="nav-item dropdown">
 
                         <a
                             class="nav-link dropdown-toggle"
                             href="#"
                             role="button"
-                            data-bs-toggle="dropdown">
+                            data-bs-toggle="dropdown"
+                            aria-expanded="false">
 
                             Finance
 
@@ -323,7 +318,6 @@ if (isset($_SESSION['customer'])) {
 
                             </li>
 
-
                             <li>
 
                                 <a
@@ -335,7 +329,6 @@ if (isset($_SESSION['customer'])) {
                                 </a>
 
                             </li>
-
 
                             <li>
 
@@ -354,202 +347,14 @@ if (isset($_SESSION['customer'])) {
                     </div>
 
 
-                    <!-- SYSTEM -->
+                    <a
+                        class="nav-link"
+                        href="?page=guest-chats">
 
-                    <div class="nav-item dropdown">
+                        Live Chat
 
-                        <a
-                            class="nav-link dropdown-toggle"
-                            href="#"
-                            role="button"
-                            data-bs-toggle="dropdown">
+                    </a>
 
-                            System
-
-                        </a>
-
-
-                        <ul class="dropdown-menu">
-
-                            <li>
-
-                                <a
-                                    class="dropdown-item"
-                                    href="?page=messages">
-
-                                    Active Messages
-
-                                </a>
-
-                            </li>
-
-
-                            <li>
-
-                                <a
-                                    class="dropdown-item"
-                                    href="?page=archived-messages">
-
-                                    Archived Messages
-
-                                </a>
-
-                            </li>
-
-
-                            <li>
-
-                                <a
-                                    class="dropdown-item"
-                                    href="?page=backup">
-
-                                    Database Backup
-
-                                </a>
-
-                            </li>
-
-                        </ul>
-
-                    </div>
-
-
-                    <!-- ADMIN NOTIFICATIONS -->
-
-                    <li class="nav-item dropdown">
-
-                        <a
-                            class="nav-link position-relative"
-                            href="#"
-                            id="notificationsDropdown"
-                            role="button"
-                            data-bs-toggle="dropdown"
-                            aria-expanded="false">
-
-                            🔔
-
-                            <?php if ($notificationCount > 0): ?>
-
-                                <span
-                                    id="notification-count"
-                                    class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-
-                                    <?= $notificationCount ?>
-
-                                </span>
-
-                            <?php endif; ?>
-
-                        </a>
-
-
-                        <ul
-                            class="dropdown-menu dropdown-menu-end"
-                            style="width: 380px;"
-                            id="notification-list">
-
-
-                            <?php
-
-                            $stmt = $pdo->query("
-                                SELECT *
-                                FROM notifications
-                                WHERE recipient_type = 'admin'
-                                  AND is_read = 0
-                                ORDER BY created_at DESC
-                                LIMIT 10
-                            ");
-
-                            $notifications = $stmt->fetchAll();
-
-                            ?>
-
-
-                            <?php if (empty($notifications)): ?>
-
-                                <li class="dropdown-item text-muted">
-
-                                    No notifications
-
-                                </li>
-
-                            <?php else: ?>
-
-                                <?php foreach ($notifications as $notification): ?>
-
-                                    <li>
-
-                                        <a
-                                            class="dropdown-item"
-                                            href="?page=open-notification&id=<?= $notification['id'] ?>">
-
-                                            <strong>
-
-                                                <?= htmlspecialchars(
-                                                    $notification['title']
-                                                ) ?>
-
-                                            </strong>
-
-                                            <br>
-
-                                            <small>
-
-                                                <?= htmlspecialchars(
-                                                    $notification['message']
-                                                ) ?>
-
-                                            </small>
-
-                                            <br>
-
-                                            <small class="text-muted">
-
-                                                <?= $notification['created_at'] ?>
-
-                                            </small>
-
-                                        </a>
-
-                                    </li>
-
-
-                                    <li>
-
-                                        <hr class="dropdown-divider">
-
-                                    </li>
-
-                                <?php endforeach; ?>
-
-                            <?php endif; ?>
-
-
-                            <li>
-
-                                <hr class="dropdown-divider">
-
-                            </li>
-
-
-                            <li>
-
-                                <a
-                                    class="dropdown-item text-center"
-                                    href="?page=notifications">
-
-                                    View All Notifications
-
-                                </a>
-
-                            </li>
-
-                        </ul>
-
-                    </li>
-
-
-                    <!-- ADMIN LOGOUT -->
 
                     <a
                         class="nav-link text-danger"
@@ -561,11 +366,10 @@ if (isset($_SESSION['customer'])) {
 
 
                 <!-- =========================================================
-                     NORMAL CUSTOMER MENU
+                     NORMAL CUSTOMER
                      ========================================================= -->
 
                 <?php elseif (isset($_SESSION['customer'])): ?>
-
 
                     <a
                         class="nav-link"
@@ -575,7 +379,6 @@ if (isset($_SESSION['customer'])) {
 
                     </a>
 
-
                     <a
                         class="nav-link"
                         href="?page=customer-requests">
@@ -584,7 +387,6 @@ if (isset($_SESSION['customer'])) {
 
                     </a>
 
-
                     <a
                         class="nav-link"
                         href="?page=customer-payments">
@@ -592,7 +394,6 @@ if (isset($_SESSION['customer'])) {
                         My Payments
 
                     </a>
-
 
                     <a
                         class="nav-link"
@@ -605,12 +406,13 @@ if (isset($_SESSION['customer'])) {
 
                     <!-- CUSTOMER NOTIFICATIONS -->
 
-                    <li class="nav-item dropdown">
+                    <div class="nav-item dropdown">
 
                         <a
                             class="nav-link position-relative"
                             href="#"
-                            data-bs-toggle="dropdown">
+                            data-bs-toggle="dropdown"
+                            aria-expanded="false">
 
                             🔔
 
@@ -632,7 +434,6 @@ if (isset($_SESSION['customer'])) {
                             class="dropdown-menu dropdown-menu-end"
                             style="min-width:350px;">
 
-
                             <?php if (empty($customerNotifications)): ?>
 
                                 <li>
@@ -648,10 +449,7 @@ if (isset($_SESSION['customer'])) {
 
                             <?php else: ?>
 
-                                <?php foreach (
-                                    $customerNotifications
-                                    as $notification
-                                ): ?>
+                                <?php foreach ($customerNotifications as $notification): ?>
 
                                     <li>
 
@@ -707,10 +505,8 @@ if (isset($_SESSION['customer'])) {
 
                         </ul>
 
-                    </li>
+                    </div>
 
-
-                    <!-- CUSTOMER LOGOUT -->
 
                     <a
                         class="nav-link text-danger"
@@ -722,11 +518,10 @@ if (isset($_SESSION['customer'])) {
 
 
                 <!-- =========================================================
-                     PUBLIC MENU
+                     PUBLIC VISITOR
                      ========================================================= -->
 
                 <?php else: ?>
-
 
                     <a
                         class="nav-link"
@@ -776,7 +571,6 @@ if (isset($_SESSION['customer'])) {
 
                     </a>
 
-
                 <?php endif; ?>
 
 
@@ -787,6 +581,3 @@ if (isset($_SESSION['customer'])) {
     </div>
 
 </nav>
-
-
-<div class="container py-4">

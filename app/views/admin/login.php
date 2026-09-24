@@ -21,70 +21,203 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         LIMIT 1
     ");
 
-    $stmt->execute([$email]);
+    $stmt->execute([
+        $email
+    ]);
 
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if ($user && password_verify($password, $user['password'])) {
 
-        /*
-         * Clear any other role sessions before creating
-         * the Main/Dev Admin session.
-         */
-        clearRoleSessions();
+    /*
+    |--------------------------------------------------------------------------
+    | Invalid Account
+    |--------------------------------------------------------------------------
+    */
 
-        /*
-         * Main/Dev Admin session.
-         *
-         * The existing system stores the Admin email
-         * in $_SESSION['user'], so this remains unchanged.
-         */
-        $_SESSION['user'] = $user['email'];
+    if (!$user) {
 
-        /*
-         * -------------------------------------------------
-         * Guest Live Chat - Admin Presence
-         * -------------------------------------------------
-         *
-         * Record this Admin as currently online.
-         *
-         * admin_presence has one row per Admin because
-         * admin_id is UNIQUE.
-         */
-        $presenceStmt = $pdo->prepare("
-            INSERT INTO admin_presence
-                (
-                    admin_id,
-                    last_seen,
-                    is_online
-                )
-            VALUES
-                (
-                    ?,
-                    CURRENT_TIMESTAMP,
-                    1
-                )
-            ON DUPLICATE KEY UPDATE
-                last_seen = CURRENT_TIMESTAMP,
-                is_online = 1
-        ");
-
-        $presenceStmt->execute([
-            (int) $user['id']
-        ]);
-
-        header('Location: ?page=dashboard');
-        exit;
+        $error = 'Invalid email or password.';
 
     } else {
 
-        $error = 'Invalid email or password.';
+        $adminId = (int) $user['id'];
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Check Main Admin Security / Lock Status
+        |--------------------------------------------------------------------------
+        */
+
+        $securityStmt = $pdo->prepare("
+            SELECT
+                is_locked,
+                locked_at,
+                lock_reason
+            FROM admin_security
+            WHERE admin_id = ?
+            LIMIT 1
+        ");
+
+        $securityStmt->execute([
+            $adminId
+        ]);
+
+        $security = $securityStmt->fetch(PDO::FETCH_ASSOC);
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Locked Account
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            $security
+            && (int) $security['is_locked'] === 1
+        ) {
+
+            $error =
+                'This Main Admin account is locked. '
+                . 'Please use the Admin recovery procedure to regain access.';
+
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Password Verification
+        |--------------------------------------------------------------------------
+        */
+
+        elseif (
+            password_verify(
+                $password,
+                $user['password']
+            )
+        ) {
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Clear Other Role Sessions
+            |--------------------------------------------------------------------------
+            */
+
+            clearRoleSessions();
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Main / Dev Admin Session
+            |--------------------------------------------------------------------------
+            |
+            | The existing system stores the Admin email
+            | in $_SESSION['user'], so this remains unchanged.
+            |
+            */
+
+            $_SESSION['user'] = $user['email'];
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Guest Live Chat - Admin Presence
+            |--------------------------------------------------------------------------
+            */
+
+            $presenceStmt = $pdo->prepare("
+                INSERT INTO admin_presence
+                    (
+                        admin_id,
+                        last_seen,
+                        is_online
+                    )
+                VALUES
+                    (
+                        ?,
+                        CURRENT_TIMESTAMP,
+                        1
+                    )
+                ON DUPLICATE KEY UPDATE
+                    last_seen = CURRENT_TIMESTAMP,
+                    is_online = 1
+            ");
+
+            $presenceStmt->execute([
+                $adminId
+            ]);
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Admin Security Setup
+            |--------------------------------------------------------------------------
+            |
+            | Every Main Admin must have a recovery credential.
+            |
+            */
+
+            $securityStmt = $pdo->prepare("
+                SELECT id
+                FROM admin_security
+                WHERE admin_id = ?
+                LIMIT 1
+            ");
+
+            $securityStmt->execute([
+                $adminId
+            ]);
+
+            $securityRecord = $securityStmt->fetch(PDO::FETCH_ASSOC);
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Recovery Credential Not Yet Created
+            |--------------------------------------------------------------------------
+            */
+
+            if (!$securityRecord) {
+
+                $_SESSION['admin_security_setup_required'] = true;
+
+                header(
+                    'Location: ?page=admin-recovery-credential'
+                );
+
+                exit;
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Security Setup Complete
+            |--------------------------------------------------------------------------
+            */
+
+            unset(
+                $_SESSION['admin_security_setup_required']
+            );
+
+
+            header(
+                'Location: ?page=dashboard'
+            );
+
+            exit;
+
+        } else {
+
+            $error = 'Invalid email or password.';
+        }
     }
 }
 
 ?>
 
 <?php require dirname(__DIR__) . '/layouts/header-public.php'; ?>
+
 
 <div class="row justify-content-center mt-5">
 
@@ -98,15 +231,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     Admin Login
                 </h2>
 
+
                 <?php if ($error): ?>
 
                     <div class="alert alert-danger">
+
                         <?= htmlspecialchars($error) ?>
+
                     </div>
 
                 <?php endif; ?>
 
-                <form method="POST" autocomplete="off">
+
+                <form
+                    method="POST"
+                    autocomplete="off"
+                >
 
                     <div class="mb-3">
 
@@ -119,9 +259,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             name="email"
                             class="form-control"
                             autocomplete="new-email"
-                            required>
+                            required
+                        >
 
                     </div>
+
 
                     <div class="mb-3">
 
@@ -134,13 +276,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             name="password"
                             class="form-control"
                             autocomplete="new-password"
-                            required>
+                            required
+                        >
 
                     </div>
 
-                    <button class="btn btn-primary w-100">
+
+                    <button
+                        type="submit"
+                        class="btn btn-primary w-100"
+                    >
                         Login
                     </button>
+
+                    <p class="mt-3 text-center mb-0">
+                        <a href="?page=admin-account-recovery">
+                            Account Locked? Recover Admin Access
+                        </a>
+                    </p>
 
                 </form>
 
@@ -151,5 +304,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 
 </div>
+
 
 <?php require dirname(__DIR__) . '/layouts/footer.php'; ?>

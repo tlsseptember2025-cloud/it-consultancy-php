@@ -1,197 +1,163 @@
 <?php
 
-require CONFIG_PATH . '/database.php';
+if (isset($_SESSION['user'])) {
+    header('Location: ?page=dashboard');
+    exit;
+}
+
+require_once CONFIG_PATH . '/database.php';
 
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    $email = trim($_POST['email']);
-    $password = trim($_POST['password']);
-
-
-    // ---------------------------
-    // Check Customer
-    // ---------------------------
+    $email = trim($_POST['email'] ?? '');
+    $password = trim($_POST['password'] ?? '');
 
     $stmt = $pdo->prepare("
         SELECT *
-        FROM customers
+        FROM users
         WHERE email = ?
+        LIMIT 1
     ");
 
     $stmt->execute([$email]);
 
-    $customer = $stmt->fetch(PDO::FETCH_ASSOC);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($user && password_verify($password, $user['password'])) {
+
+        /*
+         * Clear any other role sessions before creating
+         * the Main/Dev Admin session.
+         */
+        clearRoleSessions();
+
+        /*
+         * Main/Dev Admin session.
+         *
+         * The existing system stores the Admin email
+         * in $_SESSION['user'], so this remains unchanged.
+         */
+        $_SESSION['user'] = $user['email'];
 
 
-    if (
-        $customer &&
-        password_verify($password, $customer['password'])
-    ) {
-
-        // ---------------------------
-        // Check Customer Registration Status
-        // ---------------------------
-
-        if (
-            $customer['registration_status']
-            === 'Pending Email Verification'
-        ) {
-
-            $error =
-                'Please verify your email address before logging in.';
-
-        } elseif (
-            $customer['registration_status']
-            === 'Pending Admin Approval'
-        ) {
-
-            $error =
-                'Your registration is currently awaiting administrator approval.';
-
-        } elseif (
-            $customer['registration_status']
-            === 'Rejected'
-        ) {
-
-            $error =
-                'Your customer registration has been rejected. Please check the email sent to you for further information.';
-
-        } elseif (
-            $customer['registration_status']
-            === 'Approved'
-        ) {
-
-            // Store the complete current customer record in the session.
-            $_SESSION['customer'] = $customer;
-
-            /*
-             * Suspended customers are restricted to the
-             * suspension communication area.
-             *
-             * They do not enter the normal customer dashboard.
-             */
-            if (($customer['status'] ?? 'Active') === 'Suspended') {
-
-                header('Location: ?page=customer-suspension-chat');
-                exit;
-
-            }
-
-            /*
-             * Active customers continue to the normal
-             * customer dashboard.
-             */
-            header('Location: ?page=customer-dashboard');
-            exit;
-
-        } else {
-
-            $error =
-                'Your customer account is not currently available for login.';
-        }
-
-
-    } else {
-
-        // ---------------------------
-        // Check Agent
-        // ---------------------------
-
-        $stmt = $pdo->prepare("
-            SELECT *
-            FROM agents
-            WHERE email = ?
-            AND status = 'Active'
+        /*
+         * -------------------------------------------------
+         * Guest Live Chat - Admin Presence
+         * -------------------------------------------------
+         *
+         * Record this Admin as currently online.
+         *
+         * admin_presence has one row per Admin because
+         * admin_id is UNIQUE.
+         */
+        $presenceStmt = $pdo->prepare("
+            INSERT INTO admin_presence
+                (
+                    admin_id,
+                    last_seen,
+                    is_online
+                )
+            VALUES
+                (
+                    ?,
+                    CURRENT_TIMESTAMP,
+                    1
+                )
+            ON DUPLICATE KEY UPDATE
+                last_seen = CURRENT_TIMESTAMP,
+                is_online = 1
         ");
 
-        $stmt->execute([$email]);
+        $presenceStmt->execute([
+            (int) $user['id']
+        ]);
 
-        $agent = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        /*
+         * -------------------------------------------------
+         * Main Admin Security Setup
+         * -------------------------------------------------
+         *
+         * The Recovery Credential is created only once.
+         *
+         * If no security record exists yet, send the
+         * Admin to the one-time setup page.
+         */
+        $securityStmt = $pdo->prepare("
+            SELECT id
+            FROM admin_security
+            WHERE admin_id = ?
+            LIMIT 1
+        ");
+
+        $securityStmt->execute([
+            (int) $user['id']
+        ]);
+
+        $security = $securityStmt->fetch(PDO::FETCH_ASSOC);
 
 
-        if (
-            $agent &&
-            password_verify($password, $agent['password'])
-        ) {
+        if (!$security) {
 
-            $_SESSION['agent'] = $agent;
+            /*
+             * Tell the recovery credential page that this
+             * is the initial mandatory security setup.
+             */
+            $_SESSION['admin_security_setup_required'] = true;
 
-            header('Location: ?page=agent-dashboard');
+            header('Location: ?page=admin-recovery-credential');
             exit;
-
         }
 
 
-        // ---------------------------
-        // Invalid Login
-        // ---------------------------
+        /*
+         * Security setup already completed.
+         */
+        unset($_SESSION['admin_security_setup_required']);
+
+        header('Location: ?page=dashboard');
+        exit;
+
+    } else {
 
         $error = 'Invalid email or password.';
     }
 }
 
-
-$isAgentLogin =
-    isset($_SESSION['login_role']) &&
-    $_SESSION['login_role'] === 'agent';
-
-
-require dirname(__DIR__) . '/layouts/header-public.php';
-
 ?>
 
+<?php require dirname(__DIR__) . '/layouts/header-public.php'; ?>
 
 <div class="row justify-content-center mt-5">
 
-    <div class="col-lg-5 col-md-6">
+    <div class="col-md-5">
 
         <div class="card shadow-sm">
 
-            <div class="card-body">
+            <div class="card-body p-4">
 
-                <h2 class="mb-2 text-center">
-                    Welcome Back
+                <h2 class="mb-4 text-center">
+                    Admin Login
                 </h2>
-
-                <p class="text-muted text-center mb-4">
-                    Sign in with your email address and password.
-                </p>
-
 
                 <?php if ($error): ?>
 
                     <div class="alert alert-danger">
-
                         <?= htmlspecialchars($error) ?>
-
                     </div>
 
                 <?php endif; ?>
 
-
-                <?php if (
-                    isset($_GET['reset']) &&
-                    $_GET['reset'] === 'success'
-                ): ?>
-
-                    <div class="alert alert-success">
-
-                        Your password has been reset successfully.
-                        You can now log in with your new password.
-
-                    </div>
-
-                <?php endif; ?>
-
-
-                <form method="POST" autocomplete="off">
-
+                <form
+                    method="POST"
+                    autocomplete="off"
+                >
 
                     <div class="mb-3">
 
-                        <label>
+                        <label class="form-label">
                             Email
                         </label>
 
@@ -200,14 +166,14 @@ require dirname(__DIR__) . '/layouts/header-public.php';
                             name="email"
                             class="form-control"
                             autocomplete="new-email"
-                            required>
+                            required
+                        >
 
                     </div>
 
-
                     <div class="mb-3">
 
-                        <label>
+                        <label class="form-label">
                             Password
                         </label>
 
@@ -216,46 +182,17 @@ require dirname(__DIR__) . '/layouts/header-public.php';
                             name="password"
                             class="form-control"
                             autocomplete="new-password"
-                            required>
+                            required
+                        >
 
                     </div>
 
-
                     <button
                         type="submit"
-                        class="btn btn-primary w-100">
-
-                        Sign In
-
+                        class="btn btn-primary w-100"
+                    >
+                        Login
                     </button>
-
-
-                    <p class="mt-3 text-center">
-
-                        <a href="?page=customer-forgot-password">
-
-                            Forgot your password?
-
-                        </a>
-
-                    </p>
-
-
-                    <hr>
-
-
-                    <p class="text-center mb-0">
-
-                        <a
-                            href="?page=login"
-                            class="small text-secondary text-decoration-none">
-
-                            Administrator Login
-
-                        </a>
-
-                    </p>
-
 
                 </form>
 
@@ -266,6 +203,5 @@ require dirname(__DIR__) . '/layouts/header-public.php';
     </div>
 
 </div>
-
 
 <?php require dirname(__DIR__) . '/layouts/footer.php'; ?>
