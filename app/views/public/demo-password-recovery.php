@@ -174,13 +174,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             link
                         )
                         VALUES
-                        ('admin', NULL, ?, ?, NULL)
+                        ('admin', NULL, ?, ?, ?)
                     ");
 
                     $notificationStmt->execute([
                         'Demo Password Recovery Request',
                         $allowedTypes[$accountType]
-                            . ' (' . $account['username'] . ') has requested a Demo password recovery. Request #' . $requestId . '.'
+                            . ' (' . $account['username'] . ') has requested a Demo password recovery. Request #' . $requestId . '.',
+                        '?page=demo-password-recovery-request&id=' . $requestId
                     ]);
 
                     $success = 'Your password recovery request has been submitted. The Main Admin will review it and, if approved, send a temporary password to your registered Demo email address.';

@@ -2,6 +2,7 @@
 
 require_once APP_PATH . '/helpers/DateHelper.php';
 require_once HELPER_PATH . '/auth.php';
+require_once CONFIG_PATH . '/demo-database.php';
 
 requireAdminLogin();
 
@@ -148,6 +149,30 @@ $totalRefunded = $adminPdo->query("
 */
 
 $demoRequestsActionCount = 0;
+
+/*
+|--------------------------------------------------------------------------
+| Demo Password Recovery Requests
+|--------------------------------------------------------------------------
+| Main Admin only.
+| Recovery requests are stored in the Demo database.
+|--------------------------------------------------------------------------
+*/
+
+$demoPasswordRecoveryCount = 0;
+
+if (
+    !isset($_SESSION['demo_user']) &&
+    !isset($_SESSION['demo_super_admin'])
+) {
+    $stmt = $demoPdo->query("
+        SELECT COUNT(*)
+        FROM demo_password_recovery_requests
+        WHERE status = 'Pending'
+    ");
+
+    $demoPasswordRecoveryCount = (int) $stmt->fetchColumn();
+}
 
 if (
     !isset($_SESSION['demo_user']) &&
@@ -446,54 +471,10 @@ $refundRequests = $adminPdo->query("
 
     <div class="row g-4">
 
-        <!-- LEFT SIDEBAR -->
+        <!-- =========================================================
+             LEFT SIDEBAR
+             ========================================================= -->
         <div class="col-lg-2">
-<?php if (!isset($_SESSION['demo_user'])): ?>
-
-    <!-- Demo Requests -->
-    <div class="card shadow-sm border-primary mb-4">
-
-        <div class="card-header bg-primary text-white">
-            <strong>🖥️ Demo Requests</strong>
-
-            <?php if ($demoRequestsActionCount > 0): ?>
-                <span class="badge bg-light text-primary float-end">
-                    <?= (int) $demoRequestsActionCount ?>
-                </span>
-            <?php endif; ?>
-        </div>
-
-        <div class="card-body text-center p-3">
-
-            <?php if ($demoRequestsActionCount > 0): ?>
-
-                <div class="mb-2">
-                    <strong>
-                        <?= (int) $demoRequestsActionCount ?>
-                    </strong>
-                    request<?= $demoRequestsActionCount == 1 ? '' : 's' ?>
-                    need<?= $demoRequestsActionCount == 1 ? 's' : '' ?>
-                    admin action.
-                </div>
-
-            <?php else: ?>
-
-                <div class="text-muted mb-2">
-                    No Demo requests need action.
-                </div>
-
-            <?php endif; ?>
-
-            <a href="?page=demo-requests"
-               class="btn btn-sm btn-primary">
-                View Requests
-            </a>
-
-        </div>
-
-    </div>
-
-<?php endif; ?>
 
             <!-- Financial Summary -->
             <div class="card shadow-sm mb-4">
@@ -531,8 +512,10 @@ $refundRequests = $adminPdo->query("
                         </div>
                     </div>
 
-                    <div class="card shadow-sm"
-                         style="background-color: var(--bs-orange); color: white;">
+                    <div
+                        class="card shadow-sm"
+                        style="background-color: var(--bs-orange); color: white;"
+                    >
                         <div class="card-body">
                             <h5>Outstanding Balance</h5>
                             <h3>
@@ -545,72 +528,17 @@ $refundRequests = $adminPdo->query("
 
             </div>
 
-
-            <!-- Company Support Leads -->
-            <div class="card shadow-sm border-success">
-
-                <div class="card-header bg-success text-white">
-                    <strong>🏢 Company Support Leads</strong>
-                </div>
-
-                <div class="card-body text-center">
-
-                    <p class="mb-2">
-                        🆕 New:
-                        <strong><?= $newLeads ?></strong>
-                    </p>
-
-                    <p class="mb-2">
-                        📞 Contacted:
-                        <strong><?= $contactedLeads ?></strong>
-                    </p>
-
-                    <p class="mb-2">
-                        🤝 Converted:
-                        <strong><?= $convertedLeads ?></strong>
-                    </p>
-
-                    <p class="mb-3">
-                        📁 Closed:
-                        <strong><?= $closedLeads ?></strong>
-                    </p>
-
-                    <p class="mb-3">
-                        🗄️ Archived:
-                        <strong><?= $archivedLeads ?></strong>
-                    </p>
-
-                    <a
-                        href="?page=contract-leads"
-                        class="btn btn-success">
-
-                        View Leads
-
-                    </a>
-
-                    <a
-                        href="?page=pending-contract-leads"
-                        class="btn btn-warning mt-2">
-
-                        🔍 Pending Reviews
-                        <?php if ($pendingLeads > 0): ?>
-                            (<?= (int)$pendingLeads ?>)
-                        <?php endif; ?>
-
-                    </a>
-
-                </div>
-
-            </div>
-
         </div>
 
 
-       <!-- RIGHT: ACTIVE DASHBOARD -->
-<div class="col-lg-10">
+        <!-- =========================================================
+            MIDDLE - EXISTING DASHBOARD
+            ========================================================= -->
+        <div class="col-lg-8">
 
-    <div class="row g-4">
+            <div class="row g-4">
 
+       
         <!-- Upcoming Schedule -->
         <div class="col-lg-6">
 
@@ -1319,5 +1247,190 @@ if ($item['review_type'] === 'consultation_overdue') {
 </div>
 
 </div>
- 
+<!-- End middle dashboard row -->
+
+</div>
+<!-- End middle dashboard column -->
+
+<!-- =========================================================
+     RIGHT SIDEBAR
+     ========================================================= -->
+<div class="col-lg-2">
+
+    <!-- Demo Requests -->
+    <?php if (
+        !isset($_SESSION['demo_user']) &&
+        !isset($_SESSION['demo_super_admin'])
+    ): ?>
+
+        <div class="card shadow-sm border-primary mb-4">
+
+            <div class="card-header bg-primary text-white">
+                <strong>🖥️ Demo Requests</strong>
+
+                <?php if ($demoRequestsActionCount > 0): ?>
+                    <span class="badge bg-light text-primary float-end">
+                        <?= (int) $demoRequestsActionCount ?>
+                    </span>
+                <?php endif; ?>
+            </div>
+
+            <div class="card-body text-center p-3">
+
+                <?php if ($demoRequestsActionCount > 0): ?>
+
+                    <div class="mb-2">
+                        <strong><?= (int) $demoRequestsActionCount ?></strong>
+                        request<?= $demoRequestsActionCount == 1 ? '' : 's' ?>
+                        need<?= $demoRequestsActionCount == 1 ? 's' : '' ?>
+                        admin action.
+                    </div>
+
+                <?php else: ?>
+
+                    <div class="text-muted mb-2">
+                        No Demo requests need action.
+                    </div>
+
+                <?php endif; ?>
+
+                <a
+                    href="?page=demo-requests"
+                    class="btn btn-sm btn-primary"
+                >
+                    View Requests
+                </a>
+
+            </div>
+
+        </div>
+
+    <?php endif; ?>
+
+
+    <!-- Demo Password Recovery -->
+    <?php if (
+        !isset($_SESSION['demo_user']) &&
+        !isset($_SESSION['demo_super_admin'])
+    ): ?>
+
+        <div class="card shadow-sm border-danger mb-4">
+
+            <div class="card-header bg-danger text-white">
+                <strong>🔐 Demo Password Recovery</strong>
+
+                <?php if ($demoPasswordRecoveryCount > 0): ?>
+                    <span class="badge bg-light text-danger float-end">
+                        <?= (int) $demoPasswordRecoveryCount ?>
+                    </span>
+                <?php endif; ?>
+            </div>
+
+            <div class="card-body text-center p-3">
+
+                <?php if ($demoPasswordRecoveryCount > 0): ?>
+
+                    <div class="mb-2">
+                        <strong><?= (int) $demoPasswordRecoveryCount ?></strong>
+                        pending recovery
+                        request<?= $demoPasswordRecoveryCount == 1 ? '' : 's' ?>.
+                    </div>
+
+                    <a
+                        href="?page=demo-password-recovery-requests"
+                        class="btn btn-sm btn-danger"
+                    >
+                        Review Requests
+                    </a>
+
+                <?php else: ?>
+
+                    <div class="text-muted mb-2">
+                        No pending password recovery requests.
+                    </div>
+
+                    <a
+                        href="?page=demo-password-recovery-requests"
+                        class="btn btn-sm btn-outline-danger"
+                    >
+                        View Requests
+                    </a>
+
+                <?php endif; ?>
+
+            </div>
+
+        </div>
+
+    <?php endif; ?>
+
+
+    <!-- Company Support Leads -->
+    <?php if (
+        !isset($_SESSION['demo_user']) &&
+        !isset($_SESSION['demo_super_admin'])
+    ): ?>
+
+        <div class="card shadow-sm border-success mb-4">
+
+            <div class="card-header bg-success text-white">
+                <strong>🏢 Company Support Leads</strong>
+            </div>
+
+            <div class="card-body text-center">
+
+                <p class="mb-2">
+                    🆕 New:
+                    <strong><?= $newLeads ?></strong>
+                </p>
+
+                <p class="mb-2">
+                    📞 Contacted:
+                    <strong><?= $contactedLeads ?></strong>
+                </p>
+
+                <p class="mb-2">
+                    🤝 Converted:
+                    <strong><?= $convertedLeads ?></strong>
+                </p>
+
+                <p class="mb-3">
+                    📁 Closed:
+                    <strong><?= $closedLeads ?></strong>
+                </p>
+
+                <p class="mb-3">
+                    🗄️ Archived:
+                    <strong><?= $archivedLeads ?></strong>
+                </p>
+
+                <a
+                    href="?page=contract-leads"
+                    class="btn btn-success"
+                >
+                    View Leads
+                </a>
+
+                <a
+                    href="?page=pending-contract-leads"
+                    class="btn btn-warning mt-2"
+                >
+                    🔍 Pending Reviews
+                    <?php if ($pendingLeads > 0): ?>
+                        (<?= (int) $pendingLeads ?>)
+                    <?php endif; ?>
+                </a>
+
+            </div>
+
+        </div>
+
+    <?php endif; ?>
+
+</div>
+<!-- End right sidebar -->
+
+</div>
+<!-- End main dashboard row -->
+
 <?php require dirname(__DIR__) . '/layouts/footer.php'; ?>

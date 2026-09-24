@@ -141,6 +141,12 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
                                     <td style="white-space: nowrap;">
 
+    <a
+        href="?page=demo-password-recovery-request&id=<?= (int) $request['id'] ?>"
+        class="btn btn-outline-primary btn-sm">
+        View
+    </a>
+
     <?php if ($request['status'] === 'Pending'): ?>
 
         <form
@@ -173,10 +179,6 @@ require VIEW_PATH . '/layouts/header-admin.php';
             onclick="rejectRecoveryRequest(<?= (int) $request['id'] ?>)">
             Reject
         </button>
-
-    <?php else: ?>
-
-        -
 
     <?php endif; ?>
 

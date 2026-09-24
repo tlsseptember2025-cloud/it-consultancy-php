@@ -494,6 +494,10 @@ case 'create-demo':
         require CONTROLLER_PATH . '/admin-demo-password-recovery.php';
         break;
 
+    case 'demo-password-recovery-request':
+        require VIEW_PATH . '/admin/demo-password-recovery-request.php';
+        break;
+
     case 'customer-logout':
 
     if (isset($_SESSION['demo_customer'])) {

@@ -1,8 +1,15 @@
 </div>
 
-<footer class="bg-dark text-white text-center py-4 mt-5">
-
-    <div class="container">
+<footer
+    class="bg-dark text-white text-center py-4 mt-5"
+    style="
+        width: 100vw;
+        max-width: 100vw;
+        margin-left: calc(50% - 50vw);
+        margin-right: calc(50% - 50vw);
+        box-sizing: border-box;
+    "
+>
 
         <p class="mb-1">
             <?= PRODUCT_COPYRIGHT ?>
@@ -45,8 +52,6 @@
             </a>
 
         </div>
-
-    </div>
 
 </footer>
 

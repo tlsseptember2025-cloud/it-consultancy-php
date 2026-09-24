@@ -502,7 +502,19 @@ try {
 
                             </li>
 
-</ul>
+                            <li>
+
+                                <a
+                                    class="dropdown-item"
+                                    href="?page=demo-password-recovery-requests">
+
+                                    Demo Pass Recovery Requests
+
+                                </a>
+
+                            </li>
+
+                        </ul>
 
                     </li>
 
