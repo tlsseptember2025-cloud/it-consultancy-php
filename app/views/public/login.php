@@ -1,198 +1,173 @@
 <?php
 
-if (isset($_SESSION['user'])) {
-    header('Location: ?page=dashboard');
-    exit;
-}
-
-require_once CONFIG_PATH . '/database.php';
+require CONFIG_PATH . '/database.php';
 
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    $email = trim($_POST['email'] ?? '');
-    $password = trim($_POST['password'] ?? '');
+    $email = trim($_POST['email']);
+    $password = trim($_POST['password']);
 
-    $stmt = $pdo->prepare("
-        SELECT *
-        FROM users
-        WHERE email = ?
-        LIMIT 1
-    ");
+    // ---------------------------
+// Check Customer
+// ---------------------------
 
-    $stmt->execute([$email]);
+$stmt = $pdo->prepare("
+    SELECT *
+    FROM customers
+    WHERE email = ?
+");
 
-    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+$stmt->execute([$email]);
 
-    if ($user && password_verify($password, $user['password'])) {
+$customer = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        /*
-         * Clear any other role sessions before creating
-         * the Main/Dev Admin session.
-         */
-        clearRoleSessions();
+if (
+    $customer &&
+    password_verify($password, $customer['password'])
+) {
 
-        /*
-         * Main/Dev Admin session.
-         *
-         * The existing system stores the Admin email
-         * in $_SESSION['user'], so this remains unchanged.
-         */
-        $_SESSION['user'] = $user['email'];
+    $_SESSION['customer'] = $customer;
 
+    header('Location: ?page=customer-dashboard');
+    exit;
 
-        /*
-         * -------------------------------------------------
-         * Guest Live Chat - Admin Presence
-         * -------------------------------------------------
-         *
-         * Record this Admin as currently online.
-         *
-         * admin_presence has one row per Admin because
-         * admin_id is UNIQUE.
-         */
-        $presenceStmt = $pdo->prepare("
-            INSERT INTO admin_presence
-                (
-                    admin_id,
-                    last_seen,
-                    is_online
-                )
-            VALUES
-                (
-                    ?,
-                    CURRENT_TIMESTAMP,
-                    1
-                )
-            ON DUPLICATE KEY UPDATE
-                last_seen = CURRENT_TIMESTAMP,
-                is_online = 1
-        ");
-
-        $presenceStmt->execute([
-            (int) $user['id']
-        ]);
-
-
-        /*
-         * -------------------------------------------------
-         * Main Admin Security Setup
-         * -------------------------------------------------
-         *
-         * The Recovery Credential is created only once.
-         *
-         * If no security record exists yet, send the
-         * Admin to the one-time setup page.
-         */
-        $securityStmt = $pdo->prepare("
-            SELECT id
-            FROM admin_security
-            WHERE admin_id = ?
-            LIMIT 1
-        ");
-
-        $securityStmt->execute([
-            (int) $user['id']
-        ]);
-
-        $security = $securityStmt->fetch(PDO::FETCH_ASSOC);
-
-
-        if (!$security) {
-
-            /*
-             * Tell the recovery credential page that this
-             * is the initial mandatory security setup.
-             */
-            $_SESSION['admin_security_setup_required'] = true;
-
-            header('Location: ?page=admin-recovery-credential');
-            exit;
-        }
-
-
-        /*
-         * Security setup already completed.
-         */
-        unset($_SESSION['admin_security_setup_required']);
-
-        header('Location: ?page=dashboard');
-        exit;
-
-    } else {
-
-        $error = 'Invalid email or password.';
-    }
 }
+
+// ---------------------------
+// Check Agent
+// ---------------------------
+
+$stmt = $pdo->prepare("
+    SELECT *
+    FROM agents
+    WHERE email = ?
+    AND status = 'Active'
+");
+
+$stmt->execute([$email]);
+
+$agent = $stmt->fetch(PDO::FETCH_ASSOC);
+
+if (
+    $agent &&
+    password_verify($password, $agent['password'])
+) {
+
+    $_SESSION['agent'] = $agent;
+
+    header('Location: ?page=agent-dashboard');
+    exit;
+
+}
+
+// ---------------------------
+// Invalid Login
+// ---------------------------
+
+$error = 'Invalid email or password.';
+}
+
+$isAgentLogin =
+    isset($_SESSION['login_role']) &&
+    $_SESSION['login_role'] === 'agent';
+
+require dirname(__DIR__) . '/layouts/header-public.php';
 
 ?>
 
-<?php require dirname(__DIR__) . '/layouts/header-public.php'; ?>
-
 <div class="row justify-content-center mt-5">
 
-    <div class="col-md-5">
+    <div class="col-lg-5 col-md-6">
 
         <div class="card shadow-sm">
 
-            <div class="card-body p-4">
+            <div class="card-body">
 
-                <h2 class="mb-4 text-center">
-                    Admin Login
+               <h2 class="mb-2 text-center">
+                    Welcome Back
                 </h2>
+
+                <p class="text-muted text-center mb-4">
+                    Sign in with your email address and password.
+                </p>
 
                 <?php if ($error): ?>
 
                     <div class="alert alert-danger">
-                        <?= htmlspecialchars($error) ?>
+
+                        <?= $error ?>
+
                     </div>
 
                 <?php endif; ?>
 
-                <form
-                    method="POST"
-                    autocomplete="off"
-                >
+                <?php if (isset($_GET['reset']) && $_GET['reset'] === 'success'): ?>
+
+                    <div class="alert alert-success">
+
+                        Your password has been reset successfully.
+                        You can now log in with your new password.
+
+                    </div>
+
+                <?php endif; ?>
+
+                <form method="POST" autocomplete="off">
 
                     <div class="mb-3">
 
-                        <label class="form-label">
-                            Email
-                        </label>
+                        <label>Email</label>
 
                         <input
                             type="email"
                             name="email"
                             class="form-control"
                             autocomplete="new-email"
-                            required
-                        >
+                            required>
 
                     </div>
 
                     <div class="mb-3">
 
-                        <label class="form-label">
-                            Password
-                        </label>
+                        <label>Password</label>
 
                         <input
                             type="password"
                             name="password"
                             class="form-control"
                             autocomplete="new-password"
-                            required
-                        >
+                            required>
 
                     </div>
 
-                    <button
-                        type="submit"
-                        class="btn btn-primary w-100"
-                    >
-                        Login
+                    <button class="btn btn-primary w-100">
+
+                        Sign In
+
                     </button>
+
+                    <p class="mt-3 text-center">
+                        <a href="?page=customer-forgot-password">
+                            Forgot your password?
+                        </a>
+
+                    </p>
+
+                    <hr>
+
+                    <p class="text-center mb-0">
+
+                       <a
+                            href="?page=login"
+                            class="small text-secondary text-decoration-none">
+
+                            Administrator Login
+
+                        </a>
+
+                    </p>
 
                 </form>
 

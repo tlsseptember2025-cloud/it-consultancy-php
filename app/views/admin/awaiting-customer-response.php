@@ -1,6 +1,7 @@
 <?php 
 require dirname(__DIR__) . '/layouts/header-admin.php'; 
 require_once APP_PATH . '/helpers/WorkflowHelper.php';
+require_once APP_PATH . '/helpers/SearchPaginationHelper.php';
 
 $hasVerificationRows = false;
 
@@ -20,6 +21,46 @@ foreach ($requests as $request) {
 <h2 class="mb-4">
     Awaiting Customer Response
 </h2>
+
+<div class="d-flex justify-content-end mb-3">
+
+    <form
+        method="get"
+        class="d-flex gap-2"
+        id="awaitingResponseSearchForm"
+    >
+
+        <input
+            type="hidden"
+            name="page"
+            value="awaiting-customer-response"
+        >
+
+        <input
+            type="text"
+            name="search"
+            id="awaitingResponseSearch"
+            class="form-control"
+            placeholder="Search requests..."
+            value="<?= htmlspecialchars($search) ?>"
+            autocomplete="off"
+            style="width:280px;"
+        >
+
+        <?php if ($search !== ''): ?>
+
+            <a
+                href="?page=awaiting-customer-response"
+                class="btn btn-outline-secondary"
+            >
+                Clear
+            </a>
+
+        <?php endif; ?>
+
+    </form>
+
+</div>
 
 <div class="card shadow-sm">
 
@@ -273,6 +314,130 @@ foreach ($requests as $request) {
 
     </div>
 
+    <?php if ($totalPages > 1): ?>
+
+    <nav class="mt-3" aria-label="Awaiting Customer Response pagination">
+
+        <ul class="pagination justify-content-center">
+
+            <?php if ($page > 1): ?>
+
+                <li class="page-item">
+
+                    <a
+                        class="page-link"
+                        href="<?= buildPaginationUrl(
+                            'awaiting-customer-response',
+                            $page - 1,
+                            ['search' => $search]
+                        ) ?>"
+                    >
+                        Previous
+                    </a>
+
+                </li>
+
+            <?php endif; ?>
+
+
+            <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+
+                <li
+                    class="page-item <?= $i === $page ? 'active' : '' ?>"
+                >
+
+                    <a
+                        class="page-link"
+                        href="<?= buildPaginationUrl(
+                            'awaiting-customer-response',
+                            $i,
+                            ['search' => $search]
+                        ) ?>"
+                    >
+                        <?= $i ?>
+                    </a>
+
+                </li>
+
+            <?php endfor; ?>
+
+
+            <?php if ($page < $totalPages): ?>
+
+                <li class="page-item">
+
+                    <a
+                        class="page-link"
+                        href="<?= buildPaginationUrl(
+                            'awaiting-customer-response',
+                            $page + 1,
+                            ['search' => $search]
+                        ) ?>"
+                    >
+                        Next
+                    </a>
+
+                </li>
+
+            <?php endif; ?>
+
+        </ul>
+
+    </nav>
+
+<?php endif; ?>
+
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    const searchInput = document.getElementById('awaitingResponseSearch');
+
+    if (!searchInput) {
+        return;
+    }
+
+    let searchTimer;
+
+    searchInput.addEventListener('input', function () {
+
+        clearTimeout(searchTimer);
+
+        searchTimer = setTimeout(function () {
+
+            const search = searchInput.value.trim();
+
+            const url = new URL(window.location.href);
+
+            url.searchParams.set(
+                'page',
+                'awaiting-customer-response'
+            );
+
+            // New search always starts from page 1.
+            url.searchParams.set('p', '1');
+
+            if (search !== '') {
+
+                url.searchParams.set(
+                    'search',
+                    search
+                );
+
+            } else {
+
+                url.searchParams.delete('search');
+
+            }
+
+            window.location.href = url.toString();
+
+        }, 300);
+
+    });
+
+});
+</script>
 
 <?php require dirname(__DIR__) . '/layouts/footer.php'; ?>

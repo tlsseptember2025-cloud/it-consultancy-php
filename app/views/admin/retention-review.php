@@ -7,8 +7,64 @@ if (!isset($_SESSION['user'])) {
 
 require_once CONFIG_PATH . '/database.php';
 require_once APP_PATH . '/helpers/retention_review_helper.php';
+require_once APP_PATH . '/helpers/SearchPaginationHelper.php';
 
-$requests = getRetentionReviewRequests($pdo);
+$search = getSearchTerm();
+$page = getPageNumber();
+$limit = 10;
+$offset = getPageOffset($page, $limit);
+
+$requests = getRetentionReviewRequests(
+    $pdo,
+    $search,
+    $limit,
+    $offset
+);
+
+$countStmt = $pdo->prepare("
+    SELECT COUNT(*)
+    FROM requests r
+    INNER JOIN customers c
+        ON c.id = r.customer_id
+    INNER JOIN services s
+        ON s.id = r.service_id
+    LEFT JOIN agents a
+        ON a.id = r.agent_id
+    WHERE r.workflow_stage = ?
+      AND r.retention_review_at IS NOT NULL
+      AND r.retention_review_at <= NOW()
+      AND r.legal_hold = 0
+      AND (
+          r.retention_expires_at IS NULL
+          OR r.retention_expires_at > NOW()
+      )
+      AND (
+          ? = ''
+          OR r.id LIKE ?
+          OR r.description LIKE ?
+          OR c.name LIKE ?
+          OR c.email LIKE ?
+          OR s.title LIKE ?
+          OR a.name LIKE ?
+      )
+");
+
+$searchValue = '%' . $search . '%';
+
+$countStmt->execute([
+    WORKFLOW_STAGE_ARCHIVED,
+    $search,
+    $searchValue,
+    $searchValue,
+    $searchValue,
+    $searchValue,
+    $searchValue,
+    $searchValue
+]);
+
+$totalRecords = (int) $countStmt->fetchColumn();
+
+$totalPages = getTotalPages($totalRecords, $limit);
 
 ?>
 
@@ -28,11 +84,55 @@ $requests = getRetentionReviewRequests($pdo);
             </p>
         </div>
 
+
+
         <span class="badge bg-warning text-dark">
             <?= count($requests) ?> Due
         </span>
 
     </div>
+
+    <form method="GET" class="mb-3" id="searchForm">
+
+    <input
+        type="hidden"
+        name="page"
+        value="retention-review"
+    >
+
+    <div class="input-group">
+
+        <input
+            type="text"
+            name="search"
+            id="searchInput"
+            class="form-control"
+            placeholder="Search retention reviews..."
+            value="<?= htmlspecialchars($search) ?>"
+            autocomplete="off"
+        >
+
+        <button
+            type="submit"
+            class="btn btn-primary"
+        >
+            Search
+        </button>
+
+        <?php if ($search !== ''): ?>
+
+            <a
+                href="?page=retention-review"
+                class="btn btn-secondary"
+            >
+                Clear
+            </a>
+
+        <?php endif; ?>
+
+    </div>
+
+</form>
 
 
     <?php if (empty($requests)): ?>
@@ -57,6 +157,7 @@ $requests = getRetentionReviewRequests($pdo);
                                 <th>ID</th>
                                 <th>Customer</th>
                                 <th>Service</th>
+                                <th>Description</th>
                                 <th>Archived</th>
                                 <th>Review Due</th>
                                 <th>Retention Expires</th>
@@ -87,6 +188,12 @@ $requests = getRetentionReviewRequests($pdo);
                                         $request['service_title']
                                     ) ?>
                                 </td>
+
+                                <td>
+    <?= htmlspecialchars(
+        $request['description'] ?? '-'
+    ) ?>
+</td>
 
                                 <td>
                                     <?= !empty($request['archived_at'])
@@ -143,6 +250,86 @@ $requests = getRetentionReviewRequests($pdo);
 
                     </table>
 
+                    <?php if ($totalPages > 1): ?>
+
+    <nav
+        aria-label="Retention review pagination"
+        class="mt-3 mb-3"
+    >
+
+        <ul class="pagination justify-content-center mb-0">
+
+            <?php if ($page > 1): ?>
+
+                <li class="page-item">
+
+                    <a
+                        class="page-link"
+                        href="<?= htmlspecialchars(
+                            buildPaginationUrl(
+                                'retention-review',
+                                $page - 1,
+                                ['search' => $search]
+                            )
+                        ) ?>"
+                    >
+                        Previous
+                    </a>
+
+                </li>
+
+            <?php endif; ?>
+
+
+            <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+
+                <li class="page-item <?= $i === $page ? 'active' : '' ?>">
+
+                    <a
+                        class="page-link"
+                        href="<?= htmlspecialchars(
+                            buildPaginationUrl(
+                                'retention-review',
+                                $i,
+                                ['search' => $search]
+                            )
+                        ) ?>"
+                    >
+                        <?= $i ?>
+                    </a>
+
+                </li>
+
+            <?php endfor; ?>
+
+
+            <?php if ($page < $totalPages): ?>
+
+                <li class="page-item">
+
+                    <a
+                        class="page-link"
+                        href="<?= htmlspecialchars(
+                            buildPaginationUrl(
+                                'retention-review',
+                                $page + 1,
+                                ['search' => $search]
+                            )
+                        ) ?>"
+                    >
+                        Next
+                    </a>
+
+                </li>
+
+            <?php endif; ?>
+
+        </ul>
+
+    </nav>
+
+<?php endif; ?>
+
                 </div>
 
             </div>
@@ -152,5 +339,30 @@ $requests = getRetentionReviewRequests($pdo);
     <?php endif; ?>
 
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    const searchInput = document.getElementById('searchInput');
+    const searchForm = document.getElementById('searchForm');
+
+    if (!searchInput || !searchForm) {
+        return;
+    }
+
+    let timer;
+
+    searchInput.addEventListener('input', function () {
+
+        clearTimeout(timer);
+
+        timer = setTimeout(function () {
+            searchForm.submit();
+        }, 300);
+
+    });
+
+});
+</script>
 
 <?php require dirname(__DIR__) . '/layouts/footer.php'; ?>

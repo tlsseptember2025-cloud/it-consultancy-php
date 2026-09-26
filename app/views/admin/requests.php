@@ -2,6 +2,7 @@
 
 require_once APP_PATH . '/helpers/DateHelper.php';
 require_once APP_PATH . '/helpers/WorkflowHelper.php';
+require_once APP_PATH . '/helpers/SearchPaginationHelper.php';
 
 if (!isset($_SESSION['user'])) {
     header("Location: ?page=login");
@@ -11,37 +12,98 @@ if (!isset($_SESSION['user'])) {
 require_once HELPER_PATH . '/auth.php';
 require_once CONFIG_PATH . '/database.php';
 
-$stmt = $pdo->query("
-    SELECT
-    requests.*,
-    customers.name AS customer_name,
-    services.title AS service_title,
-    requests.workflow_stage,
-    requests.agent_id,
-    agents.name AS agent_name,
-    ps.id AS slip_id
+$search = getSearchTerm();
+$page = getPageNumber();
+$limit = 10;
 
-FROM requests
+$params = [];
 
-JOIN customers
-    ON customers.id = requests.customer_id
+$where = "
+    WHERE COALESCE(requests.workflow_stage, '') NOT IN ('Closed', 'Archived')
+";
 
-JOIN services
-    ON services.id = requests.service_id
+$where .= buildSearchCondition(
+    [
+        'requests.id',
+        'requests.description',
+        'customers.name',
+        'services.title',
+        'requests.job_status',
+        'requests.workflow_stage'
+    ],
+    $search,
+    $params
+);
 
-LEFT JOIN agents
-    ON agents.id = requests.agent_id
+/*
+|--------------------------------------------------------------------------
+| Count total records
+|--------------------------------------------------------------------------
+*/
 
-LEFT JOIN payment_slips ps
-    ON ps.id = (
-        SELECT MAX(id)
-        FROM payment_slips
-        WHERE request_id = requests.id
-    )
-
-     WHERE COALESCE(requests.workflow_stage, '') NOT IN ('Closed', 'Archived')
-     ORDER BY requests.created_at DESC
+$countStmt = $pdo->prepare("
+    SELECT COUNT(*)
+    FROM requests
+    JOIN customers
+        ON customers.id = requests.customer_id
+    JOIN services
+        ON services.id = requests.service_id
+    $where
 ");
+
+$countStmt->execute($params);
+
+$totalRequests = (int) $countStmt->fetchColumn();
+
+$totalPages = getTotalPages($totalRequests, $limit);
+
+$page = min($page, $totalPages);
+
+$offset = getPageOffset($page, $limit);
+
+
+/*
+|--------------------------------------------------------------------------
+| Load current page
+|--------------------------------------------------------------------------
+*/
+
+$stmt = $pdo->prepare("
+    SELECT
+        requests.*,
+        customers.name AS customer_name,
+        services.title AS service_title,
+        requests.workflow_stage,
+        requests.agent_id,
+        agents.name AS agent_name,
+        ps.id AS slip_id
+
+    FROM requests
+
+    JOIN customers
+        ON customers.id = requests.customer_id
+
+    JOIN services
+        ON services.id = requests.service_id
+
+    LEFT JOIN agents
+        ON agents.id = requests.agent_id
+
+    LEFT JOIN payment_slips ps
+        ON ps.id = (
+            SELECT MAX(id)
+            FROM payment_slips
+            WHERE request_id = requests.id
+        )
+
+    $where
+
+    ORDER BY requests.created_at DESC
+
+    LIMIT {$limit} OFFSET {$offset}
+");
+
+$stmt->execute($params);
 
 $requests = $stmt->fetchAll();
 
@@ -49,7 +111,46 @@ $requests = $stmt->fetchAll();
 
 <?php require dirname(__DIR__) . '/layouts/header-admin.php'; ?>
 
+<div class="d-flex justify-content-between align-items-center mb-3">
 
+    <h5 class="mb-0">
+        Current Requests
+    </h5>
+
+    <form method="get" class="d-flex gap-2" id="requestSearchForm">
+
+    <input
+        type="hidden"
+        name="page"
+        value="requests"
+    >
+
+    <input
+        type="text"
+        name="search"
+        id="requestSearch"
+        class="form-control"
+        placeholder="Search requests..."
+        value="<?= htmlspecialchars($search) ?>"
+        autocomplete="off"
+        style="width:280px;"
+    >
+
+    <?php if ($search !== ''): ?>
+
+        <a
+            href="?page=requests"
+            class="btn btn-outline-secondary"
+            id="clearRequestSearch"
+        >
+            Clear
+        </a>
+
+    <?php endif; ?>
+
+</form>
+
+</div>
 
 <div class="table-responsive">
 
@@ -62,6 +163,7 @@ $requests = $stmt->fetchAll();
                 <th class="text-center" style="width:100px;">Request #</th>
                 <th>Customer</th>
                 <th>Service</th>
+                <th>Description</th>
                 <th>Quoted Price</th>
                 <th>Status</th>
                 <th>Workflow Stage</th>
@@ -96,6 +198,10 @@ $requests = $stmt->fetchAll();
 
                     <td>
                         <?= htmlspecialchars($request['service_title']) ?>
+                    </td>
+
+                    <td>
+                        <?= htmlspecialchars($request['description'] ?? '') ?>
                     </td>
 
                     <td>
@@ -359,5 +465,111 @@ $requests = $stmt->fetchAll();
     </table>
 
 </div>
+
+<?php if ($totalPages > 1): ?>
+
+    <nav class="mt-3" aria-label="Requests pagination">
+
+        <ul class="pagination justify-content-center">
+
+            <?php if ($page > 1): ?>
+
+                <li class="page-item">
+                    <a
+                        class="page-link"
+                        href="<?= buildPaginationUrl(
+                            'requests',
+                            $page - 1,
+                            ['search' => $search]
+                        ) ?>"
+                    >
+                        Previous
+                    </a>
+                </li>
+
+            <?php endif; ?>
+
+
+            <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+
+                <li class="page-item <?= $i === $page ? 'active' : '' ?>">
+
+                    <a
+                        class="page-link"
+                        href="<?= buildPaginationUrl(
+                            'requests',
+                            $i,
+                            ['search' => $search]
+                        ) ?>"
+                    >
+                        <?= $i ?>
+                    </a>
+
+                </li>
+
+            <?php endfor; ?>
+
+
+            <?php if ($page < $totalPages): ?>
+
+                <li class="page-item">
+                    <a
+                        class="page-link"
+                        href="<?= buildPaginationUrl(
+                            'requests',
+                            $page + 1,
+                            ['search' => $search]
+                        ) ?>"
+                    >
+                        Next
+                    </a>
+                </li>
+
+            <?php endif; ?>
+
+        </ul>
+
+    </nav>
+
+<?php endif; ?>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    const searchInput = document.getElementById('requestSearch');
+
+    if (!searchInput) {
+        return;
+    }
+
+    let searchTimer;
+
+    searchInput.addEventListener('input', function () {
+
+        clearTimeout(searchTimer);
+
+        searchTimer = setTimeout(function () {
+
+            const search = searchInput.value.trim();
+
+            const url = new URL(window.location.href);
+
+            url.searchParams.set('page', 'requests');
+            url.searchParams.set('p', '1');
+
+            if (search !== '') {
+                url.searchParams.set('search', search);
+            } else {
+                url.searchParams.delete('search');
+            }
+
+            window.location.href = url.toString();
+
+        }, 300);
+
+    });
+
+});
+</script>
 
 <?php require dirname(__DIR__) . '/layouts/footer.php'; ?>

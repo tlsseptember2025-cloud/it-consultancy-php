@@ -2,6 +2,8 @@
 
 require_once APP_PATH . '/helpers/DateHelper.php';
 require_once HELPER_PATH . '/auth.php';
+require_once HELPER_PATH . '/SearchPaginationHelper.php';
+
 
 
 /*
@@ -71,12 +73,45 @@ require_once dirname(__DIR__) . '/layouts/header-admin.php';
 |--------------------------------------------------------------------------
 */
 
-$stmt = $adminPdo->query("
+$limit = 10;
+
+$page = getPageNumber();
+
+$params = [];
+
+$countStmt = $pdo->prepare("
+    SELECT COUNT(*)
+    FROM notifications
+    WHERE recipient_type = 'admin'
+");
+
+$countStmt->execute();
+
+$totalNotifications = (int) $countStmt->fetchColumn();
+
+$totalPages = getTotalPages(
+    $totalNotifications,
+    $limit
+);
+
+if ($page > $totalPages) {
+    $page = $totalPages;
+}
+
+$offset = getPageOffset(
+    $page,
+    $limit
+);
+
+$stmt = $pdo->prepare("
     SELECT *
     FROM notifications
     WHERE recipient_type = 'admin'
     ORDER BY created_at DESC
+    LIMIT $limit OFFSET $offset
 ");
+
+$stmt->execute($params);
 
 $notifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -206,5 +241,87 @@ $notifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 </div>
 
+<?php if ($totalPages > 1): ?>
+
+    <nav aria-label="Notification pagination">
+
+        <ul class="pagination justify-content-center mt-4">
+
+            <?php if ($page > 1): ?>
+
+                <li class="page-item">
+
+                    <a
+                        class="page-link"
+                        href="<?= htmlspecialchars(
+                            buildPaginationUrl(
+                                'notifications',
+                                $page - 1
+                            ),
+                            ENT_QUOTES,
+                            'UTF-8'
+                        ) ?>">
+
+                        Previous
+
+                    </a>
+
+                </li>
+
+            <?php endif; ?>
+
+
+            <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+
+                <li class="page-item <?= $i === $page ? 'active' : '' ?>">
+
+                    <a
+                        class="page-link"
+                        href="<?= htmlspecialchars(
+                            buildPaginationUrl(
+                                'notifications',
+                                $i
+                            ),
+                            ENT_QUOTES,
+                            'UTF-8'
+                        ) ?>">
+
+                        <?= $i ?>
+
+                    </a>
+
+                </li>
+
+            <?php endfor; ?>
+
+
+            <?php if ($page < $totalPages): ?>
+
+                <li class="page-item">
+
+                    <a
+                        class="page-link"
+                        href="<?= htmlspecialchars(
+                            buildPaginationUrl(
+                                'notifications',
+                                $page + 1
+                            ),
+                            ENT_QUOTES,
+                            'UTF-8'
+                        ) ?>">
+
+                        Next
+
+                    </a>
+
+                </li>
+
+            <?php endif; ?>
+
+        </ul>
+
+    </nav>
+
+<?php endif; ?>
 
 <?php require dirname(__DIR__) . '/layouts/footer.php'; ?>

@@ -13,7 +13,12 @@ require_once CONFIG_PATH . '/retention.php';
 |
 */
 
-function getRetentionReviewRequests(PDO $pdo): array
+function getRetentionReviewRequests(
+    PDO $pdo,
+    string $search = '',
+    int $limit = 10,
+    int $offset = 0
+): array
 {
     $stmt = $pdo->prepare("
         SELECT
@@ -34,20 +39,39 @@ function getRetentionReviewRequests(PDO $pdo): array
             ON a.id = r.agent_id
 
         WHERE r.workflow_stage = ?
-          AND r.retention_review_at IS NOT NULL
-          AND r.retention_review_at <= NOW()
-          AND r.legal_hold = 0
-          AND (
-              r.retention_expires_at IS NULL
-              OR r.retention_expires_at > NOW()
-          )
+  AND r.retention_review_at IS NOT NULL
+  AND r.retention_review_at <= NOW()
+  AND r.legal_hold = 0
+  AND (
+      r.retention_expires_at IS NULL
+      OR r.retention_expires_at > NOW()
+  )
+  AND (
+      ? = ''
+      OR r.id LIKE ?
+      OR r.description LIKE ?
+      OR c.name LIKE ?
+      OR c.email LIKE ?
+      OR s.title LIKE ?
+      OR a.name LIKE ?
+  )
 
-        ORDER BY r.retention_review_at ASC
+ORDER BY r.retention_review_at ASC
+LIMIT {$limit} OFFSET {$offset}
     ");
 
-    $stmt->execute([
-        WORKFLOW_STAGE_ARCHIVED
-    ]);
+    $searchValue = '%' . $search . '%';
+
+$stmt->execute([
+    WORKFLOW_STAGE_ARCHIVED,
+    $search,
+    $searchValue,
+    $searchValue,
+    $searchValue,
+    $searchValue,
+    $searchValue,
+    $searchValue
+]);
 
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }

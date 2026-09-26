@@ -285,12 +285,20 @@ if (
 
         $subject = 'Main Admin Password Change Authentication Code';
 
+        $emailResendLabel = $isResend
+            ? 'Resend ' . ($resendCount + 1) . ' of 3'
+            : 'Initial authentication code';
+
         $body = "
             <h2>Main Admin Password Change</h2>
 
             <p>
                 A request was made to change the password
                 for your Main Admin account.
+            </p>
+
+            <p>
+                <strong>{$emailResendLabel}</strong>
             </p>
 
             <p>
@@ -314,11 +322,6 @@ if (
             <p>
                 This code is valid for
                 <strong>2 minutes</strong>.
-            </p>
-
-            <p>
-                You have a maximum of
-                <strong>3 attempts</strong>.
             </p>
 
             <p>

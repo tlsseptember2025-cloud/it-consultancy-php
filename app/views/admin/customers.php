@@ -1,6 +1,7 @@
 <?php
 
 require_once HELPER_PATH . '/auth.php';
+require_once HELPER_PATH . '/SearchPaginationHelper.php';
 
 
 /*
@@ -120,6 +121,14 @@ $pendingRegistrations = $stmt->fetchAll(PDO::FETCH_ASSOC);
 |--------------------------------------------------------------------------
 */
 
+$search = getSearchTerm();
+
+$page = getPageNumber();
+
+$limit = getPageLimit(10);
+
+$params = [];
+
 if ($isDemoAdmin) {
 
     /*
@@ -128,17 +137,12 @@ if ($isDemoAdmin) {
     |--------------------------------------------------------------------------
     */
 
-    $stmt = $customersPdo->prepare("
-        SELECT *
-        FROM customers
+    $where = "
         WHERE demo_tenant_id = ?
           AND is_demo_account = 1
-        ORDER BY created_at DESC
-    ");
+    ";
 
-    $stmt->execute([
-        $demoTenantId
-    ]);
+    $params[] = $demoTenantId;
 
 } elseif ($isDemoSuperAdmin) {
 
@@ -148,12 +152,9 @@ if ($isDemoAdmin) {
     |--------------------------------------------------------------------------
     */
 
-    $stmt = $customersPdo->query("
-        SELECT *
-        FROM customers
+    $where = "
         WHERE is_demo_account = 1
-        ORDER BY created_at DESC
-    ");
+    ";
 
 } else {
 
@@ -163,14 +164,81 @@ if ($isDemoAdmin) {
     |--------------------------------------------------------------------------
     */
 
-    $stmt = $customersPdo->query("
-        SELECT *
-        FROM customers
-        WHERE registration_status = 'Approved'
-           OR registration_status IS NULL
-        ORDER BY created_at DESC
-    ");
+    $where = "
+        WHERE (
+            registration_status = 'Approved'
+            OR registration_status IS NULL
+        )
+    ";
 }
+
+
+/*
+|--------------------------------------------------------------------------
+| Search
+|--------------------------------------------------------------------------
+*/
+
+$where .= buildSearchCondition(
+    [
+        'name',
+        'email',
+        'phone',
+        'company'
+    ],
+    $search,
+    $params
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| Count
+|--------------------------------------------------------------------------
+*/
+
+$countStmt = $customersPdo->prepare("
+    SELECT COUNT(*)
+    FROM customers
+    $where
+");
+
+$countStmt->execute($params);
+
+$totalCustomers = (int) $countStmt->fetchColumn();
+
+$totalPages = getTotalPages(
+    $totalCustomers,
+    $limit
+);
+
+if ($page > $totalPages) {
+    $page = $totalPages;
+}
+
+$offset = getPageOffset(
+    $page,
+    $limit
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| Load Customers
+|--------------------------------------------------------------------------
+*/
+
+$sql = "
+    SELECT *
+    FROM customers
+    $where
+    ORDER BY created_at DESC
+    LIMIT $limit OFFSET $offset
+";
+
+$stmt = $customersPdo->prepare($sql);
+
+$stmt->execute($params);
 
 $customers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -344,6 +412,57 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
     Registered Customers
 </h4>
 
+<div class="card shadow-sm mb-3">
+
+    <div class="card-body">
+
+        <form method="GET" class="row g-3 align-items-end">
+
+            <input
+                type="hidden"
+                name="page"
+                value="customers">
+
+            <div class="col-md-8">
+
+                <label class="form-label">
+                    Search Customers
+                </label>
+
+                <input
+                    type="text"
+                    name="search"
+                    class="form-control"
+                    placeholder="Name, email, phone, or company"
+                    value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>">
+
+            </div>
+
+            <div class="col-md-4 d-flex gap-2">
+
+                <button
+                    type="submit"
+                    class="btn btn-primary">
+                    Search
+                </button>
+
+                <?php if ($search !== ''): ?>
+
+                    <a
+                        href="?page=customers"
+                        class="btn btn-outline-secondary">
+                        Clear
+                    </a>
+
+                <?php endif; ?>
+
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
 
 <div class="table-responsive">
 
@@ -487,6 +606,91 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
 
 </div>
 
+<?php if ($totalPages > 1): ?>
+
+    <nav aria-label="Customer pagination">
+
+        <ul class="pagination justify-content-center mt-4">
+
+            <?php if ($page > 1): ?>
+
+                <li class="page-item">
+
+                    <a
+                        class="page-link"
+                        href="<?= htmlspecialchars(
+                            buildPaginationUrl(
+                                'customers',
+                                $page - 1,
+                                ['search' => $search]
+                            ),
+                            ENT_QUOTES,
+                            'UTF-8'
+                        ) ?>">
+
+                        Previous
+
+                    </a>
+
+                </li>
+
+            <?php endif; ?>
+
+
+            <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+
+                <li class="page-item <?= $i === $page ? 'active' : '' ?>">
+
+                    <a
+                        class="page-link"
+                        href="<?= htmlspecialchars(
+                            buildPaginationUrl(
+                                'customers',
+                                $i,
+                                ['search' => $search]
+                            ),
+                            ENT_QUOTES,
+                            'UTF-8'
+                        ) ?>">
+
+                        <?= $i ?>
+
+                    </a>
+
+                </li>
+
+            <?php endfor; ?>
+
+
+            <?php if ($page < $totalPages): ?>
+
+                <li class="page-item">
+
+                    <a
+                        class="page-link"
+                        href="<?= htmlspecialchars(
+                            buildPaginationUrl(
+                                'customers',
+                                $page + 1,
+                                ['search' => $search]
+                            ),
+                            ENT_QUOTES,
+                            'UTF-8'
+                        ) ?>">
+
+                        Next
+
+                    </a>
+
+                </li>
+
+            <?php endif; ?>
+
+        </ul>
+
+    </nav>
+
+<?php endif; ?>
 
 <?php
 

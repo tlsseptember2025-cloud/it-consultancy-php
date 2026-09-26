@@ -1,6 +1,7 @@
 <?php
 
 require_once APP_PATH . '/helpers/DateHelper.php';
+require_once APP_PATH . '/helpers/SearchPaginationHelper.php';
 
 if (!isset($_SESSION['user'])) {
 
@@ -22,6 +23,86 @@ require_once CONFIG_PATH . '/database.php';
 | - Consultation / Service reviews
 | - Service reschedule requests awaiting approval
 |
+*/
+
+$search = getSearchTerm();
+$page = getPageNumber();
+$limit = 10;
+$params = [];
+
+$where = "
+    WHERE r.workflow_stage IN (
+        'Needs Admin Review',
+        'Awaiting Reschedule Approval',
+        'Needs Admin Final Approval'
+    )
+";
+
+$where .= buildSearchCondition(
+    [
+        'r.id',
+        'c.name',
+        'a.name',
+        's.title',
+        'r.review_type',
+        'r.incomplete_reason',
+        'r.description',
+        'r.contact_result',
+        'r.missed_consultation_reason',
+        'r.workflow_stage',
+        'r.job_status'
+    ],
+    $search,
+    $params
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| Count matching review requests
+|--------------------------------------------------------------------------
+*/
+
+$countStmt = $pdo->prepare("
+    SELECT COUNT(*)
+    FROM requests r
+
+    INNER JOIN customers c
+        ON c.id = r.customer_id
+
+    INNER JOIN agents a
+        ON a.id = r.agent_id
+
+    INNER JOIN services s
+        ON s.id = r.service_id
+
+    $where
+");
+
+$countStmt->execute($params);
+
+$totalRequests = (int) $countStmt->fetchColumn();
+
+$totalPages = getTotalPages(
+    $totalRequests,
+    $limit
+);
+
+$page = min(
+    $page,
+    $totalPages
+);
+
+$offset = getPageOffset(
+    $page,
+    $limit
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| Load paginated review requests
+|--------------------------------------------------------------------------
 */
 
 $stmt = $pdo->prepare("
@@ -114,12 +195,7 @@ $stmt = $pdo->prepare("
         ON pending_ss.id = r.pending_reschedule_slot_id
 
 
-    WHERE
-        r.workflow_stage IN (
-            'Needs Admin Review',
-            'Awaiting Reschedule Approval',
-            'Needs Admin Final Approval'
-        )
+    $where
 
 
     ORDER BY
@@ -154,9 +230,11 @@ $stmt = $pdo->prepare("
             ELSE cs.slot_time
 
         END DESC
+
+    LIMIT {$limit} OFFSET {$offset}
 ");
 
-$stmt->execute();
+$stmt->execute($params);
 
 $consultations = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -244,6 +322,47 @@ require VIEW_PATH . '/layouts/header-admin.php';
         Needs Admin Review
 
     </h2>
+
+    <div class="d-flex justify-content-end mb-3">
+
+    <form
+        method="get"
+        class="d-flex gap-2"
+        id="reviewSearchForm"
+    >
+
+        <input
+            type="hidden"
+            name="page"
+            value="needs-admin-review"
+        >
+
+        <input
+            type="text"
+            name="search"
+            id="reviewSearch"
+            class="form-control"
+            placeholder="Search reviews..."
+            value="<?= htmlspecialchars($search) ?>"
+            autocomplete="off"
+            style="width:280px;"
+        >
+
+        <?php if ($search !== ''): ?>
+
+            <a
+                href="?page=needs-admin-review"
+                class="btn btn-outline-secondary"
+                id="clearReviewSearch"
+            >
+                Clear
+            </a>
+
+        <?php endif; ?>
+
+    </form>
+
+</div>
 
 
     <p class="text-muted mb-4">
@@ -925,8 +1044,130 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
     <?php endif; ?>
 
+    <?php if ($totalPages > 1): ?>
+
+    <nav class="mt-3" aria-label="Needs Admin Review pagination">
+
+        <ul class="pagination justify-content-center">
+
+            <?php if ($page > 1): ?>
+
+                <li class="page-item">
+
+                    <a
+                        class="page-link"
+                        href="<?= buildPaginationUrl(
+                            'needs-admin-review',
+                            $page - 1,
+                            ['search' => $search]
+                        ) ?>"
+                    >
+                        Previous
+                    </a>
+
+                </li>
+
+            <?php endif; ?>
+
+
+            <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+
+                <li
+                    class="page-item <?= $i === $page ? 'active' : '' ?>"
+                >
+
+                    <a
+                        class="page-link"
+                        href="<?= buildPaginationUrl(
+                            'needs-admin-review',
+                            $i,
+                            ['search' => $search]
+                        ) ?>"
+                    >
+                        <?= $i ?>
+                    </a>
+
+                </li>
+
+            <?php endfor; ?>
+
+
+            <?php if ($page < $totalPages): ?>
+
+                <li class="page-item">
+
+                    <a
+                        class="page-link"
+                        href="<?= buildPaginationUrl(
+                            'needs-admin-review',
+                            $page + 1,
+                            ['search' => $search]
+                        ) ?>"
+                    >
+                        Next
+                    </a>
+
+                </li>
+
+            <?php endif; ?>
+
+        </ul>
+
+    </nav>
+
+<?php endif; ?>
 
 </div>
 
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    const searchInput = document.getElementById('reviewSearch');
+
+    if (!searchInput) {
+        return;
+    }
+
+    let searchTimer;
+
+    searchInput.addEventListener('input', function () {
+
+        clearTimeout(searchTimer);
+
+        searchTimer = setTimeout(function () {
+
+            const search = searchInput.value.trim();
+
+            const url = new URL(window.location.href);
+
+            url.searchParams.set(
+                'page',
+                'needs-admin-review'
+            );
+
+            // Always return to page 1 after a new search.
+            url.searchParams.set('p', '1');
+
+            if (search !== '') {
+
+                url.searchParams.set(
+                    'search',
+                    search
+                );
+
+            } else {
+
+                url.searchParams.delete('search');
+
+            }
+
+            window.location.href = url.toString();
+
+        }, 300);
+
+    });
+
+});
+</script>
 
 <?php require VIEW_PATH . '/layouts/footer.php'; ?>
