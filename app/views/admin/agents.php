@@ -176,7 +176,7 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
 
     <div class="card-body">
 
-        <form method="GET" class="row g-3 align-items-end">
+        <form method="GET" class="row g-3 align-items-end" id="searchForm">
 
             <input
                 type="hidden"
@@ -192,6 +192,7 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                 <input
                     type="text"
                     name="search"
+                    id="searchInput"
                     class="form-control"
                     placeholder="Name, email, phone, or position"
                     value="<?= htmlspecialchars(
@@ -481,6 +482,31 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
     </div>
 
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    const searchInput = document.getElementById('searchInput');
+    const searchForm = document.getElementById('searchForm');
+
+    if (!searchInput || !searchForm) {
+        return;
+    }
+
+    let timer;
+
+    searchInput.addEventListener('input', function () {
+
+        clearTimeout(timer);
+
+        timer = setTimeout(function () {
+            searchForm.submit();
+        }, 300);
+
+    });
+
+});
+</script>
 
 
 <?php require dirname(__DIR__) . '/layouts/footer.php'; ?>

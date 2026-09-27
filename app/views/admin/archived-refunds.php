@@ -4,6 +4,7 @@ if (!isset($_SESSION['user'])) {
 
     header('Location: ?page=login');
     exit;
+
 }
 
 require_once HELPER_PATH . '/auth.php';
@@ -12,57 +13,90 @@ $search = trim($_GET['search'] ?? '');
 $status = $_GET['status'] ?? 'all';
 
 $perPage = 10;
-$page = max(1, (int)($_GET['p'] ?? 1));
+
+$page = max(
+    1,
+    (int) ($_GET['p'] ?? 1)
+);
+
 $offset = ($page - 1) * $perPage;
 
 $where = " WHERE 1=1 ";
+
 $params = [];
 
-if ($status == 'completed') {
+
+/*
+|--------------------------------------------------------------------------
+| Status Filter
+|--------------------------------------------------------------------------
+*/
+
+if ($status === 'completed') {
 
     $where .= "
-        AND rr.status='Approved'
-        AND rr.refund_status='Completed'
+        AND rr.status = 'Approved'
+        AND rr.refund_status = 'Completed'
     ";
 
-} elseif ($status == 'rejected') {
+} elseif ($status === 'rejected') {
 
     $where .= "
-        AND rr.status='Rejected'
+        AND rr.status = 'Rejected'
     ";
 
 } else {
 
     $where .= "
-        AND
-        (
-            rr.status='Rejected'
+        AND (
+            rr.status = 'Rejected'
 
             OR
 
             (
-                rr.status='Approved'
-                AND rr.refund_status='Completed'
+                rr.status = 'Approved'
+                AND rr.refund_status = 'Completed'
             )
         )
     ";
 
 }
 
+
+/*
+|--------------------------------------------------------------------------
+| Search
+|--------------------------------------------------------------------------
+*/
+
 if ($search !== '') {
 
     $where .= "
-        AND
-        (
-            c.name LIKE :search
-            OR
-            s.title LIKE :search
+        AND (
+            c.name LIKE ?
+            OR s.title LIKE ?
+            OR rr.reason_type LIKE ?
+            OR rr.reason_details LIKE ?
+            OR CAST(rr.refund_amount AS CHAR) LIKE ?
+            OR DATE_FORMAT(rr.reviewed_at, '%d-%m-%Y') LIKE ?
+            OR DATE_FORMAT(rr.reviewed_at, '%d-%m') LIKE ?
+            OR DATE_FORMAT(rr.reviewed_at, '%Y-%m-%d') LIKE ?
         )
     ";
 
-    $params[':search'] = "%{$search}%";
+    $searchValue = '%' . $search . '%';
+
+    $params[] = $searchValue;
+    $params[] = $searchValue;
+    $params[] = $searchValue;
+    $params[] = $searchValue;
+    $params[] = $searchValue;
+    $params[] = $searchValue;
+    $params[] = $searchValue;
+    $params[] = $searchValue;
 
 }
+
 
 /*
 |--------------------------------------------------------------------------
@@ -72,29 +106,34 @@ if ($search !== '') {
 
 $countSql = "
 
-SELECT COUNT(*)
+    SELECT COUNT(*)
 
-FROM refund_requests rr
+    FROM refund_requests rr
 
-JOIN requests r
-ON r.id = rr.request_id
+    JOIN requests r
+        ON r.id = rr.request_id
 
-JOIN customers c
-ON c.id = r.customer_id
+    JOIN customers c
+        ON c.id = r.customer_id
 
-JOIN services s
-ON s.id = r.service_id
+    JOIN services s
+        ON s.id = r.service_id
 
-{$where}
+    {$where}
 
 ";
 
-$stmt = $pdo->prepare($countSql);
-$stmt->execute($params);
+$countStmt = $pdo->prepare($countSql);
 
-$totalRefunds = $stmt->fetchColumn();
+$countStmt->execute($params);
 
-$totalPages = ceil($totalRefunds / $perPage);
+$totalRecords = (int) $countStmt->fetchColumn();
+
+$totalPages = max(
+    1,
+    (int) ceil($totalRecords / $perPage)
+);
+
 
 /*
 |--------------------------------------------------------------------------
@@ -104,79 +143,110 @@ $totalPages = ceil($totalRefunds / $perPage);
 
 $sql = "
 
-SELECT
+    SELECT
 
-    rr.*,
+        rr.*,
 
-    c.name AS customer_name,
+        c.name AS customer_name,
 
-    s.title AS service_title
+        s.title AS service_title
 
-FROM refund_requests rr
+    FROM refund_requests rr
 
-JOIN requests r
-ON r.id = rr.request_id
+    JOIN requests r
+        ON r.id = rr.request_id
 
-JOIN customers c
-ON c.id = r.customer_id
+    JOIN customers c
+        ON c.id = r.customer_id
 
-JOIN services s
-ON s.id = r.service_id
+    JOIN services s
+        ON s.id = r.service_id
 
-{$where}
+    {$where}
 
-ORDER BY rr.reviewed_at DESC
+    ORDER BY rr.reviewed_at DESC
 
-LIMIT {$perPage} OFFSET {$offset}
+    LIMIT {$perPage} OFFSET {$offset}
 
 ";
 
 $stmt = $pdo->prepare($sql);
+
 $stmt->execute($params);
 
 $refunds = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-$totalRefunds = count($refunds);
 
 require dirname(__DIR__) . '/layouts/header-admin.php';
 
 ?>
 
-<h2 class="mb-4">Archived Refunds</h2>
+<div class="mb-4">
 
-<form method="GET" class="row mb-3">
+    <h2>
+        Completed Refunds
+    </h2>
 
-    <input type="hidden" name="page" value="archived-refunds">
+</div>
+
+
+<form
+    method="GET"
+    id="searchForm"
+    class="row g-2 mb-3"
+>
+
+    <input
+        type="hidden"
+        name="page"
+        value="archived-refunds"
+    >
+
+    <input
+        type="hidden"
+        name="p"
+        value="1"
+    >
 
     <div class="col-md-5">
 
         <input
             type="text"
+            id="searchInput"
             name="search"
             class="form-control"
-            placeholder="Search customer or service..."
-            value="<?= htmlspecialchars($_GET['search'] ?? '') ?>">
+            placeholder="Search ID, customer, service, reason, amount or date..."
+            value="<?= htmlspecialchars($search) ?>"
+        >
 
     </div>
+
 
     <div class="col-md-3">
 
         <select
             name="status"
-            class="form-select">
+            class="form-select"
+        >
 
-            <option value="all"
-                <?= ($_GET['status'] ?? 'all') == 'all' ? 'selected' : '' ?>>
+            <option
+                value="all"
+                <?= $status === 'all' ? 'selected' : '' ?>
+            >
                 Show All
             </option>
 
-            <option value="completed"
-                <?= ($_GET['status'] ?? '') == 'completed' ? 'selected' : '' ?>>
+            <option
+                value="completed"
+                <?= $status === 'completed' ? 'selected' : '' ?>
+            >
                 Completed
             </option>
 
-            <option value="rejected"
-                <?= ($_GET['status'] ?? '') == 'rejected' ? 'selected' : '' ?>>
+            <option
+                value="rejected"
+                <?= $status === 'rejected' ? 'selected' : '' ?>
+            >
                 Rejected
             </option>
 
@@ -184,240 +254,299 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
 
     </div>
 
+
     <div class="col-md-2">
 
         <button
             type="submit"
-            class="btn btn-primary w-100">
-
+            class="btn btn-primary w-100"
+        >
             Search
-
         </button>
 
     </div>
+
 
     <div class="col-md-2">
 
         <a
             href="?page=archived-refunds"
-            class="btn btn-secondary w-100">
-
+            class="btn btn-secondary w-100"
+        >
             Reset
-
         </a>
 
     </div>
 
 </form>
 
-<div class="alert alert-light border d-flex justify-content-between align-items-center">
 
-    <?php
+<div class="alert alert-light border mb-3">
 
-switch ($status) {
+    Showing
 
-    case 'completed':
-        $summary = 'completed refund';
-        break;
+    <strong>
+        <?= $totalRecords ?>
+    </strong>
 
-    case 'rejected':
-        $summary = 'rejected refund';
-        break;
-
-    default:
-        $summary = 'archived refund';
-
-}
-
-?>
-
-<div class="alert alert-light border d-flex justify-content-between align-items-center">
-
-    <span>
-
-        Showing
-
-        <strong><?= $totalRefunds ?></strong>
-
-        <?= $summary ?><?= $totalRefunds == 1 ? '' : 's' ?>.
-
-    </span>
+    <?= $status === 'rejected'
+        ? 'rejected refund' . ($totalRecords == 1 ? '' : 's')
+        : ($status === 'completed'
+            ? 'completed refund' . ($totalRecords == 1 ? '' : 's')
+            : 'closed refund' . ($totalRecords == 1 ? '' : 's')
+        )
+    ?>.
 
 </div>
 
+
+<div class="table-responsive">
+
+    <table class="table table-bordered">
+
+        <thead>
+
+            <tr>
+
+                <th>Customer</th>
+
+                <th>Service</th>
+
+                <th>Refund Amount</th>
+
+                <th>Status</th>
+
+                <th>Closed On</th>
+
+                <th width="120">
+                    Action
+                </th>
+
+            </tr>
+
+        </thead>
+
+
+        <tbody>
+
+            <?php if ($refunds): ?>
+
+                <?php foreach ($refunds as $refund): ?>
+
+                    <tr>
+
+                        <td>
+                            <?= htmlspecialchars(
+                                $refund['customer_name']
+                            ) ?>
+                        </td>
+
+
+                        <td>
+                            <?= htmlspecialchars(
+                                $refund['service_title']
+                            ) ?>
+                        </td>
+
+
+                        <td>
+
+                            <?php if ($refund['status'] === 'Rejected'): ?>
+
+                                -
+
+                            <?php else: ?>
+
+                                AED
+                                <?= number_format(
+                                    $refund['refund_amount'],
+                                    2
+                                ) ?>
+
+                            <?php endif; ?>
+
+                        </td>
+
+
+                        <td>
+
+                            <?php if ($refund['status'] === 'Rejected'): ?>
+
+                                <span class="badge rounded-pill bg-danger">
+                                    Rejected
+                                </span>
+
+                            <?php else: ?>
+
+                                <span class="badge rounded-pill bg-success">
+                                    Completed
+                                </span>
+
+                            <?php endif; ?>
+
+                        </td>
+
+
+                        <td>
+
+                            <?= date(
+                                'l, d M Y - h:i A',
+                                strtotime(
+                                    $refund['reviewed_at']
+                                )
+                            ) ?>
+
+                        </td>
+
+
+                        <td>
+
+                            <a
+                                href="?page=view-refund&id=<?= $refund['id'] ?>"
+                                class="btn btn-sm btn-primary"
+                            >
+                                View
+                            </a>
+
+                        </td>
+
+                    </tr>
+
+                <?php endforeach; ?>
+
+            <?php else: ?>
+
+                <tr>
+
+                    <td
+                        colspan="6"
+                        class="text-center py-5"
+                    >
+
+                        <div class="text-muted">
+
+                            <i
+                                class="bi bi-search fs-1 d-block mb-3"
+                            ></i>
+
+                            <h5>
+                                No completed refunds found
+                            </h5>
+
+                            <p class="mb-0">
+                                No refunds match your search criteria.
+                            </p>
+
+                        </div>
+
+                    </td>
+
+                </tr>
+
+            <?php endif; ?>
+
+        </tbody>
+
+    </table>
+
 </div>
 
-<table class="table table-bordered">
-
-    <thead>
-
-        <tr>
-
-            <th>Customer</th>
-            <th>Service</th>
-            <th>Refund Amount</th>
-            <th>Status</th>
-            <th>Closed On</th>
-            <th width="120">Action</th>
-
-        </tr>
-
-    </thead>
-
-    <tbody>
-
-<?php if (count($refunds) > 0): ?>
-
-    <?php foreach ($refunds as $refund): ?>
-
-    <tr>
-
-        <td><?= htmlspecialchars($refund['customer_name']) ?></td>
-
-        <td><?= htmlspecialchars($refund['service_title']) ?></td>
-
-        <td>
-
-            <?php if ($refund['status'] == 'Rejected'): ?>
-
-                -
-
-            <?php else: ?>
-
-                AED <?= number_format($refund['refund_amount'], 2) ?>
-
-            <?php endif; ?>
-
-        </td>
-
-        <td>
-
-            <?php if ($refund['status'] == 'Rejected'): ?>
-
-                <span class="badge rounded-pill bg-danger">
-                    Rejected
-                </span>
-
-            <?php else: ?>
-
-                <span class="badge rounded-pill bg-success">
-                    Completed
-                </span>
-
-            <?php endif; ?>
-
-        </td>
-
-        <td>
-
-            <?= date(
-                'l, d M Y - h:i A',
-                strtotime($refund['reviewed_at'])
-            ) ?>
-
-        </td>
-
-        <td>
-
-            <a
-                href="?page=view-refund&id=<?= $refund['id'] ?>"
-                class="btn btn-sm btn-primary">
-
-                View
-
-            </a>
-
-        </td>
-
-    </tr>
-
-    <?php endforeach; ?>
-
-<?php else: ?>
-
-<tr>
-
-    <td colspan="6" class="text-center py-5">
-
-        <div class="text-muted">
-
-            <i class="bi bi-search fs-1 d-block mb-3"></i>
-
-            <h5>No archived refunds found</h5>
-
-            <p class="mb-0">
-
-                No archived refunds match your search criteria.
-
-            </p>
-
-        </div>
-
-    </td>
-
-</tr>
-
-<?php endif; ?>
-
-</tbody>
-
-</table>
 
 <?php if ($totalPages > 1): ?>
 
-<nav class="mt-4">
+    <nav class="mt-4">
 
-<ul class="pagination justify-content-center">
+        <ul class="pagination justify-content-center">
 
-<?php if ($page > 1): ?>
 
-<li class="page-item">
+            <?php if ($page > 1): ?>
 
-<a class="page-link"
-href="?page=archived-refunds&p=<?= $page-1 ?>&search=<?= urlencode($search) ?>&status=<?= urlencode($status) ?>">
+                <li class="page-item">
 
-Previous
+                    <a
+                        class="page-link"
+                        href="?page=archived-refunds&p=<?= $page - 1 ?>&search=<?= urlencode($search) ?>&status=<?= urlencode($status) ?>"
+                    >
+                        Previous
+                    </a>
 
-</a>
+                </li>
 
-</li>
+            <?php endif; ?>
+
+
+            <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+
+                <li
+                    class="page-item <?= $page === $i ? 'active' : '' ?>"
+                >
+
+                    <a
+                        class="page-link"
+                        href="?page=archived-refunds&p=<?= $i ?>&search=<?= urlencode($search) ?>&status=<?= urlencode($status) ?>"
+                    >
+                        <?= $i ?>
+                    </a>
+
+                </li>
+
+            <?php endfor; ?>
+
+
+            <?php if ($page < $totalPages): ?>
+
+                <li class="page-item">
+
+                    <a
+                        class="page-link"
+                        href="?page=archived-refunds&p=<?= $page + 1 ?>&search=<?= urlencode($search) ?>&status=<?= urlencode($status) ?>"
+                    >
+                        Next
+                    </a>
+
+                </li>
+
+            <?php endif; ?>
+
+
+        </ul>
+
+    </nav>
 
 <?php endif; ?>
 
-<?php for ($i=1; $i<=$totalPages; $i++): ?>
 
-<li class="page-item <?= $page==$i ? 'active' : '' ?>">
+<script>
 
-<a class="page-link"
-href="?page=archived-refunds&p=<?= $i ?>&search=<?= urlencode($search) ?>&status=<?= urlencode($status) ?>">
+document.addEventListener('DOMContentLoaded', function () {
 
-<?= $i ?>
+    const searchInput =
+        document.getElementById('searchInput');
 
-</a>
+    const searchForm =
+        document.getElementById('searchForm');
 
-</li>
+    if (!searchInput || !searchForm) {
+        return;
+    }
 
-<?php endfor; ?>
+    let timer;
 
-<?php if ($page < $totalPages): ?>
+    searchInput.addEventListener('input', function () {
 
-<li class="page-item">
+        clearTimeout(timer);
 
-<a class="page-link"
-href="?page=archived-refunds&p=<?= $page+1 ?>&search=<?= urlencode($search) ?>&status=<?= urlencode($status) ?>">
+        timer = setTimeout(function () {
 
-Next
+            searchForm.submit();
 
-</a>
+        }, 300);
 
-</li>
+    });
 
-<?php endif; ?>
+});
 
-</ul>
+</script>
 
-</nav>
-
-<?php endif; ?>
 
 <?php require dirname(__DIR__) . '/layouts/footer.php'; ?>

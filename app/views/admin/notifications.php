@@ -5,7 +5,6 @@ require_once HELPER_PATH . '/auth.php';
 require_once HELPER_PATH . '/SearchPaginationHelper.php';
 
 
-
 /*
 |--------------------------------------------------------------------------
 | Admin Authentication
@@ -30,7 +29,6 @@ $isMainAdmin = isset($_SESSION['user']);
 
 
 if (!$isMainAdmin && !$isDemoAdmin) {
-
     header("Location: ?page=login");
     exit;
 }
@@ -69,9 +67,11 @@ require_once dirname(__DIR__) . '/layouts/header-admin.php';
 
 /*
 |--------------------------------------------------------------------------
-| Load Notifications
+| Search & Pagination
 |--------------------------------------------------------------------------
 */
+
+$search = getSearchTerm();
 
 $limit = 10;
 
@@ -79,13 +79,71 @@ $page = getPageNumber();
 
 $params = [];
 
-$countStmt = $pdo->prepare("
+$where = "
+    WHERE recipient_type = 'admin'
+";
+
+
+/*
+|--------------------------------------------------------------------------
+| Search
+|--------------------------------------------------------------------------
+*/
+
+if ($search !== '') {
+
+    $searchValue = '%' . $search . '%';
+    $searchLower = strtolower($search);
+
+    /*
+     * Status search
+     */
+    if ($searchLower === 'new') {
+
+        $where .= " AND is_read = 0";
+
+    } elseif ($searchLower === 'read') {
+
+        $where .= " AND is_read = 1";
+
+    } else {
+
+        /*
+         * General search:
+         * title, message and date
+         */
+        $where .= "
+            AND (
+                title LIKE ?
+                OR message LIKE ?
+                OR DATE_FORMAT(created_at, '%d-%m-%Y') LIKE ?
+                OR DATE_FORMAT(created_at, '%d-%m') LIKE ?
+                OR DATE_FORMAT(created_at, '%Y-%m-%d') LIKE ?
+            )
+        ";
+
+        $params[] = $searchValue;
+        $params[] = $searchValue;
+        $params[] = $searchValue;
+        $params[] = $searchValue;
+        $params[] = $searchValue;
+    }
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Count Notifications
+|--------------------------------------------------------------------------
+*/
+
+$countStmt = $adminPdo->prepare("
     SELECT COUNT(*)
     FROM notifications
-    WHERE recipient_type = 'admin'
+    $where
 ");
 
-$countStmt->execute();
+$countStmt->execute($params);
 
 $totalNotifications = (int) $countStmt->fetchColumn();
 
@@ -103,19 +161,27 @@ $offset = getPageOffset(
     $limit
 );
 
-$stmt = $pdo->prepare("
+
+/*
+|--------------------------------------------------------------------------
+| Load Notifications
+|--------------------------------------------------------------------------
+*/
+
+$stmt = $adminPdo->prepare("
     SELECT *
     FROM notifications
-    WHERE recipient_type = 'admin'
+    $where
     ORDER BY created_at DESC
     LIMIT $limit OFFSET $offset
 ");
 
 $stmt->execute($params);
 
-$notifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$adminNotifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 ?>
+
 
 <h1 class="mb-4 pt-3">
     Notification History
@@ -136,116 +202,191 @@ $notifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
 </div>
 
 
+<!-- Search -->
+
+<form
+    method="GET"
+    action=""
+    class="mb-3"
+    id="searchForm">
+
+    <input
+        type="hidden"
+        name="page"
+        value="notifications">
+
+    <div class="input-group">
+
+        <input
+            type="text"
+            name="search"
+            id="searchInput"
+            class="form-control"
+            placeholder="Search by status, title, message or date..."
+            value="<?= htmlspecialchars(
+                $search,
+                ENT_QUOTES,
+                'UTF-8'
+            ) ?>">
+
+        <button
+            type="submit"
+            class="btn btn-primary">
+
+            Search
+
+        </button>
+
+
+        <?php if ($search !== ''): ?>
+
+            <a
+                href="?page=notifications"
+                class="btn btn-outline-secondary">
+
+                Clear
+
+            </a>
+
+        <?php endif; ?>
+
+    </div>
+
+</form>
+
+
 <div class="card">
 
     <div class="card-body">
 
-        <table class="table table-striped">
+        <?php if (empty($adminNotifications)): ?>
 
-            <thead>
+            <div class="text-muted py-3">
 
-                <tr>
+                No notifications found.
 
-                    <th>Status</th>
+            </div>
 
-                    <th>Title</th>
+        <?php else: ?>
 
-                    <th>Message</th>
+            <div class="table-responsive">
 
-                    <th>Date</th>
+                <table class="table table-striped">
 
-                    <th>Action</th>
+                    <thead>
 
-                </tr>
+                        <tr>
 
-            </thead>
+                            <th>Status</th>
+                            <th>Title</th>
+                            <th>Message</th>
+                            <th>Date</th>
+                            <th>Action</th>
 
+                        </tr>
 
-            <tbody>
-
-                <?php foreach ($notifications as $notification): ?>
-
-                    <tr class="<?= !$notification['is_read'] ? 'table-warning' : '' ?>">
-
-                        <td>
-
-                            <?php if ($notification['is_read']): ?>
-
-                                <span class="badge bg-success">
-                                    ✓ Read
-                                </span>
-
-                            <?php else: ?>
-
-                                <span class="badge bg-warning text-dark">
-                                    🔔 New
-                                </span>
-
-                            <?php endif; ?>
-
-                        </td>
+                    </thead>
 
 
-                        <td>
+                    <tbody>
 
-                            <?= htmlspecialchars(
-                                $notification['title'],
-                                ENT_QUOTES,
-                                'UTF-8'
-                            ) ?>
+                        <?php foreach ($adminNotifications as $notification): ?>
 
-                        </td>
+                            <tr class="<?= !$notification['is_read']
+                                ? 'table-warning'
+                                : '' ?>">
+
+                                <td>
+
+                                    <?php if ($notification['is_read']): ?>
+
+                                        <span class="badge bg-success">
+
+                                            ✓ Read
+
+                                        </span>
+
+                                    <?php else: ?>
+
+                                        <span class="badge bg-warning text-dark">
+
+                                            🔔 New
+
+                                        </span>
+
+                                    <?php endif; ?>
+
+                                </td>
 
 
-                        <td>
+                                <td>
 
-                            <?= htmlspecialchars(
-                                $notification['message'],
-                                ENT_QUOTES,
-                                'UTF-8'
-                            ) ?>
+                                    <?= htmlspecialchars(
+                                        $notification['title'],
+                                        ENT_QUOTES,
+                                        'UTF-8'
+                                    ) ?>
 
-                        </td>
-
-
-                        <td>
-
-                            <?= formatDateTime(
-                                $notification['created_at']
-                            ) ?>
-
-                        </td>
+                                </td>
 
 
-                        <td>
+                                <td>
 
-                            <a
-                                href="?page=open-notification&id=<?= (int) $notification['id'] ?>"
-                                class="btn btn-sm btn-primary">
+                                    <?= htmlspecialchars(
+                                        $notification['message'],
+                                        ENT_QUOTES,
+                                        'UTF-8'
+                                    ) ?>
 
-                                Open
+                                </td>
 
-                            </a>
 
-                        </td>
+                                <td>
 
-                    </tr>
+                                    <?= formatDateTime(
+                                        $notification['created_at']
+                                    ) ?>
 
-                <?php endforeach; ?>
+                                </td>
 
-            </tbody>
 
-        </table>
+                                <td>
+
+                                    <a
+                                        href="?page=open-notification&id=<?= (int) $notification['id'] ?>"
+                                        class="btn btn-sm btn-primary">
+
+                                        Open
+
+                                    </a>
+
+                                </td>
+
+                            </tr>
+
+                        <?php endforeach; ?>
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        <?php endif; ?>
 
     </div>
 
 </div>
+
+
+<!-- Pagination -->
 
 <?php if ($totalPages > 1): ?>
 
     <nav aria-label="Notification pagination">
 
         <ul class="pagination justify-content-center mt-4">
+
 
             <?php if ($page > 1): ?>
 
@@ -256,7 +397,10 @@ $notifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
                         href="<?= htmlspecialchars(
                             buildPaginationUrl(
                                 'notifications',
-                                $page - 1
+                                $page - 1,
+                                [
+                                    'search' => $search
+                                ]
                             ),
                             ENT_QUOTES,
                             'UTF-8'
@@ -273,14 +417,19 @@ $notifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             <?php for ($i = 1; $i <= $totalPages; $i++): ?>
 
-                <li class="page-item <?= $i === $page ? 'active' : '' ?>">
+                <li class="page-item <?= $i === $page
+                    ? 'active'
+                    : '' ?>">
 
                     <a
                         class="page-link"
                         href="<?= htmlspecialchars(
                             buildPaginationUrl(
                                 'notifications',
-                                $i
+                                $i,
+                                [
+                                    'search' => $search
+                                ]
                             ),
                             ENT_QUOTES,
                             'UTF-8'
@@ -304,7 +453,10 @@ $notifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
                         href="<?= htmlspecialchars(
                             buildPaginationUrl(
                                 'notifications',
-                                $page + 1
+                                $page + 1,
+                                [
+                                    'search' => $search
+                                ]
                             ),
                             ENT_QUOTES,
                             'UTF-8'
@@ -318,10 +470,42 @@ $notifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             <?php endif; ?>
 
+
         </ul>
 
     </nav>
 
 <?php endif; ?>
+
+
+<script>
+
+document.addEventListener('DOMContentLoaded', function () {
+
+    const searchInput = document.getElementById('searchInput');
+    const searchForm = document.getElementById('searchForm');
+
+    if (!searchInput || !searchForm) {
+        return;
+    }
+
+    let timer;
+
+    searchInput.addEventListener('input', function () {
+
+        clearTimeout(timer);
+
+        timer = setTimeout(function () {
+
+            searchForm.submit();
+
+        }, 300);
+
+    });
+
+});
+
+</script>
+
 
 <?php require dirname(__DIR__) . '/layouts/footer.php'; ?>

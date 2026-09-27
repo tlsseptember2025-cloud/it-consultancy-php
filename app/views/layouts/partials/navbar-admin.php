@@ -151,18 +151,6 @@ try {
 
                         </li>
 
-                        <li>
-
-                            <a
-                                class="dropdown-item"
-                                href="?page=pricing">
-
-                                Price List
-
-                            </a>
-
-                        </li>
-
                     </ul>
 
                 </li>
@@ -457,10 +445,20 @@ try {
                                 class="dropdown-item"
                                 href="?page=refunds">
 
-                                Approved Refunds
+                                Refunds Pending Finance
 
                             </a>
 
+                        </li>
+
+                        <li>
+                            <a
+                                class="dropdown-item"
+                                href="?page=archived-refunds">
+
+                                Completed Refunds
+
+                            </a>
                         </li>
 
                     </ul>

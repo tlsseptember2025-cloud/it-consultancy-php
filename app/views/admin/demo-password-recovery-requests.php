@@ -6,9 +6,89 @@ if (!isset($_SESSION['user'])) {
 }
 
 require_once HELPER_PATH . '/auth.php';
+require_once HELPER_PATH . '/SearchPaginationHelper.php';
 require_once CONFIG_PATH . '/demo-database.php';
 
-$stmt = $demoPdo->query("
+
+/*
+|--------------------------------------------------------------------------
+| Search & Pagination
+|--------------------------------------------------------------------------
+*/
+
+$search = getSearchTerm();
+$page   = getPageNumber();
+$limit  = 10;
+$offset = getPageOffset($page, $limit);
+
+$searchValue = '%' . $search . '%';
+
+$where = '';
+$params = [];
+
+if ($search !== '') {
+
+    $where = "
+        AND (
+            CAST(id AS CHAR) LIKE ?
+            OR account_type LIKE ?
+            OR username LIKE ?
+            OR email LIKE ?
+            OR reason LIKE ?
+            OR status LIKE ?
+            OR DATE_FORMAT(requested_at, '%d-%m-%Y') LIKE ?
+            OR DATE_FORMAT(requested_at, '%d-%m') LIKE ?
+            OR DATE_FORMAT(requested_at, '%Y-%m-%d') LIKE ?
+        )
+    ";
+
+    $params = [
+        $searchValue,
+        $searchValue,
+        $searchValue,
+        $searchValue,
+        $searchValue,
+        $searchValue,
+        $searchValue,
+        $searchValue,
+        $searchValue
+    ];
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Total Records
+|--------------------------------------------------------------------------
+*/
+
+$countSql = "
+    SELECT COUNT(*)
+    FROM demo_password_recovery_requests
+    WHERE 1 = 1
+    {$where}
+";
+
+$countStmt = $demoPdo->prepare($countSql);
+$countStmt->execute($params);
+
+$totalRecords = (int) $countStmt->fetchColumn();
+
+$totalPages = getTotalPages($totalRecords, $limit);
+
+if ($page > $totalPages) {
+    $page = $totalPages;
+    $offset = getPageOffset($page, $limit);
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Requests
+|--------------------------------------------------------------------------
+*/
+
+$sql = "
     SELECT
         id,
         demo_tenant_id,
@@ -20,13 +100,19 @@ $stmt = $demoPdo->query("
         status,
         requested_at
     FROM demo_password_recovery_requests
+    WHERE 1 = 1
+    {$where}
     ORDER BY
         CASE
             WHEN status = 'Pending' THEN 1
             ELSE 2
         END,
         requested_at DESC
-");
+    LIMIT {$limit} OFFSET {$offset}
+";
+
+$stmt = $demoPdo->prepare($sql);
+$stmt->execute($params);
 
 $requests = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -46,11 +132,63 @@ require VIEW_PATH . '/layouts/header-admin.php';
         </p>
     </div>
 
+
+    <!-- Search -->
+
+    <form
+        method="GET"
+        action=""
+        class="mb-3"
+        id="searchForm">
+
+        <input
+            type="hidden"
+            name="page"
+            value="demo-password-recovery-requests">
+
+        <div class="input-group">
+
+            <input
+                type="text"
+                name="search"
+                id="searchInput"
+                class="form-control"
+                placeholder="Search by ID, account type, username, email, reason, status or date..."
+                value="<?= htmlspecialchars($search) ?>">
+
+            <button
+                type="submit"
+                class="btn btn-primary">
+                Search
+            </button>
+
+            <?php if ($search !== ''): ?>
+
+                <a
+                    href="?page=demo-password-recovery-requests"
+                    class="btn btn-outline-secondary">
+                    Clear
+                </a>
+
+            <?php endif; ?>
+
+        </div>
+
+    </form>
+
+
     <div class="card shadow-sm">
 
-        <div class="card-header">
+        <div class="card-header d-flex justify-content-between align-items-center">
+
             <strong>Recovery Requests</strong>
+
+            <span class="text-muted small">
+                <?= $totalRecords ?> request<?= $totalRecords === 1 ? '' : 's' ?>
+            </span>
+
         </div>
+
 
         <div class="card-body p-0">
 
@@ -141,48 +279,50 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
                                     <td style="white-space: nowrap;">
 
-    <a
-        href="?page=demo-password-recovery-request&id=<?= (int) $request['id'] ?>"
-        class="btn btn-outline-primary btn-sm">
-        View
-    </a>
+                                        <a
+                                            href="?page=demo-password-recovery-request&id=<?= (int) $request['id'] ?>"
+                                            class="btn btn-outline-primary btn-sm">
+                                            View
+                                        </a>
 
-    <?php if ($request['status'] === 'Pending'): ?>
 
-        <form
-            method="POST"
-            action="?page=admin-demo-password-recovery"
-            class="d-inline"
-            onsubmit="return confirm('Approve this Demo password recovery request?');">
+                                        <?php if ($request['status'] === 'Pending'): ?>
 
-            <input
-                type="hidden"
-                name="request_id"
-                value="<?= (int) $request['id'] ?>">
+                                            <form
+                                                method="POST"
+                                                action="?page=admin-demo-password-recovery"
+                                                class="d-inline"
+                                                onsubmit="return confirm('Approve this Demo password recovery request?');">
 
-            <input
-                type="hidden"
-                name="action"
-                value="approve">
+                                                <input
+                                                    type="hidden"
+                                                    name="request_id"
+                                                    value="<?= (int) $request['id'] ?>">
 
-            <button
-                type="submit"
-                class="btn btn-success btn-sm">
-                Approve
-            </button>
+                                                <input
+                                                    type="hidden"
+                                                    name="action"
+                                                    value="approve">
 
-        </form>
+                                                <button
+                                                    type="submit"
+                                                    class="btn btn-success btn-sm">
+                                                    Approve
+                                                </button>
 
-        <button
-            type="button"
-            class="btn btn-danger btn-sm"
-            onclick="rejectRecoveryRequest(<?= (int) $request['id'] ?>)">
-            Reject
-        </button>
+                                            </form>
 
-    <?php endif; ?>
 
-</td>
+                                            <button
+                                                type="button"
+                                                class="btn btn-danger btn-sm"
+                                                onclick="rejectRecoveryRequest(<?= (int) $request['id'] ?>)">
+                                                Reject
+                                            </button>
+
+                                        <?php endif; ?>
+
+                                    </td>
 
                                 </tr>
 
@@ -194,6 +334,87 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
                 </div>
 
+
+                <!-- Pagination -->
+
+                <?php if ($totalPages > 1): ?>
+
+                    <div class="d-flex justify-content-center py-3">
+
+                        <nav aria-label="Recovery request pagination">
+
+                            <ul class="pagination mb-0">
+
+                                <?php if ($page > 1): ?>
+
+                                    <li class="page-item">
+
+                                        <a
+                                            class="page-link"
+                                            href="<?= htmlspecialchars(
+                                                buildPaginationUrl(
+                                                    'demo-password-recovery-requests',
+                                                    $page - 1,
+                                                    ['search' => $search]
+                                                )
+                                            ) ?>">
+                                            Previous
+                                        </a>
+
+                                    </li>
+
+                                <?php endif; ?>
+
+
+                                <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+
+                                    <li class="page-item <?= $i === $page ? 'active' : '' ?>">
+
+                                        <a
+                                            class="page-link"
+                                            href="<?= htmlspecialchars(
+                                                buildPaginationUrl(
+                                                    'demo-password-recovery-requests',
+                                                    $i,
+                                                    ['search' => $search]
+                                                )
+                                            ) ?>">
+                                            <?= $i ?>
+                                        </a>
+
+                                    </li>
+
+                                <?php endfor; ?>
+
+
+                                <?php if ($page < $totalPages): ?>
+
+                                    <li class="page-item">
+
+                                        <a
+                                            class="page-link"
+                                            href="<?= htmlspecialchars(
+                                                buildPaginationUrl(
+                                                    'demo-password-recovery-requests',
+                                                    $page + 1,
+                                                    ['search' => $search]
+                                                )
+                                            ) ?>">
+                                            Next
+                                        </a>
+
+                                    </li>
+
+                                <?php endif; ?>
+
+                            </ul>
+
+                        </nav>
+
+                    </div>
+
+                <?php endif; ?>
+
             <?php endif; ?>
 
         </div>
@@ -201,6 +422,7 @@ require VIEW_PATH . '/layouts/header-admin.php';
     </div>
 
 </div>
+
 
 <script>
 function rejectRecoveryRequest(requestId) {
@@ -232,6 +454,37 @@ function rejectRecoveryRequest(requestId) {
     document.body.appendChild(form);
     form.submit();
 }
+
+
+/*
+|--------------------------------------------------------------------------
+| Live Search
+|--------------------------------------------------------------------------
+*/
+
+document.addEventListener('DOMContentLoaded', function () {
+
+    const searchInput = document.getElementById('searchInput');
+    const searchForm = document.getElementById('searchForm');
+
+    if (!searchInput || !searchForm) {
+        return;
+    }
+
+    let timer;
+
+    searchInput.addEventListener('input', function () {
+
+        clearTimeout(timer);
+
+        timer = setTimeout(function () {
+            searchForm.submit();
+        }, 300);
+
+    });
+
+});
 </script>
+
 
 <?php require VIEW_PATH . '/layouts/footer.php'; ?>

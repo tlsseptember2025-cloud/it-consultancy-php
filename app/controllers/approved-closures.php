@@ -2,6 +2,13 @@
 
 $pageTitle = 'Approved Closures';
 
+require_once APP_PATH . '/helpers/SearchPaginationHelper.php';
+
+$search = getSearchTerm();
+$page = getPageNumber();
+$limit = 10;
+$offset = getPageOffset($page, $limit);
+
 /*
 |--------------------------------------------------------------------------
 | Determine Database Context
@@ -61,27 +68,44 @@ if ($isDemoAdmin) {
         die('Invalid Demo tenant.');
     }
 
-    $stmt = $approvedClosuresPdo->prepare("
-        SELECT
-            r.*,
-            c.name AS customer_name,
-            s.title AS service_name
-        FROM requests r
-        INNER JOIN customers c
-            ON c.id = r.customer_id
-        INNER JOIN services s
-            ON s.id = r.service_id
-        WHERE
-            r.workflow_stage = ?
-            AND c.demo_tenant_id = ?
-            AND c.is_demo_account = 1
-        ORDER BY r.id DESC
-    ");
+    $where = "WHERE r.workflow_stage = ?";
+$params = ['Closure Approved'];
 
-    $stmt->execute([
-        'Closure Approved',
-        $demoTenantId
-    ]);
+if ($search !== '') {
+    $where .= "
+        AND (
+            r.id LIKE ?
+            OR r.description LIKE ?
+            OR c.name LIKE ?
+            OR s.title LIKE ?
+        )
+    ";
+
+    $searchValue = '%' . $search . '%';
+
+    $params[] = $searchValue;
+    $params[] = $searchValue;
+    $params[] = $searchValue;
+    $params[] = $searchValue;
+}
+
+$sql = "
+    SELECT
+        r.*,
+        c.name AS customer_name,
+        s.title AS service_name
+    FROM requests r
+    INNER JOIN customers c
+        ON c.id = r.customer_id
+    INNER JOIN services s
+        ON s.id = r.service_id
+    {$where}
+    ORDER BY r.id DESC
+    LIMIT {$limit} OFFSET {$offset}
+";
+
+$stmt = $approvedClosuresPdo->prepare($sql);
+$stmt->execute($params);
 
 } else {
 
@@ -91,12 +115,33 @@ if ($isDemoAdmin) {
     |--------------------------------------------------------------------------
     |
     | Main Admin sees Main database records.
-    |
     | Demo Super Admin sees Demo database records.
     |
     */
 
-    $stmt = $approvedClosuresPdo->prepare("
+    $where = "WHERE r.workflow_stage = ?";
+    $params = ['Closure Approved'];
+
+    if ($search !== '') {
+
+        $where .= "
+            AND (
+                r.id LIKE ?
+                OR r.description LIKE ?
+                OR c.name LIKE ?
+                OR s.title LIKE ?
+            )
+        ";
+
+        $searchValue = '%' . $search . '%';
+
+        $params[] = $searchValue;
+        $params[] = $searchValue;
+        $params[] = $searchValue;
+        $params[] = $searchValue;
+    }
+
+    $sql = "
         SELECT
             r.*,
             c.name AS customer_name,
@@ -106,18 +151,74 @@ if ($isDemoAdmin) {
             ON c.id = r.customer_id
         INNER JOIN services s
             ON s.id = r.service_id
-        WHERE r.workflow_stage = ?
+        {$where}
         ORDER BY r.id DESC
-    ");
+        LIMIT {$limit} OFFSET {$offset}
+    ";
 
-    $stmt->execute([
-        'Closure Approved'
-    ]);
+    $stmt = $approvedClosuresPdo->prepare($sql);
+    $stmt->execute($params);
+
 }
 
 
 $requests = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+$countWhere = "WHERE r.workflow_stage = ?";
+$countParams = ['Closure Approved'];
+
+if ($isDemoAdmin) {
+
+    $countDemoTenantId = (int) (
+        $_SESSION['demo_user']['demo_tenant_id'] ?? 0
+    );
+
+    if ($countDemoTenantId <= 0) {
+        die('Invalid Demo tenant.');
+    }
+
+    $countWhere .= "
+        AND c.demo_tenant_id = ?
+        AND c.is_demo_account = 1
+    ";
+
+    $countParams[] = $countDemoTenantId;
+}
+
+if ($search !== '') {
+
+    $countWhere .= "
+        AND (
+            r.id LIKE ?
+            OR r.description LIKE ?
+            OR c.name LIKE ?
+            OR s.title LIKE ?
+        )
+    ";
+
+    $searchValue = '%' . $search . '%';
+
+    $countParams[] = $searchValue;
+    $countParams[] = $searchValue;
+    $countParams[] = $searchValue;
+    $countParams[] = $searchValue;
+}
+
+$countSql = "
+    SELECT COUNT(*)
+    FROM requests r
+    INNER JOIN customers c
+        ON c.id = r.customer_id
+    INNER JOIN services s
+        ON s.id = r.service_id
+    {$countWhere}
+";
+
+$countStmt = $approvedClosuresPdo->prepare($countSql);
+$countStmt->execute($countParams);
+
+$totalRecords = (int) $countStmt->fetchColumn();
+$totalPages = getTotalPages($totalRecords, $limit);
 
 /*
 |--------------------------------------------------------------------------
