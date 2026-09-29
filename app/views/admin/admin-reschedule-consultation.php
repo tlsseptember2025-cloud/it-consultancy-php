@@ -71,12 +71,17 @@ if ($isDemoAdmin) {
         WHERE r.id = ?
           AND c.demo_tenant_id = ?
           AND c.is_demo_account = 1
+          AND s.demo_tenant_id = ?
+          AND s.is_demo_account = 1
+          AND (a.id IS NULL OR (a.demo_tenant_id = ? AND a.is_demo_account = 1))
 
         LIMIT 1
     ");
 
     $stmt->execute([
         $requestId,
+        $demoTenantId,
+        $demoTenantId,
         $demoTenantId
     ]);
 
@@ -165,19 +170,56 @@ if (
      * Demo Admin, so this update is safe for the selected tenant.
      */
 
-    $stmt = $reschedulePdo->prepare("
-        UPDATE requests
-        SET
-            workflow_stage = 'Awaiting Customer Reschedule',
-            job_status = 'Pending',
-            admin_instruction = ?
-        WHERE id = ?
-    ");
+    if ($isDemoAdmin) {
 
-    $stmt->execute([
-        $adminInstruction,
-        $consultation['id']
-    ]);
+        $stmt = $reschedulePdo->prepare("
+            UPDATE requests r
+            INNER JOIN customers c
+                ON c.id = r.customer_id
+            INNER JOIN services s
+                ON s.id = r.service_id
+            LEFT JOIN agents a
+                ON a.id = r.agent_id
+            SET
+                r.workflow_stage = 'Awaiting Customer Reschedule',
+                r.job_status = 'Pending',
+                r.admin_instruction = ?
+            WHERE r.id = ?
+              AND c.demo_tenant_id = ?
+              AND c.is_demo_account = 1
+              AND s.demo_tenant_id = ?
+              AND s.is_demo_account = 1
+              AND (a.id IS NULL OR (a.demo_tenant_id = ? AND a.is_demo_account = 1))
+        ");
+
+        $stmt->execute([
+            $adminInstruction,
+            $consultation['id'],
+            $demoTenantId,
+            $demoTenantId,
+            $demoTenantId
+        ]);
+
+    } else {
+
+        $stmt = $reschedulePdo->prepare("
+            UPDATE requests
+            SET
+                workflow_stage = 'Awaiting Customer Reschedule',
+                job_status = 'Pending',
+                admin_instruction = ?
+            WHERE id = ?
+        ");
+
+        $stmt->execute([
+            $adminInstruction,
+            $consultation['id']
+        ]);
+    }
+
+    if ($stmt->rowCount() !== 1) {
+        die('The consultation could not be sent for rescheduling.');
+    }
 
 
     /*

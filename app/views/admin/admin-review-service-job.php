@@ -92,6 +92,18 @@ $stmt = $serviceReviewPdo->prepare("
             OR (
                 c.demo_tenant_id = ?
                 AND c.is_demo_account = 1
+                AND s.demo_tenant_id = ?
+                AND s.is_demo_account = 1
+                AND (
+                    sb.agent_id IS NULL
+                    OR EXISTS (
+                        SELECT 1
+                        FROM agents da
+                        WHERE da.id = sb.agent_id
+                          AND da.demo_tenant_id = ?
+                          AND da.is_demo_account = 1
+                    )
+                )
             )
         )
 
@@ -100,6 +112,8 @@ $stmt = $serviceReviewPdo->prepare("
 
 $stmt->execute([
     $requestId,
+    $demoTenantId ?? 0,
+    $demoTenantId ?? 0,
     $demoTenantId ?? 0,
     $demoTenantId ?? 0
 ]);
@@ -283,10 +297,42 @@ if ($decision === 'reject') {
 
             AND workflow_stage = 'Needs Admin Review'
             AND review_type = 'service_missed'
+            AND EXISTS (
+                SELECT 1
+                FROM customers c
+                INNER JOIN services s
+                    ON s.id = requests.service_id
+                INNER JOIN service_bookings sb
+                    ON sb.request_id = requests.id
+                WHERE c.id = requests.customer_id
+                  AND (
+                      ? = 0
+                      OR (
+                          c.demo_tenant_id = ?
+                          AND c.is_demo_account = 1
+                          AND s.demo_tenant_id = ?
+                          AND s.is_demo_account = 1
+                          AND (
+                              sb.agent_id IS NULL
+                              OR EXISTS (
+                                  SELECT 1
+                                  FROM agents da
+                                  WHERE da.id = sb.agent_id
+                                    AND da.demo_tenant_id = ?
+                                    AND da.is_demo_account = 1
+                              )
+                          )
+                      )
+                  )
+            )
     ");
 
     $update->execute([
-        $serviceJob['request_id']
+        $serviceJob['request_id'],
+        $demoTenantId ?? 0,
+        $demoTenantId ?? 0,
+        $demoTenantId ?? 0,
+        $demoTenantId ?? 0
     ]);
 
 
@@ -306,7 +352,7 @@ if ($decision === 'reject') {
     */
 
     RequestEventHelper::addCurrentUser(
-        $pdo,
+        $serviceReviewPdo,
         (int) $serviceJob['request_id'],
         'SERVICE_EXPLANATION_REJECTED',
         RequestEventHelper::TYPE_SERVICE,
@@ -400,7 +446,11 @@ if ($decision === 'accept') {
         $update->execute([
             $comments,
             (int) $_SESSION['user'],
-            $serviceJob['request_id']
+            $serviceJob['request_id'],
+            $demoTenantId ?? 0,
+            $demoTenantId ?? 0,
+            $demoTenantId ?? 0,
+            $demoTenantId ?? 0
         ]);
 
 
@@ -414,7 +464,7 @@ if ($decision === 'accept') {
 
 
         RequestEventHelper::addCurrentUser(
-            $pdo,
+            $serviceReviewPdo,
             (int) $serviceJob['request_id'],
             'SERVICE_REVIEW_ACCEPTED',
             RequestEventHelper::TYPE_SERVICE,
@@ -425,7 +475,7 @@ if ($decision === 'accept') {
 
 
         RequestEventHelper::addCurrentUser(
-            $pdo,
+            $serviceReviewPdo,
             (int) $serviceJob['request_id'],
             'SERVICE_RESCHEDULE_REQUIRED',
             RequestEventHelper::TYPE_SERVICE,
@@ -464,10 +514,42 @@ if ($decision === 'accept') {
             id = ?
             AND workflow_stage = 'Needs Admin Review'
             AND review_type = 'service_overdue'
+            AND EXISTS (
+                SELECT 1
+                FROM customers c
+                INNER JOIN services s
+                    ON s.id = requests.service_id
+                INNER JOIN service_bookings sb
+                    ON sb.request_id = requests.id
+                WHERE c.id = requests.customer_id
+                  AND (
+                      ? = 0
+                      OR (
+                          c.demo_tenant_id = ?
+                          AND c.is_demo_account = 1
+                          AND s.demo_tenant_id = ?
+                          AND s.is_demo_account = 1
+                          AND (
+                              sb.agent_id IS NULL
+                              OR EXISTS (
+                                  SELECT 1
+                                  FROM agents da
+                                  WHERE da.id = sb.agent_id
+                                    AND da.demo_tenant_id = ?
+                                    AND da.is_demo_account = 1
+                              )
+                          )
+                      )
+                  )
+            )
     ");
 
     $update->execute([
-        $serviceJob['request_id']
+        $serviceJob['request_id'],
+        $demoTenantId ?? 0,
+        $demoTenantId ?? 0,
+        $demoTenantId ?? 0,
+        $demoTenantId ?? 0
     ]);
 
         if ($update->rowCount() !== 1) {
@@ -480,7 +562,7 @@ if ($decision === 'accept') {
 
 
         RequestEventHelper::addCurrentUser(
-            $pdo,
+            $serviceReviewPdo,
             (int) $serviceJob['request_id'],
             'SERVICE_REVIEW_ACCEPTED',
             RequestEventHelper::TYPE_SERVICE,
@@ -560,12 +642,44 @@ if ($decision === 'reschedule') {
             id = ?
             AND workflow_stage = 'Needs Admin Review'
             AND review_type IN ('service_missed', 'service_overdue')
+            AND EXISTS (
+                SELECT 1
+                FROM customers c
+                INNER JOIN services s
+                    ON s.id = requests.service_id
+                INNER JOIN service_bookings sb
+                    ON sb.request_id = requests.id
+                WHERE c.id = requests.customer_id
+                  AND (
+                      ? = 0
+                      OR (
+                          c.demo_tenant_id = ?
+                          AND c.is_demo_account = 1
+                          AND s.demo_tenant_id = ?
+                          AND s.is_demo_account = 1
+                          AND (
+                              sb.agent_id IS NULL
+                              OR EXISTS (
+                                  SELECT 1
+                                  FROM agents da
+                                  WHERE da.id = sb.agent_id
+                                    AND da.demo_tenant_id = ?
+                                    AND da.is_demo_account = 1
+                              )
+                          )
+                      )
+                  )
+            )
     ");
 
     $update->execute([
         $comments,
         (int) $_SESSION['user'],
-        $serviceJob['request_id']
+        $serviceJob['request_id'],
+        $demoTenantId ?? 0,
+        $demoTenantId ?? 0,
+        $demoTenantId ?? 0,
+        $demoTenantId ?? 0
     ]);
 
 
@@ -585,7 +699,7 @@ if ($decision === 'reschedule') {
     */
 
     RequestEventHelper::addCurrentUser(
-        $pdo,
+        $serviceReviewPdo,
         (int) $serviceJob['request_id'],
         'SERVICE_RESCHEDULE_REQUIRED',
         RequestEventHelper::TYPE_SERVICE,
@@ -761,14 +875,43 @@ if ($decision === 'reassign') {
         */
 
         $stmt = $serviceReviewPdo->prepare("
-            UPDATE service_bookings
-            SET agent_id = ?
-            WHERE id = ?
+            UPDATE service_bookings sb
+            INNER JOIN requests r
+                ON r.id = sb.request_id
+            INNER JOIN customers c
+                ON c.id = r.customer_id
+            INNER JOIN services s
+                ON s.id = r.service_id
+            INNER JOIN agents old_a
+                ON old_a.id = sb.agent_id
+            INNER JOIN agents new_a
+                ON new_a.id = ?
+            SET sb.agent_id = ?
+            WHERE sb.id = ?
+              AND (
+                  ? = 0
+                  OR (
+                      c.demo_tenant_id = ?
+                      AND c.is_demo_account = 1
+                      AND s.demo_tenant_id = ?
+                      AND s.is_demo_account = 1
+                      AND old_a.demo_tenant_id = ?
+                      AND old_a.is_demo_account = 1
+                      AND new_a.demo_tenant_id = ?
+                      AND new_a.is_demo_account = 1
+                  )
+              )
         ");
 
         $stmt->execute([
             $newAgentId,
-            $serviceJob['service_booking_id']
+            $newAgentId,
+            $serviceJob['service_booking_id'],
+            $demoTenantId ?? 0,
+            $demoTenantId ?? 0,
+            $demoTenantId ?? 0,
+            $demoTenantId ?? 0,
+            $demoTenantId ?? 0
         ]);
 
 
@@ -797,13 +940,40 @@ if ($decision === 'reassign') {
     'service_overdue',
     'service_not_completed'
 )
+                AND EXISTS (
+                    SELECT 1
+                    FROM customers c
+                    INNER JOIN services s
+                        ON s.id = requests.service_id
+                    INNER JOIN service_bookings sb
+                        ON sb.request_id = requests.id
+                    INNER JOIN agents new_a
+                        ON new_a.id = ?
+                    WHERE c.id = requests.customer_id
+                      AND (
+                          ? = 0
+                          OR (
+                              c.demo_tenant_id = ?
+                              AND c.is_demo_account = 1
+                              AND s.demo_tenant_id = ?
+                              AND s.is_demo_account = 1
+                              AND new_a.demo_tenant_id = ?
+                              AND new_a.is_demo_account = 1
+                          )
+                      )
+                )
         ");
 
       $stmt->execute([
     $newAgentId,
     $comments,
     $currentAdminId,
-    $serviceJob['request_id']
+    $serviceJob['request_id'],
+    $newAgentId,
+    $demoTenantId ?? 0,
+    $demoTenantId ?? 0,
+    $demoTenantId ?? 0,
+    $demoTenantId ?? 0
 ]);
 
         if ($stmt->rowCount() !== 1) {
@@ -856,7 +1026,7 @@ if ($decision === 'reassign') {
         */
 
         RequestEventHelper::addCurrentUser(
-            $pdo,
+            $serviceReviewPdo,
             (int) $serviceJob['request_id'],
             RequestEventHelper::EVENT_AGENT_REASSIGNED,
             RequestEventHelper::TYPE_SERVICE,

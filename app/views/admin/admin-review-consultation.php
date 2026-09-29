@@ -64,6 +64,10 @@ $stmt = $reviewPdo->prepare("
             OR (
                 c.demo_tenant_id = ?
                 AND c.is_demo_account = 1
+                AND s.demo_tenant_id = ?
+                AND s.is_demo_account = 1
+                AND a.demo_tenant_id = ?
+                AND a.is_demo_account = 1
             )
       )
 
@@ -72,6 +76,7 @@ $stmt = $reviewPdo->prepare("
 
 $stmt->execute([
     $requestId,
+    $demoTenantId ?? 0,
     $demoTenantId ?? 0,
     $demoTenantId ?? 0
 ]);
@@ -274,23 +279,41 @@ if ($decision === 'accept') {
         |--------------------------------------------------------------------------
         */
 
-        $update = $reviewPdo->prepare("
-            UPDATE requests
-            SET
-                workflow_stage = 'Awaiting Customer Confirmation',
-                job_status = 'Pending',
-                review_type = NULL,
-                admin_review_comments = ?
-            WHERE
-                id = ?
-                AND workflow_stage = 'Needs Admin Review'
-                AND review_type = 'consultation_overdue'
-        ");
-
-        $update->execute([
-            $comments,
-            $consultation['id']
-        ]);
+        if ($isDemoAdmin) {
+            $update = $reviewPdo->prepare("
+                UPDATE requests r
+                INNER JOIN customers c ON c.id = r.customer_id
+                INNER JOIN services s ON s.id = r.service_id
+                INNER JOIN agents a ON a.id = r.agent_id
+                SET
+                    r.workflow_stage = 'Awaiting Customer Confirmation',
+                    r.job_status = 'Pending',
+                    r.review_type = NULL,
+                    r.admin_review_comments = ?
+                WHERE r.id = ?
+                  AND r.workflow_stage = 'Needs Admin Review'
+                  AND r.review_type = 'consultation_overdue'
+                  AND c.demo_tenant_id = ?
+                  AND c.is_demo_account = 1
+                  AND s.demo_tenant_id = ?
+                  AND s.is_demo_account = 1
+                  AND a.demo_tenant_id = ?
+                  AND a.is_demo_account = 1
+            ");
+            $update->execute([$comments, $consultation['id'], $demoTenantId, $demoTenantId, $demoTenantId]);
+        } else {
+            $update = $reviewPdo->prepare("
+                UPDATE requests
+                SET workflow_stage = 'Awaiting Customer Confirmation',
+                    job_status = 'Pending',
+                    review_type = NULL,
+                    admin_review_comments = ?
+                WHERE id = ?
+                  AND workflow_stage = 'Needs Admin Review'
+                  AND review_type = 'consultation_overdue'
+            ");
+            $update->execute([$comments, $consultation['id']]);
+        }
 
         if ($update->rowCount() !== 1) {
 
@@ -342,7 +365,7 @@ if ($decision === 'accept') {
         */
 
         RequestEventHelper::addCurrentUser(
-            $pdo,
+            $reviewPdo,
             (int) $consultation['id'],
             'CONSULTATION_REVIEW_ACCEPTED',
             RequestEventHelper::TYPE_CONSULTATION,
@@ -413,18 +436,29 @@ try {
 |--------------------------------------------------------------------------
 */
 
-$bookingUpdate = $reviewPdo->prepare("
-    UPDATE consultation_bookings
-    SET
-        agent_id = ?
-    WHERE
-        id = ?
-");
-
-$bookingUpdate->execute([
-    $newAgentId,
-    $consultation['booking_id']
-]);
+if ($isDemoAdmin) {
+    $bookingUpdate = $reviewPdo->prepare("
+        UPDATE consultation_bookings cb
+        INNER JOIN requests r ON r.id = cb.request_id
+        INNER JOIN customers c ON c.id = r.customer_id
+        INNER JOIN services s ON s.id = r.service_id
+        INNER JOIN agents old_a ON old_a.id = cb.agent_id
+        INNER JOIN agents new_a ON new_a.id = ?
+        SET cb.agent_id = ?
+        WHERE cb.id = ?
+          AND c.demo_tenant_id = ? AND c.is_demo_account = 1
+          AND s.demo_tenant_id = ? AND s.is_demo_account = 1
+          AND old_a.demo_tenant_id = ? AND old_a.is_demo_account = 1
+          AND new_a.demo_tenant_id = ? AND new_a.is_demo_account = 1
+    ");
+    $bookingUpdate->execute([$newAgentId, $newAgentId, $consultation['booking_id'],
+        $demoTenantId, $demoTenantId, $demoTenantId, $demoTenantId]);
+} else {
+    $bookingUpdate = $reviewPdo->prepare("
+        UPDATE consultation_bookings SET agent_id = ? WHERE id = ?
+    ");
+    $bookingUpdate->execute([$newAgentId, $consultation['booking_id']]);
+}
 
 if ($bookingUpdate->rowCount() !== 1) {
 
@@ -440,29 +474,43 @@ if ($bookingUpdate->rowCount() !== 1) {
 |--------------------------------------------------------------------------
 */
 
-$requestUpdate = $reviewPdo->prepare("
-    UPDATE requests
-    SET
-        agent_id = ?,
-        workflow_stage = 'Awaiting Customer Reschedule',
-        job_status = 'Pending',
-        review_type = NULL,
-        admin_instruction = '__RESCHEDULE_ALLOWED__',
-        admin_review_comments = ?,
-        completed_at = NULL,
-        completion_notes = NULL,
-        incomplete_reason = NULL
-    WHERE
-        id = ?
-        AND workflow_stage = 'Needs Admin Review'
-        AND review_type = 'consultation_not_completed'
-");
-
-$requestUpdate->execute([
-    $newAgentId,
-    $comments,
-    $consultation['id']
-]);
+if ($isDemoAdmin) {
+    $requestUpdate = $reviewPdo->prepare("
+        UPDATE requests r
+        INNER JOIN customers c ON c.id = r.customer_id
+        INNER JOIN services s ON s.id = r.service_id
+        INNER JOIN agents new_a ON new_a.id = ?
+        SET r.agent_id = ?,
+            r.workflow_stage = 'Awaiting Customer Reschedule',
+            r.job_status = 'Pending',
+            r.review_type = NULL,
+            r.admin_instruction = '__RESCHEDULE_ALLOWED__',
+            r.admin_review_comments = ?,
+            r.completed_at = NULL,
+            r.completion_notes = NULL,
+            r.incomplete_reason = NULL
+        WHERE r.id = ?
+          AND r.workflow_stage = 'Needs Admin Review'
+          AND r.review_type = 'consultation_not_completed'
+          AND c.demo_tenant_id = ? AND c.is_demo_account = 1
+          AND s.demo_tenant_id = ? AND s.is_demo_account = 1
+          AND new_a.demo_tenant_id = ? AND new_a.is_demo_account = 1
+    ");
+    $requestUpdate->execute([$newAgentId, $newAgentId, $comments, $consultation['id'],
+        $demoTenantId, $demoTenantId, $demoTenantId]);
+} else {
+    $requestUpdate = $reviewPdo->prepare("
+        UPDATE requests
+        SET agent_id = ?, workflow_stage = 'Awaiting Customer Reschedule',
+            job_status = 'Pending', review_type = NULL,
+            admin_instruction = '__RESCHEDULE_ALLOWED__',
+            admin_review_comments = ?, completed_at = NULL,
+            completion_notes = NULL, incomplete_reason = NULL
+        WHERE id = ? AND workflow_stage = 'Needs Admin Review'
+          AND review_type = 'consultation_not_completed'
+    ");
+    $requestUpdate->execute([$newAgentId, $comments, $consultation['id']]);
+}
 
 if ($requestUpdate->rowCount() !== 1) {
 
@@ -573,18 +621,26 @@ if (
 
 if ($decision === 'approve') {
 
-    $update = $reviewPdo->prepare("
-        UPDATE requests
-        SET
-            admin_review_comments = ?,
-            workflow_stage = 'Proposal Draft'
-        WHERE id = ?
-    ");
-
-    $update->execute([
-        $comments,
-        $consultation['id']
-    ]);
+    if ($isDemoAdmin) {
+        $update = $reviewPdo->prepare("
+            UPDATE requests r
+            INNER JOIN customers c ON c.id = r.customer_id
+            INNER JOIN services s ON s.id = r.service_id
+            INNER JOIN agents a ON a.id = r.agent_id
+            SET r.admin_review_comments = ?, r.workflow_stage = 'Proposal Draft'
+            WHERE r.id = ?
+              AND c.demo_tenant_id = ? AND c.is_demo_account = 1
+              AND s.demo_tenant_id = ? AND s.is_demo_account = 1
+              AND a.demo_tenant_id = ? AND a.is_demo_account = 1
+        ");
+        $update->execute([$comments, $consultation['id'], $demoTenantId, $demoTenantId, $demoTenantId]);
+    } else {
+        $update = $reviewPdo->prepare("
+            UPDATE requests SET admin_review_comments = ?, workflow_stage = 'Proposal Draft'
+            WHERE id = ?
+        ");
+        $update->execute([$comments, $consultation['id']]);
+    }
 
 
     /*
@@ -594,7 +650,7 @@ if ($decision === 'approve') {
     */
 
     RequestEventHelper::addCurrentUser(
-        $pdo,
+        $reviewPdo,
         $consultation['id'],
         'CONSULTATION_APPROVED',
         RequestEventHelper::TYPE_CONSULTATION,
@@ -678,19 +734,31 @@ if ($decision === 'approve') {
 
 } elseif ($decision === 'return') {
 
-    $update = $reviewPdo->prepare("
-        UPDATE requests
-        SET
-            admin_review_comments = ?,
-            workflow_stage = 'Consultation Confirmed',
-            job_status = 'In Progress'
-        WHERE id = ?
-    ");
-
-    $update->execute([
-        $comments,
-        $consultation['id']
-    ]);
+    if ($isDemoAdmin) {
+        $update = $reviewPdo->prepare("
+            UPDATE requests r
+            INNER JOIN customers c ON c.id = r.customer_id
+            INNER JOIN services s ON s.id = r.service_id
+            INNER JOIN agents a ON a.id = r.agent_id
+            SET r.admin_review_comments = ?,
+                r.workflow_stage = 'Consultation Confirmed',
+                r.job_status = 'In Progress'
+            WHERE r.id = ?
+              AND c.demo_tenant_id = ? AND c.is_demo_account = 1
+              AND s.demo_tenant_id = ? AND s.is_demo_account = 1
+              AND a.demo_tenant_id = ? AND a.is_demo_account = 1
+        ");
+        $update->execute([$comments, $consultation['id'], $demoTenantId, $demoTenantId, $demoTenantId]);
+    } else {
+        $update = $reviewPdo->prepare("
+            UPDATE requests
+            SET admin_review_comments = ?,
+                workflow_stage = 'Consultation Confirmed',
+                job_status = 'In Progress'
+            WHERE id = ?
+        ");
+        $update->execute([$comments, $consultation['id']]);
+    }
 
     header("Location: ?page=needs-admin-review&success=returned-to-agent");
     exit;

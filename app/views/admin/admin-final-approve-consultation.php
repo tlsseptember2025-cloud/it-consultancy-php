@@ -81,12 +81,18 @@ if ($isDemoAdmin) {
             AND r.workflow_stage = 'Needs Admin Final Approval'
             AND c.demo_tenant_id = ?
             AND c.is_demo_account = 1
+            AND s.demo_tenant_id = ?
+            AND s.is_demo_account = 1
+            AND a.demo_tenant_id = ?
+            AND a.is_demo_account = 1
 
         LIMIT 1
     ");
 
     $stmt->execute([
         $requestId,
+        $demoTenantId,
+        $demoTenantId,
         $demoTenantId
     ]);
 
@@ -164,43 +170,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         |--------------------------------------------------------------------------
         */
 
-        if ($isDemoAdmin) {
-            $adminEmail = $_SESSION['demo_user']['email'] ?? null;
-        } else {
-            $adminEmail = $_SESSION['user'] ?? null;
-        }
-
-        if (!$adminEmail) {
-
-            throw new Exception(
-                'Unable to identify the current administrator.'
-            );
-
-        }
-
-        $adminStmt = $approvalPdo->prepare("
-            SELECT id
-            FROM users
-            WHERE email = ?
-            LIMIT 1
-        ");
-
-        $adminStmt->execute([
-            $adminEmail
-        ]);
-
-        $currentAdmin = $adminStmt->fetch(PDO::FETCH_ASSOC);
-
-        if (!$currentAdmin) {
-
-            throw new Exception(
-                'Unable to identify the current administrator.'
-            );
-
-        }
-
-        $currentAdminId = (int) $currentAdmin['id'];
-
 
         /*
         |--------------------------------------------------------------------------
@@ -214,6 +183,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 UPDATE requests r
                 INNER JOIN customers c
                     ON c.id = r.customer_id
+                INNER JOIN services s
+                    ON s.id = r.service_id
+                INNER JOIN agents a
+                    ON a.id = r.agent_id
                 SET
                     r.workflow_stage = 'Consultation Completed',
                     r.job_status = 'Completed',
@@ -223,10 +196,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     AND r.workflow_stage = 'Needs Admin Final Approval'
                     AND c.demo_tenant_id = ?
                     AND c.is_demo_account = 1
+                    AND s.demo_tenant_id = ?
+                    AND s.is_demo_account = 1
+                    AND a.demo_tenant_id = ?
+                    AND a.is_demo_account = 1
             ");
 
             $update->execute([
                 $requestId,
+                $demoTenantId,
+                $demoTenantId,
                 $demoTenantId
             ]);
 
