@@ -477,6 +477,49 @@ $refundRequests = $adminPdo->query("
 
 <?php endif; ?>
 
+<?php if (isset($_SESSION['demo_user'])): ?>
+
+    <?php
+        $demoAdminName = trim((string) (
+            $_SESSION['demo_user']['username']
+            ?? $_SESSION['demo_user']['name']
+            ?? $_SESSION['demo_user']['email']
+            ?? 'Demo Administrator'
+        ));
+
+        if ($demoAdminName === '') {
+            $demoAdminName = 'Demo Administrator';
+        }
+    ?>
+
+    <div class="container-fluid px-3 pt-3">
+        <div class="card shadow-sm border-primary">
+            <div class="card-body py-3">
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                    <div>
+                        <div class="text-muted small mb-1">
+                            Demo Administration Portal
+                        </div>
+
+                        <h3 class="mb-1">
+                            Welcome, <?= htmlspecialchars($demoAdminName) ?>
+                        </h3>
+
+                        <p class="mb-0 text-muted">
+                            Manage demo requests, consultations, services, customers, and administrative workflows.
+                        </p>
+                    </div>
+
+                    <span class="badge bg-primary px-3 py-2">
+                        Demo Environment
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<?php endif; ?>
+
 <div class="container-fluid mt-4 dashboard-layout">
 
     <div class="row g-4">

@@ -1,17 +1,45 @@
 <?php
 
-if (!isset($_SESSION['user'])) {
+require_once HELPER_PATH . '/auth.php';
+require_once CONFIG_PATH . '/database.php';
+require_once APP_PATH . '/helpers/SearchPaginationHelper.php';
 
-    header("Location: ?page=login");
-    exit;
+
+/*
+|--------------------------------------------------------------------------
+| Determine Admin Environment
+|--------------------------------------------------------------------------
+*/
+
+$isDemoAdmin = isset($_SESSION['demo_user']);
+
+if ($isDemoAdmin) {
+
+    requireDemoAdmin();
+
+    require_once CONFIG_PATH . '/demo-database.php';
+
+    $refundPdo = $demoPdo;
+
+    $demoTenantId = (int) (
+        $_SESSION['demo_user']['demo_tenant_id'] ?? 0
+    );
+
+    if ($demoTenantId <= 0) {
+
+        unset($_SESSION['demo_user']);
+
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+} else {
+
+    requireAdminLogin();
+
+    $refundPdo = $pdo;
 
 }
-
-require_once HELPER_PATH . '/auth.php';
-
-require CONFIG_PATH . '/database.php';
-
-require_once APP_PATH . '/helpers/SearchPaginationHelper.php';
 
 
 /*
@@ -26,7 +54,10 @@ $page = getPageNumber();
 
 $limit = 5;
 
-$offset = getPageOffset($page, $limit);
+$offset = getPageOffset(
+    $page,
+    $limit
+);
 
 
 /*
@@ -44,6 +75,29 @@ $where = "
 $params = [];
 
 
+/*
+|--------------------------------------------------------------------------
+| Demo Tenant Isolation
+|--------------------------------------------------------------------------
+*/
+
+if ($isDemoAdmin) {
+
+    $where .= "
+        AND c.demo_tenant_id = ?
+        AND c.is_demo_account = 1
+    ";
+
+    $params[] = $demoTenantId;
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Search
+|--------------------------------------------------------------------------
+*/
+
 if ($search !== '') {
 
     $where .= "
@@ -52,24 +106,38 @@ if ($search !== '') {
             OR s.title LIKE ?
             OR rr.reason_type LIKE ?
             OR CAST(rr.refund_amount AS CHAR) LIKE ?
-            OR DATE_FORMAT(rr.reviewed_at, '%d-%m-%Y') LIKE ?
-            OR DATE_FORMAT(rr.reviewed_at, '%d-%m') LIKE ?
-            OR DATE_FORMAT(rr.reviewed_at, '%Y-%m-%d') LIKE ?
-                    )
-                ";
+            OR DATE_FORMAT(
+                rr.reviewed_at,
+                '%d-%m-%Y'
+            ) LIKE ?
+            OR DATE_FORMAT(
+                rr.reviewed_at,
+                '%d-%m'
+            ) LIKE ?
+            OR DATE_FORMAT(
+                rr.reviewed_at,
+                '%Y-%m-%d'
+            ) LIKE ?
+        )
+    ";
 
-                $searchValue = '%' . $search . '%';
+    $searchValue = '%' . $search . '%';
 
-            $params[] = $searchValue;
-            $params[] = $searchValue;
-            $params[] = $searchValue;
-            $params[] = $searchValue;
-            $params[] = $searchValue;
-            $params[] = $searchValue;
-            $params[] = $searchValue;
-
+    $params[] = $searchValue;
+    $params[] = $searchValue;
+    $params[] = $searchValue;
+    $params[] = $searchValue;
+    $params[] = $searchValue;
+    $params[] = $searchValue;
+    $params[] = $searchValue;
 }
 
+
+/*
+|--------------------------------------------------------------------------
+| Load Refunds
+|--------------------------------------------------------------------------
+*/
 
 $sql = "
     SELECT
@@ -100,11 +168,12 @@ $sql = "
 
     ORDER BY rr.reviewed_at DESC
 
-    LIMIT {$limit} OFFSET {$offset}
+    LIMIT {$limit}
+    OFFSET {$offset}
 ";
 
 
-$stmt = $pdo->prepare($sql);
+$stmt = $refundPdo->prepare($sql);
 
 $stmt->execute($params);
 
@@ -126,6 +195,29 @@ $countWhere = "
 $countParams = [];
 
 
+/*
+|--------------------------------------------------------------------------
+| Demo Tenant Isolation For Count
+|--------------------------------------------------------------------------
+*/
+
+if ($isDemoAdmin) {
+
+    $countWhere .= "
+        AND c.demo_tenant_id = ?
+        AND c.is_demo_account = 1
+    ";
+
+    $countParams[] = $demoTenantId;
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Search For Count
+|--------------------------------------------------------------------------
+*/
+
 if ($search !== '') {
 
     $countWhere .= "
@@ -134,9 +226,18 @@ if ($search !== '') {
             OR s.title LIKE ?
             OR rr.reason_type LIKE ?
             OR CAST(rr.refund_amount AS CHAR) LIKE ?
-            OR DATE_FORMAT(rr.reviewed_at, '%d-%m-%Y') LIKE ?
-            OR DATE_FORMAT(rr.reviewed_at, '%d-%m') LIKE ?
-            OR DATE_FORMAT(rr.reviewed_at, '%Y-%m-%d') LIKE ?
+            OR DATE_FORMAT(
+                rr.reviewed_at,
+                '%d-%m-%Y'
+            ) LIKE ?
+            OR DATE_FORMAT(
+                rr.reviewed_at,
+                '%d-%m'
+            ) LIKE ?
+            OR DATE_FORMAT(
+                rr.reviewed_at,
+                '%Y-%m-%d'
+            ) LIKE ?
         )
     ";
 
@@ -150,6 +251,13 @@ if ($search !== '') {
     $countParams[] = $searchValue;
     $countParams[] = $searchValue;
 }
+
+
+/*
+|--------------------------------------------------------------------------
+| Count Query
+|--------------------------------------------------------------------------
+*/
 
 $countSql = "
     SELECT COUNT(*)
@@ -169,15 +277,22 @@ $countSql = "
 ";
 
 
-$countStmt = $pdo->prepare($countSql);
+$countStmt = $refundPdo->prepare(
+    $countSql
+);
 
-$countStmt->execute($countParams);
+$countStmt->execute(
+    $countParams
+);
 
 $totalRecords = (int) $countStmt->fetchColumn();
 
+
 $totalPages = max(
     1,
-    (int) ceil($totalRecords / $limit)
+    (int) ceil(
+        $totalRecords / $limit
+    )
 );
 
 ?>
@@ -200,21 +315,23 @@ $totalPages = max(
 <form
     method="GET"
     class="row g-3 align-items-end mb-4"
-    id="searchForm">
+    id="searchForm"
+>
 
     <input
         type="hidden"
         name="page"
-        value="refunds">
+        value="refunds"
+    >
+
 
     <div class="col-md-10">
 
         <label
             for="searchInput"
-            class="form-label">
-
+            class="form-label"
+        >
             Search
-
         </label>
 
         <input
@@ -233,10 +350,9 @@ $totalPages = max(
 
         <button
             type="submit"
-            class="btn btn-primary flex-fill">
-
+            class="btn btn-primary flex-fill"
+        >
             Search
-
         </button>
 
 
@@ -244,10 +360,9 @@ $totalPages = max(
 
             <a
                 href="?page=refunds"
-                class="btn btn-secondary flex-fill">
-
+                class="btn btn-secondary flex-fill"
+            >
                 Clear
-
             </a>
 
         <?php endif; ?>
@@ -261,204 +376,199 @@ $totalPages = max(
 
     <div class="card-body">
 
-        <table class="table table-bordered">
+        <div class="table-responsive">
 
-            <thead>
+            <table class="table table-bordered">
 
-                <tr>
-
-                    <th>ID</th>
-
-                    <th>Customer</th>
-
-                    <th>Service</th>
-
-                    <th>Amount</th>
-
-                    <th>Date</th>
-
-                    <th>Reason</th>
-
-                    <th>Actions</th>
-
-                </tr>
-
-            </thead>
-
-
-            <tbody>
-
-                <?php if (empty($refunds)): ?>
+                <thead>
 
                     <tr>
 
-                        <td
-                            colspan="7"
-                            class="text-center text-muted">
+                        <th>ID</th>
 
-                            No refunds found.
+                        <th>Customer</th>
 
-                        </td>
+                        <th>Service</th>
+
+                        <th>Amount</th>
+
+                        <th>Date</th>
+
+                        <th>Reason</th>
+
+                        <th>Actions</th>
 
                     </tr>
 
-                <?php else: ?>
+                </thead>
 
 
-                    <?php foreach ($refunds as $refund): ?>
+                <tbody>
+
+                    <?php if (empty($refunds)): ?>
 
                         <tr>
 
-                            <td>
-
-                                <?= $refund['id'] ?>
-
-                            </td>
-
-
-                            <td>
-
-                                <?= htmlspecialchars(
-                                    $refund['name']
-                                ) ?>
-
-                            </td>
-
-
-                            <td>
-
-                                <?= htmlspecialchars(
-                                    $refund['title']
-                                ) ?>
-
-                            </td>
-
-
-                            <td>
-
-                                AED <?= number_format(
-                                    $refund['refund_amount'],
-                                    2
-                                ) ?>
-
-                            </td>
-
-
-                            <td>
-
-                                <?= date(
-                                    'M d, Y',
-                                    strtotime(
-                                        $refund['reviewed_at']
-                                    )
-                                ) ?>
-
-                            </td>
-
-
-                            <td>
-
-                                <?= htmlspecialchars(
-                                    $refund['reason_type']
-                                ) ?>
-
-                            </td>
-
-
-                            <td>
-
-                                <?php
-
-                                $status = trim(
-                                    (string) (
-                                        $refund['refund_status']
-                                        ?? ''
-                                    )
-                                );
-
-                                ?>
-
-
-                                <?php if ($status === 'Processing'): ?>
-
-                                    <span
-                                        class="badge bg-warning text-dark">
-
-                                        Processing
-
-                                    </span>
-
-
-                                    <br>
-
-
-                                    <small
-                                        class="text-muted">
-
-                                        Awaiting completion by
-                                        finance team.
-
-                                    </small>
-
-
-                                    <br><br>
-
-
-                                    <a
-                                        href="?page=complete-refund&id=<?= $refund['id'] ?>"
-                                        class="btn btn-success btn-sm">
-
-                                        Complete Refund
-
-                                    </a>
-
-
-                                <?php elseif ($status === 'Completed'): ?>
-
-                                    <span
-                                        class="badge bg-success">
-
-                                        Completed
-
-                                    </span>
-
-
-                                    <br>
-
-
-                                    <small
-                                        class="text-muted">
-
-                                        Refund successfully
-                                        processed.
-
-                                    </small>
-
-
-                                <?php else: ?>
-
-                                    <span
-                                        class="badge bg-secondary">
-
-                                        <?= htmlspecialchars(
-                                            $status ?: 'Unknown'
-                                        ) ?>
-
-                                    </span>
-
-                                <?php endif; ?>
-
+                            <td
+                                colspan="7"
+                                class="text-center text-muted"
+                            >
+                                No refunds found.
                             </td>
 
                         </tr>
 
-                    <?php endforeach; ?>
+                    <?php else: ?>
 
-                <?php endif; ?>
 
-            </tbody>
+                        <?php foreach ($refunds as $refund): ?>
 
-        </table>
+                            <tr>
+
+                                <td>
+                                    <?= (int) $refund['id'] ?>
+                                </td>
+
+
+                                <td>
+                                    <?= htmlspecialchars(
+                                        $refund['name']
+                                    ) ?>
+                                </td>
+
+
+                                <td>
+                                    <?= htmlspecialchars(
+                                        $refund['title']
+                                    ) ?>
+                                </td>
+
+
+                                <td>
+
+                                    AED <?= number_format(
+                                        (float) $refund['refund_amount'],
+                                        2
+                                    ) ?>
+
+                                </td>
+
+
+                                <td>
+
+                                    <?= date(
+                                        'M d, Y',
+                                        strtotime(
+                                            $refund['reviewed_at']
+                                        )
+                                    ) ?>
+
+                                </td>
+
+
+                                <td>
+
+                                    <?= htmlspecialchars(
+                                        $refund['reason_type']
+                                    ) ?>
+
+                                </td>
+
+
+                                <td>
+
+                                    <?php
+
+                                    $status = trim(
+                                        (string) (
+                                            $refund['refund_status']
+                                            ?? ''
+                                        )
+                                    );
+
+                                    ?>
+
+
+                                    <?php if (
+                                        $status === 'Processing'
+                                    ): ?>
+
+                                        <span
+                                            class="badge bg-warning text-dark"
+                                        >
+                                            Processing
+                                        </span>
+
+
+                                        <br>
+
+
+                                        <small
+                                            class="text-muted"
+                                        >
+                                            Awaiting completion by
+                                            finance team.
+                                        </small>
+
+
+                                        <br><br>
+
+
+                                        <a
+                                            href="?page=complete-refund&id=<?= (int) $refund['id'] ?>"
+                                            class="btn btn-success btn-sm"
+                                        >
+                                            Complete Refund
+                                        </a>
+
+
+                                    <?php elseif (
+                                        $status === 'Completed'
+                                    ): ?>
+
+                                        <span
+                                            class="badge bg-success"
+                                        >
+                                            Completed
+                                        </span>
+
+
+                                        <br>
+
+
+                                        <small
+                                            class="text-muted"
+                                        >
+                                            Refund successfully
+                                            processed.
+                                        </small>
+
+
+                                    <?php else: ?>
+
+                                        <span
+                                            class="badge bg-secondary"
+                                        >
+                                            <?= htmlspecialchars(
+                                                $status ?: 'Unknown'
+                                            ) ?>
+                                        </span>
+
+                                    <?php endif; ?>
+
+                                </td>
+
+                            </tr>
+
+                        <?php endforeach; ?>
+
+                    <?php endif; ?>
+
+                </tbody>
+
+            </table>
+
+        </div>
 
 
         <!-- Pagination -->
@@ -466,25 +576,29 @@ $totalPages = max(
         <?php if ($totalPages > 1): ?>
 
             <nav
-                aria-label="Refund Management pagination">
+                aria-label="Refund Management pagination"
+            >
 
                 <ul class="pagination justify-content-center">
 
 
                     <li
                         class="page-item
-                        <?= $page <= 1 ? 'disabled' : '' ?>">
+                        <?= $page <= 1 ? 'disabled' : '' ?>"
+                    >
 
                         <a
                             class="page-link"
                             href="<?= buildPaginationUrl(
                                 'refunds',
-                                max(1, $page - 1),
+                                max(
+                                    1,
+                                    $page - 1
+                                ),
                                 ['search' => $search]
-                            ) ?>">
-
+                            ) ?>"
+                        >
                             Previous
-
                         </a>
 
                     </li>
@@ -501,7 +615,8 @@ $totalPages = max(
                             <?= $i === $page
                                 ? 'active'
                                 : ''
-                            ?>">
+                            ?>"
+                        >
 
                             <a
                                 class="page-link"
@@ -509,10 +624,9 @@ $totalPages = max(
                                     'refunds',
                                     $i,
                                     ['search' => $search]
-                                ) ?>">
-
+                                ) ?>"
+                            >
                                 <?= $i ?>
-
                             </a>
 
                         </li>
@@ -525,7 +639,8 @@ $totalPages = max(
                         <?= $page >= $totalPages
                             ? 'disabled'
                             : ''
-                        ?>">
+                        ?>"
+                    >
 
                         <a
                             class="page-link"
@@ -536,10 +651,9 @@ $totalPages = max(
                                     $page + 1
                                 ),
                                 ['search' => $search]
-                            ) ?>">
-
+                            ) ?>"
+                        >
                             Next
-
                         </a>
 
                     </li>
@@ -564,16 +678,21 @@ document.addEventListener(
     function () {
 
         const searchInput =
-            document.getElementById('searchInput');
+            document.getElementById(
+                'searchInput'
+            );
 
         const searchForm =
-            document.getElementById('searchForm');
+            document.getElementById(
+                'searchForm'
+            );
 
 
-        if (!searchInput || !searchForm) {
-
+        if (
+            !searchInput ||
+            !searchForm
+        ) {
             return;
-
         }
 
 

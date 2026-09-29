@@ -1,11 +1,31 @@
 <?php
 
-if (!isset($_SESSION['user'])) {
-    header('Location: ?page=login');
-    exit;
+require_once APP_PATH . '/helpers/auth.php';
+
+$isDemoAdmin = isset($_SESSION['demo_user']);
+
+if ($isDemoAdmin) {
+    requireDemoAdmin();
+    require_once CONFIG_PATH . '/demo-database.php';
+
+    $archivePdo = $demoPdo;
+    $demoTenantId = (int) ($_SESSION['demo_user']['demo_tenant_id'] ?? 0);
+
+    if ($demoTenantId <= 0) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+} else {
+    if (!isset($_SESSION['user'])) {
+        header('Location: ?page=login');
+        exit;
+    }
+
+    require_once CONFIG_PATH . '/database.php';
+    $archivePdo = $pdo;
 }
 
-require_once CONFIG_PATH . '/database.php';
 require_once APP_PATH . '/helpers/SearchPaginationHelper.php';
 
 $search = getSearchTerm();
@@ -16,6 +36,14 @@ $params = [];
 $where = "
     WHERE requests.workflow_stage = 'Archived'
 ";
+
+if ($isDemoAdmin) {
+    $where .= "
+        AND customers.demo_tenant_id = ?
+        AND customers.is_demo_account = 1
+    ";
+    $params[] = $demoTenantId;
+}
 
 $where .= buildSearchCondition(
     [
@@ -31,7 +59,7 @@ $where .= buildSearchCondition(
     $params
 );
 
-$stmt = $pdo->prepare("
+$stmt = $archivePdo->prepare("
     SELECT
         requests.*,
         customers.name AS customer_name,
@@ -52,7 +80,7 @@ $stmt = $pdo->prepare("
 $stmt->execute($params);
 $requests = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-$countStmt = $pdo->prepare("
+$countStmt = $archivePdo->prepare("
     SELECT COUNT(*)
     FROM requests
     JOIN customers

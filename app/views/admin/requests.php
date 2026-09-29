@@ -3,24 +3,235 @@
 require_once APP_PATH . '/helpers/DateHelper.php';
 require_once APP_PATH . '/helpers/WorkflowHelper.php';
 require_once APP_PATH . '/helpers/SearchPaginationHelper.php';
+require_once HELPER_PATH . '/auth.php';
 
-if (!isset($_SESSION['user'])) {
-    header("Location: ?page=login");
+
+/*
+|--------------------------------------------------------------------------
+| Determine Admin Context
+|--------------------------------------------------------------------------
+|
+| Normal Admin:
+|   $_SESSION['user']
+|   Main database ($pdo)
+|
+| Demo Admin:
+|   $_SESSION['demo_user']
+|   Demo database ($demoPdo)
+|   Restricted to the Demo Admin's tenant
+|
+| Demo Super Admin:
+|   This page is NOT part of the Demo Super Admin workflow.
+|
+|--------------------------------------------------------------------------
+*/
+
+
+$isDemoAdmin = isset($_SESSION['demo_user']);
+$isNormalAdmin = isset($_SESSION['user']);
+
+
+/*
+|--------------------------------------------------------------------------
+| Require Normal Admin OR Demo Admin
+|--------------------------------------------------------------------------
+*/
+
+if (!$isNormalAdmin && !$isDemoAdmin) {
+
+    if (isset($_SESSION['demo_super_admin'])) {
+        header('Location: ?page=dashboard');
+    } elseif (!empty($_SESSION['demo_logged_out'])) {
+        header('Location: ?page=demo-login');
+    } else {
+        header('Location: ?page=login');
+    }
+
     exit;
 }
 
-require_once HELPER_PATH . '/auth.php';
+
+/*
+|--------------------------------------------------------------------------
+| Load Database
+|--------------------------------------------------------------------------
+*/
+
 require_once CONFIG_PATH . '/database.php';
 
+
+$requestsPdo = $pdo;
+
+
+/*
+|--------------------------------------------------------------------------
+| Demo Admin Database
+|--------------------------------------------------------------------------
+*/
+
+$demoTenantId = 0;
+
+if ($isDemoAdmin) {
+
+    require_once CONFIG_PATH . '/demo-database.php';
+
+    $requestsPdo = $demoPdo;
+
+    $demoTenantId = (int) (
+        $_SESSION['demo_user']['demo_tenant_id']
+        ?? 0
+    );
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Validate Demo Tenant
+    |--------------------------------------------------------------------------
+    */
+
+    if ($demoTenantId <= 0) {
+
+        unset($_SESSION['demo_user']);
+
+        header('Location: ?page=demo-login');
+
+        exit;
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Verify Demo Tenant Is Active
+    |--------------------------------------------------------------------------
+    */
+
+    $tenantStmt = $requestsPdo->prepare("
+        SELECT
+            id,
+            status,
+            expires_at
+        FROM demo_tenants
+        WHERE id = ?
+        LIMIT 1
+    ");
+
+    $tenantStmt->execute([
+        $demoTenantId
+    ]);
+
+    $demoTenant = $tenantStmt->fetch(PDO::FETCH_ASSOC);
+
+
+    if (
+        !$demoTenant
+        || $demoTenant['status'] !== 'Active'
+        || (
+            $demoTenant['expires_at'] !== null
+            && strtotime($demoTenant['expires_at']) <= time()
+        )
+    ) {
+
+        unset($_SESSION['demo_user']);
+
+        header('Location: ?page=demo-login');
+
+        exit;
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Verify Demo Admin Belongs To This Tenant
+    |--------------------------------------------------------------------------
+    */
+
+    $adminStmt = $requestsPdo->prepare("
+        SELECT
+            id
+        FROM users
+        WHERE id = ?
+          AND demo_tenant_id = ?
+          AND is_demo_account = 1
+          AND is_super_admin = 0
+        LIMIT 1
+    ");
+
+    $adminStmt->execute([
+        (int) ($_SESSION['demo_user']['id'] ?? 0),
+        $demoTenantId
+    ]);
+
+    $demoAdmin = $adminStmt->fetch(PDO::FETCH_ASSOC);
+
+
+    if (!$demoAdmin) {
+
+        unset($_SESSION['demo_user']);
+
+        header('Location: ?page=demo-login');
+
+        exit;
+    }
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Search / Pagination
+|--------------------------------------------------------------------------
+*/
+
 $search = getSearchTerm();
+
 $page = getPageNumber();
+
 $limit = 10;
 
 $params = [];
 
+
+/*
+|--------------------------------------------------------------------------
+| Current Requests
+|--------------------------------------------------------------------------
+|
+| Closed and Archived requests are excluded.
+|
+*/
+
 $where = "
     WHERE COALESCE(requests.workflow_stage, '') NOT IN ('Closed', 'Archived')
 ";
+
+
+/*
+|--------------------------------------------------------------------------
+| Demo Tenant Restriction
+|--------------------------------------------------------------------------
+|
+| Demo Admin can ONLY see requests belonging to the
+| Demo Admin's own tenant.
+|
+| Normal Admin has no tenant restriction.
+|
+*/
+
+if ($isDemoAdmin) {
+
+    $where .= "
+        AND customers.demo_tenant_id = ?
+        AND customers.is_demo_account = 1
+    ";
+
+    $params[] = $demoTenantId;
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Search Conditions
+|--------------------------------------------------------------------------
+*/
 
 $where .= buildSearchCondition(
     [
@@ -35,19 +246,23 @@ $where .= buildSearchCondition(
     $params
 );
 
+
 /*
 |--------------------------------------------------------------------------
-| Count total records
+| Count Total Records
 |--------------------------------------------------------------------------
 */
 
-$countStmt = $pdo->prepare("
+$countStmt = $requestsPdo->prepare("
     SELECT COUNT(*)
     FROM requests
+
     JOIN customers
         ON customers.id = requests.customer_id
+
     JOIN services
         ON services.id = requests.service_id
+
     $where
 ");
 
@@ -55,61 +270,100 @@ $countStmt->execute($params);
 
 $totalRequests = (int) $countStmt->fetchColumn();
 
-$totalPages = getTotalPages($totalRequests, $limit);
 
-$page = min($page, $totalPages);
-
-$offset = getPageOffset($page, $limit);
+$totalPages = getTotalPages(
+    $totalRequests,
+    $limit
+);
 
 
 /*
 |--------------------------------------------------------------------------
-| Load current page
+| Prevent Invalid Page Number
 |--------------------------------------------------------------------------
 */
 
-$stmt = $pdo->prepare("
+$page = min(
+    $page,
+    $totalPages
+);
+
+
+$offset = getPageOffset(
+    $page,
+    $limit
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| Load Current Page
+|--------------------------------------------------------------------------
+*/
+
+$stmt = $requestsPdo->prepare("
     SELECT
+
         requests.*,
+
         customers.name AS customer_name,
+
         services.title AS service_title,
+
         requests.workflow_stage,
+
         requests.agent_id,
+
         agents.name AS agent_name,
+
         ps.id AS slip_id
 
+
     FROM requests
+
 
     JOIN customers
         ON customers.id = requests.customer_id
 
+
     JOIN services
         ON services.id = requests.service_id
+
 
     LEFT JOIN agents
         ON agents.id = requests.agent_id
 
+
     LEFT JOIN payment_slips ps
         ON ps.id = (
+
             SELECT MAX(id)
+
             FROM payment_slips
+
             WHERE request_id = requests.id
+
         )
+
 
     $where
 
+
     ORDER BY requests.created_at DESC
+
 
     LIMIT {$limit} OFFSET {$offset}
 ");
 
 $stmt->execute($params);
 
-$requests = $stmt->fetchAll();
+$requests = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 ?>
 
+
 <?php require dirname(__DIR__) . '/layouts/header-admin.php'; ?>
+
 
 <div class="d-flex justify-content-between align-items-center mb-3">
 
@@ -117,40 +371,48 @@ $requests = $stmt->fetchAll();
         Current Requests
     </h5>
 
-    <form method="get" class="d-flex gap-2" id="requestSearchForm">
 
-    <input
-        type="hidden"
-        name="page"
-        value="requests"
+    <form
+        method="get"
+        class="d-flex gap-2"
+        id="requestSearchForm"
     >
 
-    <input
-        type="text"
-        name="search"
-        id="requestSearch"
-        class="form-control"
-        placeholder="Search requests..."
-        value="<?= htmlspecialchars($search) ?>"
-        autocomplete="off"
-        style="width:280px;"
-    >
-
-    <?php if ($search !== ''): ?>
-
-        <a
-            href="?page=requests"
-            class="btn btn-outline-secondary"
-            id="clearRequestSearch"
+        <input
+            type="hidden"
+            name="page"
+            value="requests"
         >
-            Clear
-        </a>
 
-    <?php endif; ?>
 
-</form>
+        <input
+            type="text"
+            name="search"
+            id="requestSearch"
+            class="form-control"
+            placeholder="Search requests..."
+            value="<?= htmlspecialchars($search) ?>"
+            autocomplete="off"
+            style="width:280px;"
+        >
+
+
+        <?php if ($search !== ''): ?>
+
+            <a
+                href="?page=requests"
+                class="btn btn-outline-secondary"
+                id="clearRequestSearch"
+            >
+                Clear
+            </a>
+
+        <?php endif; ?>
+
+    </form>
 
 </div>
+
 
 <div class="table-responsive">
 
@@ -160,27 +422,59 @@ $requests = $stmt->fetchAll();
 
             <tr>
 
-                <th class="text-center" style="width:100px;">Request #</th>
-                <th>Customer</th>
-                <th>Service</th>
-                <th>Description</th>
-                <th>Quoted Price</th>
-                <th>Status</th>
-                <th>Workflow Stage</th>
+                <th
+                    class="text-center"
+                    style="width:100px;"
+                >
+                    Request #
+                </th>
+
+                <th>
+                    Customer
+                </th>
+
+                <th>
+                    Service
+                </th>
+
+                <th>
+                    Description
+                </th>
+
+                <th>
+                    Quoted Price
+                </th>
+
+                <th>
+                    Status
+                </th>
+
+                <th>
+                    Workflow Stage
+                </th>
+
                 <th
                     style="
                         width:130px;
                         white-space:nowrap;
                     "
-                    >
+                >
                     Request Date
                 </th>
-                
-                <th style="width:220px; white-space:nowrap;">Action</th>
+
+                <th
+                    style="
+                        width:220px;
+                        white-space:nowrap;
+                    "
+                >
+                    Action
+                </th>
 
             </tr>
 
         </thead>
+
 
         <tbody>
 
@@ -188,63 +482,100 @@ $requests = $stmt->fetchAll();
 
                 <tr>
 
-                   <td class="text-center">
-                        #<strong><?= (int)$request['id']; ?></strong>
+                    <td class="text-center">
+
+                        #<strong>
+                            <?= (int) $request['id']; ?>
+                        </strong>
+
                     </td>
 
-                    <td>
-                        <?= htmlspecialchars($request['customer_name']) ?>
-                    </td>
-
-                    <td>
-                        <?= htmlspecialchars($request['service_title']) ?>
-                    </td>
-
-                    <td>
-                        <?= htmlspecialchars($request['description'] ?? '') ?>
-                    </td>
 
                     <td>
 
-                       <?php if ($request['quoted_price'] > 0): ?>
+                        <?= htmlspecialchars(
+                            $request['customer_name']
+                        ) ?>
+
+                    </td>
+
+
+                    <td>
+
+                        <?= htmlspecialchars(
+                            $request['service_title']
+                        ) ?>
+
+                    </td>
+
+
+                    <td>
+
+                        <?= htmlspecialchars(
+                            $request['description'] ?? ''
+                        ) ?>
+
+                    </td>
+
+
+                    <td>
+
+                        <?php if ($request['quoted_price'] > 0): ?>
 
                             <span class="badge bg-success">
-                                AED <?= number_format($request['quoted_price'], 2) ?>
+
+                                AED
+                                <?= number_format(
+                                    $request['quoted_price'],
+                                    2
+                                ) ?>
+
                             </span>
 
                         <?php else: ?>
 
                             <?php if ($request['quoted_price'] > 0): ?>
 
-    AED <?= number_format($request['quoted_price'], 2) ?>
+                                AED
+                                <?= number_format(
+                                    $request['quoted_price'],
+                                    2
+                                ) ?>
 
-<?php else: ?>
+                            <?php else: ?>
 
-    <span class="text-muted">
-        Awaiting Quote
-    </span>
+                                <span class="text-muted">
+                                    Awaiting Quote
+                                </span>
 
-<?php endif; ?>
+                            <?php endif; ?>
 
                         <?php endif; ?>
 
                     </td>
 
+
                     <td>
 
-                        <?php if ($request['job_status'] === 'Pending'): ?>
+                        <?php if (
+                            $request['job_status'] === 'Pending'
+                        ): ?>
 
                             <span class="badge bg-warning text-dark">
                                 Pending
                             </span>
 
-                        <?php elseif ($request['job_status'] === 'Completed'): ?>
+                        <?php elseif (
+                            $request['job_status'] === 'Completed'
+                        ): ?>
 
                             <span class="badge bg-success">
                                 Completed
                             </span>
 
-                        <?php elseif ($request['job_status'] === 'Cancelled'): ?>
+                        <?php elseif (
+                            $request['job_status'] === 'Cancelled'
+                        ): ?>
 
                             <span class="badge bg-danger">
                                 Cancelled
@@ -253,208 +584,280 @@ $requests = $stmt->fetchAll();
                         <?php else: ?>
 
                             <span class="badge bg-primary">
-                                <?= htmlspecialchars($request['job_status']) ?>
+
+                                <?= htmlspecialchars(
+                                    $request['job_status']
+                                ) ?>
+
                             </span>
 
                         <?php endif; ?>
 
                     </td>
 
+
                     <td>
-                        <?= workflowBadge($request['workflow_stage']) ?>
+
+                        <?= workflowBadge(
+                            $request['workflow_stage']
+                        ) ?>
+
                     </td>
 
-                   <td
+
+                    <td
                         style="
                             width:130px;
                             white-space:nowrap;
                         "
-                        >
-                        <?= formatDate($request['created_at']) ?>
+                    >
+
+                        <?= formatDate(
+                            $request['created_at']
+                        ) ?>
+
                     </td>
 
-                   
-<td style="width:220px; white-space:nowrap;">
 
-    <a
-        href="?page=view-request&id=<?= $request['id'] ?>"
-        class="btn btn-info btn-sm">
-        View Service
-    </a>
+                    <td
+                        style="
+                            width:220px;
+                            white-space:nowrap;
+                        "
+                    >
 
-    <?php if (
-    $request['workflow_stage'] === 'Submitted'
-    && empty($request['agent_id'])
-): ?>
-
-    <a
-        href="?page=admin-assign-agent&id=<?= $request['id'] ?>"
-        class="btn btn-success btn-sm">
-        Assign Agent
-    </a>
-
-<?php endif; ?>
+                        <a
+                            href="?page=view-request&id=<?= $request['id'] ?>"
+                            class="btn btn-info btn-sm"
+                        >
+                            View Service
+                        </a>
 
 
-<?php if (
-    $request['workflow_stage'] === 'Submitted'
-    && !empty($request['agent_id'])
-): ?>
+                        <?php if (
+                            $request['workflow_stage'] === 'Submitted'
+                            && empty($request['agent_id'])
+                        ): ?>
 
-    <span class="badge bg-info">
-        Waiting for Customer
-    </span>
+                            <a
+                                href="?page=admin-assign-agent&id=<?= $request['id'] ?>"
+                                class="btn btn-success btn-sm"
+                            >
+                                Assign Agent
+                            </a>
 
-    <br>
-
-    <small class="text-muted">
-        Agent:
-        <?= htmlspecialchars($request['agent_name']) ?>
-    </small>
-
-<?php endif; ?>
+                        <?php endif; ?>
 
 
-    <?php if ($request['workflow_stage'] == 'Consultation Scheduled'): ?>
+                        <?php if (
+                            $request['workflow_stage'] === 'Submitted'
+                            && !empty($request['agent_id'])
+                        ): ?>
 
-        <a
-            href="?page=review-consultation&id=<?= $request['id'] ?>"
-            class="btn btn-primary btn-sm">
+                            <span class="badge bg-info">
+                                Waiting for Customer
+                            </span>
 
-            Confirm Schedule
+                            <br>
 
-        </a>
+                            <small class="text-muted">
 
-    <?php endif; ?>
+                                Agent:
 
+                                <?= htmlspecialchars(
+                                    $request['agent_name']
+                                ) ?>
 
-    <?php if ($request['workflow_stage'] === 'Waiting Customer Response'): ?>
+                            </small>
 
-    <button
-        type="button"
-        class="btn btn-secondary btn-sm"
-        disabled>
-        Waiting for Customer Response
-    </button>
-
-<?php elseif ($request['workflow_stage'] === 'Consultation Confirmed'): ?>
-
-    <span class="ms-2 text-muted fw-semibold">
-        Awaiting Agent Outcome
-    </span>
-
-<?php endif; ?>
-
-    <?php if ($request['workflow_stage'] === 'Consultation Completed'): ?>
-
-    <a
-        href="?page=create-proposal&id=<?= (int)$request['id'] ?>"
-        class="btn btn-dark btn-sm">
-        Create Proposal
-    </a>
-
-<?php endif; ?>
+                        <?php endif; ?>
 
 
-<?php if ($request['workflow_stage'] === 'Proposal Draft'): ?>
+                        <?php if (
+                            $request['workflow_stage']
+                            == 'Consultation Scheduled'
+                        ): ?>
 
-    <?php if (empty($request['proposal'])): ?>
+                            <a
+                                href="?page=review-consultation&id=<?= $request['id'] ?>"
+                                class="btn btn-primary btn-sm"
+                            >
+                                Confirm Schedule
+                            </a>
 
-        <a
-            href="?page=create-proposal&id=<?= $request['id'] ?>"
-            class="btn btn-secondary btn-sm">
-            Create Proposal
-        </a>
-
-    <?php else: ?>
-
-        <a
-            href="?page=create-proposal&id=<?= $request['id'] ?>"
-            class="btn btn-warning btn-sm">
-            Edit Proposal
-        </a>
-
-        <a
-            href="?page=admin-view-proposal&id=<?= $request['id'] ?>"
-            class="btn btn-info btn-sm">
-            View Proposal
-        </a>
-
-        <a
-            href="?page=send-proposal&id=<?= $request['id'] ?>"
-            class="btn btn-success btn-sm">
-            Send Proposal
-        </a>
-
-    <?php endif; ?>
-<?php endif; ?>
+                        <?php endif; ?>
 
 
-    <?php if ($request['workflow_stage'] === 'Proposal Rejected'): ?>
+                        <?php if (
+                            $request['workflow_stage']
+                            === 'Waiting Customer Response'
+                        ): ?>
 
-        <a
-            href="?page=create-proposal&id=<?= $request['id'] ?>"
-            class="btn btn-danger btn-sm">
-            Revise Proposal
-        </a>
+                            <button
+                                type="button"
+                                class="btn btn-secondary btn-sm"
+                                disabled
+                            >
+                                Waiting for Customer Response
+                            </button>
 
-    <?php endif; ?>
+                        <?php elseif (
+                            $request['workflow_stage']
+                            === 'Consultation Confirmed'
+                        ): ?>
 
+                            <span
+                                class="ms-2 text-muted fw-semibold"
+                            >
+                                Awaiting Agent Outcome
+                            </span>
 
-    <?php if ($request['workflow_stage'] === 'Payment Submitted'): ?>
-
-        <a
-            href="?page=view-slip&id=<?= $request['slip_id'] ?>"
-            class="btn btn-success btn-sm">
-            Review Payment
-        </a>
-
-    <?php endif; ?>
-
-
-    <?php if ($request['workflow_stage'] === 'Needs Admin Review'): ?>
-
-    <?php if (
-        in_array(
-            $request['review_type'] ?? '',
-            ['service_missed', 'service_overdue'],
-            true
-        )
-    ): ?>
-
-        <a
-            href="?page=admin-review-service-job&id=<?= (int)$request['id'] ?>"
-            class="btn btn-success btn-sm">
-            Review Service
-        </a>
-
-    <?php else: ?>
-
-        <a
-            href="?page=admin-review-consultation&id=<?= (int)$request['id'] ?>"
-            class="btn btn-success btn-sm">
-            Review Consultation
-        </a>
-
-    <?php endif; ?>
-
-<?php endif; ?>
+                        <?php endif; ?>
 
 
-    <?php if ($request['workflow_stage'] === 'Service Active'): ?>
+                        <?php if (
+                            $request['workflow_stage']
+                            === 'Consultation Completed'
+                        ): ?>
 
-        <a
-            href="?page=complete-service-form&id=<?= $request['id'] ?>"
-            class="btn btn-success btn-sm">
-            Complete Service
-        </a>
+                            <a
+                                href="?page=create-proposal&id=<?= (int) $request['id'] ?>"
+                                class="btn btn-dark btn-sm"
+                            >
+                                Create Proposal
+                            </a>
 
-    <?php endif; ?>
+                        <?php endif; ?>
 
 
-   
+                        <?php if (
+                            $request['workflow_stage']
+                            === 'Proposal Draft'
+                        ): ?>
 
-</td>
+                            <?php if (
+                                empty($request['proposal'])
+                            ): ?>
+
+                                <a
+                                    href="?page=create-proposal&id=<?= $request['id'] ?>"
+                                    class="btn btn-secondary btn-sm"
+                                >
+                                    Create Proposal
+                                </a>
+
+                            <?php else: ?>
+
+                                <a
+                                    href="?page=create-proposal&id=<?= $request['id'] ?>"
+                                    class="btn btn-warning btn-sm"
+                                >
+                                    Edit Proposal
+                                </a>
+
+
+                                <a
+                                    href="?page=admin-view-proposal&id=<?= $request['id'] ?>"
+                                    class="btn btn-info btn-sm"
+                                >
+                                    View Proposal
+                                </a>
+
+
+                                <a
+                                    href="?page=send-proposal&id=<?= $request['id'] ?>"
+                                    class="btn btn-success btn-sm"
+                                >
+                                    Send Proposal
+                                </a>
+
+                            <?php endif; ?>
+
+                        <?php endif; ?>
+
+
+                        <?php if (
+                            $request['workflow_stage']
+                            === 'Proposal Rejected'
+                        ): ?>
+
+                            <a
+                                href="?page=create-proposal&id=<?= $request['id'] ?>"
+                                class="btn btn-danger btn-sm"
+                            >
+                                Revise Proposal
+                            </a>
+
+                        <?php endif; ?>
+
+
+                        <?php if (
+                            $request['workflow_stage']
+                            === 'Payment Submitted'
+                        ): ?>
+
+                            <a
+                                href="?page=view-slip&id=<?= $request['slip_id'] ?>"
+                                class="btn btn-success btn-sm"
+                            >
+                                Review Payment
+                            </a>
+
+                        <?php endif; ?>
+
+
+                        <?php if (
+                            $request['workflow_stage']
+                            === 'Needs Admin Review'
+                        ): ?>
+
+                            <?php if (
+                                in_array(
+                                    $request['review_type'] ?? '',
+                                    [
+                                        'service_missed',
+                                        'service_overdue'
+                                    ],
+                                    true
+                                )
+                            ): ?>
+
+                                <a
+                                    href="?page=admin-review-service-job&id=<?= (int) $request['id'] ?>"
+                                    class="btn btn-success btn-sm"
+                                >
+                                    Review Service
+                                </a>
+
+                            <?php else: ?>
+
+                                <a
+                                    href="?page=admin-review-consultation&id=<?= (int) $request['id'] ?>"
+                                    class="btn btn-success btn-sm"
+                                >
+                                    Review Consultation
+                                </a>
+
+                            <?php endif; ?>
+
+                        <?php endif; ?>
+
+
+                        <?php if (
+                            $request['workflow_stage']
+                            === 'Service Active'
+                        ): ?>
+
+                            <a
+                                href="?page=complete-service-form&id=<?= $request['id'] ?>"
+                                class="btn btn-success btn-sm"
+                            >
+                                Complete Service
+                            </a>
+
+                        <?php endif; ?>
+
+                    </td>
 
                 </tr>
 
@@ -466,15 +869,21 @@ $requests = $stmt->fetchAll();
 
 </div>
 
+
 <?php if ($totalPages > 1): ?>
 
-    <nav class="mt-3" aria-label="Requests pagination">
+    <nav
+        class="mt-3"
+        aria-label="Requests pagination"
+    >
 
         <ul class="pagination justify-content-center">
+
 
             <?php if ($page > 1): ?>
 
                 <li class="page-item">
+
                     <a
                         class="page-link"
                         href="<?= buildPaginationUrl(
@@ -485,14 +894,21 @@ $requests = $stmt->fetchAll();
                     >
                         Previous
                     </a>
+
                 </li>
 
             <?php endif; ?>
 
 
-            <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+            <?php for (
+                $i = 1;
+                $i <= $totalPages;
+                $i++
+            ): ?>
 
-                <li class="page-item <?= $i === $page ? 'active' : '' ?>">
+                <li
+                    class="page-item <?= $i === $page ? 'active' : '' ?>"
+                >
 
                     <a
                         class="page-link"
@@ -513,6 +929,7 @@ $requests = $stmt->fetchAll();
             <?php if ($page < $totalPages): ?>
 
                 <li class="page-item">
+
                     <a
                         class="page-link"
                         href="<?= buildPaginationUrl(
@@ -523,9 +940,11 @@ $requests = $stmt->fetchAll();
                     >
                         Next
                     </a>
+
                 </li>
 
             <?php endif; ?>
+
 
         </ul>
 
@@ -533,43 +952,89 @@ $requests = $stmt->fetchAll();
 
 <?php endif; ?>
 
+
 <script>
-document.addEventListener('DOMContentLoaded', function () {
 
-    const searchInput = document.getElementById('requestSearch');
+document.addEventListener(
+    'DOMContentLoaded',
+    function () {
 
-    if (!searchInput) {
-        return;
-    }
+        const searchInput =
+            document.getElementById(
+                'requestSearch'
+            );
 
-    let searchTimer;
 
-    searchInput.addEventListener('input', function () {
+        if (!searchInput) {
+            return;
+        }
 
-        clearTimeout(searchTimer);
 
-        searchTimer = setTimeout(function () {
+        let searchTimer;
 
-            const search = searchInput.value.trim();
 
-            const url = new URL(window.location.href);
+        searchInput.addEventListener(
+            'input',
+            function () {
 
-            url.searchParams.set('page', 'requests');
-            url.searchParams.set('p', '1');
+                clearTimeout(searchTimer);
 
-            if (search !== '') {
-                url.searchParams.set('search', search);
-            } else {
-                url.searchParams.delete('search');
+
+                searchTimer = setTimeout(
+                    function () {
+
+                        const search =
+                            searchInput.value.trim();
+
+
+                        const url =
+                            new URL(
+                                window.location.href
+                            );
+
+
+                        url.searchParams.set(
+                            'page',
+                            'requests'
+                        );
+
+
+                        url.searchParams.set(
+                            'p',
+                            '1'
+                        );
+
+
+                        if (search !== '') {
+
+                            url.searchParams.set(
+                                'search',
+                                search
+                            );
+
+                        } else {
+
+                            url.searchParams.delete(
+                                'search'
+                            );
+
+                        }
+
+
+                        window.location.href =
+                            url.toString();
+
+                    },
+                    300
+                );
+
             }
+        );
 
-            window.location.href = url.toString();
+    }
+);
 
-        }, 300);
-
-    });
-
-});
 </script>
+
 
 <?php require dirname(__DIR__) . '/layouts/footer.php'; ?>

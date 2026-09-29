@@ -45,6 +45,105 @@ if (
 
 $page = $_GET['page'] ?? 'home';
 
+/*
+|--------------------------------------------------------------------------
+| Authenticated User Default Landing
+|--------------------------------------------------------------------------
+| Send authenticated users to their dashboard whenever the requested
+| page is the public Home page.
+|--------------------------------------------------------------------------
+*/
+
+if ($page === 'home') {
+
+    if (isset($_SESSION['demo_super_admin'])) {
+
+        header('Location: ?page=demo-super-admin');
+        exit;
+
+    } elseif (isset($_SESSION['demo_user'])) {
+
+        header('Location: ?page=dashboard');
+        exit;
+
+    } elseif (isset($_SESSION['demo_customer'])) {
+
+        header('Location: ?page=customer-dashboard');
+        exit;
+
+    } elseif (isset($_SESSION['demo_agent'])) {
+
+        header('Location: ?page=agent-dashboard');
+        exit;
+
+    } elseif (isset($_SESSION['user'])) {
+
+        header('Location: ?page=dashboard');
+        exit;
+
+    } elseif (isset($_SESSION['customer'])) {
+
+        header('Location: ?page=customer-dashboard');
+        exit;
+
+    } elseif (isset($_SESSION['agent'])) {
+
+        header('Location: ?page=agent-dashboard');
+        exit;
+    }
+}
+
+/*
+|--------------------------------------------------------------------------
+| Authenticated User Default Landing
+|--------------------------------------------------------------------------
+|
+| When the application is opened without a ?page= parameter,
+| return an already authenticated user to their dashboard.
+|
+| Explicit pages such as ?page=home continue to work normally.
+|
+*/
+
+if (!isset($_GET['page'])) {
+
+    if (isset($_SESSION['demo_super_admin'])) {
+
+        header('Location: ?page=demo-super-admin');
+        exit;
+
+    } elseif (isset($_SESSION['demo_user'])) {
+
+        header('Location: ?page=dashboard');
+        exit;
+
+    } elseif (isset($_SESSION['demo_customer'])) {
+
+        header('Location: ?page=customer-dashboard');
+        exit;
+
+    } elseif (isset($_SESSION['demo_agent'])) {
+
+        header('Location: ?page=agent-dashboard');
+        exit;
+
+    } elseif (isset($_SESSION['user'])) {
+
+        header('Location: ?page=dashboard');
+        exit;
+
+    } elseif (isset($_SESSION['customer'])) {
+
+        header('Location: ?page=customer-dashboard');
+        exit;
+
+    } elseif (isset($_SESSION['agent'])) {
+
+        header('Location: ?page=agent-dashboard');
+        exit;
+    }
+}
+
 /**
  * Demo Environment Route Protection
  *
@@ -265,7 +364,6 @@ if ($isDemoEnvironment) {
         'confirm-consultation',
         'reschedule-consultation',
         'confirm-reschedule-consultation',
-        'refund-history',
         'customer-view-refund',
         'schedule-service',
         'confirm-service',
@@ -430,6 +528,10 @@ case 'demo-super-admin-login':
 
 case 'create-demo':
     require CONTROLLER_PATH . '/create-demo.php';
+    break;
+
+case 'admin-suspension-chat':
+    require VIEW_PATH . '/admin/admin-suspension-chat.php';
     break;
 
 
@@ -925,10 +1027,6 @@ case 'create-demo':
 
     case 'confirm-reschedule-consultation':
         require VIEW_PATH . '/customer/confirm-reschedule-consultation.php';
-        break;
-
-    case 'refund-history':
-        require VIEW_PATH . '/customer/refund-history.php';
         break;
 
     case 'customer-view-refund':

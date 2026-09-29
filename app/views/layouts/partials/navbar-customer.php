@@ -3,9 +3,16 @@
 $customerNotificationCount = 0;
 $customerNotifications = [];
 
-if (isset($_SESSION['customer'])) {
+if (
+    isset($_SESSION['customer']) ||
+    isset($_SESSION['demo_customer'])
+) {
 
-    $customerId = (int) $_SESSION['customer']['id'];
+    if (isset($_SESSION['demo_customer'])) {
+        $customerId = (int) $_SESSION['demo_customer']['id'];
+    } else {
+        $customerId = (int) $_SESSION['customer']['id'];
+    }
 
     $stmt = $pdo->prepare("
         SELECT COUNT(*)
@@ -72,7 +79,6 @@ if (isset($_SESSION['customer'])) {
 
             <ul class="navbar-nav ms-auto align-items-lg-center">
 
-
                 <!-- Requests -->
 
                 <li class="nav-item">
@@ -86,6 +92,7 @@ if (isset($_SESSION['customer'])) {
                     </a>
 
                 </li>
+
 
                 <!-- Payments -->
 
@@ -101,6 +108,7 @@ if (isset($_SESSION['customer'])) {
 
                 </li>
 
+
                 <!-- Refunds -->
 
                 <li class="nav-item">
@@ -115,6 +123,7 @@ if (isset($_SESSION['customer'])) {
 
                 </li>
 
+
                 <!-- Profile -->
 
                 <li class="nav-item">
@@ -128,6 +137,7 @@ if (isset($_SESSION['customer'])) {
                     </a>
 
                 </li>
+
 
                 <!-- Notifications -->
 
@@ -156,6 +166,7 @@ if (isset($_SESSION['customer'])) {
 
                     </a>
 
+
                     <ul
                         class="dropdown-menu dropdown-menu-end"
                         style="min-width:350px;">
@@ -180,7 +191,7 @@ if (isset($_SESSION['customer'])) {
 
                                     <a
                                         class="dropdown-item"
-                                        href="?page=customer-notifications">
+                                        href="?page=customer-notifications&id=<?= (int) $notification['id'] ?>">
 
                                         <strong>
                                             <?= htmlspecialchars($notification['title']) ?>
@@ -196,6 +207,7 @@ if (isset($_SESSION['customer'])) {
 
                                 </li>
 
+
                                 <li>
                                     <hr class="dropdown-divider">
                                 </li>
@@ -203,6 +215,7 @@ if (isset($_SESSION['customer'])) {
                             <?php endforeach; ?>
 
                         <?php endif; ?>
+
 
                         <li>
 
@@ -220,13 +233,16 @@ if (isset($_SESSION['customer'])) {
 
                 </li>
 
+
                 <!-- Logout -->
 
                 <li class="nav-item">
 
                     <a
                         class="nav-link text-danger"
-                        href="?page=customer-logout">
+                        href="<?= isset($_SESSION['demo_customer'])
+                            ? '?page=demo-logout'
+                            : '?page=customer-logout' ?>">
 
                         Logout
 

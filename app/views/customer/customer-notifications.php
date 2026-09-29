@@ -12,13 +12,87 @@ requireCustomerLogin();
 
 $customerId = (int) $_SESSION['customer']['id'];
 
+
 /*
 |--------------------------------------------------------------------------
-| Mark all customer notifications as read
+| Open Individual Notification
 |--------------------------------------------------------------------------
 |
-| Only perform this action when the customer explicitly submits
-| the "Mark All as Read" form.
+| When a customer clicks a notification from the bell or from the
+| notification list:
+|
+| 1. Confirm the notification belongs to this customer.
+| 2. Mark ONLY that notification as read.
+| 3. Redirect to its existing stored link.
+|
+*/
+
+if (
+    isset($_GET['id'])
+    && ctype_digit((string) $_GET['id'])
+) {
+
+    $notificationId = (int) $_GET['id'];
+
+    $stmt = $pdo->prepare("
+        SELECT id, link
+        FROM notifications
+        WHERE id = ?
+          AND recipient_type = 'customer'
+          AND recipient_id = ?
+        LIMIT 1
+    ");
+
+    $stmt->execute([
+        $notificationId,
+        $customerId
+    ]);
+
+    $notification = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($notification) {
+
+        /* Mark ONLY this notification as read */
+        $stmt = $pdo->prepare("
+            UPDATE notifications
+            SET is_read = 1
+            WHERE id = ?
+              AND recipient_type = 'customer'
+              AND recipient_id = ?
+        ");
+
+        $stmt->execute([
+            $notificationId,
+            $customerId
+        ]);
+
+        /* Follow the notification's existing destination */
+        if (!empty($notification['link'])) {
+
+            header(
+                'Location: ' . $notification['link']
+            );
+            exit;
+        }
+    }
+
+    /*
+     * If the notification does not exist, does not belong
+     * to this customer, or has no destination, return to
+     * the notification list.
+     */
+    header('Location: ?page=customer-notifications');
+    exit;
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Mark All Customer Notifications as Read
+|--------------------------------------------------------------------------
+|
+| This action only happens when the customer explicitly
+| submits the "Mark All as Read" form.
 |
 */
 
@@ -26,6 +100,7 @@ if (
     $_SERVER['REQUEST_METHOD'] === 'POST'
     && isset($_POST['mark_all_read'])
 ) {
+
     $stmt = $pdo->prepare("
         UPDATE notifications
         SET is_read = 1
@@ -34,15 +109,18 @@ if (
           AND is_read = 0
     ");
 
-    $stmt->execute([$customerId]);
+    $stmt->execute([
+        $customerId
+    ]);
 
     header('Location: ?page=customer-notifications');
     exit;
 }
 
+
 /*
 |--------------------------------------------------------------------------
-| Load notifications
+| Load Notifications
 |--------------------------------------------------------------------------
 */
 
@@ -54,25 +132,31 @@ $stmt = $pdo->prepare("
     ORDER BY created_at DESC
 ");
 
-$stmt->execute([$customerId]);
+$stmt->execute([
+    $customerId
+]);
 
 $notifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+
 /*
 |--------------------------------------------------------------------------
-| Count unread notifications
+| Count Unread Notifications
 |--------------------------------------------------------------------------
 */
 
 $unreadCount = 0;
 
 foreach ($notifications as $notification) {
+
     if ((int) $notification['is_read'] === 0) {
         $unreadCount++;
     }
 }
 
+
 require dirname(__DIR__) . '/layouts/header-customer.php';
+
 ?>
 
 <h1 class="mb-4">My Notifications</h1>
@@ -107,6 +191,7 @@ require dirname(__DIR__) . '/layouts/header-customer.php';
 
         </div>
 
+
         <?php if (empty($notifications)): ?>
 
             <div class="alert alert-info">
@@ -118,12 +203,19 @@ require dirname(__DIR__) . '/layouts/header-customer.php';
             <table class="table table-striped">
 
                 <thead>
+
                     <tr>
+
                         <th>Title</th>
+
                         <th>Message</th>
+
                         <th>Date</th>
+
                         <th>Action</th>
+
                     </tr>
+
                 </thead>
 
                 <tbody>
@@ -163,15 +255,19 @@ require dirname(__DIR__) . '/layouts/header-customer.php';
                                     case 'Refund Approved':
                                         $icon = '💰';
                                         break;
-
                                 }
 
                                 ?>
 
                                 <?= $icon ?>
-                                <?= htmlspecialchars($notification['title']) ?>
 
-                                <?php if ((int) $notification['is_read'] === 0): ?>
+                                <?= htmlspecialchars(
+                                    $notification['title']
+                                ) ?>
+
+                                <?php if (
+                                    (int) $notification['is_read'] === 0
+                                ): ?>
 
                                     <span class="badge bg-primary ms-2">
                                         New
@@ -181,20 +277,31 @@ require dirname(__DIR__) . '/layouts/header-customer.php';
 
                             </td>
 
-                            <td>
-                                <?= htmlspecialchars($notification['message']) ?>
-                            </td>
 
                             <td>
-                                <?= formatDateTime($notification['created_at']) ?>
+
+                                <?= htmlspecialchars(
+                                    $notification['message']
+                                ) ?>
+
                             </td>
+
+
+                            <td>
+
+                                <?= formatDateTime(
+                                    $notification['created_at']
+                                ) ?>
+
+                            </td>
+
 
                             <td>
 
                                 <?php if (!empty($notification['link'])): ?>
 
                                     <a
-                                        href="<?= htmlspecialchars($notification['link']) ?>"
+                                        href="?page=customer-notifications&id=<?= (int) $notification['id'] ?>"
                                         class="btn btn-primary btn-sm">
 
                                         Open

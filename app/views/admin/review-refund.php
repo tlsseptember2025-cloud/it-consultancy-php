@@ -224,12 +224,16 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                 </p>
 
                 <p><strong>Date:</strong>
-                    <?= date('M d, Y', strtotime($refund['service_date'])) ?>
-                </p>
+    <?= !empty($refund['service_date'])
+        ? date('M d, Y', strtotime($refund['service_date']))
+        : 'Pending' ?>
+</p>
 
                 <p><strong>Time:</strong>
-                    <?= date('h:i A', strtotime($refund['service_time'])) ?>
-                </p>
+    <?= !empty($refund['service_time'])
+        ? date('h:i A', strtotime($refund['service_time']))
+        : 'Pending' ?>
+</p>
 
             </div>
 

@@ -2,33 +2,200 @@
 
 require_once APP_PATH . '/helpers/DateHelper.php';
 require_once APP_PATH . '/helpers/SearchPaginationHelper.php';
-
-if (!isset($_SESSION['user'])) {
-
-    header('Location: ?page=login');
-    exit;
-}
-
-require_once CONFIG_PATH . '/database.php';
+require_once HELPER_PATH . '/auth.php';
 
 
 /*
 |--------------------------------------------------------------------------
-| Load Requests Requiring Administrator Review
+| Determine Admin Context
 |--------------------------------------------------------------------------
 |
-| Includes:
+| Normal Admin:
+|   $_SESSION['user']
+|   Main database
 |
-| - Normal Needs Admin Review requests
-| - Consultation / Service reviews
-| - Service reschedule requests awaiting approval
+| Demo Admin:
+|   $_SESSION['demo_user']
+|   Demo database
+|   Restricted to own demo tenant
 |
+| Demo Super Admin:
+|   Separate portal/workflow.
+|
+|--------------------------------------------------------------------------
+*/
+
+$isDemoAdmin   = isset($_SESSION['demo_user']);
+$isNormalAdmin = isset($_SESSION['user']);
+
+
+/*
+|--------------------------------------------------------------------------
+| Require Normal Admin OR Demo Admin
+|--------------------------------------------------------------------------
+*/
+
+if (!$isNormalAdmin && !$isDemoAdmin) {
+
+    if (isset($_SESSION['demo_super_admin'])) {
+
+        header('Location: ?page=dashboard');
+
+    } elseif (!empty($_SESSION['demo_logged_out'])) {
+
+        header('Location: ?page=demo-login');
+
+    } else {
+
+        header('Location: ?page=login');
+    }
+
+    exit;
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Load Main Database
+|--------------------------------------------------------------------------
+*/
+
+require_once CONFIG_PATH . '/database.php';
+
+$reviewPdo = $pdo;
+
+$demoTenantId = 0;
+
+
+/*
+|--------------------------------------------------------------------------
+| Demo Admin Database / Tenant
+|--------------------------------------------------------------------------
+*/
+
+if ($isDemoAdmin) {
+
+    require_once CONFIG_PATH . '/demo-database.php';
+
+    $reviewPdo = $demoPdo;
+
+    $demoTenantId = (int) (
+        $_SESSION['demo_user']['demo_tenant_id']
+        ?? 0
+    );
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Validate Demo Tenant ID
+    |--------------------------------------------------------------------------
+    */
+
+    if ($demoTenantId <= 0) {
+
+        unset($_SESSION['demo_user']);
+
+        header('Location: ?page=demo-login');
+
+        exit;
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Verify Demo Tenant
+    |--------------------------------------------------------------------------
+    */
+
+    $tenantStmt = $reviewPdo->prepare("
+        SELECT
+            id,
+            status,
+            expires_at
+        FROM demo_tenants
+        WHERE id = ?
+        LIMIT 1
+    ");
+
+    $tenantStmt->execute([
+        $demoTenantId
+    ]);
+
+    $demoTenant = $tenantStmt->fetch(PDO::FETCH_ASSOC);
+
+
+    if (
+        !$demoTenant
+        || $demoTenant['status'] !== 'Active'
+        || (
+            $demoTenant['expires_at'] !== null
+            && strtotime($demoTenant['expires_at']) <= time()
+        )
+    ) {
+
+        unset($_SESSION['demo_user']);
+
+        header('Location: ?page=demo-login');
+
+        exit;
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Verify Demo Admin Belongs To Tenant
+    |--------------------------------------------------------------------------
+    */
+
+    $adminStmt = $reviewPdo->prepare("
+        SELECT id
+        FROM users
+        WHERE id = ?
+          AND demo_tenant_id = ?
+          AND is_demo_account = 1
+          AND is_super_admin = 0
+        LIMIT 1
+    ");
+
+    $adminStmt->execute([
+        (int) ($_SESSION['demo_user']['id'] ?? 0),
+        $demoTenantId
+    ]);
+
+    $demoAdmin = $adminStmt->fetch(PDO::FETCH_ASSOC);
+
+
+    if (!$demoAdmin) {
+
+        unset($_SESSION['demo_user']);
+
+        header('Location: ?page=demo-login');
+
+        exit;
+    }
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Search / Pagination
+|--------------------------------------------------------------------------
 */
 
 $search = getSearchTerm();
+
 $page = getPageNumber();
+
 $limit = 10;
+
 $params = [];
+
+
+/*
+|--------------------------------------------------------------------------
+| Review Workflow Stages
+|--------------------------------------------------------------------------
+*/
 
 $where = "
     WHERE r.workflow_stage IN (
@@ -37,6 +204,33 @@ $where = "
         'Needs Admin Final Approval'
     )
 ";
+
+
+/*
+|--------------------------------------------------------------------------
+| Demo Tenant Restriction
+|--------------------------------------------------------------------------
+|
+| Demo Admin must only see requests belonging to its own tenant.
+|
+*/
+
+if ($isDemoAdmin) {
+
+    $where .= "
+        AND c.demo_tenant_id = ?
+        AND c.is_demo_account = 1
+    ";
+
+    $params[] = $demoTenantId;
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Search Conditions
+|--------------------------------------------------------------------------
+*/
 
 $where .= buildSearchCondition(
     [
@@ -59,12 +253,13 @@ $where .= buildSearchCondition(
 
 /*
 |--------------------------------------------------------------------------
-| Count matching review requests
+| Count Matching Review Requests
 |--------------------------------------------------------------------------
 */
 
-$countStmt = $pdo->prepare("
+$countStmt = $reviewPdo->prepare("
     SELECT COUNT(*)
+
     FROM requests r
 
     INNER JOIN customers c
@@ -83,15 +278,18 @@ $countStmt->execute($params);
 
 $totalRequests = (int) $countStmt->fetchColumn();
 
+
 $totalPages = getTotalPages(
     $totalRequests,
     $limit
 );
 
+
 $page = min(
     $page,
     $totalPages
 );
+
 
 $offset = getPageOffset(
     $page,
@@ -101,11 +299,11 @@ $offset = getPageOffset(
 
 /*
 |--------------------------------------------------------------------------
-| Load paginated review requests
+| Load Paginated Review Requests
 |--------------------------------------------------------------------------
 */
 
-$stmt = $pdo->prepare("
+$stmt = $reviewPdo->prepare("
     SELECT
 
         r.id,
@@ -207,7 +405,8 @@ $stmt = $pdo->prepare("
 
             WHEN r.review_type IN (
                 'service_missed',
-                'service_overdue'
+                'service_overdue',
+                'service_not_completed'
             )
                 THEN ss.service_date
 
@@ -223,7 +422,8 @@ $stmt = $pdo->prepare("
 
             WHEN r.review_type IN (
                 'service_missed',
-                'service_overdue'
+                'service_overdue',
+                'service_not_completed'
             )
                 THEN ss.service_time
 
@@ -231,17 +431,27 @@ $stmt = $pdo->prepare("
 
         END DESC
 
+
     LIMIT {$limit} OFFSET {$offset}
 ");
+
+
+/*
+|--------------------------------------------------------------------------
+| Execute Once
+|--------------------------------------------------------------------------
+*/
 
 $stmt->execute($params);
 
 $consultations = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-$stmt->execute();
 
-$consultations = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
+/*
+|--------------------------------------------------------------------------
+| Load Admin Header
+|--------------------------------------------------------------------------
+*/
 
 require VIEW_PATH . '/layouts/header-admin.php';
 
@@ -259,7 +469,8 @@ require VIEW_PATH . '/layouts/header-admin.php';
         <div
             id="successAlert"
             class="alert alert-success alert-dismissible fade show"
-            role="alert">
+            role="alert"
+        >
 
             <strong>Success!</strong>
 
@@ -269,8 +480,8 @@ require VIEW_PATH . '/layouts/header-admin.php';
                 type="button"
                 class="btn-close"
                 data-bs-dismiss="alert"
-                aria-label="Close">
-            </button>
+                aria-label="Close"
+            ></button>
 
         </div>
 
@@ -294,9 +505,8 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
             setTimeout(function () {
 
-                const alert = document.getElementById(
-                    'successAlert'
-                );
+                const alert =
+                    document.getElementById('successAlert');
 
                 if (alert) {
 
@@ -318,66 +528,65 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
 
     <h2 class="mb-1">
-
         Needs Admin Review
-
     </h2>
+
 
     <div class="d-flex justify-content-end mb-3">
 
-    <form
-        method="get"
-        class="d-flex gap-2"
-        id="reviewSearchForm"
-    >
-
-        <input
-            type="hidden"
-            name="page"
-            value="needs-admin-review"
+        <form
+            method="get"
+            class="d-flex gap-2"
+            id="reviewSearchForm"
         >
 
-        <input
-            type="text"
-            name="search"
-            id="reviewSearch"
-            class="form-control"
-            placeholder="Search reviews..."
-            value="<?= htmlspecialchars($search) ?>"
-            autocomplete="off"
-            style="width:280px;"
-        >
-
-        <?php if ($search !== ''): ?>
-
-            <a
-                href="?page=needs-admin-review"
-                class="btn btn-outline-secondary"
-                id="clearReviewSearch"
+            <input
+                type="hidden"
+                name="page"
+                value="needs-admin-review"
             >
-                Clear
-            </a>
 
-        <?php endif; ?>
 
-    </form>
+            <input
+                type="text"
+                name="search"
+                id="reviewSearch"
+                class="form-control"
+                placeholder="Search reviews..."
+                value="<?= htmlspecialchars($search) ?>"
+                autocomplete="off"
+                style="width:280px;"
+            >
 
-</div>
+
+            <?php if ($search !== ''): ?>
+
+                <a
+                    href="?page=needs-admin-review"
+                    class="btn btn-outline-secondary"
+                    id="clearReviewSearch"
+                >
+                    Clear
+                </a>
+
+            <?php endif; ?>
+
+        </form>
+
+    </div>
 
 
     <p class="text-muted mb-4">
-
         Requests that require an administrator's decision.
-
     </p>
 
 
     <?php if (empty($consultations)): ?>
 
-
         <div class="alert alert-success">
 
-            There are currently no requests waiting for administrator review.
+            There are currently no requests waiting
+            for administrator review.
 
         </div>
 
@@ -397,40 +606,47 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
                             <th
                                 class="text-center"
-                                style="width:100px;">
-
+                                style="width:100px;"
+                            >
                                 Request #
-
                             </th>
 
-                            <th>Customer</th>
+                            <th>
+                                Customer
+                            </th>
 
-                            <th>Agent</th>
+                            <th>
+                                Agent
+                            </th>
 
-                            <th>Service</th>
+                            <th>
+                                Service
+                            </th>
 
-                            <th>Review Purpose</th>
+                            <th>
+                                Review Purpose
+                            </th>
 
-                            <th>Reason</th>
+                            <th>
+                                Reason
+                            </th>
 
                             <th
                                 style="
                                     width:150px;
                                     white-space:nowrap;
-                                ">
-
+                                "
+                            >
                                 Date
-
                             </th>
 
                             <th
                                 style="
                                     width:150px;
                                     white-space:nowrap;
-                                ">
-
+                                "
+                            >
                                 Action
-
                             </th>
 
                         </tr>
@@ -441,26 +657,37 @@ require VIEW_PATH . '/layouts/header-admin.php';
                     <tbody>
 
 
-
-                        <?php foreach ($consultations as $consultation): ?>
+                        <?php foreach (
+                            $consultations as $consultation
+                        ): ?>
 
                             <?php
 
-                                $isConsultationReschedule = (
-                                    $consultation['workflow_stage']
-                                        === 'Awaiting Reschedule Approval'
-                                    &&
-                                    !empty($consultation['pending_consultation_date'])
-                                );
+                            $isConsultationReschedule = (
+                                $consultation['workflow_stage']
+                                    === 'Awaiting Reschedule Approval'
+                                &&
+                                !empty(
+                                    $consultation[
+                                        'pending_consultation_date'
+                                    ]
+                                )
+                            );
 
-                                $isServiceReschedule = (
-                                    $consultation['workflow_stage']
-                                        === 'Awaiting Reschedule Approval'
-                                    &&
-                                    !empty($consultation['pending_service_date'])
-                                );
+
+                            $isServiceReschedule = (
+                                $consultation['workflow_stage']
+                                    === 'Awaiting Reschedule Approval'
+                                &&
+                                !empty(
+                                    $consultation[
+                                        'pending_service_date'
+                                    ]
+                                )
+                            );
 
                             ?>
+
 
                             <tr>
 
@@ -468,9 +695,7 @@ require VIEW_PATH . '/layouts/header-admin.php';
                                 <td class="text-center">
 
                                     <strong>
-
                                         #<?= (int) $consultation['id'] ?>
-
                                     </strong>
 
                                 </td>
@@ -508,227 +733,190 @@ require VIEW_PATH . '/layouts/header-admin.php';
                                 <td>
 
 
-
-                                    <?php if ($isConsultationReschedule): ?>
-
-    <span
-        class="
-            badge
-            bg-warning
-            text-dark
-        ">
-
-        Consultation Reschedule Approval
-
-    </span>
-
-    <div
-        class="
-            small
-            text-muted
-            mt-1
-        ">
-
-        Customer selected a new consultation
-        appointment awaiting approval.
-
-    </div>
-
-
-<?php elseif ($isServiceReschedule): ?>
-
-    <span
-        class="
-            badge
-            bg-warning
-            text-dark
-        ">
-
-        Service Reschedule Approval
-
-    </span>
-
-    <div
-        class="
-            small
-            text-muted
-            mt-1
-        ">
-
-        Customer selected a new service
-        appointment awaiting approval.
-
-    </div>
-
-
-                                    <?php elseif (
-
-                                        $consultation['review_type']
-                                            === 'consultation_overdue'
-
+                                    <?php if (
+                                        $isConsultationReschedule
                                     ): ?>
-
-
-                                        <span class="badge bg-danger">
-
-                                            Consultation Overdue
-
-                                        </span>
-
-
-                                        <div
-                                            class="
-                                                small
-                                                text-muted
-                                                mt-1
-                                            ">
-
-                                            Consultation exceeded the
-                                            scheduled one-hour session.
-
-                                        </div>
-
-
-                                    <?php elseif (
-
-                                        $consultation['review_type']
-                                            === 'service_missed'
-
-                                    ): ?>
-
-
-                                        <span class="badge bg-danger">
-
-                                            Missed Service
-
-                                        </span>
-
-
-                                        <div
-                                            class="
-                                                small
-                                                text-muted
-                                                mt-1
-                                            ">
-
-                                            Service was not started within
-                                            the one-hour start window.
-
-                                        </div>
-
-
-                                    <?php elseif (
-
-    $consultation['review_type']
-        === 'service_overdue'
-
-): ?>
-
-    <span class="badge bg-danger">
-
-        Service Overdue
-
-    </span>
-
-    <div
-        class="
-            small
-            text-muted
-            mt-1
-        ">
-
-        Service remained In Progress
-        after the scheduled one-hour
-        session.
-
-    </div>
-
-
-<!-- ADD THE NEW BLOCK HERE -->
-
-<?php elseif (
-
-    $consultation['review_type']
-        === 'service_not_completed'
-
-): ?>
-
-    <span class="badge bg-danger">
-
-        Service Not Completed
-
-    </span>
-
-    <div
-        class="
-            small
-            text-muted
-            mt-1
-        ">
-
-        The customer confirmed that the service was not
-        completed after the agent's explanation was accepted.
-
-    </div>
-
-
-<!-- THEN CONTINUE WITH THE EXISTING BLOCK -->
-
-<?php elseif (
-
-    $consultation['review_type']
-        === 'customer_contact'
-
-): ?>
-
 
                                         <span
                                             class="
                                                 badge
                                                 bg-warning
                                                 text-dark
-                                            ">
-
-                                            Customer Contact Review
-
+                                            "
+                                        >
+                                            Consultation Reschedule Approval
                                         </span>
-
 
                                         <div
                                             class="
                                                 small
                                                 text-muted
                                                 mt-1
-                                            ">
+                                            "
+                                        >
+                                            Customer selected a new
+                                            consultation appointment
+                                            awaiting approval.
+                                        </div>
 
+
+                                    <?php elseif (
+                                        $isServiceReschedule
+                                    ): ?>
+
+                                        <span
+                                            class="
+                                                badge
+                                                bg-warning
+                                                text-dark
+                                            "
+                                        >
+                                            Service Reschedule Approval
+                                        </span>
+
+                                        <div
+                                            class="
+                                                small
+                                                text-muted
+                                                mt-1
+                                            "
+                                        >
+                                            Customer selected a new
+                                            service appointment
+                                            awaiting approval.
+                                        </div>
+
+
+                                    <?php elseif (
+                                        $consultation['review_type']
+                                            === 'consultation_overdue'
+                                    ): ?>
+
+                                        <span class="badge bg-danger">
+                                            Consultation Overdue
+                                        </span>
+
+                                        <div
+                                            class="
+                                                small
+                                                text-muted
+                                                mt-1
+                                            "
+                                        >
+                                            Consultation exceeded the
+                                            scheduled one-hour session.
+                                        </div>
+
+
+                                    <?php elseif (
+                                        $consultation['review_type']
+                                            === 'service_missed'
+                                    ): ?>
+
+                                        <span class="badge bg-danger">
+                                            Missed Service
+                                        </span>
+
+                                        <div
+                                            class="
+                                                small
+                                                text-muted
+                                                mt-1
+                                            "
+                                        >
+                                            Service was not started within
+                                            the one-hour start window.
+                                        </div>
+
+
+                                    <?php elseif (
+                                        $consultation['review_type']
+                                            === 'service_overdue'
+                                    ): ?>
+
+                                        <span class="badge bg-danger">
+                                            Service Overdue
+                                        </span>
+
+                                        <div
+                                            class="
+                                                small
+                                                text-muted
+                                                mt-1
+                                            "
+                                        >
+                                            Service remained In Progress
+                                            after the scheduled one-hour
+                                            session.
+                                        </div>
+
+
+                                    <?php elseif (
+                                        $consultation['review_type']
+                                            === 'service_not_completed'
+                                    ): ?>
+
+                                        <span class="badge bg-danger">
+                                            Service Not Completed
+                                        </span>
+
+                                        <div
+                                            class="
+                                                small
+                                                text-muted
+                                                mt-1
+                                            "
+                                        >
+                                            The customer confirmed that the
+                                            service was not completed after
+                                            the agent's explanation was
+                                            accepted.
+                                        </div>
+
+
+                                    <?php elseif (
+                                        $consultation['review_type']
+                                            === 'customer_contact'
+                                    ): ?>
+
+                                        <span
+                                            class="
+                                                badge
+                                                bg-warning
+                                                text-dark
+                                            "
+                                        >
+                                            Customer Contact Review
+                                        </span>
+
+                                        <div
+                                            class="
+                                                small
+                                                text-muted
+                                                mt-1
+                                            "
+                                        >
                                             Customer contact requires
                                             administrator action.
-
                                         </div>
 
 
                                     <?php else: ?>
 
-
                                         <span class="badge bg-secondary">
-
                                             Consultation Review
-
                                         </span>
-
 
                                         <div
                                             class="
                                                 small
                                                 text-muted
                                                 mt-1
-                                            ">
-
+                                            "
+                                        >
                                             Consultation requires
                                             administrator review.
-
                                         </div>
-
 
                                     <?php endif; ?>
 
@@ -738,41 +926,55 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
                                 <!-- Reason -->
 
-<td>
+                                <td>
 
-    <?php if ($isConsultationReschedule): ?>
+                                    <?php if (
+                                        $isConsultationReschedule
+                                    ): ?>
 
-        Customer selected a new consultation
-        appointment.
+                                        Customer selected a new
+                                        consultation appointment.
 
-    <?php elseif ($isServiceReschedule): ?>
 
-        Customer selected a new service
-        appointment.
+                                    <?php elseif (
+                                        $isServiceReschedule
+                                    ): ?>
 
-    <?php else: ?>
+                                        Customer selected a new
+                                        service appointment.
 
-        <?= htmlspecialchars(
-            $consultation[
-                'incomplete_reason'
-            ] ?? ''
-        ) ?>
 
-    <?php endif; ?>
+                                    <?php else: ?>
 
-</td>
+                                        <?= htmlspecialchars(
+                                            $consultation[
+                                                'incomplete_reason'
+                                            ] ?? ''
+                                        ) ?>
+
+                                    <?php endif; ?>
+
+                                </td>
+
+
                                 <!-- Date -->
 
                                 <td
                                     style="
                                         width:150px;
                                         white-space:nowrap;
-                                    ">
-
+                                    "
+                                >
 
                                     <?php
 
-                                    if ($isConsultationReschedule) {
+                                    $reviewDate = null;
+                                    $reviewTime = null;
+
+
+                                    if (
+                                        $isConsultationReschedule
+                                    ) {
 
                                         $reviewDate =
                                             $consultation[
@@ -784,7 +986,10 @@ require VIEW_PATH . '/layouts/header-admin.php';
                                                 'pending_consultation_time'
                                             ];
 
-                                    } elseif ($isServiceReschedule) {
+
+                                    } elseif (
+                                        $isServiceReschedule
+                                    ) {
 
                                         $reviewDate =
                                             $consultation[
@@ -796,11 +1001,8 @@ require VIEW_PATH . '/layouts/header-admin.php';
                                                 'pending_service_time'
                                             ];
 
-                                    }
 
-
-                                     elseif (
-
+                                    } elseif (
                                         in_array(
                                             $consultation['review_type'],
                                             [
@@ -810,14 +1012,18 @@ require VIEW_PATH . '/layouts/header-admin.php';
                                             ],
                                             true
                                         )
-
                                     ) {
 
                                         $reviewDate =
-                                            $consultation['service_date'];
+                                            $consultation[
+                                                'service_date'
+                                            ];
 
                                         $reviewTime =
-                                            $consultation['service_time'];
+                                            $consultation[
+                                                'service_time'
+                                            ];
+
 
                                     } else {
 
@@ -842,7 +1048,7 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
                                         : '<span class="text-muted">
                                             N/A
-                                           </span>'
+                                          </span>'
 
                                     ?>
 
@@ -852,7 +1058,6 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
                                     <small class="text-muted">
 
-
                                         <?= $reviewTime
 
                                             ? formatTime($reviewTime)
@@ -860,7 +1065,6 @@ require VIEW_PATH . '/layouts/header-admin.php';
                                             : ''
 
                                         ?>
-
 
                                     </small>
 
@@ -874,139 +1078,134 @@ require VIEW_PATH . '/layouts/header-admin.php';
                                     style="
                                         width:150px;
                                         white-space:nowrap;
-                                    ">
+                                    "
+                                >
 
 
-                                    <?php if ($isConsultationReschedule): ?>
+                                    <?php if (
+                                        $isConsultationReschedule
+                                    ): ?>
 
-    <a
-        href="?page=review-reschedule-consultation&id=<?= (int) $consultation['id'] ?>"
-        class="
-            btn
-            btn-warning
-            btn-sm
-        ">
-
-        Review Consultation Reschedule →
-
-    </a>
-
-
-<?php elseif ($isServiceReschedule): ?>
-
-    <a
-        href="?page=review-reschedule-service&id=<?= (int) $consultation['id'] ?>"
-        class="
-            btn
-            btn-warning
-            btn-sm
-        ">
-
-        Review Service Reschedule →
-
-    </a>
+                                        <a
+                                            href="?page=review-reschedule-consultation&id=<?= (int) $consultation['id'] ?>"
+                                            class="
+                                                btn
+                                                btn-warning
+                                                btn-sm
+                                            "
+                                        >
+                                            Review Consultation Reschedule →
+                                        </a>
 
 
                                     <?php elseif (
+                                        $isServiceReschedule
+                                    ): ?>
 
-    $consultation['review_type'] === 'service_missed'
-
-): ?>
-
-
-    <a
-        href="?page=admin-review-service-job&id=<?= (int) $consultation['id'] ?>"
-        class="
-            btn
-            btn-danger
-            btn-sm
-        ">
-
-        Review Missed Service →
-
-    </a>
+                                        <a
+                                            href="?page=review-reschedule-service&id=<?= (int) $consultation['id'] ?>"
+                                            class="
+                                                btn
+                                                btn-warning
+                                                btn-sm
+                                            "
+                                        >
+                                            Review Service Reschedule →
+                                        </a>
 
 
-<?php elseif (
+                                    <?php elseif (
+                                        $consultation['review_type']
+                                            === 'service_missed'
+                                    ): ?>
 
-    $consultation['review_type'] === 'service_overdue'
-
-): ?>
-
-
-    <a
-        href="?page=admin-review-service-job&id=<?= (int) $consultation['id'] ?>"
-        class="
-            btn
-            btn-danger
-            btn-sm
-        ">
-
-        Review Overdue Service →
-
-    </a>
-
-    <?php elseif (
-
-    $consultation['review_type'] === 'service_not_completed'
-
-): ?>
-
-    <a
-        href="?page=admin-review-service-job&id=<?= (int) $consultation['id'] ?>"
-        class="
-            btn
-            btn-danger
-            btn-sm
-        ">
-
-        Review Service Reassignment →
-
-    </a>
-
-    <?php elseif (
-
-    $consultation['workflow_stage']
-    === 'Needs Admin Final Approval'
-
-): ?>
-
-    <a
-        href="?page=admin-final-approve-consultation&id=<?= (int) $consultation['id'] ?>"
-        class="
-            btn
-            btn-success
-            btn-sm
-        ">
-
-        Final Approve Consultation →
-
-    </a>
+                                        <a
+                                            href="?page=admin-review-service-job&id=<?= (int) $consultation['id'] ?>"
+                                            class="
+                                                btn
+                                                btn-danger
+                                                btn-sm
+                                            "
+                                        >
+                                            Review Missed Service →
+                                        </a>
 
 
-    <?php elseif (
+                                    <?php elseif (
+                                        $consultation['review_type']
+                                            === 'service_overdue'
+                                    ): ?>
 
-    $consultation['workflow_stage'] === 'Needs Admin Review'
+                                        <a
+                                            href="?page=admin-review-service-job&id=<?= (int) $consultation['id'] ?>"
+                                            class="
+                                                btn
+                                                btn-danger
+                                                btn-sm
+                                            "
+                                        >
+                                            Review Overdue Service →
+                                        </a>
 
-    && !empty($consultation['missed_consultation_reason'])
 
-): ?>
+                                    <?php elseif (
+                                        $consultation['review_type']
+                                            === 'service_not_completed'
+                                    ): ?>
 
-    <a
-        href="?page=review-missed-consultation&id=<?= (int) $consultation['id'] ?>"
-        class="
-            btn
-            btn-warning
-            btn-sm
-        ">
+                                        <a
+                                            href="?page=admin-review-service-job&id=<?= (int) $consultation['id'] ?>"
+                                            class="
+                                                btn
+                                                btn-danger
+                                                btn-sm
+                                            "
+                                        >
+                                            Review Service Reassignment →
+                                        </a>
 
-        Review Missed Consultation →
 
-    </a>
+                                    <?php elseif (
+                                        $consultation['workflow_stage']
+                                            === 'Needs Admin Final Approval'
+                                    ): ?>
+
+                                        <a
+                                            href="?page=admin-final-approve-consultation&id=<?= (int) $consultation['id'] ?>"
+                                            class="
+                                                btn
+                                                btn-success
+                                                btn-sm
+                                            "
+                                        >
+                                            Final Approve Consultation →
+                                        </a>
+
+
+                                    <?php elseif (
+                                        $consultation['workflow_stage']
+                                            === 'Needs Admin Review'
+                                        &&
+                                        !empty(
+                                            $consultation[
+                                                'missed_consultation_reason'
+                                            ]
+                                        )
+                                    ): ?>
+
+                                        <a
+                                            href="?page=review-missed-consultation&id=<?= (int) $consultation['id'] ?>"
+                                            class="
+                                                btn
+                                                btn-warning
+                                                btn-sm
+                                            "
+                                        >
+                                            Review Missed Consultation →
+                                        </a>
 
 
                                     <?php else: ?>
-
 
                                         <a
                                             href="?page=admin-review-consultation&id=<?= (int) $consultation['id'] ?>"
@@ -1014,12 +1213,10 @@ require VIEW_PATH . '/layouts/header-admin.php';
                                                 btn
                                                 btn-primary
                                                 btn-sm
-                                            ">
-
+                                            "
+                                        >
                                             Review Consultation →
-
                                         </a>
-
 
                                     <?php endif; ?>
 
@@ -1044,130 +1241,176 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
     <?php endif; ?>
 
+
     <?php if ($totalPages > 1): ?>
 
-    <nav class="mt-3" aria-label="Needs Admin Review pagination">
+        <nav
+            class="mt-3"
+            aria-label="Needs Admin Review pagination"
+        >
 
-        <ul class="pagination justify-content-center">
+            <ul class="pagination justify-content-center">
 
-            <?php if ($page > 1): ?>
 
-                <li class="page-item">
+                <?php if ($page > 1): ?>
 
-                    <a
-                        class="page-link"
-                        href="<?= buildPaginationUrl(
-                            'needs-admin-review',
-                            $page - 1,
-                            ['search' => $search]
-                        ) ?>"
+                    <li class="page-item">
+
+                        <a
+                            class="page-link"
+                            href="<?= buildPaginationUrl(
+                                'needs-admin-review',
+                                $page - 1,
+                                ['search' => $search]
+                            ) ?>"
+                        >
+                            Previous
+                        </a>
+
+                    </li>
+
+                <?php endif; ?>
+
+
+                <?php for (
+                    $i = 1;
+                    $i <= $totalPages;
+                    $i++
+                ): ?>
+
+                    <li
+                        class="
+                            page-item
+                            <?= $i === $page ? 'active' : '' ?>
+                        "
                     >
-                        Previous
-                    </a>
 
-                </li>
+                        <a
+                            class="page-link"
+                            href="<?= buildPaginationUrl(
+                                'needs-admin-review',
+                                $i,
+                                ['search' => $search]
+                            ) ?>"
+                        >
+                            <?= $i ?>
+                        </a>
 
-            <?php endif; ?>
+                    </li>
 
-
-            <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-
-                <li
-                    class="page-item <?= $i === $page ? 'active' : '' ?>"
-                >
-
-                    <a
-                        class="page-link"
-                        href="<?= buildPaginationUrl(
-                            'needs-admin-review',
-                            $i,
-                            ['search' => $search]
-                        ) ?>"
-                    >
-                        <?= $i ?>
-                    </a>
-
-                </li>
-
-            <?php endfor; ?>
+                <?php endfor; ?>
 
 
-            <?php if ($page < $totalPages): ?>
+                <?php if ($page < $totalPages): ?>
 
-                <li class="page-item">
+                    <li class="page-item">
 
-                    <a
-                        class="page-link"
-                        href="<?= buildPaginationUrl(
-                            'needs-admin-review',
-                            $page + 1,
-                            ['search' => $search]
-                        ) ?>"
-                    >
-                        Next
-                    </a>
+                        <a
+                            class="page-link"
+                            href="<?= buildPaginationUrl(
+                                'needs-admin-review',
+                                $page + 1,
+                                ['search' => $search]
+                            ) ?>"
+                        >
+                            Next
+                        </a>
 
-                </li>
+                    </li>
 
-            <?php endif; ?>
+                <?php endif; ?>
 
-        </ul>
 
-    </nav>
+            </ul>
 
-<?php endif; ?>
+        </nav>
+
+    <?php endif; ?>
+
 
 </div>
 
+
 <script>
-document.addEventListener('DOMContentLoaded', function () {
 
-    const searchInput = document.getElementById('reviewSearch');
+document.addEventListener(
+    'DOMContentLoaded',
+    function () {
 
-    if (!searchInput) {
-        return;
-    }
+        const searchInput =
+            document.getElementById('reviewSearch');
 
-    let searchTimer;
 
-    searchInput.addEventListener('input', function () {
+        if (!searchInput) {
+            return;
+        }
 
-        clearTimeout(searchTimer);
 
-        searchTimer = setTimeout(function () {
+        let searchTimer;
 
-            const search = searchInput.value.trim();
 
-            const url = new URL(window.location.href);
+        searchInput.addEventListener(
+            'input',
+            function () {
 
-            url.searchParams.set(
-                'page',
-                'needs-admin-review'
-            );
+                clearTimeout(searchTimer);
 
-            // Always return to page 1 after a new search.
-            url.searchParams.set('p', '1');
 
-            if (search !== '') {
+                searchTimer = setTimeout(
+                    function () {
 
-                url.searchParams.set(
-                    'search',
-                    search
+                        const search =
+                            searchInput.value.trim();
+
+
+                        const url =
+                            new URL(
+                                window.location.href
+                            );
+
+
+                        url.searchParams.set(
+                            'page',
+                            'needs-admin-review'
+                        );
+
+
+                        url.searchParams.set(
+                            'p',
+                            '1'
+                        );
+
+
+                        if (search !== '') {
+
+                            url.searchParams.set(
+                                'search',
+                                search
+                            );
+
+                        } else {
+
+                            url.searchParams.delete(
+                                'search'
+                            );
+
+                        }
+
+
+                        window.location.href =
+                            url.toString();
+
+                    },
+                    300
                 );
 
-            } else {
-
-                url.searchParams.delete('search');
-
             }
+        );
 
-            window.location.href = url.toString();
+    }
+);
 
-        }, 300);
-
-    });
-
-});
 </script>
+
 
 <?php require VIEW_PATH . '/layouts/footer.php'; ?>

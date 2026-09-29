@@ -1,35 +1,41 @@
 <?php
 
-if (!isset($_SESSION['user'])) {
-    header('Location: ?page=login');
-    exit;
-}
-
+require_once APP_PATH . '/helpers/auth.php';
 require_once CONFIG_PATH . '/database.php';
-require_once APP_PATH . '/helpers/retention_review_helper.php';
 require_once APP_PATH . '/helpers/SearchPaginationHelper.php';
+
+$isDemoAdmin = isset($_SESSION['demo_user']);
+
+if ($isDemoAdmin) {
+    requireDemoAdmin();
+    require_once CONFIG_PATH . '/demo-database.php';
+
+    $reviewPdo = $demoPdo;
+    $demoTenantId = (int) ($_SESSION['demo_user']['demo_tenant_id'] ?? 0);
+
+    if ($demoTenantId <= 0) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+} else {
+    requireAdminLogin();
+    $reviewPdo = $pdo;
+    $demoTenantId = 0;
+}
 
 $search = getSearchTerm();
 $page = getPageNumber();
 $limit = 10;
 $offset = getPageOffset($page, $limit);
 
-$requests = getRetentionReviewRequests(
-    $pdo,
-    $search,
-    $limit,
-    $offset
-);
+/*
+|--------------------------------------------------------------------------
+| Retention Review Requests
+|--------------------------------------------------------------------------
+*/
 
-$countStmt = $pdo->prepare("
-    SELECT COUNT(*)
-    FROM requests r
-    INNER JOIN customers c
-        ON c.id = r.customer_id
-    INNER JOIN services s
-        ON s.id = r.service_id
-    LEFT JOIN agents a
-        ON a.id = r.agent_id
+$where = "
     WHERE r.workflow_stage = ?
       AND r.retention_review_at IS NOT NULL
       AND r.retention_review_at <= NOW()
@@ -38,32 +44,77 @@ $countStmt = $pdo->prepare("
           r.retention_expires_at IS NULL
           OR r.retention_expires_at > NOW()
       )
+";
+
+$params = ['Archived'];
+
+if ($isDemoAdmin) {
+    $where .= "
+      AND c.demo_tenant_id = ?
+      AND c.is_demo_account = 1
+    ";
+
+    $params[] = $demoTenantId;
+}
+
+if ($search !== '') {
+    $where .= "
       AND (
-          ? = ''
-          OR r.id LIKE ?
+          r.id LIKE ?
           OR r.description LIKE ?
           OR c.name LIKE ?
           OR c.email LIKE ?
           OR s.title LIKE ?
           OR a.name LIKE ?
       )
+    ";
+
+    $searchValue = '%' . $search . '%';
+
+    $params[] = $searchValue;
+    $params[] = $searchValue;
+    $params[] = $searchValue;
+    $params[] = $searchValue;
+    $params[] = $searchValue;
+    $params[] = $searchValue;
+}
+
+$stmt = $reviewPdo->prepare("
+    SELECT
+        r.*,
+        c.name AS customer_name,
+        c.email,
+        s.title AS service_title,
+        a.name AS agent_name
+    FROM requests r
+    INNER JOIN customers c
+        ON c.id = r.customer_id
+    INNER JOIN services s
+        ON s.id = r.service_id
+    LEFT JOIN agents a
+        ON a.id = r.agent_id
+    {$where}
+    ORDER BY r.retention_review_at ASC
+    LIMIT {$limit} OFFSET {$offset}
 ");
 
-$searchValue = '%' . $search . '%';
+$stmt->execute($params);
+$requests = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-$countStmt->execute([
-    WORKFLOW_STAGE_ARCHIVED,
-    $search,
-    $searchValue,
-    $searchValue,
-    $searchValue,
-    $searchValue,
-    $searchValue,
-    $searchValue
-]);
+$countStmt = $reviewPdo->prepare("
+    SELECT COUNT(*)
+    FROM requests r
+    INNER JOIN customers c
+        ON c.id = r.customer_id
+    INNER JOIN services s
+        ON s.id = r.service_id
+    LEFT JOIN agents a
+        ON a.id = r.agent_id
+    {$where}
+");
 
+$countStmt->execute($params);
 $totalRecords = (int) $countStmt->fetchColumn();
-
 $totalPages = getTotalPages($totalRecords, $limit);
 
 ?>

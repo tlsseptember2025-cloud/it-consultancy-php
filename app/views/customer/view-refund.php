@@ -7,8 +7,14 @@ if (!isset($_SESSION['customer'])) {
     exit;
 }
 
-$customerId = $_SESSION['customer']['id'];
-$refundId   = (int)($_GET['id'] ?? 0);
+require_once HELPER_PATH . '/auth.php';
+
+requireCustomerLogin();
+
+require CONFIG_PATH . '/database.php';
+
+$customerId = (int) $_SESSION['customer']['id'];
+$refundId   = (int) ($_GET['id'] ?? 0);
 
 /*
 |--------------------------------------------------------------------------
@@ -17,37 +23,32 @@ $refundId   = (int)($_GET['id'] ?? 0);
 */
 
 $stmt = $pdo->prepare("
+    SELECT
+        rr.*,
 
-SELECT
+        r.customer_id,
+        r.service_id,
 
-    rr.*,
+        c.name AS customer_name,
+        c.email AS customer_email,
 
-    s.title AS service_title,
+        s.title AS service_title
 
-    c.name,
-    c.email
+    FROM refund_requests rr
 
-FROM refund_requests rr
+    JOIN requests r
+        ON rr.request_id = r.id
 
-JOIN requests r
-    ON r.id = rr.request_id
+    JOIN customers c
+        ON r.customer_id = c.id
 
-JOIN customers c
-    ON c.id = r.customer_id
+    JOIN services s
+        ON r.service_id = s.id
 
-JOIN services s
-    ON s.id = r.service_id
+    WHERE rr.id = ?
+      AND r.customer_id = ?
 
-WHERE
-
-    rr.id = ?
-
-AND
-
-    r.customer_id = ?
-
-LIMIT 1
-
+    LIMIT 1
 ");
 
 $stmt->execute([
@@ -57,338 +58,565 @@ $stmt->execute([
 
 $refund = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if (!$refund) {
-
-    header('Location: ?page=refund-history');
-    exit;
-}
 
 /*
 |--------------------------------------------------------------------------
-| Status Badge
+| Refund Not Found
 |--------------------------------------------------------------------------
 */
 
-if ($refund['status'] == 'Pending') {
-
-    $statusBadge = '
-        <span class="badge rounded-pill bg-primary fs-6 px-3 py-2">
-            Pending
-        </span>';
-
-} elseif ($refund['refund_status'] == 'Processing') {
-
-    $statusBadge = '
-        <span class="badge rounded-pill bg-warning text-dark fs-6 px-3 py-2">
-            Processing
-        </span>';
-
-} elseif ($refund['status'] == 'Rejected') {
-
-    $statusBadge = '
-        <span class="badge rounded-pill bg-danger fs-6 px-3 py-2">
-            Rejected
-        </span>';
-
-} else {
-
-    $statusBadge = '
-        <span class="badge rounded-pill bg-success fs-6 px-3 py-2">
-            Completed
-        </span>';
-
+if (!$refund) {
+    header('Location: ?page=customer-refunds');
+    exit;
 }
 
-require dirname(__DIR__) . '/layouts/header-customer.php';
+
+/*
+|--------------------------------------------------------------------------
+| Determine Customer-Facing Status
+|--------------------------------------------------------------------------
+*/
+
+$refundStatus  = $refund['status'] ?? '';
+$paymentStatus = $refund['refund_status'] ?? '';
+
+$displayStatus = 'Pending';
+$statusClass   = 'bg-warning text-dark';
+
+if ($refundStatus === 'Rejected') {
+
+    $displayStatus = 'Rejected';
+    $statusClass   = 'bg-danger';
+
+} elseif (
+    $refundStatus === 'Approved' &&
+    $paymentStatus === 'Completed'
+) {
+
+    $displayStatus = 'Completed';
+    $statusClass   = 'bg-success';
+
+} elseif (
+    $refundStatus === 'Approved' &&
+    $paymentStatus === 'Processing'
+) {
+
+    $displayStatus = 'Processing';
+    $statusClass   = 'bg-warning text-dark';
+
+} elseif ($refundStatus === 'Approved') {
+
+    $displayStatus = 'Approved';
+    $statusClass   = 'bg-primary';
+
+} elseif ($refundStatus !== '') {
+
+    $displayStatus = $refundStatus;
+
+    if ($refundStatus === 'Pending') {
+
+        $statusClass = 'bg-warning text-dark';
+
+    } else {
+
+        $statusClass = 'bg-secondary';
+
+    }
+}
 
 ?>
 
+<?php require dirname(__DIR__) . '/layouts/header-customer.php'; ?>
+
+
 <div class="container py-5">
+
+    <!-- Page Header -->
 
     <div class="d-flex justify-content-between align-items-center mb-4">
 
         <div>
 
             <h2 class="mb-1">
-
                 Refund Details
-
             </h2>
 
-            <small class="text-muted">
-
-                Refund Reference
-
-                <strong>
-
-                    RF-<?= str_pad($refund['id'], 6, '0', STR_PAD_LEFT) ?>
-
-                </strong>
-
-            </small>
+            <p class="text-muted mb-0">
+                Review the details and history of your refund request.
+            </p>
 
         </div>
 
-        <a
-            href="?page=refund-history"
-            class="btn btn-secondary">
+        <div>
 
-            ← Back
+            <a
+                href="?page=customer-refunds"
+                class="btn btn-outline-primary">
+
+                Back to My Refunds
+
+            </a>
+
+        </div>
+
+    </div>
+
+
+    <!-- Refund Summary -->
+
+    <div class="card shadow-sm mb-4">
+
+        <div class="card-header bg-light">
+
+            <strong>
+                Refund Information
+            </strong>
+
+        </div>
+
+        <div class="card-body">
+
+            <div class="row g-4">
+
+                <!-- Reference -->
+
+                <div class="col-md-4">
+
+                    <strong>
+                        Refund Reference
+                    </strong>
+
+                    <div class="mt-1">
+
+                        RF-<?= str_pad(
+                            (int) $refund['id'],
+                            6,
+                            '0',
+                            STR_PAD_LEFT
+                        ) ?>
+
+                    </div>
+
+                </div>
+
+
+                <!-- Service -->
+
+                <div class="col-md-4">
+
+                    <strong>
+                        Service
+                    </strong>
+
+                    <div class="mt-1">
+
+                        <?= htmlspecialchars(
+                            $refund['service_title']
+                        ) ?>
+
+                    </div>
+
+                </div>
+
+
+                <!-- Status -->
+
+                <div class="col-md-4">
+
+                    <strong>
+                        Status
+                    </strong>
+
+                    <div class="mt-1">
+
+                        <span class="badge <?= $statusClass ?>">
+
+                            <?= htmlspecialchars(
+                                $displayStatus
+                            ) ?>
+
+                        </span>
+
+                    </div>
+
+                </div>
+
+
+                <!-- Refund Amount -->
+
+                <div class="col-md-4">
+
+                    <strong>
+                        Refund Amount
+                    </strong>
+
+                    <div class="mt-1">
+
+                        AED <?= number_format(
+                            (float) $refund['refund_amount'],
+                            2
+                        ) ?>
+
+                    </div>
+
+                </div>
+
+
+                <!-- Requested On -->
+
+                <div class="col-md-4">
+
+                    <strong>
+                        Requested On
+                    </strong>
+
+                    <div class="mt-1">
+
+                        <?= formatDateTime(
+                            $refund['created_at']
+                        ) ?>
+
+                    </div>
+
+                </div>
+
+
+                <!-- Request ID -->
+
+                <div class="col-md-4">
+
+                    <strong>
+                        Request ID
+                    </strong>
+
+                    <div class="mt-1">
+
+                        #<?= (int) $refund['request_id'] ?>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- Reason -->
+
+    <div class="card shadow-sm mb-4">
+
+        <div class="card-header bg-light">
+
+            <strong>
+                Refund Reason
+            </strong>
+
+        </div>
+
+        <div class="card-body">
+
+            <div class="mb-3">
+
+                <strong>
+                    Reason:
+                </strong>
+
+                <?= htmlspecialchars(
+                    $refund['reason_type']
+                ) ?>
+
+            </div>
+
+
+            <?php if (!empty($refund['reason_details'])): ?>
+
+                <div>
+
+                    <strong>
+                        Details:
+                    </strong>
+
+                    <div class="mt-2">
+
+                        <?= nl2br(
+                            htmlspecialchars(
+                                $refund['reason_details']
+                            )
+                        ) ?>
+
+                    </div>
+
+                </div>
+
+            <?php endif; ?>
+
+        </div>
+
+    </div>
+
+
+    <!-- Refund Timeline -->
+
+    <div class="card shadow-sm mb-4">
+
+        <div class="card-header bg-light">
+
+            <strong>
+                Refund History
+            </strong>
+
+        </div>
+
+        <div class="card-body">
+
+            <div class="timeline">
+
+
+                <!-- Refund Submitted -->
+
+                <div class="mb-4">
+
+                    <div class="d-flex align-items-start">
+
+                        <div
+                            class="me-3"
+                            style="
+                                width: 14px;
+                                height: 14px;
+                                border-radius: 50%;
+                                background-color: #0d6efd;
+                                margin-top: 5px;
+                            ">
+
+                        </div>
+
+                        <div>
+
+                            <strong>
+                                Refund Submitted
+                            </strong>
+
+                            <div class="text-muted small">
+
+                                <?= formatDateTime(
+                                    $refund['created_at']
+                                ) ?>
+
+                            </div>
+
+                            <div class="mt-1">
+
+                                Your refund request was submitted
+                                for review.
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- Approval / Rejection -->
+
+                <?php if (!empty($refund['reviewed_at'])): ?>
+
+                    <div class="mb-4">
+
+                        <div class="d-flex align-items-start">
+
+                            <div
+                                class="me-3"
+                                style="
+                                    width: 14px;
+                                    height: 14px;
+                                    border-radius: 50%;
+                                    background-color:
+                                        <?= $refundStatus === 'Rejected'
+                                            ? '#dc3545'
+                                            : '#198754' ?>;
+                                    margin-top: 5px;
+                                ">
+
+                            </div>
+
+                            <div>
+
+                                <?php if (
+                                    $refundStatus === 'Rejected'
+                                ): ?>
+
+                                    <strong>
+                                        Refund Rejected
+                                    </strong>
+
+                                    <div class="mt-1">
+
+                                        Your refund request was
+                                        not approved.
+
+                                    </div>
+
+                                <?php else: ?>
+
+                                    <strong>
+                                        Refund Approved
+                                    </strong>
+
+                                    <div class="mt-1">
+
+                                        Your refund request was
+                                        approved.
+
+                                    </div>
+
+                                <?php endif; ?>
+
+                                <div class="text-muted small">
+
+                                    <?= formatDateTime(
+                                        $refund['reviewed_at']
+                                    ) ?>
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                <?php endif; ?>
+
+
+                <!-- Processing -->
+
+                <?php if (
+                    $refundStatus === 'Approved' &&
+                    $paymentStatus === 'Processing'
+                ): ?>
+
+                    <div class="mb-4">
+
+                        <div class="d-flex align-items-start">
+
+                            <div
+                                class="me-3"
+                                style="
+                                    width: 14px;
+                                    height: 14px;
+                                    border-radius: 50%;
+                                    background-color: #ffc107;
+                                    margin-top: 5px;
+                                ">
+
+                            </div>
+
+                            <div>
+
+                                <strong>
+                                    Refund Processing
+                                </strong>
+
+                                <div class="mt-1">
+
+                                    Your refund has been approved
+                                    and is currently being processed.
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                <?php endif; ?>
+
+
+                <!-- Completed -->
+
+                <?php if (
+                    $refundStatus === 'Approved' &&
+                    $paymentStatus === 'Completed'
+                ): ?>
+
+                    <div class="mb-2">
+
+                        <div class="d-flex align-items-start">
+
+                            <div
+                                class="me-3"
+                                style="
+                                    width: 14px;
+                                    height: 14px;
+                                    border-radius: 50%;
+                                    background-color: #198754;
+                                    margin-top: 5px;
+                                ">
+
+                            </div>
+
+                            <div>
+
+                                <strong>
+                                    Refund Completed
+                                </strong>
+
+                                <div class="mt-1">
+
+                                    Your refund has been successfully
+                                    completed.
+
+                                </div>
+
+                                <?php if (!empty($refund['reviewed_at'])): ?>
+
+                                    <div class="text-muted small">
+
+                                        <?= formatDateTime(
+                                            $refund['reviewed_at']
+                                        ) ?>
+
+                                    </div>
+
+                                <?php endif; ?>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                <?php endif; ?>
+
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- Bottom Navigation -->
+
+    <div class="d-flex justify-content-between">
+
+        <a
+            href="?page=customer-refunds"
+            class="btn btn-outline-primary">
+
+            ← Back to My Refunds
 
         </a>
 
     </div>
 
-    <div class="row">
-
-        <!-- Service Information -->
-
-        <div class="col-md-6 mb-4">
-
-            <div class="card shadow-sm h-100">
-
-                <div class="card-header bg-primary text-white">
-
-                    <strong>
-
-                        Service Information
-
-                    </strong>
-
-                </div>
-
-                <div class="card-body">
-
-                    <p class="mb-0">
-
-                        <strong>Service</strong>
-
-                        <br>
-
-                        <?= htmlspecialchars($refund['service_title']) ?>
-
-                    </p>
-
-                </div>
-
-            </div>
-
-        </div>
-
-        <!-- Refund Information -->
-
-        <div class="col-md-6 mb-4">
-
-            <div class="card shadow-sm h-100">
-
-                <div class="card-header bg-success text-white">
-
-                    <strong>
-
-                        Refund Information
-
-                    </strong>
-
-                </div>
-
-                <div class="card-body">
-
-                    <p>
-
-                        <strong>
-
-                            Refund Amount
-
-                        </strong>
-
-                        <br>
-
-                        <?php if ($refund['status'] == 'Rejected'): ?>
-
-                            -
-
-                        <?php else: ?>
-
-                            AED <?= number_format($refund['refund_amount'],2) ?>
-
-                        <?php endif; ?>
-
-                    </p>
-
-                    <p class="mb-0">
-
-                        <strong>
-
-                            Status
-
-                        </strong>
-
-                        <br><br>
-
-                        <?= $statusBadge ?>
-
-                    </p>
-
-                </div>
-
-            </div>
-
-        </div>
-
-                <!-- Refund Reason -->
-
-        <div class="col-md-6 mb-4">
-
-            <div class="card shadow-sm h-100">
-
-                <div class="card-header bg-info text-white">
-
-                    <strong>
-
-                        Refund Reason
-
-                    </strong>
-
-                </div>
-
-                <div class="card-body">
-
-                    <p>
-
-                        <strong>
-
-                            Reason Type
-
-                        </strong>
-
-                        <br>
-
-                        <?= htmlspecialchars($refund['reason_type']) ?>
-
-                    </p>
-
-                    <p class="mb-0">
-
-                        <strong>
-
-                            Reason Details
-
-                        </strong>
-
-                        <br>
-
-                        <?= nl2br(htmlspecialchars($refund['reason_details'])) ?>
-
-                    </p>
-
-                </div>
-
-            </div>
-
-        </div>
-
-        <!-- Timeline -->
-
-        <div class="col-md-6 mb-4">
-
-            <div class="card shadow-sm h-100">
-
-                <div class="card-header bg-secondary text-white">
-
-                    <strong>
-
-                        Timeline
-
-                    </strong>
-
-                </div>
-
-                <div class="card-body">
-
-                    <div class="mb-4">
-
-                        <strong>
-
-                            Refund Submitted
-
-                        </strong>
-
-                        <br>
-
-                        <small class="text-muted">
-
-                           <?= formatDateTime($refund['created_at']) ?>
-
-                        </small>
-
-                    </div>
-
-                    <?php if (!empty($refund['reviewed_at'])): ?>
-
-                        <div class="mb-4">
-
-                            <strong>
-
-                                <?php
-                                if ($refund['status'] == 'Rejected') {
-                                    echo 'Refund Rejected';
-                                } elseif ($refund['refund_status'] == 'Processing') {
-                                    echo 'Refund Approved';
-                                } else {
-                                    echo 'Refund Approved';
-                                }
-                                ?>
-
-                            </strong>
-
-                            <br>
-
-                            <small class="text-muted">
-
-                                <?= date(
-                                    'l, d M Y - h:i A',
-                                    strtotime($refund['reviewed_at'])
-                                ) ?>
-
-                            </small>
-
-                        </div>
-
-                    <?php endif; ?>
-
-                    <?php if ($refund['refund_status'] == 'Completed'): ?>
-
-                        <div class="mb-0">
-
-                            <strong>
-
-                                Refund Completed
-
-                            </strong>
-
-                            <br>
-
-                            <small class="text-muted">
-
-                                <?= date(
-                                    'l, d M Y - h:i A',
-                                    strtotime($refund['reviewed_at'])
-                                ) ?>
-
-                            </small>
-
-                        </div>
-
-                    <?php endif; ?>
-
-                </div>
-
-            </div>
-
-        </div>
-
-    </div>
-
 </div>
+
 
 <?php require dirname(__DIR__) . '/layouts/footer.php'; ?>

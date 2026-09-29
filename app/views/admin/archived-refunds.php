@@ -1,16 +1,64 @@
 <?php
 
-if (!isset($_SESSION['user'])) {
+require_once HELPER_PATH . '/auth.php';
+require_once CONFIG_PATH . '/database.php';
 
-    header('Location: ?page=login');
-    exit;
+
+/*
+|--------------------------------------------------------------------------
+| Determine Admin Environment
+|--------------------------------------------------------------------------
+*/
+
+$isDemoAdmin = isset($_SESSION['demo_user']);
+
+if ($isDemoAdmin) {
+
+    requireDemoAdmin();
+
+    require_once CONFIG_PATH . '/demo-database.php';
+
+    $refundPdo = $demoPdo;
+
+    $demoTenantId = (int) (
+        $_SESSION['demo_user']['demo_tenant_id'] ?? 0
+    );
+
+    if ($demoTenantId <= 0) {
+
+        unset($_SESSION['demo_user']);
+
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+} else {
+
+    requireAdminLogin();
+
+    $refundPdo = $pdo;
 
 }
 
-require_once HELPER_PATH . '/auth.php';
 
-$search = trim($_GET['search'] ?? '');
+/*
+|--------------------------------------------------------------------------
+| Search & Filters
+|--------------------------------------------------------------------------
+*/
+
+$search = trim(
+    $_GET['search'] ?? ''
+);
+
 $status = $_GET['status'] ?? 'all';
+
+
+/*
+|--------------------------------------------------------------------------
+| Pagination
+|--------------------------------------------------------------------------
+*/
 
 $perPage = 10;
 
@@ -21,9 +69,35 @@ $page = max(
 
 $offset = ($page - 1) * $perPage;
 
-$where = " WHERE 1=1 ";
+
+/*
+|--------------------------------------------------------------------------
+| Base Query
+|--------------------------------------------------------------------------
+*/
+
+$where = "
+    WHERE 1=1
+";
 
 $params = [];
+
+
+/*
+|--------------------------------------------------------------------------
+| Demo Tenant Isolation
+|--------------------------------------------------------------------------
+*/
+
+if ($isDemoAdmin) {
+
+    $where .= "
+        AND c.demo_tenant_id = ?
+        AND c.is_demo_account = 1
+    ";
+
+    $params[] = $demoTenantId;
+}
 
 
 /*
@@ -59,7 +133,6 @@ if ($status === 'completed') {
             )
         )
     ";
-
 }
 
 
@@ -78,9 +151,18 @@ if ($search !== '') {
             OR rr.reason_type LIKE ?
             OR rr.reason_details LIKE ?
             OR CAST(rr.refund_amount AS CHAR) LIKE ?
-            OR DATE_FORMAT(rr.reviewed_at, '%d-%m-%Y') LIKE ?
-            OR DATE_FORMAT(rr.reviewed_at, '%d-%m') LIKE ?
-            OR DATE_FORMAT(rr.reviewed_at, '%Y-%m-%d') LIKE ?
+            OR DATE_FORMAT(
+                rr.reviewed_at,
+                '%d-%m-%Y'
+            ) LIKE ?
+            OR DATE_FORMAT(
+                rr.reviewed_at,
+                '%d-%m'
+            ) LIKE ?
+            OR DATE_FORMAT(
+                rr.reviewed_at,
+                '%Y-%m-%d'
+            ) LIKE ?
         )
     ";
 
@@ -94,7 +176,6 @@ if ($search !== '') {
     $params[] = $searchValue;
     $params[] = $searchValue;
     $params[] = $searchValue;
-
 }
 
 
@@ -105,7 +186,6 @@ if ($search !== '') {
 */
 
 $countSql = "
-
     SELECT COUNT(*)
 
     FROM refund_requests rr
@@ -120,18 +200,25 @@ $countSql = "
         ON s.id = r.service_id
 
     {$where}
-
 ";
 
-$countStmt = $pdo->prepare($countSql);
 
-$countStmt->execute($params);
+$countStmt = $refundPdo->prepare(
+    $countSql
+);
+
+$countStmt->execute(
+    $params
+);
 
 $totalRecords = (int) $countStmt->fetchColumn();
 
+
 $totalPages = max(
     1,
-    (int) ceil($totalRecords / $perPage)
+    (int) ceil(
+        $totalRecords / $perPage
+    )
 );
 
 
@@ -142,13 +229,9 @@ $totalPages = max(
 */
 
 $sql = "
-
     SELECT
-
         rr.*,
-
         c.name AS customer_name,
-
         s.title AS service_title
 
     FROM refund_requests rr
@@ -166,20 +249,34 @@ $sql = "
 
     ORDER BY rr.reviewed_at DESC
 
-    LIMIT {$perPage} OFFSET {$offset}
-
+    LIMIT {$perPage}
+    OFFSET {$offset}
 ";
 
-$stmt = $pdo->prepare($sql);
 
-$stmt->execute($params);
+$stmt = $refundPdo->prepare(
+    $sql
+);
 
-$refunds = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$stmt->execute(
+    $params
+);
 
+$refunds = $stmt->fetchAll(
+    PDO::FETCH_ASSOC
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| Header
+|--------------------------------------------------------------------------
+*/
 
 require dirname(__DIR__) . '/layouts/header-admin.php';
 
 ?>
+
 
 <div class="mb-4">
 
@@ -207,6 +304,7 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
         name="p"
         value="1"
     >
+
 
     <div class="col-md-5">
 
@@ -236,12 +334,14 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                 Show All
             </option>
 
+
             <option
                 value="completed"
                 <?= $status === 'completed' ? 'selected' : '' ?>
             >
                 Completed
             </option>
+
 
             <option
                 value="rejected"
@@ -290,10 +390,17 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
     </strong>
 
     <?= $status === 'rejected'
-        ? 'rejected refund' . ($totalRecords == 1 ? '' : 's')
-        : ($status === 'completed'
-            ? 'completed refund' . ($totalRecords == 1 ? '' : 's')
-            : 'closed refund' . ($totalRecords == 1 ? '' : 's')
+        ? 'rejected refund' . (
+            $totalRecords == 1 ? '' : 's'
+        )
+        : (
+            $status === 'completed'
+                ? 'completed refund' . (
+                    $totalRecords == 1 ? '' : 's'
+                )
+                : 'closed refund' . (
+                    $totalRecords == 1 ? '' : 's'
+                )
         )
     ?>.
 
@@ -336,22 +443,28 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                     <tr>
 
                         <td>
+
                             <?= htmlspecialchars(
                                 $refund['customer_name']
                             ) ?>
+
                         </td>
 
 
                         <td>
+
                             <?= htmlspecialchars(
                                 $refund['service_title']
                             ) ?>
+
                         </td>
 
 
                         <td>
 
-                            <?php if ($refund['status'] === 'Rejected'): ?>
+                            <?php if (
+                                $refund['status'] === 'Rejected'
+                            ): ?>
 
                                 -
 
@@ -359,7 +472,7 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
 
                                 AED
                                 <?= number_format(
-                                    $refund['refund_amount'],
+                                    (float) $refund['refund_amount'],
                                     2
                                 ) ?>
 
@@ -370,15 +483,21 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
 
                         <td>
 
-                            <?php if ($refund['status'] === 'Rejected'): ?>
+                            <?php if (
+                                $refund['status'] === 'Rejected'
+                            ): ?>
 
-                                <span class="badge rounded-pill bg-danger">
+                                <span
+                                    class="badge rounded-pill bg-danger"
+                                >
                                     Rejected
                                 </span>
 
                             <?php else: ?>
 
-                                <span class="badge rounded-pill bg-success">
+                                <span
+                                    class="badge rounded-pill bg-success"
+                                >
                                     Completed
                                 </span>
 
@@ -402,7 +521,7 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                         <td>
 
                             <a
-                                href="?page=view-refund&id=<?= $refund['id'] ?>"
+                                href="?page=view-refund&id=<?= (int) $refund['id'] ?>"
                                 class="btn btn-sm btn-primary"
                             >
                                 View
@@ -475,7 +594,11 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
             <?php endif; ?>
 
 
-            <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+            <?php for (
+                $i = 1;
+                $i <= $totalPages;
+                $i++
+            ): ?>
 
                 <li
                     class="page-item <?= $page === $i ? 'active' : '' ?>"
@@ -518,33 +641,53 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
 
 <script>
 
-document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener(
+    'DOMContentLoaded',
+    function () {
 
-    const searchInput =
-        document.getElementById('searchInput');
+        const searchInput =
+            document.getElementById(
+                'searchInput'
+            );
 
-    const searchForm =
-        document.getElementById('searchForm');
+        const searchForm =
+            document.getElementById(
+                'searchForm'
+            );
 
-    if (!searchInput || !searchForm) {
-        return;
+
+        if (
+            !searchInput ||
+            !searchForm
+        ) {
+            return;
+        }
+
+
+        let timer;
+
+
+        searchInput.addEventListener(
+            'input',
+            function () {
+
+                clearTimeout(timer);
+
+
+                timer = setTimeout(
+                    function () {
+
+                        searchForm.submit();
+
+                    },
+                    300
+                );
+
+            }
+        );
+
     }
-
-    let timer;
-
-    searchInput.addEventListener('input', function () {
-
-        clearTimeout(timer);
-
-        timer = setTimeout(function () {
-
-            searchForm.submit();
-
-        }, 300);
-
-    });
-
-});
+);
 
 </script>
 

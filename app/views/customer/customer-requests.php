@@ -3,8 +3,15 @@
 require_once APP_PATH . '/helpers/DateHelper.php';
 require_once APP_PATH . '/helpers/SearchPaginationHelper.php';
 
-if (!isset($_SESSION['customer'])) {
-    header('Location: ?page=public-login');
+if (
+    !isset($_SESSION['customer']) &&
+    !isset($_SESSION['demo_customer'])
+) {
+    if (!empty($_SESSION['demo_logged_out'])) {
+        header('Location: ?page=demo-login');
+    } else {
+        header('Location: ?page=public-login');
+    }
     exit;
 }
 
@@ -12,9 +19,13 @@ require_once HELPER_PATH . '/meeting.php';
 require dirname(__DIR__) . '/layouts/header-customer.php';
 require_once HELPER_PATH . '/auth.php';
 
-requireCustomerLogin();
-
-$customerId = (int) $_SESSION['customer']['id'];
+if (isset($_SESSION['demo_customer'])) {
+    requireDemoCustomer();
+    $customerId = (int) $_SESSION['demo_customer']['id'];
+} else {
+    requireCustomerLogin();
+    $customerId = (int) $_SESSION['customer']['id'];
+}
 
 /*
 |--------------------------------------------------------------------------

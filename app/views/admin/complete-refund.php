@@ -130,5 +130,8 @@ createNotification(
     $customer['customer_id'],
     'Refund Completed',
     'Your refund has been successfully completed. The funds should appear in your account soon.',
-    '?page=refund-history'
+    '?page=customer-refunds'
 );
+
+header("Location: ?page=refunds");
+exit;

@@ -1,9 +1,9 @@
 <?php
 
 require_once APP_PATH . '/helpers/DateHelper.php';
+require_once HELPER_PATH . '/SearchPaginationHelper.php';
 
 if (!isset($_SESSION['customer'])) {
-
     header('Location: ?page=public-login');
     exit;
 }
@@ -11,179 +11,713 @@ if (!isset($_SESSION['customer'])) {
 require_once HELPER_PATH . '/auth.php';
 
 requireCustomerLogin();
+
 $customerId = (int) $_SESSION['customer']['id'];
 
-require dirname(__DIR__) . '/layouts/header-customer.php';
+/*
+|--------------------------------------------------------------------------
+| Search + Pagination
+|--------------------------------------------------------------------------
+*/
 
-$stmt = $pdo->prepare("
-    SELECT
-        rr.*,
-        s.title AS service_title,
-        rf.amount AS refund_amount,
-        rf.status AS refund_status
+$search = getSearchTerm();
+$page   = getPageNumber();
+$limit  = getPageLimit(10);
+
+/*
+|--------------------------------------------------------------------------
+| Base Query
+|--------------------------------------------------------------------------
+*/
+
+$where = "
+    WHERE r.customer_id = ?
+";
+
+$params = [$customerId];
+
+/*
+|--------------------------------------------------------------------------
+| Search
+|--------------------------------------------------------------------------
+|
+| Broad search across:
+| - Refund reference
+| - Request reference
+| - Service
+| - Reason type
+| - Reason details
+| - Status
+| - Refund status
+| - Refund amount
+| - Requested date
+|
+| Supports:
+| DD-MM
+| DD-MM-YYYY
+| YYYY-MM-DD
+|
+*/
+
+$searchColumns = [
+    "CAST(rr.id AS CHAR)",
+    "CAST(rr.request_id AS CHAR)",
+    "s.title",
+    "rr.reason_type",
+    "rr.reason_details",
+    "rr.status",
+    "rr.refund_status",
+    "CAST(rr.refund_amount AS CHAR)",
+    "DATE_FORMAT(rr.created_at, '%d-%m')",
+    "DATE_FORMAT(rr.created_at, '%d-%m-%Y')",
+    "DATE_FORMAT(rr.created_at, '%Y-%m-%d')"
+];
+
+$where .= buildSearchCondition(
+    $searchColumns,
+    $search,
+    $params
+);
+
+/*
+|--------------------------------------------------------------------------
+| Count Total Refunds
+|--------------------------------------------------------------------------
+*/
+
+$countSql = "
+    SELECT COUNT(*)
     FROM refund_requests rr
+
     JOIN requests r
         ON rr.request_id = r.id
+
     JOIN services s
         ON r.service_id = s.id
-    LEFT JOIN refunds rf
-        ON rf.request_id = r.id
-    WHERE r.customer_id = ?
-    ORDER BY rr.id DESC
-");
 
-$stmt->execute([$customerId]);
+    {$where}
+";
 
-$refunds = $stmt->fetchAll();
+$stmt = $pdo->prepare($countSql);
+
+$countParams = $params;
+
+$stmt->execute($countParams);
+
+$totalRefunds = (int) $stmt->fetchColumn();
+
+$totalPages = getTotalPages($totalRefunds, $limit);
+
+if ($page > $totalPages) {
+    $page = $totalPages;
+}
+
+$offset = getPageOffset($page, $limit);
+
+/*
+|--------------------------------------------------------------------------
+| Load Refunds
+|--------------------------------------------------------------------------
+*/
+
+$sql = "
+    SELECT
+        rr.*,
+        s.title AS service_title
+
+    FROM refund_requests rr
+
+    JOIN requests r
+        ON rr.request_id = r.id
+
+    JOIN services s
+        ON r.service_id = s.id
+
+    {$where}
+
+    ORDER BY rr.created_at DESC, rr.id DESC
+
+    LIMIT {$limit}
+    OFFSET {$offset}
+";
+
+$stmt = $pdo->prepare($sql);
+
+/*
+|--------------------------------------------------------------------------
+| Bind Search Parameters
+|--------------------------------------------------------------------------
+|
+| The helper creates one parameter for every searchable column.
+| Bind them in the same order they were created.
+|
+*/
+
+$stmt->execute($params);
+
+$refunds = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 ?>
 
-<h1 class="mb-4">
+<?php require dirname(__DIR__) . '/layouts/header-customer.php'; ?>
 
-    My Refund Requests
+<div class="container py-5">
 
-</h1>
+    <!-- Page Header -->
 
-<div class="card shadow-sm">
+    <div class="mb-4">
 
-    <div class="card-body">
+        <h2 class="mb-1">
 
-        <table class="table table-bordered">
+            My Refunds
 
-            <thead>
+        </h2>
 
-    <tr>
+        <p class="text-muted mb-0">
 
-        <th>Service</th>
+            Track your refund requests and view the complete refund history for each request.
 
-        <th>Reason</th>
+        </p>
 
-        <th>Status</th>
+    </div>
 
-        <th>Requested On</th>
 
-    </tr>
+    <!-- Search -->
 
-</thead>
+    <div class="card shadow-sm mb-4">
 
-            <tbody>
+        <div class="card-body">
 
-                <?php if ($refunds): ?>
+            <form
+                method="GET"
+                action=""
+                id="refundSearchForm"
+                class="row g-2 align-items-center">
 
-                    <?php foreach ($refunds as $refund): ?>
+                <input
+                    type="hidden"
+                    name="page"
+                    value="customer-refunds">
 
-                       <tr>
+                <input
+                    type="hidden"
+                    name="p"
+                    value="1">
 
-    <td>
-        <?= htmlspecialchars($refund['service_title']) ?>
-    </td>
+                <div class="col-md-9">
 
-    <td>
-        <?= htmlspecialchars($refund['reason_type']) ?>
-    </td>
+                    <input
+                        type="text"
+                        name="search"
+                        id="refundSearch"
+                        class="form-control"
+                        placeholder="Search refund, service, reason, status, amount or date..."
+                        value="<?= htmlspecialchars($search) ?>"
+                        autocomplete="off">
 
-    <td>
+                </div>
 
-<?php if ($refund['status'] === 'Pending'): ?>
+                <div class="col-md-3 d-flex gap-2">
 
-    <span class="badge bg-warning text-dark">
-        Pending
-    </span>
+    <button
+        type="submit"
+        class="btn btn-primary flex-fill">
 
-    <br>
+        Search
 
-    <small class="text-muted">
-        Your refund request is under review.
-    </small>
+    </button>
 
-<?php elseif ($refund['status'] === 'Approved'): ?>
+    <?php if ($search !== ''): ?>
 
-    <?php if (($refund['refund_status'] ?? '') === 'Completed'): ?>
+        <a
+            href="?page=customer-refunds"
+            class="btn btn-secondary">
 
-        <span class="badge bg-primary">
-            Completed
-        </span>
+            Clear
 
-        <br>
-
-        Refund Amount:
-            <strong>
-                <?php if ($refund['refund_amount'] !== null): ?>
-                    AED <?= number_format($refund['refund_amount'], 2) ?>
-                <?php else: ?>
-                    Pending
-                <?php endif; ?>
-            </strong>
-
-    <?php else: ?>
-
-        <span class="badge bg-success">
-            Approved
-        </span>
-
-        <br>
-
-        Refund Amount:
-            <strong>
-                <?php if ($refund['refund_amount'] !== null): ?>
-                    AED <?= number_format($refund['refund_amount'], 2) ?>
-                <?php else: ?>
-                    Pending
-                <?php endif; ?>
-            </strong>
+        </a>
 
     <?php endif; ?>
 
-<?php elseif ($refund['status'] === 'Rejected'): ?>
+</div>
 
-    <span class="badge bg-danger">
-        Rejected
-    </span>
+            </form>
 
-    <br>
+        </div>
 
-    <small class="text-muted">
-        Unfortunately, this refund request was not approved.
-    </small>
+    </div>
 
-<?php else: ?>
 
-    <span class="badge bg-secondary">
-        <?= htmlspecialchars($refund['status'] ?? 'Unknown') ?>
-    </span>
+    <!-- Refund Table -->
 
-<?php endif; ?>
+    <div class="card shadow-sm">
 
-</td>
+        <div class="card-body">
 
-    <td>
-        <?= formatDateTime($refund['created_at']) ?>
-    </td>
+            <div class="table-responsive">
 
-</tr>
+                <table class="table table-bordered table-hover align-middle">
 
-                    <?php endforeach; ?>
+                    <thead class="table-light">
 
-                <?php else: ?>
+                        <tr>
 
-                    <tr>
+                            <th>
+                                Reference
+                            </th>
 
-                        <td colspan="4" class="text-center">
+                            <th>
+                                Service
+                            </th>
 
-                            No refunds found.
+                            <th>
+                                Reason
+                            </th>
 
-                        </td>
+                            <th>
+                                Status
+                            </th>
 
-                    </tr>
+                            <th>
+                                Requested On
+                            </th>
 
-                <?php endif; ?>
+                            <th>
+                                Action
+                            </th>
 
-            </tbody>
+                        </tr>
 
-        </table>
+                    </thead>
+
+                    <tbody>
+
+                        <?php if ($refunds): ?>
+
+                            <?php foreach ($refunds as $refund): ?>
+
+                                <?php
+
+                                /*
+                                |--------------------------------------------------------------------------
+                                | Determine Customer-Facing Status
+                                |--------------------------------------------------------------------------
+                                */
+
+                                $refundStatus = $refund['status'] ?? '';
+
+                                $paymentStatus = $refund['refund_status'] ?? '';
+
+                                $displayStatus = 'Pending';
+                                $statusClass   = 'bg-warning text-dark';
+                                $statusText    = 'Your refund request is under review.';
+
+                                if ($refundStatus === 'Rejected') {
+
+                                    $displayStatus = 'Rejected';
+                                    $statusClass   = 'bg-danger';
+                                    $statusText    = 'This refund request was not approved.';
+
+                                } elseif (
+                                    $refundStatus === 'Approved' &&
+                                    $paymentStatus === 'Completed'
+                                ) {
+
+                                    $displayStatus = 'Completed';
+                                    $statusClass   = 'bg-success';
+                                    $statusText    = 'Refund completed.';
+
+                                } elseif (
+                                    $refundStatus === 'Approved' &&
+                                    $paymentStatus === 'Processing'
+                                ) {
+
+                                    $displayStatus = 'Processing';
+                                    $statusClass   = 'bg-warning text-dark';
+                                    $statusText    = 'Refund is being processed.';
+
+                                } elseif ($refundStatus === 'Approved') {
+
+                                    $displayStatus = 'Approved';
+                                    $statusClass   = 'bg-primary';
+                                    $statusText    = 'Refund approved.';
+
+                                } elseif ($refundStatus !== '') {
+
+                                    $displayStatus = $refundStatus;
+
+                                    if ($refundStatus === 'Pending') {
+                                        $statusClass = 'bg-warning text-dark';
+                                        $statusText  = 'Your refund request is under review.';
+                                    } else {
+                                        $statusClass = 'bg-secondary';
+                                        $statusText  = '';
+                                    }
+                                }
+
+                                ?>
+
+                                <tr>
+
+                                    <!-- Reference -->
+
+                                    <td>
+
+                                        <strong>
+
+                                            RF-<?= str_pad(
+                                                $refund['id'],
+                                                6,
+                                                '0',
+                                                STR_PAD_LEFT
+                                            ) ?>
+
+                                        </strong>
+
+                                    </td>
+
+
+                                    <!-- Service -->
+
+                                    <td>
+
+                                        <?= htmlspecialchars(
+                                            $refund['service_title']
+                                        ) ?>
+
+                                    </td>
+
+
+                                    <!-- Reason -->
+
+                                    <td>
+
+                                        <strong>
+
+                                            <?= htmlspecialchars(
+                                                $refund['reason_type']
+                                            ) ?>
+
+                                        </strong>
+
+                                        <?php if (!empty($refund['reason_details'])): ?>
+
+                                            <br>
+
+                                            <small class="text-muted">
+
+                                                <?= htmlspecialchars(
+                                                    $refund['reason_details']
+                                                ) ?>
+
+                                            </small>
+
+                                        <?php endif; ?>
+
+                                    </td>
+
+
+                                    <!-- Status -->
+
+                                    <td>
+
+                                        <span class="badge <?= $statusClass ?>">
+
+                                            <?= htmlspecialchars($displayStatus) ?>
+
+                                        </span>
+
+                                        <?php if ($statusText !== ''): ?>
+
+                                            <br>
+
+                                            <small class="text-muted">
+
+                                                <?= htmlspecialchars($statusText) ?>
+
+                                            </small>
+
+                                        <?php endif; ?>
+
+
+                                        <?php if (
+                                            in_array(
+                                                $displayStatus,
+                                                ['Approved', 'Processing', 'Completed'],
+                                                true
+                                            )
+                                        ): ?>
+
+                                            <br>
+
+                                            <small>
+
+                                                Refund Amount:
+
+                                                <strong>
+
+                                                    <?php
+
+                                                    $amount = $refund['refund_amount'] ?? null;
+
+                                                    if ($amount !== null) {
+                                                        echo 'AED ' . number_format(
+                                                            (float) $amount,
+                                                            2
+                                                        );
+                                                    } else {
+                                                        echo 'Pending';
+                                                    }
+
+                                                    ?>
+
+                                                </strong>
+
+                                            </small>
+
+                                        <?php endif; ?>
+
+                                    </td>
+
+
+                                    <!-- Requested On -->
+
+                                    <td>
+
+                                        <?= formatDateTime(
+                                            $refund['created_at']
+                                        ) ?>
+
+                                    </td>
+
+
+                                    <!-- Action -->
+
+                                    <td>
+
+                                        <a
+                                            href="?page=customer-view-refund&id=<?= (int) $refund['id'] ?>"
+                                            class="btn btn-sm btn-outline-primary">
+
+                                            View Details
+
+                                        </a>
+
+                                    </td>
+
+                                </tr>
+
+                            <?php endforeach; ?>
+
+                        <?php else: ?>
+
+                            <tr>
+
+                                <td
+                                    colspan="6"
+                                    class="text-center py-4">
+
+                                    <?php if ($search !== ''): ?>
+
+                                        No refunds found matching
+                                        "<strong><?= htmlspecialchars($search) ?></strong>".
+
+                                    <?php else: ?>
+
+                                        No refund requests found.
+
+                                    <?php endif; ?>
+
+                                </td>
+
+                            </tr>
+
+                        <?php endif; ?>
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+
+            <!-- Result Count -->
+
+            <?php if ($totalRefunds > 0): ?>
+
+                <div class="text-muted mt-3">
+
+                    Showing
+
+                    <strong>
+                        <?= $offset + 1 ?>
+                    </strong>
+
+                    to
+
+                    <strong>
+                        <?= min($offset + $limit, $totalRefunds) ?>
+                    </strong>
+
+                    of
+
+                    <strong>
+                        <?= $totalRefunds ?>
+                    </strong>
+
+                    refund<?= $totalRefunds == 1 ? '' : 's' ?>.
+
+                </div>
+
+            <?php endif; ?>
+
+
+            <!-- Pagination -->
+
+            <?php if ($totalPages > 1): ?>
+
+                <div class="d-flex justify-content-center mt-4">
+
+                    <nav aria-label="Refund pagination">
+
+                        <ul class="pagination mb-0">
+
+                            <?php if ($page > 1): ?>
+
+                                <li class="page-item">
+
+                                    <a
+                                        class="page-link"
+                                        href="<?= htmlspecialchars(
+                                            buildPaginationUrl(
+                                                'customer-refunds',
+                                                $page - 1,
+                                                ['search' => $search]
+                                            )
+                                        ) ?>">
+
+                                        Previous
+
+                                    </a>
+
+                                </li>
+
+                            <?php endif; ?>
+
+
+                            <?php for (
+                                $i = 1;
+                                $i <= $totalPages;
+                                $i++
+                            ): ?>
+
+                                <li
+                                    class="page-item <?= $i === $page ? 'active' : '' ?>">
+
+                                    <a
+                                        class="page-link"
+                                        href="<?= htmlspecialchars(
+                                            buildPaginationUrl(
+                                                'customer-refunds',
+                                                $i,
+                                                ['search' => $search]
+                                            )
+                                        ) ?>">
+
+                                        <?= $i ?>
+
+                                    </a>
+
+                                </li>
+
+                            <?php endfor; ?>
+
+
+                            <?php if ($page < $totalPages): ?>
+
+                                <li class="page-item">
+
+                                    <a
+                                        class="page-link"
+                                        href="<?= htmlspecialchars(
+                                            buildPaginationUrl(
+                                                'customer-refunds',
+                                                $page + 1,
+                                                ['search' => $search]
+                                            )
+                                        ) ?>">
+
+                                        Next
+
+                                    </a>
+
+                                </li>
+
+                            <?php endif; ?>
+
+                        </ul>
+
+                    </nav>
+
+                </div>
+
+            <?php endif; ?>
+
+        </div>
 
     </div>
 
 </div>
+
+
+<!-- Live Search -->
+
+<script>
+
+document.addEventListener('DOMContentLoaded', function () {
+
+    const searchInput = document.getElementById('refundSearch');
+
+    const searchForm = document.getElementById('refundSearchForm');
+
+    if (!searchInput || !searchForm) {
+        return;
+    }
+
+    let searchTimer;
+
+    searchInput.addEventListener('input', function () {
+
+        clearTimeout(searchTimer);
+
+        searchTimer = setTimeout(function () {
+
+            const searchValue = searchInput.value.trim();
+
+            const url = new URL(window.location.href);
+
+            url.searchParams.set('page', 'customer-refunds');
+            url.searchParams.set('p', '1');
+
+            if (searchValue !== '') {
+
+                url.searchParams.set('search', searchValue);
+
+            } else {
+
+                url.searchParams.delete('search');
+
+            }
+
+            window.location.href = url.toString();
+
+        }, 300);
+
+    });
+
+});
+
+</script>
+
 
 <?php require dirname(__DIR__) . '/layouts/footer.php'; ?>
