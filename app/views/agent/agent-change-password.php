@@ -1,38 +1,93 @@
 <?php
 
-if (!isset($_SESSION['agent'])) {
-    header('Location: ?page=public-login');
-    exit;
+/*
+|--------------------------------------------------------------------------
+| Agent Authentication / Database Selection
+|--------------------------------------------------------------------------
+| Normal Agent  -> $_SESSION['agent']      -> $pdo
+| Demo Agent    -> $_SESSION['demo_agent'] -> $demoPdo
+|--------------------------------------------------------------------------
+*/
+
+$isDemoAgent = isset($_SESSION['demo_agent']);
+
+if ($isDemoAgent) {
+
+    requireDemoAgent();
+
+    $agentId = (int) $_SESSION['demo_agent']['id'];
+    $demoTenantId = (int) $_SESSION['demo_agent']['demo_tenant_id'];
+
+    require_once CONFIG_PATH . '/demo-database.php';
+    require_once HELPER_PATH . '/email.php';
+
+    $db = $demoPdo;
+
+    $stmt = $db->prepare("
+        SELECT
+            id,
+            name,
+            email
+        FROM agents
+        WHERE id = ?
+          AND demo_tenant_id = ?
+          AND is_demo_account = 1
+        LIMIT 1
+    ");
+
+    $stmt->execute([
+        $agentId,
+        $demoTenantId
+    ]);
+
+    $agent = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$agent) {
+        unset($_SESSION['demo_agent']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+} else {
+
+    if (!isset($_SESSION['agent'])) {
+        header('Location: ?page=public-login');
+        exit;
+    }
+
+    require_once CONFIG_PATH . '/database.php';
+    require_once HELPER_PATH . '/email.php';
+
+    $agentId = (int) $_SESSION['agent']['id'];
+
+    $db = $pdo;
+
+    $stmt = $db->prepare("
+        SELECT
+            id,
+            name,
+            email
+        FROM agents
+        WHERE id = ?
+        LIMIT 1
+    ");
+
+    $stmt->execute([$agentId]);
+
+    $agent = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$agent) {
+        unset($_SESSION['agent']);
+        header('Location: ?page=public-login');
+        exit;
+    }
 }
 
-require_once HELPER_PATH . '/email.php';
 
-$agentId = (int) $_SESSION['agent']['id'];
-
-$stmt = $pdo->prepare("
-    SELECT
-        id,
-        name,
-        email
-    FROM agents
-    WHERE id = ?
-    LIMIT 1
-");
-
-$stmt->execute([$agentId]);
-
-$agent = $stmt->fetch(PDO::FETCH_ASSOC);
-
-if (!$agent) {
-    session_destroy();
-
-    header('Location: ?page=public-login');
-    exit;
-}
-
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST'
-    && isset($_POST['request_password_change'])) {
+if (
+    $_SERVER['REQUEST_METHOD'] === 'POST'
+    && isset($_POST['request_password_change'])
+) {
 
     /*
      * Generate a cryptographically secure token.
@@ -45,26 +100,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'
     $tokenHash = hash('sha256', $token);
 
     /*
-     * Token expires after 1 hour.
+     * Token expires after 10 minutes.
      */
     $expiresAt = date(
         'Y-m-d H:i:s',
-        time() + (60 * 60)
+        time() + (10 * 60)
     );
 
-    $stmt = $pdo->prepare("
-        UPDATE agents
-        SET
-            password_reset_token = ?,
-            password_reset_expires_at = ?
-        WHERE id = ?
-    ");
+    if ($isDemoAgent) {
 
-    $stmt->execute([
-        $tokenHash,
-        $expiresAt,
-        $agentId
-    ]);
+        $stmt = $db->prepare("
+            UPDATE agents
+            SET
+                password_reset_token = ?,
+                password_reset_expires_at = ?
+            WHERE id = ?
+              AND demo_tenant_id = ?
+              AND is_demo_account = 1
+        ");
+
+        $stmt->execute([
+            $tokenHash,
+            $expiresAt,
+            $agentId,
+            $demoTenantId
+        ]);
+
+    } else {
+
+        $stmt = $db->prepare("
+            UPDATE agents
+            SET
+                password_reset_token = ?,
+                password_reset_expires_at = ?
+            WHERE id = ?
+        ");
+
+        $stmt->execute([
+            $tokenHash,
+            $expiresAt,
+            $agentId
+        ]);
+    }
 
     /*
      * Send the raw token only by email.
@@ -77,7 +154,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'
 
     if ($emailSent) {
 
-        header('Location: ?page=agent-change-password&sent=1');
+        header(
+            'Location: ?page=agent-change-password&sent=1'
+        );
         exit;
 
     } else {

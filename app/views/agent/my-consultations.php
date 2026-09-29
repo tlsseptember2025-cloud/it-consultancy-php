@@ -1,16 +1,65 @@
 <?php
 
 require_once APP_PATH . '/helpers/DateHelper.php';
-
-if (!isset($_SESSION['agent'])) {
-
-    header('Location: ?page=public-login');
-    exit;
-}
-
+require_once HELPER_PATH . '/auth.php';
 require_once CONFIG_PATH . '/database.php';
 
-$agentId = $_SESSION['agent']['id'];
+$isDemoAgent = isset($_SESSION['demo_agent']);
+
+if ($isDemoAgent) {
+
+    requireDemoAgent();
+
+    require_once CONFIG_PATH . '/demo-database.php';
+
+    $consultationPdo = $demoPdo;
+
+    $agentId = (int) ($_SESSION['demo_agent']['id'] ?? 0);
+    $demoTenantId = (int) ($_SESSION['demo_agent']['demo_tenant_id'] ?? 0);
+
+    if ($agentId <= 0 || $demoTenantId <= 0) {
+        unset($_SESSION['demo_agent']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    $agentValidationStmt = $consultationPdo->prepare("
+        SELECT id
+        FROM agents
+        WHERE id = ?
+          AND demo_tenant_id = ?
+          AND is_demo_account = 1
+          AND status = 'Active'
+        LIMIT 1
+    ");
+
+    $agentValidationStmt->execute([
+        $agentId,
+        $demoTenantId
+    ]);
+
+    if (!$agentValidationStmt->fetchColumn()) {
+        unset($_SESSION['demo_agent']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+} else {
+
+    if (!isset($_SESSION['agent'])) {
+        header('Location: ?page=public-login');
+        exit;
+    }
+
+    $consultationPdo = $pdo;
+    $agentId = (int) ($_SESSION['agent']['id'] ?? 0);
+
+    if ($agentId <= 0) {
+        unset($_SESSION['agent']);
+        header('Location: ?page=public-login');
+        exit;
+    }
+}
 
 /*
 |--------------------------------------------------------------------------
@@ -21,7 +70,11 @@ $agentId = $_SESSION['agent']['id'];
 |
 */
 
-$stmt = $pdo->prepare("
+$demoCustomerFilter = $isDemoAgent
+    ? " AND c.demo_tenant_id = {$demoTenantId} AND c.is_demo_account = 1"
+    : '';
+
+$stmt = $consultationPdo->prepare("
     SELECT
 
         cb.id,
@@ -56,6 +109,7 @@ r.incomplete_reason
 
     WHERE
         cb.agent_id = ?
+        {$demoCustomerFilter}
 
         AND r.workflow_stage IN (
     'Consultation Confirmed',
@@ -85,7 +139,7 @@ $consultations = $stmt->fetchAll(PDO::FETCH_ASSOC);
 |
 */
 
-$stmt = $pdo->prepare("
+$stmt = $consultationPdo->prepare("
     SELECT
 
         cb.id,
@@ -120,6 +174,7 @@ $stmt = $pdo->prepare("
 
     WHERE
         cb.agent_id = ?
+        {$demoCustomerFilter}
 
         AND r.workflow_stage = 'Needs Admin Review'
 

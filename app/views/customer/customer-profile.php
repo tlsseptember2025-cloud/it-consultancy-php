@@ -1,16 +1,60 @@
 <?php
 
-if (!isset($_SESSION['customer'])) {
+require_once HELPER_PATH . '/auth.php';
 
-    header('Location: ?page=public-login');
-    exit;
+$isDemoCustomer = isset($_SESSION['demo_customer']);
+
+if ($isDemoCustomer) {
+
+    requireDemoCustomer();
+
+    require_once CONFIG_PATH . '/demo-database.php';
+
+    $profilePdo = $demoPdo;
+
+    $customerId = (int) ($_SESSION['demo_customer']['id'] ?? 0);
+    $demoTenantId = (int) (
+        $_SESSION['demo_customer']['demo_tenant_id'] ?? 0
+    );
+
+    if ($customerId <= 0 || $demoTenantId <= 0) {
+        unset($_SESSION['demo_customer']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    $demoCustomerCheck = $profilePdo->prepare("
+        SELECT id
+        FROM customers
+        WHERE id = ?
+          AND demo_tenant_id = ?
+          AND is_demo_account = 1
+        LIMIT 1
+    ");
+
+    $demoCustomerCheck->execute([
+        $customerId,
+        $demoTenantId
+    ]);
+
+    if (!$demoCustomerCheck->fetchColumn()) {
+        unset($_SESSION['demo_customer']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+} else {
+
+    requireCustomerLogin();
+
+    require_once CONFIG_PATH . '/database.php';
+
+    $profilePdo = $pdo;
+
+    $customerId = (int) $_SESSION['customer']['id'];
 }
 
-require_once CONFIG_PATH . '/database.php';
-
-$customerId = (int) $_SESSION['customer']['id'];
-
-$stmt = $pdo->prepare("
+$stmt = $profilePdo->prepare("
     SELECT
         id,
         name,
@@ -59,7 +103,7 @@ if (
          * Check whether another customer already uses
          * this email address.
          */
-        $stmt = $pdo->prepare("
+        $stmt = $profilePdo->prepare("
             SELECT id
             FROM customers
             WHERE email = ?
@@ -78,7 +122,7 @@ if (
 
         } else {
 
-            $stmt = $pdo->prepare("
+            $stmt = $profilePdo->prepare("
                 UPDATE customers
                 SET
                     name = ?,
@@ -98,8 +142,13 @@ if (
              * Keep the session information synchronized
              * with the database.
              */
-            $_SESSION['customer']['name'] = $name;
-            $_SESSION['customer']['email'] = $email;
+            if ($isDemoCustomer) {
+                $_SESSION['demo_customer']['name'] = $name;
+                $_SESSION['demo_customer']['email'] = $email;
+            } else {
+                $_SESSION['customer']['name'] = $name;
+                $_SESSION['customer']['email'] = $email;
+            }
 
             $customer['name'] = $name;
             $customer['email'] = $email;

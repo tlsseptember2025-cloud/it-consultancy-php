@@ -8,13 +8,46 @@ if (
     isset($_SESSION['demo_customer'])
 ) {
 
-    if (isset($_SESSION['demo_customer'])) {
-        $customerId = (int) $_SESSION['demo_customer']['id'];
+    $isDemoCustomer = isset($_SESSION['demo_customer']);
+
+    if ($isDemoCustomer) {
+        require_once CONFIG_PATH . '/demo-database.php';
+
+        $customerNavPdo = $demoPdo;
+        $customerId = (int) ($_SESSION['demo_customer']['id'] ?? 0);
+        $demoTenantId = (int) (
+            $_SESSION['demo_customer']['demo_tenant_id'] ?? 0
+        );
+
+        if ($customerId > 0 && $demoTenantId > 0) {
+            $demoCustomerCheck = $customerNavPdo->prepare("
+                SELECT id
+                FROM customers
+                WHERE id = ?
+                  AND demo_tenant_id = ?
+                  AND is_demo_account = 1
+                LIMIT 1
+            ");
+
+            $demoCustomerCheck->execute([
+                $customerId,
+                $demoTenantId
+            ]);
+
+            if (!$demoCustomerCheck->fetchColumn()) {
+                $customerId = 0;
+            }
+        } else {
+            $customerId = 0;
+        }
+
     } else {
+        $customerNavPdo = $pdo;
         $customerId = (int) $_SESSION['customer']['id'];
     }
 
-    $stmt = $pdo->prepare("
+    if ($customerId > 0) {
+        $stmt = $customerNavPdo->prepare("
         SELECT COUNT(*)
         FROM notifications
         WHERE recipient_type = 'customer'
@@ -28,7 +61,7 @@ if (
 
     $customerNotificationCount = (int) $stmt->fetchColumn();
 
-    $stmt = $pdo->prepare("
+    $stmt = $customerNavPdo->prepare("
         SELECT *
         FROM notifications
         WHERE recipient_type = 'customer'
@@ -43,6 +76,7 @@ if (
     ]);
 
     $customerNotifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 }
 
 ?>
@@ -241,7 +275,7 @@ if (
                     <a
                         class="nav-link text-danger"
                         href="<?= isset($_SESSION['demo_customer'])
-                            ? '?page=demo-logout'
+                            ? '?page=customer-logout'
                             : '?page=customer-logout' ?>">
 
                         Logout

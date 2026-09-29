@@ -1,34 +1,111 @@
 <?php
 
-if (!isset($_SESSION['agent'])) {
-    header('Location: ?page=public-login');
-    exit;
+require_once HELPER_PATH . '/auth.php';
+
+$isDemoAgent = isset($_SESSION['demo_agent']);
+
+if ($isDemoAgent) {
+
+    requireDemoAgent();
+    require_once CONFIG_PATH . '/demo-database.php';
+
+    $agentId = (int) ($_SESSION['demo_agent']['id'] ?? 0);
+    $demoTenantId = (int) ($_SESSION['demo_agent']['demo_tenant_id'] ?? 0);
+
+    if ($agentId <= 0 || $demoTenantId <= 0) {
+        unset($_SESSION['demo_agent']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    $profilePdo = $demoPdo;
+
+    $agentCheck = $profilePdo->prepare("
+        SELECT id
+        FROM agents
+        WHERE id = ?
+          AND demo_tenant_id = ?
+          AND is_demo_account = 1
+          AND status = 'Active'
+        LIMIT 1
+    ");
+
+    $agentCheck->execute([
+        $agentId,
+        $demoTenantId
+    ]);
+
+    if (!$agentCheck->fetchColumn()) {
+        unset($_SESSION['demo_agent']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+} else {
+
+    if (!isset($_SESSION['agent'])) {
+        header('Location: ?page=public-login');
+        exit;
+    }
+
+    require_once CONFIG_PATH . '/database.php';
+
+    $agentId = (int) $_SESSION['agent']['id'];
+    $profilePdo = $pdo;
 }
 
-require_once CONFIG_PATH . '/database.php';
+if ($isDemoAgent) {
 
-$agentId = (int) $_SESSION['agent']['id'];
+    $stmt = $profilePdo->prepare("
+        SELECT
+            id,
+            name,
+            email,
+            position,
+            status
+        FROM agents
+        WHERE id = ?
+          AND demo_tenant_id = ?
+          AND is_demo_account = 1
+        LIMIT 1
+    ");
 
-$stmt = $pdo->prepare("
-    SELECT
-        id,
-        name,
-        email,
-        position,
-        status
-    FROM agents
-    WHERE id = ?
-    LIMIT 1
-");
+    $stmt->execute([
+        $agentId,
+        $demoTenantId
+    ]);
 
-$stmt->execute([$agentId]);
+} else {
+
+    $stmt = $profilePdo->prepare("
+        SELECT
+            id,
+            name,
+            email,
+            position,
+            status
+        FROM agents
+        WHERE id = ?
+        LIMIT 1
+    ");
+
+    $stmt->execute([
+        $agentId
+    ]);
+}
 
 $agent = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$agent) {
-    session_destroy();
 
-    header('Location: ?page=public-login');
+    if ($isDemoAgent) {
+        unset($_SESSION['demo_agent']);
+        header('Location: ?page=demo-login');
+    } else {
+        unset($_SESSION['agent']);
+        header('Location: ?page=public-login');
+    }
+
     exit;
 }
 
@@ -42,18 +119,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_profile'])) {
 
     } else {
 
-        $stmt = $pdo->prepare("
-            UPDATE agents
-            SET name = ?
-            WHERE id = ?
-        ");
+        if ($isDemoAgent) {
 
-        $stmt->execute([
-            $name,
-            $agentId
-        ]);
+            $stmt = $profilePdo->prepare("
+                UPDATE agents
+                SET name = ?
+                WHERE id = ?
+                  AND demo_tenant_id = ?
+                  AND is_demo_account = 1
+            ");
 
-        $_SESSION['agent']['name'] = $name;
+            $stmt->execute([
+                $name,
+                $agentId,
+                $demoTenantId
+            ]);
+
+            $_SESSION['demo_agent']['name'] = $name;
+
+        } else {
+
+            $stmt = $profilePdo->prepare("
+                UPDATE agents
+                SET name = ?
+                WHERE id = ?
+            ");
+
+            $stmt->execute([
+                $name,
+                $agentId
+            ]);
+
+            $_SESSION['agent']['name'] = $name;
+        }
 
         header('Location: ?page=agent-dashboard&success=profile-updated');
         exit;

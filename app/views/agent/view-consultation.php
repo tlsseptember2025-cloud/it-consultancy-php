@@ -1,19 +1,70 @@
 <?php
 
 require_once APP_PATH . '/helpers/DateHelper.php';
+require_once APP_PATH . '/helpers/RequestEventHelper.php';
 
-if (!isset($_SESSION['agent'])) {
+$isDemoAgent = isset($_SESSION['demo_agent']);
+
+if (!$isDemoAgent && !isset($_SESSION['agent'])) {
 
     header('Location: ?page=public-login');
     exit;
 }
 
-require_once CONFIG_PATH . '/database.php';
+if ($isDemoAgent) {
+    requireDemoAgent();
+    require_once CONFIG_PATH . '/demo-database.php';
+} else {
+    require_once CONFIG_PATH . '/database.php';
+}
 require_once HELPER_PATH . '/meeting.php';
 
 $requestId = (int) ($_GET['id'] ?? 0);
 
-$stmt = $pdo->prepare("
+$db = $isDemoAgent ? $demoPdo : $pdo;
+$agent = $isDemoAgent ? $_SESSION['demo_agent'] : $_SESSION['agent'];
+$agentId = (int) ($agent['id'] ?? 0);
+$demoTenantId = $isDemoAgent ? (int) ($agent['demo_tenant_id'] ?? 0) : null;
+
+if ($isDemoAgent && $demoTenantId <= 0) {
+    die('Invalid Demo Agent session.');
+}
+
+$demoRequestScopeSql = '';
+$demoRequestScopeParams = [];
+
+if ($isDemoAgent) {
+
+    $demoRequestScopeSql = "
+        AND EXISTS (
+            SELECT 1
+            FROM consultation_bookings cb2
+            INNER JOIN agents a2
+                ON a2.id = cb2.agent_id
+            INNER JOIN customers c2
+                ON c2.id = r.customer_id
+            INNER JOIN services s2
+                ON s2.id = r.service_id
+            WHERE
+                cb2.request_id = r.id
+                AND cb2.agent_id = ?
+                AND a2.demo_tenant_id = ?
+                AND a2.is_demo_account = 1
+                AND c2.demo_tenant_id = ?
+                AND c2.is_demo_account = 1
+                AND s2.demo_tenant_id = ?
+        )
+    ";
+
+    $demoRequestScopeParams = [
+        $agentId,
+        $demoTenantId,
+        $demoTenantId,
+        $demoTenantId
+    ];
+}
+
+$consultationSql = "
     SELECT
         r.*,
         c.name  AS customer_name,
@@ -39,18 +90,49 @@ $stmt = $pdo->prepare("
     INNER JOIN services s
         ON s.id = r.service_id
 
+    INNER JOIN agents a
+        ON a.id = cb.agent_id
+
     WHERE r.id = ?
     AND cb.agent_id = ?
+";
 
+if ($isDemoAgent) {
+
+    $consultationSql .= "
+    AND a.demo_tenant_id = ?
+    AND a.is_demo_account = 1
+    AND c.demo_tenant_id = ?
+    AND c.is_demo_account = 1
+    AND s.demo_tenant_id = ?
+    ";
+}
+
+$consultationSql .= "
     LIMIT 1
-");
+";
 
-$stmt->execute([
+$stmt = $db->prepare($consultationSql);
+
+$params = [
     $requestId,
-    $_SESSION['agent']['id']
-]);
+    $agentId
+];
+
+if ($isDemoAgent) {
+    $params[] = $demoTenantId;
+    $params[] = $demoTenantId;
+    $params[] = $demoTenantId;
+}
+
+$stmt->execute($params);
 
 $consultation = $stmt->fetch(PDO::FETCH_ASSOC);
+
+if (!$consultation) {
+
+    die('Consultation not found.');
+}
 
 
 /*
@@ -128,8 +210,8 @@ if (
     |--------------------------------------------------------------------------
     */
 
-    $update = $pdo->prepare("
-        UPDATE requests
+    $update = $db->prepare("
+        UPDATE requests r
         SET
             contact_result = ?,
             contact_notes = ?,
@@ -142,15 +224,16 @@ if (
                 ELSE review_type
             END
         WHERE id = ?
+        {$demoRequestScopeSql}
     ");
 
-    $update->execute([
+    $update->execute(array_merge([
         $contactResult,
         $contactNotes,
         $workflowStage,
         $workflowStage,
         $consultation['id']
-    ]);
+    ], $demoRequestScopeParams));
 
 
     /*
@@ -165,7 +248,7 @@ if (
     ) {
 
         RequestEventHelper::addCurrentUser(
-            $pdo,
+            $db,
             $consultation['id'],
             'CONSULTATION_IN_PROGRESS',
             RequestEventHelper::TYPE_CONSULTATION,
@@ -205,16 +288,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $notes = trim($_POST['agent_notes']);
 
-        $update = $pdo->prepare("
-            UPDATE requests
+        $update = $db->prepare("
+            UPDATE requests r
             SET completion_notes = ?
             WHERE id = ?
+            {$demoRequestScopeSql}
         ");
 
-        $update->execute([
+        $update->execute(array_merge([
             $notes,
             $requestId
-        ]);
+        ], $demoRequestScopeParams));
 
         header("Location: ?page=view-consultation&id=" . $requestId);
         exit;
@@ -239,8 +323,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $notes = trim($_POST['agent_notes'] ?? '');
 
-        $update = $pdo->prepare("
-            UPDATE requests
+        $update = $db->prepare("
+            UPDATE requests r
             SET
                 completion_notes = ?,
                 job_status = 'Completed',
@@ -248,12 +332,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 workflow_stage = 'Needs Admin Review',
                 incomplete_reason = NULL
             WHERE id = ?
+            {$demoRequestScopeSql}
         ");
 
-        $update->execute([
+        $update->execute(array_merge([
             $notes,
             $requestId
-        ]);
+        ], $demoRequestScopeParams));
 
         header("Location: ?page=view-consultation&id=" . $requestId);
         exit;
@@ -334,25 +419,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         |--------------------------------------------------------------------------
         */
 
-        $update = $pdo->prepare("
-            UPDATE requests
+        $update = $db->prepare("
+            UPDATE requests r
             SET job_status = 'In Progress'
             WHERE id = ?
+            {$demoRequestScopeSql}
         ");
 
-        $update->execute([
+        $update->execute(array_merge([
             $requestId
-        ]);
+        ], $demoRequestScopeParams));
 
         header("Location: ?page=view-consultation&id=" . $requestId);
         exit;
     }
-}
-
-
-if (!$consultation) {
-
-    die('Consultation not found.');
 }
 
 

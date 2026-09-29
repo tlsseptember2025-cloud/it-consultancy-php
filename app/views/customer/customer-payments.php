@@ -1,17 +1,73 @@
 <?php
 
 require_once APP_PATH . '/helpers/SearchPaginationHelper.php';
-
-if (!isset($_SESSION['customer'])) {
-    header('Location: ?page=public-login');
-    exit;
-}
-
 require_once HELPER_PATH . '/auth.php';
 
-requireCustomerLogin();
+/*
+|--------------------------------------------------------------------------
+| Customer database / authentication context
+|--------------------------------------------------------------------------
+|
+| Normal Customer uses the main database through $pdo.
+| Demo Customer uses the Demo database through $demoPdo and is restricted
+| to the tenant stored in the Demo session.
+|
+*/
 
-$customerId = (int) $_SESSION['customer']['id'];
+$isDemoCustomer = isset($_SESSION['demo_customer']);
+
+if ($isDemoCustomer) {
+
+    requireDemoCustomer();
+
+    require_once CONFIG_PATH . '/demo-database.php';
+
+    $customerPdo = $demoPdo;
+
+    $customerId = (int) ($_SESSION['demo_customer']['id'] ?? 0);
+    $demoTenantId = (int) (
+        $_SESSION['demo_customer']['demo_tenant_id'] ?? 0
+    );
+
+    if ($customerId <= 0 || $demoTenantId <= 0) {
+        unset($_SESSION['demo_customer']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    $demoCustomerCheck = $customerPdo->prepare("
+        SELECT id
+        FROM customers
+        WHERE id = ?
+          AND demo_tenant_id = ?
+          AND is_demo_account = 1
+        LIMIT 1
+    ");
+
+    $demoCustomerCheck->execute([
+        $customerId,
+        $demoTenantId
+    ]);
+
+    if (!$demoCustomerCheck->fetchColumn()) {
+        unset($_SESSION['demo_customer']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+} else {
+
+    if (!isset($_SESSION['customer'])) {
+        header('Location: ?page=public-login');
+        exit;
+    }
+
+    requireCustomerLogin();
+
+    $customerPdo = $pdo;
+
+    $customerId = (int) $_SESSION['customer']['id'];
+}
 
 require dirname(__DIR__) . '/layouts/header-customer.php';
 
@@ -106,7 +162,7 @@ $countSql = "
 ";
 
 
-$countStmt = $pdo->prepare($countSql);
+$countStmt = $customerPdo->prepare($countSql);
 
 
 /*
@@ -205,7 +261,7 @@ $sql = "
 ";
 
 
-$stmt = $pdo->prepare($sql);
+$stmt = $customerPdo->prepare($sql);
 
 
 /*

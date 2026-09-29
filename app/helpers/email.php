@@ -394,7 +394,7 @@ function sendAgentPasswordResetEmail(
 
         <p>
             This secure link will expire in
-            <strong>1 hour</strong>.
+            <strong>10 minutes</strong>.
         </p>
 
         <p>
@@ -581,4 +581,3 @@ function sendNewServiceRequestAdminEmail(
         $body
     );
 }
-

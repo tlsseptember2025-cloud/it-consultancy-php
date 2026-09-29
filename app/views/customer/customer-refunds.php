@@ -2,17 +2,78 @@
 
 require_once APP_PATH . '/helpers/DateHelper.php';
 require_once HELPER_PATH . '/SearchPaginationHelper.php';
-
-if (!isset($_SESSION['customer'])) {
-    header('Location: ?page=public-login');
-    exit;
-}
-
 require_once HELPER_PATH . '/auth.php';
 
-requireCustomerLogin();
+/*
+|--------------------------------------------------------------------------
+| Customer database / authentication context
+|--------------------------------------------------------------------------
+|
+| Normal Customer:
+|   - Uses the main/local database through $pdo.
+|
+| Demo Customer:
+|   - Uses the Demo database through $demoPdo.
+|   - Must belong to the tenant stored in the Demo session.
+|   - Must be marked as a Demo account.
+|
+*/
 
-$customerId = (int) $_SESSION['customer']['id'];
+$isDemoCustomer = isset($_SESSION['demo_customer']);
+
+if ($isDemoCustomer) {
+
+    requireDemoCustomer();
+
+    require_once CONFIG_PATH . '/demo-database.php';
+
+    $customerPdo = $demoPdo;
+
+    $customerId = (int) ($_SESSION['demo_customer']['id'] ?? 0);
+    $demoTenantId = (int) (
+        $_SESSION['demo_customer']['demo_tenant_id'] ?? 0
+    );
+
+    if ($customerId <= 0 || $demoTenantId <= 0) {
+        unset($_SESSION['demo_customer']);
+
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    /*
+     * Confirm that the logged-in Demo Customer belongs to the
+     * current Demo tenant and is actually marked as a Demo account.
+     */
+    $demoCustomerCheck = $customerPdo->prepare("
+        SELECT id
+        FROM customers
+        WHERE id = ?
+          AND demo_tenant_id = ?
+          AND is_demo_account = 1
+        LIMIT 1
+    ");
+
+    $demoCustomerCheck->execute([
+        $customerId,
+        $demoTenantId
+    ]);
+
+    if (!$demoCustomerCheck->fetchColumn()) {
+        unset($_SESSION['demo_customer']);
+
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+} else {
+
+    requireCustomerLogin();
+
+    $customerPdo = $pdo;
+
+    $customerId = (int) $_SESSION['customer']['id'];
+}
 
 /*
 |--------------------------------------------------------------------------
@@ -98,7 +159,7 @@ $countSql = "
     {$where}
 ";
 
-$stmt = $pdo->prepare($countSql);
+$stmt = $customerPdo->prepare($countSql);
 
 $countParams = $params;
 
@@ -141,7 +202,7 @@ $sql = "
     OFFSET {$offset}
 ";
 
-$stmt = $pdo->prepare($sql);
+$stmt = $customerPdo->prepare($sql);
 
 /*
 |--------------------------------------------------------------------------

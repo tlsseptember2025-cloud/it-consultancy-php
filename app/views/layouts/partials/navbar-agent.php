@@ -2,21 +2,49 @@
 
 /*
 |--------------------------------------------------------------------------
-| Determine Active Agent Session
+| Determine Active Agent Session / Database
 |--------------------------------------------------------------------------
 |
-| Normal Agent  -> $_SESSION['agent']
-| Demo Agent    -> $_SESSION['demo_agent']
+| Normal Agent  -> $_SESSION['agent'] / main database
+| Demo Agent    -> $_SESSION['demo_agent'] / demo database
 |
 */
 
-if (isset($_SESSION['demo_agent'])) {
-    $activeAgent = $_SESSION['demo_agent'];
-} else {
-    $activeAgent = $_SESSION['agent'];
-}
+$isDemoAgent = isset($_SESSION['demo_agent']);
 
-$activeAgentId = (int) $activeAgent['id'];
+if ($isDemoAgent) {
+
+    require_once HELPER_PATH . '/auth.php';
+    requireDemoAgent();
+
+    require_once CONFIG_PATH . '/demo-database.php';
+
+    $activeAgent = $_SESSION['demo_agent'];
+    $activeAgentId = (int) $activeAgent['id'];
+    $demoTenantId = (int) ($activeAgent['demo_tenant_id'] ?? 0);
+
+    if ($demoTenantId <= 0) {
+        unset($_SESSION['demo_agent']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    $agentPdo = $demoPdo;
+
+} else {
+
+    if (!isset($_SESSION['agent'])) {
+        header('Location: ?page=public-login');
+        exit;
+    }
+
+    require_once CONFIG_PATH . '/database.php';
+
+    $activeAgent = $_SESSION['agent'];
+    $activeAgentId = (int) $activeAgent['id'];
+
+    $agentPdo = $pdo;
+}
 
 
 /*
@@ -25,20 +53,45 @@ $activeAgentId = (int) $activeAgent['id'];
 |--------------------------------------------------------------------------
 */
 
-$stmt = $pdo->prepare("
-    SELECT COUNT(*) AS total
-    FROM consultation_bookings cb
-    INNER JOIN requests r
-        ON r.id = cb.request_id
-    WHERE
-        cb.agent_id = ?
-        AND r.workflow_stage = ?
-");
+if ($isDemoAgent) {
 
-$stmt->execute([
-    $activeAgentId,
-    'Customer Contact Approved'
-]);
+    $stmt = $agentPdo->prepare("
+        SELECT COUNT(*) AS total
+        FROM consultation_bookings cb
+        INNER JOIN requests r
+            ON r.id = cb.request_id
+        INNER JOIN agents a
+            ON a.id = cb.agent_id
+        WHERE
+            cb.agent_id = ?
+            AND r.workflow_stage = ?
+            AND a.demo_tenant_id = ?
+            AND a.is_demo_account = 1
+    ");
+
+    $stmt->execute([
+        $activeAgentId,
+        'Customer Contact Approved',
+        $demoTenantId
+    ]);
+
+} else {
+
+    $stmt = $agentPdo->prepare("
+        SELECT COUNT(*) AS total
+        FROM consultation_bookings cb
+        INNER JOIN requests r
+            ON r.id = cb.request_id
+        WHERE
+            cb.agent_id = ?
+            AND r.workflow_stage = ?
+    ");
+
+    $stmt->execute([
+        $activeAgentId,
+        'Customer Contact Approved'
+    ]);
+}
 
 $customerContactApprovedCount =
     (int) $stmt->fetch(PDO::FETCH_ASSOC)['total'];
@@ -52,20 +105,44 @@ $customerContactApprovedCount =
 
 $agentId = $activeAgentId;
 
-$stmt = $pdo->prepare("
-    SELECT COUNT(*)
-    FROM notifications
-    WHERE
-        recipient_type = 'agent'
-        AND recipient_id = ?
-        AND is_read = 0
-");
+if ($isDemoAgent) {
 
-$stmt->execute([
-    $agentId
-]);
+    $stmt = $agentPdo->prepare("
+        SELECT COUNT(*)
+        FROM notifications n
+        INNER JOIN agents a
+            ON a.id = n.recipient_id
+        WHERE
+            n.recipient_type = 'agent'
+            AND n.recipient_id = ?
+            AND n.is_read = 0
+            AND a.demo_tenant_id = ?
+            AND a.is_demo_account = 1
+    ");
+
+    $stmt->execute([
+        $agentId,
+        $demoTenantId
+    ]);
+
+} else {
+
+    $stmt = $agentPdo->prepare("
+        SELECT COUNT(*)
+        FROM notifications
+        WHERE
+            recipient_type = 'agent'
+            AND recipient_id = ?
+            AND is_read = 0
+    ");
+
+    $stmt->execute([
+        $agentId
+    ]);
+}
 
 $agentNotificationCount = (int) $stmt->fetchColumn();
+
 
 /*
 |--------------------------------------------------------------------------
@@ -73,28 +150,61 @@ $agentNotificationCount = (int) $stmt->fetchColumn();
 |--------------------------------------------------------------------------
 */
 
-$stmt = $pdo->prepare("
-    SELECT
-    id,
-    title,
-    message,
-    link,
-    is_read,
-    created_at
-FROM notifications
-WHERE
-    recipient_type = 'agent'
-    AND recipient_id = ?
-    AND is_read = 0
-ORDER BY
-    created_at DESC,
-    id DESC
-LIMIT 5
-");
+if ($isDemoAgent) {
 
-$stmt->execute([
-    $agentId
-]);
+    $stmt = $agentPdo->prepare("
+        SELECT
+            n.id,
+            n.title,
+            n.message,
+            n.link,
+            n.is_read,
+            n.created_at
+        FROM notifications n
+        INNER JOIN agents a
+            ON a.id = n.recipient_id
+        WHERE
+            n.recipient_type = 'agent'
+            AND n.recipient_id = ?
+            AND n.is_read = 0
+            AND a.demo_tenant_id = ?
+            AND a.is_demo_account = 1
+        ORDER BY
+            n.created_at DESC,
+            n.id DESC
+        LIMIT 5
+    ");
+
+    $stmt->execute([
+        $agentId,
+        $demoTenantId
+    ]);
+
+} else {
+
+    $stmt = $agentPdo->prepare("
+        SELECT
+            id,
+            title,
+            message,
+            link,
+            is_read,
+            created_at
+        FROM notifications
+        WHERE
+            recipient_type = 'agent'
+            AND recipient_id = ?
+            AND is_read = 0
+        ORDER BY
+            created_at DESC,
+            id DESC
+        LIMIT 5
+    ");
+
+    $stmt->execute([
+        $agentId
+    ]);
+}
 
 $agentNotifications =
     $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -177,7 +287,7 @@ $agentNotifications =
 
                 </li>
 
-                  <!-- Notifications -->
+                <!-- Notifications -->
 
                 <li class="nav-item dropdown">
 
@@ -206,10 +316,10 @@ $agentNotifications =
 
                         <?php endif; ?>
 
-                     </a>
+                    </a>
 
 
-                     <ul
+                    <ul
                         class="dropdown-menu dropdown-menu-end shadow"
                         aria-labelledby="agentNotificationsDropdown"
                         style="min-width:360px;">

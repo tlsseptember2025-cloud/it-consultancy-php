@@ -1,20 +1,108 @@
 <?php
 
-if (
-    !isset($_SESSION['agent']) &&
-    !isset($_SESSION['demo_agent'])
-) {
+require_once HELPER_PATH . '/auth.php';
 
-    header('Location: ?page=public-login');
-    exit;
+$isDemoAgent = isset($_SESSION['demo_agent']);
+
+if ($isDemoAgent) {
+
+    requireDemoAgent();
+
+    require_once CONFIG_PATH . '/demo-database.php';
+
+    $dashboardPdo = $demoPdo;
+
+    $agentId = (int) ($_SESSION['demo_agent']['id'] ?? 0);
+    $demoTenantId = (int) (
+        $_SESSION['demo_agent']['demo_tenant_id'] ?? 0
+    );
+
+    if ($agentId <= 0 || $demoTenantId <= 0) {
+        unset($_SESSION['demo_agent']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    $agentValidationStmt = $dashboardPdo->prepare("
+        SELECT id
+        FROM agents
+        WHERE id = ?
+          AND demo_tenant_id = ?
+          AND is_demo_account = 1
+          AND status = 'Active'
+        LIMIT 1
+    ");
+
+    $agentValidationStmt->execute([
+        $agentId,
+        $demoTenantId
+    ]);
+
+    if (!$agentValidationStmt->fetchColumn()) {
+        unset($_SESSION['demo_agent']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+} else {
+
+    if (!isset($_SESSION['agent'])) {
+        header('Location: ?page=public-login');
+        exit;
+    }
+
+    require_once CONFIG_PATH . '/database.php';
+
+    $dashboardPdo = $pdo;
+
+    $agentId = (int) ($_SESSION['agent']['id'] ?? 0);
+
+    if ($agentId <= 0) {
+        unset($_SESSION['agent']);
+        header('Location: ?page=public-login');
+        exit;
+    }
 }
 
-require_once CONFIG_PATH . '/database.php';
+$agentRatingScopeSql = '';
+$consultationAgentScopeSql = '';
+$serviceAgentScopeSql = '';
 
-if (isset($_SESSION['demo_agent'])) {
-    $agentId = (int) $_SESSION['demo_agent']['id'];
-} else {
-    $agentId = (int) $_SESSION['agent']['id'];
+$agentScopeParams = [];
+
+if ($isDemoAgent) {
+
+    $agentRatingScopeSql = "
+        AND EXISTS (
+            SELECT 1
+            FROM agents demo_agent_scope
+            WHERE demo_agent_scope.id = agent_ratings.agent_id
+              AND demo_agent_scope.demo_tenant_id = ?
+              AND demo_agent_scope.is_demo_account = 1
+        )
+    ";
+
+    $consultationAgentScopeSql = "
+        AND EXISTS (
+            SELECT 1
+            FROM agents demo_agent_scope
+            WHERE demo_agent_scope.id = cb.agent_id
+              AND demo_agent_scope.demo_tenant_id = ?
+              AND demo_agent_scope.is_demo_account = 1
+        )
+    ";
+
+    $serviceAgentScopeSql = "
+        AND EXISTS (
+            SELECT 1
+            FROM agents demo_agent_scope
+            WHERE demo_agent_scope.id = sb.agent_id
+              AND demo_agent_scope.demo_tenant_id = ?
+              AND demo_agent_scope.is_demo_account = 1
+        )
+    ";
+
+    $agentScopeParams = [$demoTenantId];
 }
 
 /*
@@ -23,15 +111,16 @@ if (isset($_SESSION['demo_agent'])) {
 |--------------------------------------------------------------------------
 */
 
-$stmt = $pdo->prepare("
+$stmt = $dashboardPdo->prepare("
     SELECT
         COUNT(*) AS total_ratings,
         AVG(rating) AS average_rating
     FROM agent_ratings
     WHERE agent_id = ?
+        {$agentRatingScopeSql}
 ");
 
-$stmt->execute([$agentId]);
+$stmt->execute(array_merge([$agentId], $agentScopeParams));
 
 $agentPerformance = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -45,16 +134,17 @@ $averageRating = (float) ($agentPerformance['average_rating'] ?? 0);
 |--------------------------------------------------------------------------
 */
 
-$stmt = $pdo->prepare("
+$stmt = $dashboardPdo->prepare("
     SELECT
         COUNT(*) AS total_service_ratings,
         AVG(rating) AS average_service_rating
     FROM agent_ratings
     WHERE agent_id = ?
+        {$agentRatingScopeSql}
       AND rating_type = 'service'
 ");
 
-$stmt->execute([$agentId]);
+$stmt->execute(array_merge([$agentId], $agentScopeParams));
 
 $servicePerformance = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -82,7 +172,7 @@ $averageServiceRating = (float) (
 |
 */
 
-$stmt = $pdo->prepare("
+$stmt = $dashboardPdo->prepare("
     SELECT COUNT(*)
     FROM consultation_bookings cb
 
@@ -91,6 +181,7 @@ $stmt = $pdo->prepare("
 
     WHERE
         cb.agent_id = ?
+        {$consultationAgentScopeSql}
 
         AND r.workflow_stage IN (
             'Consultation Confirmed',
@@ -99,7 +190,7 @@ $stmt = $pdo->prepare("
         )
 ");
 
-$stmt->execute([$agentId]);
+$stmt->execute(array_merge([$agentId], $agentScopeParams));
 
 $assignedConsultations = (int) $stmt->fetchColumn();
 
@@ -117,7 +208,7 @@ $assignedConsultations = (int) $stmt->fetchColumn();
 |--------------------------------------------------------------------------
 */
 
-$stmt = $pdo->prepare("
+$stmt = $dashboardPdo->prepare("
     SELECT COUNT(*)
     FROM consultation_bookings cb
 
@@ -126,11 +217,12 @@ $stmt = $pdo->prepare("
 
     WHERE
         cb.agent_id = ?
+        {$consultationAgentScopeSql}
         AND r.job_status = 'Completed'
         AND r.completed_at IS NOT NULL
 ");
 
-$stmt->execute([$agentId]);
+$stmt->execute(array_merge([$agentId], $agentScopeParams));
 
 $completedConsultations = (int) $stmt->fetchColumn();
 
@@ -141,7 +233,7 @@ $completedConsultations = (int) $stmt->fetchColumn();
 |--------------------------------------------------------------------------
 */
 
-$stmt = $pdo->prepare("
+$stmt = $dashboardPdo->prepare("
     SELECT COUNT(*)
     FROM consultation_bookings cb
 
@@ -150,10 +242,11 @@ $stmt = $pdo->prepare("
 
     WHERE
         cb.agent_id = ?
+        {$consultationAgentScopeSql}
         AND r.workflow_stage = 'Missed Consultation'
 ");
 
-$stmt->execute([$agentId]);
+$stmt->execute(array_merge([$agentId], $agentScopeParams));
 
 $missedConsultations = (int) $stmt->fetchColumn();
 
@@ -164,7 +257,7 @@ $missedConsultations = (int) $stmt->fetchColumn();
 |--------------------------------------------------------------------------
 */
 
-$stmt = $pdo->prepare("
+$stmt = $dashboardPdo->prepare("
     SELECT
         r.id AS request_id,
         c.name AS customer_name,
@@ -188,6 +281,7 @@ $stmt = $pdo->prepare("
 
     WHERE
         cb.agent_id = ?
+        {$consultationAgentScopeSql}
         AND r.job_status = 'Completed'
         AND r.completed_at IS NOT NULL
 
@@ -198,7 +292,7 @@ $stmt = $pdo->prepare("
     LIMIT 3
 ");
 
-$stmt->execute([$agentId]);
+$stmt->execute(array_merge([$agentId], $agentScopeParams));
 
 $recentCompletedConsultations = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -209,7 +303,7 @@ $recentCompletedConsultations = $stmt->fetchAll(PDO::FETCH_ASSOC);
 |--------------------------------------------------------------------------
 */
 
-$stmt = $pdo->prepare("
+$stmt = $dashboardPdo->prepare("
     SELECT
         r.id AS request_id,
         c.name AS customer_name,
@@ -233,6 +327,7 @@ $stmt = $pdo->prepare("
 
     WHERE
         cb.agent_id = ?
+        {$consultationAgentScopeSql}
         AND r.workflow_stage = 'Missed Consultation'
 
     ORDER BY
@@ -243,7 +338,7 @@ $stmt = $pdo->prepare("
     LIMIT 3
 ");
 
-$stmt->execute([$agentId]);
+$stmt->execute(array_merge([$agentId], $agentScopeParams));
 
 $recentMissedConsultations = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -264,7 +359,7 @@ $recentMissedConsultations = $stmt->fetchAll(PDO::FETCH_ASSOC);
 |
 */
 
-$stmt = $pdo->prepare("
+$stmt = $dashboardPdo->prepare("
     SELECT COUNT(*)
     FROM service_bookings sb
 
@@ -273,13 +368,14 @@ $stmt = $pdo->prepare("
 
     WHERE
         sb.agent_id = ?
+        {$serviceAgentScopeSql}
         AND r.job_status IN (
             'Pending',
             'In Progress'
         )
 ");
 
-$stmt->execute([$agentId]);
+$stmt->execute(array_merge([$agentId], $agentScopeParams));
 
 $assignedServiceJobs = (int) $stmt->fetchColumn();
 
@@ -290,7 +386,7 @@ $assignedServiceJobs = (int) $stmt->fetchColumn();
 |--------------------------------------------------------------------------
 */
 
-$stmt = $pdo->prepare("
+$stmt = $dashboardPdo->prepare("
     SELECT COUNT(*)
     FROM service_bookings sb
 
@@ -299,11 +395,12 @@ $stmt = $pdo->prepare("
 
     WHERE
         sb.agent_id = ?
+        {$serviceAgentScopeSql}
         AND r.job_status = 'Completed'
         AND r.completed_at IS NOT NULL
 ");
 
-$stmt->execute([$agentId]);
+$stmt->execute(array_merge([$agentId], $agentScopeParams));
 
 $completedServiceJobs = (int) $stmt->fetchColumn();
 
@@ -314,7 +411,7 @@ $completedServiceJobs = (int) $stmt->fetchColumn();
 |--------------------------------------------------------------------------
 */
 
-$stmt = $pdo->prepare("
+$stmt = $dashboardPdo->prepare("
     SELECT COUNT(*)
     FROM service_bookings sb
 
@@ -323,10 +420,11 @@ $stmt = $pdo->prepare("
 
     WHERE
         sb.agent_id = ?
+        {$serviceAgentScopeSql}
         AND r.job_status = 'Could Not Complete'
 ");
 
-$stmt->execute([$agentId]);
+$stmt->execute(array_merge([$agentId], $agentScopeParams));
 
 $missedServiceJobs = (int) $stmt->fetchColumn();
 
@@ -337,7 +435,7 @@ $missedServiceJobs = (int) $stmt->fetchColumn();
 |--------------------------------------------------------------------------
 */
 
-$stmt = $pdo->prepare("
+$stmt = $dashboardPdo->prepare("
     SELECT
         r.id AS request_id,
         c.name AS customer_name,
@@ -361,6 +459,7 @@ $stmt = $pdo->prepare("
 
     WHERE
         sb.agent_id = ?
+        {$serviceAgentScopeSql}
         AND r.job_status = 'Completed'
         AND r.completed_at IS NOT NULL
 
@@ -371,7 +470,7 @@ $stmt = $pdo->prepare("
     LIMIT 3
 ");
 
-$stmt->execute([$agentId]);
+$stmt->execute(array_merge([$agentId], $agentScopeParams));
 
 $recentCompletedServiceJobs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -382,7 +481,7 @@ $recentCompletedServiceJobs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 |--------------------------------------------------------------------------
 */
 
-$stmt = $pdo->prepare("
+$stmt = $dashboardPdo->prepare("
     SELECT
         r.id AS request_id,
         c.name AS customer_name,
@@ -406,6 +505,7 @@ $stmt = $pdo->prepare("
 
     WHERE
         sb.agent_id = ?
+        {$serviceAgentScopeSql}
         AND r.job_status = 'Could Not Complete'
 
     ORDER BY
@@ -416,7 +516,7 @@ $stmt = $pdo->prepare("
     LIMIT 3
 ");
 
-$stmt->execute([$agentId]);
+$stmt->execute(array_merge([$agentId], $agentScopeParams));
 
 $recentMissedServiceJobs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 

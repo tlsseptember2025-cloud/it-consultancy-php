@@ -3,13 +3,34 @@
 /** @var array $agent */
 /** @var array $request */
 
-if (!isset($_SESSION['agent'])) {
+/*
+|--------------------------------------------------------------------------
+| Agent Authentication
+|--------------------------------------------------------------------------
+|
+| Allow both:
+| - Normal Agent
+| - Demo Agent
+|
+*/
+
+if (
+    !isset($_SESSION['agent'])
+    && !isset($_SESSION['demo_agent'])
+) {
+
+    if (isset($_SESSION['demo_customer'])) {
+
+        header('Location: ?page=demo-login');
+        exit;
+
+    }
 
     header('Location: ?page=public-login');
     exit;
 }
 
-require VIEW_PATH . '/layouts/header-agent.php'; 
+require VIEW_PATH . '/layouts/header-agent.php';
 
 ?>
 
@@ -19,128 +40,96 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
     <div class="card shadow-sm">
 
-    <div class="card-header">
-        <strong>Customer Information</strong>
-    </div>
+        <div class="card-header">
+            <strong>Customer Information</strong>
+        </div>
 
-    <div class="card-body">
+        <div class="card-body">
 
-        <p>
-            <strong>Customer:</strong>
-            <?= htmlspecialchars($request['customer_name']) ?>
-        </p>
+            <p>
+                <strong>Customer:</strong>
+                <?= htmlspecialchars($request['customer_name']) ?>
+            </p>
 
-        <p>
-            <strong>Email:</strong>
-            <?= htmlspecialchars($request['email']) ?>
-        </p>
+            <p>
+                <strong>Email:</strong>
+                <?= htmlspecialchars($request['email']) ?>
+            </p>
 
-        <p>
-            <strong>Phone:</strong>
-            <?= htmlspecialchars($request['phone']) ?>
-        </p>
+            <p>
+                <strong>Phone:</strong>
+                <?= htmlspecialchars($request['phone']) ?>
+            </p>
 
-        <p>
-            <strong>Service:</strong>
-            <?= htmlspecialchars($request['service_name']) ?>
-        </p>
-
-    </div>
-
-</div>
-
-<div class="card shadow-sm mt-4">
-
-    <div class="card-header">
-        <strong>Administrator Instructions</strong>
-    </div>
-
-    <div class="card-body">
-
-        <?= nl2br(htmlspecialchars($request['admin_instruction'])) ?>
-
-    </div>
-
-</div>
-
-<div class="card shadow-sm mb-3">
-
-    <div class="card-header bg-secondary text-white">
-
-        Current Consultation
-
-    </div>
-
-    <div class="card-body">
-
-        <div class="row">
-
-            <div class="col-md-3">
-
-                <strong>Date</strong><br>
-
-                <?= formatDate($request['slot_date']) ?>
-
-            </div>
-
-            <div class="col-md-3">
-
-                <strong>Time</strong><br>
-
-                <?= formatTime($request['slot_time']) ?>
-
-            </div>
-
-            <div class="col-md-2">
-
-                <strong>Method</strong><br>
-
-                <?= htmlspecialchars($request['consultation_method']) ?>
-
-            </div>
-
-            <div class="col-md-2">
-
-                <strong>Status</strong><br>
-
-                <?= getConsultationStatusBadge(
-                    $request['slot_date'],
-                    $request['slot_time']
-                ) ?>
-
-            </div>
-
-            
+            <p>
+                <strong>Service:</strong>
+                <?= htmlspecialchars($request['service_name']) ?>
+            </p>
 
         </div>
 
     </div>
 
-</div>
+    <div class="card shadow-sm mt-4">
 
-<div class="card mb-4">
+        <div class="card-header">
+            <strong>Administrator Instructions</strong>
+        </div>
 
-    <div class="card-header bg-warning">
-        Customer Contact Attempts
+        <div class="card-body">
+
+            <?= nl2br(htmlspecialchars($request['admin_instruction'])) ?>
+
+        </div>
+
     </div>
 
-    <div class="card-body">
+    <div class="card shadow-sm mb-3">
 
-        <div class="row">
+        <div class="card-header bg-secondary text-white">
 
-            <div class="col-md-6">
+            Current Consultation
 
-                <strong>Current Attempt</strong><br>
+        </div>
 
-                <?= $currentAttempt ?> of <?= MAX_CONTACT_ATTEMPTS ?>
+        <div class="card-body">
 
-            </div>
+            <div class="row">
 
-            <div class="col-md-6">
+                <div class="col-md-3">
 
-                <strong>Remaining Attempts</strong><br>
+                    <strong>Date</strong><br>
 
-                <?= $remainingAttempts ?>
+                    <?= formatDate($request['slot_date']) ?>
+
+                </div>
+
+                <div class="col-md-3">
+
+                    <strong>Time</strong><br>
+
+                    <?= formatTime($request['slot_time']) ?>
+
+                </div>
+
+                <div class="col-md-2">
+
+                    <strong>Method</strong><br>
+
+                    <?= htmlspecialchars($request['consultation_method']) ?>
+
+                </div>
+
+                <div class="col-md-2">
+
+                    <strong>Status</strong><br>
+
+                    <?= getConsultationStatusBadge(
+                        $request['slot_date'],
+                        $request['slot_time']
+                    ) ?>
+
+                </div>
 
             </div>
 
@@ -148,123 +137,218 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
     </div>
 
-</div>
+    <div class="card mb-4">
 
-<div class="card shadow-sm mt-4">
+        <div class="card-header bg-warning">
+            Customer Contact Attempts
+        </div>
 
-    <div class="card-header">
-        <strong>Customer Contact Outcome</strong>
-    </div>
+        <div class="card-body">
 
-    <div class="card-body">
+            <div class="row">
 
-        <form method="POST">
+                <div class="col-md-6">
 
-            <!-- Step 1 -->
-            <div class="card border mb-3">
-                <div class="card-header bg-light fw-bold">
-                    Step 1: Contact Result
-                </div>
+                    <strong>Current Attempt</strong><br>
 
-                <div class="card-body">
-
-                    <label class="form-label">Contact Result</label>
-
-                    <select name="contact_result" class="form-select" required>
-                        <option value="">Select Result</option>
-                        <option value="Customer Answered">Customer Answered</option>
-                        <option value="No Answer">No Answer</option>
-                        <option value="Wrong Number">Wrong Number</option>
-                    </select>
+                    <?= $currentAttempt ?> of <?= MAX_CONTACT_ATTEMPTS ?>
 
                 </div>
+
+                <div class="col-md-6">
+
+                    <strong>Remaining Attempts</strong><br>
+
+                    <?= $remainingAttempts ?>
+
+                </div>
+
             </div>
 
-            <!-- Step 2 -->
-            <div id="customerDecisionSection" class="card border mb-3" style="display:none;">
+        </div>
 
-                <div id="customerRequestHeader" class="card-header bg-light fw-bold">
-                    Step 2: Customer Request
-                </div>
+    </div>
 
-                <div class="card-body">
+    <div class="card shadow-sm mt-4">
 
-                    <label class="form-label">Customer Request</label>
+        <div class="card-header">
+            <strong>Customer Contact Outcome</strong>
+        </div>
 
-                    <?php
+        <div class="card-body">
 
-                    $isPassed = strtotime(
-                        $request['slot_date'] . ' ' . $request['slot_time']
-                    ) < time();
+            <form method="POST">
 
-                    ?>
+                <!-- Step 1 -->
 
-                    <select name="customer_decision" id="customerDecision" class="form-select">
+                <div class="card border mb-3">
 
-                        <option value="">Select Request</option>
+                    <div class="card-header bg-light fw-bold">
+                        Step 1: Contact Result
+                    </div>
 
-                        <?php if (!$isPassed): ?>
-                        
-                            <option value="Continue Current Appointment">
-                                Continue with Current Appointment
+                    <div class="card-body">
+
+                        <label class="form-label">
+                            Contact Result
+                        </label>
+
+                        <select
+                            name="contact_result"
+                            class="form-select"
+                            required
+                        >
+
+                            <option value="">
+                                Select Result
                             </option>
 
-                        <?php endif ?>
+                            <option value="Customer Answered">
+                                Customer Answered
+                            </option>
 
-                        <option value="Continue New Appointment">
-                            Continue with New Appointment
-                        </option>
+                            <option value="No Answer">
+                                No Answer
+                            </option>
 
-                        <option value="Close Request">
-                            Close Request
-                        </option>
+                            <option value="Wrong Number">
+                                Wrong Number
+                            </option>
 
-                    </select>
+                        </select>
 
-                </div>
-
-            </div>
-
-            <!-- Step 3 -->
-            <div class="card border mb-3">
-
-                <div id="agentNotesHeader" class="card-header bg-light fw-bold">
-                    Step 2: Agent Notes
-                </div>
-
-                <div class="card-body">
-
-                    <label class="form-label">Agent Notes</label>
-
-                    <textarea
-                        name="agent_notes"
-                        class="form-control"
-                        rows="5"
-                        required></textarea>
+                    </div>
 
                 </div>
 
-            </div>
+                <!-- Step 2 -->
 
-            <button type="submit" class="btn btn-success">
-                Save Contact Result
-            </button>
+                <div
+                    id="customerDecisionSection"
+                    class="card border mb-3"
+                    style="display:none;"
+                >
 
-        </form>
+                    <div
+                        id="customerRequestHeader"
+                        class="card-header bg-light fw-bold"
+                    >
+                        Step 2: Customer Request
+                    </div>
+
+                    <div class="card-body">
+
+                        <label class="form-label">
+                            Customer Request
+                        </label>
+
+                        <?php
+
+                        $isPassed = strtotime(
+                            $request['slot_date']
+                            . ' '
+                            . $request['slot_time']
+                        ) < time();
+
+                        ?>
+
+                        <select
+                            name="customer_decision"
+                            id="customerDecision"
+                            class="form-select"
+                        >
+
+                            <option value="">
+                                Select Request
+                            </option>
+
+                            <?php if (!$isPassed): ?>
+
+                                <option value="Continue Current Appointment">
+                                    Continue with Current Appointment
+                                </option>
+
+                            <?php endif ?>
+
+                            <option value="Continue New Appointment">
+                                Continue with New Appointment
+                            </option>
+
+                            <option value="Close Request">
+                                Close Request
+                            </option>
+
+                        </select>
+
+                    </div>
+
+                </div>
+
+                <!-- Step 3 -->
+
+                <div class="card border mb-3">
+
+                    <div
+                        id="agentNotesHeader"
+                        class="card-header bg-light fw-bold"
+                    >
+                        Step 2: Agent Notes
+                    </div>
+
+                    <div class="card-body">
+
+                        <label class="form-label">
+                            Agent Notes
+                        </label>
+
+                        <textarea
+                            name="agent_notes"
+                            class="form-control"
+                            rows="5"
+                            required
+                        ></textarea>
+
+                    </div>
+
+                </div>
+
+                <button
+                    type="submit"
+                    class="btn btn-success"
+                >
+                    Save Contact Result
+                </button>
+
+            </form>
+
+        </div>
 
     </div>
-
-</div>
 
 </div>
 
 <script>
 
-const contactResult = document.querySelector('select[name="contact_result"]');
-const customerDecisionSection = document.getElementById('customerDecisionSection');
+const contactResult =
+    document.querySelector(
+        'select[name="contact_result"]'
+    );
 
-const customerRequestHeader = document.getElementById('customerRequestHeader');
-const agentNotesHeader = document.getElementById('agentNotesHeader');
+const customerDecisionSection =
+    document.getElementById(
+        'customerDecisionSection'
+    );
+
+const customerRequestHeader =
+    document.getElementById(
+        'customerRequestHeader'
+    );
+
+const agentNotesHeader =
+    document.getElementById(
+        'agentNotesHeader'
+    );
+
 
 function toggleCustomerDecision() {
 
@@ -272,25 +356,40 @@ function toggleCustomerDecision() {
 
         customerDecisionSection.style.display = 'block';
 
-        customerRequestHeader.textContent = 'Step 2: Customer Request';
-        agentNotesHeader.textContent = 'Step 3: Agent Notes';
+        customerRequestHeader.textContent =
+            'Step 2: Customer Request';
+
+        agentNotesHeader.textContent =
+            'Step 3: Agent Notes';
 
     } else {
 
         customerDecisionSection.style.display = 'none';
 
-        agentNotesHeader.textContent = 'Step 2: Agent Notes';
+        agentNotesHeader.textContent =
+            'Step 2: Agent Notes';
 
     }
 
 }
 
-contactResult.addEventListener('change', toggleCustomerDecision);
+
+contactResult.addEventListener(
+    'change',
+    toggleCustomerDecision
+);
+
 
 // Run once after the page is ready
-document.addEventListener('DOMContentLoaded', function () {
-    toggleCustomerDecision();
-});
+
+document.addEventListener(
+    'DOMContentLoaded',
+    function () {
+
+        toggleCustomerDecision();
+
+    }
+);
 
 </script>
 

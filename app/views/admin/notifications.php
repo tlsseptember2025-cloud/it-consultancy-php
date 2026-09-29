@@ -93,41 +93,28 @@ $where = "
 if ($search !== '') {
 
     $searchValue = '%' . $search . '%';
-    $searchLower = strtolower($search);
 
-    /*
-     * Status search
-     */
-    if ($searchLower === 'new') {
+    $where .= "
+        AND (
+            title LIKE ?
+            OR message LIKE ?
+            OR CASE
+                WHEN is_read = 1 THEN 'Read'
+                WHEN is_read = 0 THEN 'New'
+                ELSE ''
+            END LIKE ?
+            OR DATE_FORMAT(created_at, '%d-%m-%Y') LIKE ?
+            OR DATE_FORMAT(created_at, '%d-%m') LIKE ?
+            OR DATE_FORMAT(created_at, '%Y-%m-%d') LIKE ?
+        )
+    ";
 
-        $where .= " AND is_read = 0";
-
-    } elseif ($searchLower === 'read') {
-
-        $where .= " AND is_read = 1";
-
-    } else {
-
-        /*
-         * General search:
-         * title, message and date
-         */
-        $where .= "
-            AND (
-                title LIKE ?
-                OR message LIKE ?
-                OR DATE_FORMAT(created_at, '%d-%m-%Y') LIKE ?
-                OR DATE_FORMAT(created_at, '%d-%m') LIKE ?
-                OR DATE_FORMAT(created_at, '%Y-%m-%d') LIKE ?
-            )
-        ";
-
-        $params[] = $searchValue;
-        $params[] = $searchValue;
-        $params[] = $searchValue;
-        $params[] = $searchValue;
-        $params[] = $searchValue;
-    }
+    $params[] = $searchValue;
+    $params[] = $searchValue;
+    $params[] = $searchValue;
+    $params[] = $searchValue;
+    $params[] = $searchValue;
+    $params[] = $searchValue;
 }
 
 
@@ -184,22 +171,8 @@ $adminNotifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 
 <h1 class="mb-4 pt-3">
-    Notification History
+    My Notifications
 </h1>
-
-
-<div class="mb-3">
-
-    <a
-        href="?page=mark-all-notifications-read"
-        class="btn btn-success"
-        onclick="return confirm('Mark all notifications as read?');">
-
-        ✓ Mark All as Read
-
-    </a>
-
-</div>
 
 
 <!-- Search -->
@@ -259,11 +232,47 @@ $adminNotifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     <div class="card-body">
 
+        <div class="d-flex justify-content-between align-items-center mb-3">
+
+            <h5 class="mb-0">
+                Notifications
+            </h5>
+
+            <?php if (!empty($adminNotifications)): ?>
+
+                <a
+                    href="?page=mark-all-notifications-read"
+                    class="btn btn-primary btn-sm"
+                    onclick="return confirm('Mark all notifications as read?');">
+
+                    Mark All as Read
+
+                </a>
+
+            <?php endif; ?>
+
+        </div>
+
+
         <?php if (empty($adminNotifications)): ?>
 
-            <div class="text-muted py-3">
+            <div class="card shadow-sm">
 
-                No notifications found.
+                <div class="card-body text-center py-5">
+
+                    <div class="fs-1 mb-3">
+                        🔔
+                    </div>
+
+                    <h5 class="mb-2">
+                        No notifications
+                    </h5>
+
+                    <p class="text-muted mb-0">
+                        You currently have no notifications.
+                    </p>
+
+                </div>
 
             </div>
 

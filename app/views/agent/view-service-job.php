@@ -2,22 +2,58 @@
 
 require_once APP_PATH . '/helpers/DateHelper.php';
 
-if (!isset($_SESSION['agent'])) {
+
+/*
+|--------------------------------------------------------------------------
+| Agent Authentication
+|--------------------------------------------------------------------------
+*/
+
+$isDemoAgent = isset($_SESSION['demo_agent']);
+
+if (!$isDemoAgent && !isset($_SESSION['agent'])) {
 
     header('Location: ?page=public-login');
     exit;
 }
 
-require_once CONFIG_PATH . '/database.php';
 
-$agentId = (int) $_SESSION['agent']['id'];
+/*
+|--------------------------------------------------------------------------
+| Database
+|--------------------------------------------------------------------------
+*/
+
+if ($isDemoAgent) {
+
+    require_once CONFIG_PATH . '/demo-database.php';
+
+    $db = $demoPdo;
+
+    $agentId = (int) $_SESSION['demo_agent']['id'];
+    $demoTenantId = (int) ($_SESSION['demo_agent']['demo_tenant_id'] ?? 0);
+
+    if ($demoTenantId <= 0) {
+
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+} else {
+
+    require_once CONFIG_PATH . '/database.php';
+
+    $db = $pdo;
+
+    $agentId = (int) $_SESSION['agent']['id'];
+}
+
 
 $bookingId = (int) ($_GET['id'] ?? 0);
 
 if ($bookingId <= 0) {
 
     die('Invalid service booking.');
-
 }
 
 
@@ -25,65 +61,138 @@ if ($bookingId <= 0) {
 |--------------------------------------------------------------------------
 | Load the exact service booking
 |--------------------------------------------------------------------------
+|
+| Normal Agent:
+|   Booking must belong to the logged-in Agent.
+|
+| Demo Agent:
+|   Booking must belong to the logged-in Demo Agent and the related
+|   customer/service must belong to the current Demo tenant.
+|
 */
 
-$stmt = $pdo->prepare("
-    SELECT
+if ($isDemoAgent) {
 
-        sb.id AS service_booking_id,
+    $stmt = $db->prepare("
+        SELECT
 
-        r.id AS request_id,
-        r.description,
-        r.quoted_price,
-        r.workflow_stage,
-        r.job_status,
-        r.completed_at,
-        r.completion_notes,
-        r.incomplete_reason,
+            sb.id AS service_booking_id,
 
-        c.name AS customer_name,
-        c.email AS customer_email,
-        c.phone AS customer_phone,
+            r.id AS request_id,
+            r.description,
+            r.quoted_price,
+            r.workflow_stage,
+            r.job_status,
+            r.completed_at,
+            r.completion_notes,
+            r.incomplete_reason,
 
-        s.title AS service_name,
+            c.name AS customer_name,
+            c.email AS customer_email,
+            c.phone AS customer_phone,
 
-        ss.service_date,
-        ss.service_time
+            s.title AS service_name,
 
-    FROM service_bookings sb
+            ss.service_date,
+            ss.service_time
 
-    INNER JOIN requests r
-        ON r.id = sb.request_id
+        FROM service_bookings sb
 
-    INNER JOIN customers c
-        ON c.id = r.customer_id
+        INNER JOIN requests r
+            ON r.id = sb.request_id
 
-    INNER JOIN services s
-        ON s.id = r.service_id
+        INNER JOIN customers c
+            ON c.id = r.customer_id
 
-    INNER JOIN service_slots ss
-        ON ss.id = sb.slot_id
+        INNER JOIN services s
+            ON s.id = r.service_id
 
-    WHERE
-        sb.id = ?
-        AND sb.agent_id = ?
+        INNER JOIN service_slots ss
+            ON ss.id = sb.slot_id
 
-    LIMIT 1
-");
+        INNER JOIN agents a
+            ON a.id = sb.agent_id
 
-$stmt->execute([
-    $bookingId,
-    $agentId
-]);
+        WHERE
+            sb.id = ?
+            AND sb.agent_id = ?
+            AND a.demo_tenant_id = ?
+            AND a.is_demo_account = 1
+            AND c.demo_tenant_id = ?
+            AND c.is_demo_account = 1
+            AND s.demo_tenant_id = ?
+
+        LIMIT 1
+    ");
+
+    $stmt->execute([
+        $bookingId,
+        $agentId,
+        $demoTenantId,
+        $demoTenantId,
+        $demoTenantId
+    ]);
+
+} else {
+
+    $stmt = $db->prepare("
+        SELECT
+
+            sb.id AS service_booking_id,
+
+            r.id AS request_id,
+            r.description,
+            r.quoted_price,
+            r.workflow_stage,
+            r.job_status,
+            r.completed_at,
+            r.completion_notes,
+            r.incomplete_reason,
+
+            c.name AS customer_name,
+            c.email AS customer_email,
+            c.phone AS customer_phone,
+
+            s.title AS service_name,
+
+            ss.service_date,
+            ss.service_time
+
+        FROM service_bookings sb
+
+        INNER JOIN requests r
+            ON r.id = sb.request_id
+
+        INNER JOIN customers c
+            ON c.id = r.customer_id
+
+        INNER JOIN services s
+            ON s.id = r.service_id
+
+        INNER JOIN service_slots ss
+            ON ss.id = sb.slot_id
+
+        WHERE
+            sb.id = ?
+            AND sb.agent_id = ?
+
+        LIMIT 1
+    ");
+
+    $stmt->execute([
+        $bookingId,
+        $agentId
+    ]);
+}
+
 
 $job = $stmt->fetch(PDO::FETCH_ASSOC);
+
 
 if (!$job) {
 
     die('Service job not found.');
-
 }
-
 
 
 /*
@@ -108,76 +217,140 @@ if (
         die(
             'This service job cannot be started from its current status.'
         );
-
     }
 
 
     $serviceStart = new DateTimeImmutable(
-    $job['service_date'] . ' ' . $job['service_time'],
-    new DateTimeZone('Asia/Dubai')
-);
-
-$serviceEnd = $serviceStart->modify('+1 hour');
-
-$now = new DateTimeImmutable(
-    'now',
-    new DateTimeZone('Asia/Dubai')
-);
-
-
-/*
-|--------------------------------------------------------------------------
-| Too early
-|--------------------------------------------------------------------------
-*/
-
-$serviceAvailableAt = $serviceStart->modify('-10 minutes');
-
-if ($now < $serviceAvailableAt) {
-
-    die(
-        'The Start Service button will be available 10 minutes before the scheduled service time.'
+        $job['service_date'] . ' ' . $job['service_time'],
+        new DateTimeZone('Asia/Dubai')
     );
 
-}
+    $serviceEnd = $serviceStart->modify('+1 hour');
 
-
-/*
-|--------------------------------------------------------------------------
-| Start window expired
-|--------------------------------------------------------------------------
-*/
-
-if ($now >= $serviceEnd) {
-
-    die(
-        'The one-hour service start window has expired.'
+    $now = new DateTimeImmutable(
+        'now',
+        new DateTimeZone('Asia/Dubai')
     );
 
-}
+
+    /*
+    |--------------------------------------------------------------------------
+    | Too early
+    |--------------------------------------------------------------------------
+    */
+
+    $serviceAvailableAt = $serviceStart->modify('-10 minutes');
+
+    if ($now < $serviceAvailableAt) {
+
+        die(
+            'The Start Service button will be available 10 minutes before the scheduled service time.'
+        );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Start window expired
+    |--------------------------------------------------------------------------
+    */
+
+    if ($now >= $serviceEnd) {
+
+        die(
+            'The one-hour service start window has expired.'
+        );
+    }
 
 
     /*
     |--------------------------------------------------------------------------
     | Start Service
     |--------------------------------------------------------------------------
+    |
+    | Keep the ownership check tied to the exact service booking so an
+    | Agent cannot start another Agent's request.
+    |
     */
 
-    $update = $pdo->prepare("
-        UPDATE requests
+    if ($isDemoAgent) {
 
-        SET
-            job_status = 'In Progress'
+        $update = $db->prepare("
+            UPDATE requests r
 
-        WHERE
-            id = ?
+            SET
+                r.job_status = 'In Progress'
 
-            AND job_status = 'Pending'
-    ");
+            WHERE
+                r.id = ?
+                AND r.job_status = 'Pending'
 
-    $update->execute([
-        $job['request_id']
-    ]);
+                AND EXISTS (
+                    SELECT 1
+                    FROM service_bookings sb
+                    INNER JOIN customers c
+                        ON c.id = r.customer_id
+                    INNER JOIN services s
+                        ON s.id = r.service_id
+                    INNER JOIN agents a
+                        ON a.id = sb.agent_id
+                    WHERE
+                        sb.request_id = r.id
+                        AND sb.id = ?
+                        AND sb.agent_id = ?
+                        AND a.demo_tenant_id = ?
+                        AND a.is_demo_account = 1
+                        AND c.demo_tenant_id = ?
+                        AND c.is_demo_account = 1
+                        AND s.demo_tenant_id = ?
+                )
+        ");
+
+        $update->execute([
+            $job['request_id'],
+            $bookingId,
+            $agentId,
+            $demoTenantId,
+            $demoTenantId,
+            $demoTenantId
+        ]);
+
+    } else {
+
+        $update = $db->prepare("
+            UPDATE requests r
+
+            SET
+                r.job_status = 'In Progress'
+
+            WHERE
+                r.id = ?
+                AND r.job_status = 'Pending'
+
+                AND EXISTS (
+                    SELECT 1
+                    FROM service_bookings sb
+                    WHERE
+                        sb.request_id = r.id
+                        AND sb.id = ?
+                        AND sb.agent_id = ?
+                )
+        ");
+
+        $update->execute([
+            $job['request_id'],
+            $bookingId,
+            $agentId
+        ]);
+    }
+
+
+    if ($update->rowCount() !== 1) {
+
+        die(
+            'This service job could not be started.'
+        );
+    }
 
 
     header(
@@ -216,8 +389,14 @@ switch ($status) {
     case 'Could Not Complete':
         $badge = 'danger';
         break;
-
 }
+
+
+/*
+|--------------------------------------------------------------------------
+| Service Time Status
+|--------------------------------------------------------------------------
+*/
 
 $serviceTimeStatus = 'not_applicable';
 
@@ -237,19 +416,19 @@ if ($status === 'Pending') {
 
     $serviceAvailableAt = $serviceStart->modify('-10 minutes');
 
-if ($now < $serviceAvailableAt) {
 
-    $serviceTimeStatus = 'future';
+    if ($now < $serviceAvailableAt) {
 
-} elseif ($now < $serviceEnd) {
+        $serviceTimeStatus = 'future';
 
-    $serviceTimeStatus = 'active';
+    } elseif ($now < $serviceEnd) {
 
-} else {
+        $serviceTimeStatus = 'active';
 
-    $serviceTimeStatus = 'expired';
+    } else {
 
-}
+        $serviceTimeStatus = 'expired';
+    }
 }
 
 
@@ -501,100 +680,103 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
     </div>
 
+
     <?php if (
-    $status === 'Pending'
-    && $serviceTimeStatus === 'future'
-): ?>
+        $status === 'Pending'
+        && $serviceTimeStatus === 'future'
+    ): ?>
 
-    <div class="card shadow-sm mb-4">
+        <div class="card shadow-sm mb-4">
 
-        <div class="card-header">
-            Service Action
-        </div>
+            <div class="card-header">
+                Service Action
+            </div>
 
-        <div class="card-body">
+            <div class="card-body">
 
-            <p class="text-muted mb-3">
-                The Start Service button will be available
-                10 minutes before the scheduled service time.
-            </p>
-
-            <button
-                type="button"
-                class="btn btn-secondary"
-                disabled>
-
-                ▶ Start Service
-
-            </button>
-
-        </div>
-
-    </div>
-
-<?php endif; ?>
-
-<?php if (
-    $status === 'Pending'
-    && $serviceTimeStatus === 'active'
-): ?>
-
-    <div class="card shadow-sm mb-4 border-primary">
-
-        <div class="card-header bg-primary text-white">
-            Service Action
-        </div>
-
-        <div class="card-body">
-
-            <p class="mb-3">
-                This service job is ready to be started
-                at the scheduled service time.
-            </p>
-
-            <form method="POST">
+                <p class="text-muted mb-3">
+                    The Start Service button will be available
+                    10 minutes before the scheduled service time.
+                </p>
 
                 <button
-                    type="submit"
-                    name="start_service"
-                    class="btn btn-primary">
+                    type="button"
+                    class="btn btn-secondary"
+                    disabled>
 
                     ▶ Start Service
 
                 </button>
 
-            </form>
+            </div>
 
         </div>
 
-    </div>
+    <?php endif; ?>
 
-<?php endif; ?>
 
-<?php if (
-    $status === 'Pending'
-    && $serviceTimeStatus === 'expired'
-): ?>
+    <?php if (
+        $status === 'Pending'
+        && $serviceTimeStatus === 'active'
+    ): ?>
 
-    <div class="card shadow-sm mb-4 border-danger">
+        <div class="card shadow-sm mb-4 border-primary">
 
-        <div class="card-header bg-danger text-white">
-            Service Start Window Expired
+            <div class="card-header bg-primary text-white">
+                Service Action
+            </div>
+
+            <div class="card-body">
+
+                <p class="mb-3">
+                    This service job is ready to be started
+                    at the scheduled service time.
+                </p>
+
+                <form method="POST">
+
+                    <button
+                        type="submit"
+                        name="start_service"
+                        class="btn btn-primary">
+
+                        ▶ Start Service
+
+                    </button>
+
+                </form>
+
+            </div>
+
         </div>
 
-        <div class="card-body">
+    <?php endif; ?>
 
-            <p class="mb-0">
-                The one-hour window to start this service has expired.
-                The service will be handled by the missed-service workflow
-                and may require administrator review.
-            </p>
+
+    <?php if (
+        $status === 'Pending'
+        && $serviceTimeStatus === 'expired'
+    ): ?>
+
+        <div class="card shadow-sm mb-4 border-danger">
+
+            <div class="card-header bg-danger text-white">
+                Service Start Window Expired
+            </div>
+
+            <div class="card-body">
+
+                <p class="mb-0">
+                    The one-hour window to start this service has expired.
+                    The service will be handled by the missed-service workflow
+                    and may require administrator review.
+                </p>
+
+            </div>
 
         </div>
 
-    </div>
-
-<?php endif; ?>
+    <?php endif; ?>
 
 
     <?php if ($status === 'Completed'): ?>
@@ -626,6 +808,7 @@ require VIEW_PATH . '/layouts/header-agent.php';
                         : '<span class="text-muted">
                             No completion notes provided.
                            </span>'
+
                     ?>
 
                 </div>
@@ -662,6 +845,7 @@ require VIEW_PATH . '/layouts/header-agent.php';
                         : '<span class="text-muted">
                             No reason provided.
                            </span>'
+
                     ?>
 
                 </div>
@@ -688,6 +872,5 @@ require VIEW_PATH . '/layouts/header-agent.php';
     </div>
 
 </div>
-
 
 <?php require VIEW_PATH . '/layouts/footer.php'; ?>

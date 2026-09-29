@@ -1,16 +1,63 @@
 <?php
 
-if (!isset($_GET['token']) || trim($_GET['token']) === '') {
+/*
+|--------------------------------------------------------------------------
+| Agent Password Reset
+|--------------------------------------------------------------------------
+|
+| Normal Agent reset token -> Main DB ($pdo)
+| Demo Agent reset token   -> Demo DB ($demoPdo)
+|
+| The token itself determines which database contains the reset request.
+| The expiration is enforced by password_reset_expires_at in the database.
+|
+*/
 
+if (
+    !isset($_GET['token'])
+    && !isset($_POST['token'])
+) {
     die('Invalid or missing password reset link.');
-
 }
 
-$token = trim($_GET['token']);
+$token = trim(
+    $_GET['token']
+    ?? $_POST['token']
+    ?? ''
+);
+
+if ($token === '') {
+    die('Invalid or missing password reset link.');
+}
 
 $tokenHash = hash('sha256', $token);
 
-$stmt = $pdo->prepare("
+
+/*
+|--------------------------------------------------------------------------
+| Load Main Database
+|--------------------------------------------------------------------------
+*/
+
+require_once CONFIG_PATH . '/database.php';
+
+
+/*
+|--------------------------------------------------------------------------
+| Find Reset Token
+|--------------------------------------------------------------------------
+|
+| First check the Normal Agent database.
+| If no valid token exists there, check the Demo database.
+|
+| A Demo token is only accepted from a Demo Agent record.
+|
+*/
+
+$db = $pdo;
+$isDemoReset = false;
+
+$stmt = $db->prepare("
     SELECT
         id,
         name,
@@ -26,15 +73,62 @@ $stmt->execute([$tokenHash]);
 
 $agent = $stmt->fetch(PDO::FETCH_ASSOC);
 
+
+/*
+|--------------------------------------------------------------------------
+| Check Demo Database
+|--------------------------------------------------------------------------
+*/
+
 if (!$agent) {
 
-    die('This password reset link is invalid or has expired.');
+    require_once CONFIG_PATH . '/demo-database.php';
 
+    $db = $demoPdo;
+
+    $stmt = $db->prepare("
+        SELECT
+            id,
+            name,
+            email
+        FROM agents
+        WHERE password_reset_token = ?
+          AND password_reset_expires_at IS NOT NULL
+          AND password_reset_expires_at > NOW()
+          AND is_demo_account = 1
+          AND demo_tenant_id IS NOT NULL
+        LIMIT 1
+    ");
+
+    $stmt->execute([$tokenHash]);
+
+    $agent = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($agent) {
+        $isDemoReset = true;
+    }
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Invalid / Expired Token
+|--------------------------------------------------------------------------
+*/
+
+if (!$agent) {
+    die('This password reset link is invalid or has expired.');
 }
 
 
 $error = null;
 
+
+/*
+|--------------------------------------------------------------------------
+| Process Password Reset
+|--------------------------------------------------------------------------
+*/
 
 if (
     $_SERVER['REQUEST_METHOD'] === 'POST'
@@ -44,35 +138,73 @@ if (
     $newPassword = $_POST['password'] ?? '';
     $confirmPassword = $_POST['password_confirmation'] ?? '';
 
+
     /*
      * Make sure both passwords match.
      */
+
     if ($newPassword !== $confirmPassword) {
 
         $error = 'The passwords do not match.';
 
+
     /*
      * Minimum password length.
      */
+
     } elseif (strlen($newPassword) < 8) {
 
         $error = 'Password must be at least 8 characters.';
 
+
     } else {
+
+        /*
+         * Re-check the token immediately before changing
+         * the password. This prevents an expired token from
+         * being used after the page was opened.
+         */
+
+        $stmt = $db->prepare("
+            SELECT
+                id
+            FROM agents
+            WHERE id = ?
+              AND password_reset_token = ?
+              AND password_reset_expires_at IS NOT NULL
+              AND password_reset_expires_at > NOW()
+            LIMIT 1
+        ");
+
+        $stmt->execute([
+            $agent['id'],
+            $tokenHash
+        ]);
+
+        $validReset = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$validReset) {
+
+            die('This password reset link is invalid or has expired.');
+        }
+
 
         /*
          * Hash the new password securely.
          */
+
         $passwordHash = password_hash(
             $newPassword,
             PASSWORD_DEFAULT
         );
 
+
         /*
          * Update the password and invalidate
          * the reset token immediately.
          */
-        $stmt = $pdo->prepare("
+
+        $stmt = $db->prepare("
             UPDATE agents
             SET
                 password = ?,
@@ -86,10 +218,22 @@ if (
             $agent['id']
         ]);
 
+
         /*
          * Password successfully changed.
          */
-        header('Location: ?page=public-login&password-reset=success');
+
+        if ($isDemoReset) {
+
+            header(
+                'Location: ?page=demo-login&password-reset=success'
+            );
+            exit;
+        }
+
+        header(
+            'Location: ?page=public-login&password-reset=success'
+        );
         exit;
     }
 }

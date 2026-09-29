@@ -1,15 +1,42 @@
 <?php
 
-if (!isset($_SESSION['agent'])) {
+$isDemoAgent = isset($_SESSION['demo_agent']);
 
-    header('Location: ?page=public-login');
+if (
+    !$isDemoAgent
+    && !isset($_SESSION['agent'])
+) {
+
+    header(
+        $isDemoAgent
+            ? 'Location: ?page=demo-login'
+            : 'Location: ?page=public-login'
+    );
+
     exit;
 }
 
-require_once CONFIG_PATH . '/database.php';
 require_once APP_PATH . '/helpers/RequestEventHelper.php';
 
-$agentId = (int) $_SESSION['agent']['id'];
+if ($isDemoAgent) {
+
+    requireDemoAgent();
+
+    require_once CONFIG_PATH . '/demo-database.php';
+
+    $db = $demoPdo;
+
+    $agentId = (int) $_SESSION['demo_agent']['id'];
+    $demoTenantId = (int) $_SESSION['demo_agent']['demo_tenant_id'];
+
+} else {
+
+    require_once CONFIG_PATH . '/database.php';
+
+    $db = $pdo;
+
+    $agentId = (int) $_SESSION['agent']['id'];
+}
 $requestId = (int) ($_GET['id'] ?? 0);
 
 if ($requestId <= 0) {
@@ -25,46 +52,101 @@ if ($requestId <= 0) {
 |--------------------------------------------------------------------------
 */
 
-$stmt = $pdo->prepare("
-    SELECT
-        r.id,
-        r.workflow_stage,
-        r.job_status,
-        r.incomplete_reason,
-        r.completed_at,
+if ($isDemoAgent) {
 
-        c.name AS customer_name,
+    $stmt = $db->prepare("
 
-        s.title AS service_name,
+        SELECT
+            r.id,
+            r.workflow_stage,
+            r.job_status,
+            r.incomplete_reason,
+            r.completed_at,
 
-        cs.slot_date,
-        cs.slot_time
+            c.name AS customer_name,
 
-    FROM requests r
+            s.title AS service_name,
 
-    INNER JOIN customers c
-        ON c.id = r.customer_id
+            cs.slot_date,
+            cs.slot_time
 
-    INNER JOIN services s
-        ON s.id = r.service_id
+        FROM requests r
 
-    INNER JOIN consultation_bookings cb
-        ON cb.request_id = r.id
+        INNER JOIN customers c
+            ON c.id = r.customer_id
 
-    INNER JOIN consultation_slots cs
-        ON cs.id = cb.slot_id
+        INNER JOIN services s
+            ON s.id = r.service_id
 
-    WHERE
-        r.id = ?
-        AND cb.agent_id = ?
+        INNER JOIN consultation_bookings cb
+            ON cb.request_id = r.id
 
-    LIMIT 1
-");
+        INNER JOIN consultation_slots cs
+            ON cs.id = cb.slot_id
 
-$stmt->execute([
-    $requestId,
-    $agentId
-]);
+        WHERE
+            r.id = ?
+            AND cb.agent_id = ?
+
+            AND c.demo_tenant_id = ?
+            AND c.is_demo_account = 1
+
+            AND s.demo_tenant_id = ?
+
+        LIMIT 1
+    ");
+
+    $stmt->execute([
+        $requestId,
+        $agentId,
+        $demoTenantId,
+        $demoTenantId
+    ]);
+
+} else {
+
+    $stmt = $db->prepare("
+
+        SELECT
+            r.id,
+            r.workflow_stage,
+            r.job_status,
+            r.incomplete_reason,
+            r.completed_at,
+
+            c.name AS customer_name,
+
+            s.title AS service_name,
+
+            cs.slot_date,
+            cs.slot_time
+
+        FROM requests r
+
+        INNER JOIN customers c
+            ON c.id = r.customer_id
+
+        INNER JOIN services s
+            ON s.id = r.service_id
+
+        INNER JOIN consultation_bookings cb
+            ON cb.request_id = r.id
+
+        INNER JOIN consultation_slots cs
+            ON cs.id = cb.slot_id
+
+        WHERE
+            r.id = ?
+            AND cb.agent_id = ?
+
+        LIMIT 1
+    ");
+
+    $stmt->execute([
+        $requestId,
+        $agentId
+    ]);
+}
 
 $consultation = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -119,7 +201,7 @@ if (
 
     } else {
 
-        $update = $pdo->prepare("
+        $update = $db->prepare("
             UPDATE requests
 
             SET
@@ -129,16 +211,24 @@ if (
                 id = ?
                 AND job_status = 'Needs Admin Review'
                 AND workflow_stage = 'Needs Admin Review'
+                AND EXISTS (
+                    SELECT 1
+                    FROM consultation_bookings cb_check
+                    WHERE
+                        cb_check.request_id = requests.id
+                        AND cb_check.agent_id = ?
+                )
         ");
 
         $update->execute([
             $explanation,
-            $requestId
+            $requestId,
+            $agentId
         ]);
 
 
         RequestEventHelper::addCurrentUser(
-            $pdo,
+            $db,
             $requestId,
             'CONSULTATION_OVERDUE_EXPLANATION',
             RequestEventHelper::TYPE_CONSULTATION,

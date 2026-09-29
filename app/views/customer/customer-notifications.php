@@ -1,16 +1,59 @@
 <?php
 
 require_once APP_PATH . '/helpers/DateHelper.php';
-
-if (!isset($_SESSION['customer'])) {
-    header('Location: ?page=public-login');
-    exit;
-}
-
 require_once HELPER_PATH . '/auth.php';
-requireCustomerLogin();
 
-$customerId = (int) $_SESSION['customer']['id'];
+$isDemoCustomer = isset($_SESSION['demo_customer']);
+
+if ($isDemoCustomer) {
+
+    requireDemoCustomer();
+
+    require_once CONFIG_PATH . '/demo-database.php';
+
+    $notificationPdo = $demoPdo;
+
+    $customerId = (int) ($_SESSION['demo_customer']['id'] ?? 0);
+    $demoTenantId = (int) (
+        $_SESSION['demo_customer']['demo_tenant_id'] ?? 0
+    );
+
+    if ($customerId <= 0 || $demoTenantId <= 0) {
+        unset($_SESSION['demo_customer']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    $demoCustomerCheck = $notificationPdo->prepare("
+        SELECT id
+        FROM customers
+        WHERE id = ?
+          AND demo_tenant_id = ?
+          AND is_demo_account = 1
+        LIMIT 1
+    ");
+
+    $demoCustomerCheck->execute([
+        $customerId,
+        $demoTenantId
+    ]);
+
+    if (!$demoCustomerCheck->fetchColumn()) {
+        unset($_SESSION['demo_customer']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+} else {
+
+    requireCustomerLogin();
+
+    require_once CONFIG_PATH . '/database.php';
+
+    $notificationPdo = $pdo;
+
+    $customerId = (int) $_SESSION['customer']['id'];
+}
 
 
 /*
@@ -34,7 +77,7 @@ if (
 
     $notificationId = (int) $_GET['id'];
 
-    $stmt = $pdo->prepare("
+    $stmt = $notificationPdo->prepare("
         SELECT id, link
         FROM notifications
         WHERE id = ?
@@ -53,7 +96,7 @@ if (
     if ($notification) {
 
         /* Mark ONLY this notification as read */
-        $stmt = $pdo->prepare("
+        $stmt = $notificationPdo->prepare("
             UPDATE notifications
             SET is_read = 1
             WHERE id = ?
@@ -101,7 +144,7 @@ if (
     && isset($_POST['mark_all_read'])
 ) {
 
-    $stmt = $pdo->prepare("
+    $stmt = $notificationPdo->prepare("
         UPDATE notifications
         SET is_read = 1
         WHERE recipient_type = 'customer'
@@ -124,7 +167,7 @@ if (
 |--------------------------------------------------------------------------
 */
 
-$stmt = $pdo->prepare("
+$stmt = $notificationPdo->prepare("
     SELECT *
     FROM notifications
     WHERE recipient_type = 'customer'
@@ -171,7 +214,7 @@ require dirname(__DIR__) . '/layouts/header-customer.php';
                 Notifications
             </h5>
 
-            <?php if ($unreadCount > 0): ?>
+            <?php if (!empty($notifications)): ?>
 
                 <form method="POST" class="mb-0">
 
@@ -194,135 +237,169 @@ require dirname(__DIR__) . '/layouts/header-customer.php';
 
         <?php if (empty($notifications)): ?>
 
-            <div class="alert alert-info">
-                You have no notifications.
+            <div class="card shadow-sm">
+
+                <div class="card-body text-center py-5">
+
+                    <div class="fs-1 mb-3">
+                        🔔
+                    </div>
+
+                    <h5 class="mb-2">
+                        No notifications
+                    </h5>
+
+                    <p class="text-muted mb-0">
+                        You currently have no notifications.
+                    </p>
+
+                </div>
+
             </div>
 
         <?php else: ?>
 
-            <table class="table table-striped">
+            <div class="table-responsive">
 
-                <thead>
+                <table class="table table-striped mb-0">
 
-                    <tr>
-
-                        <th>Title</th>
-
-                        <th>Message</th>
-
-                        <th>Date</th>
-
-                        <th>Action</th>
-
-                    </tr>
-
-                </thead>
-
-                <tbody>
-
-                    <?php foreach ($notifications as $notification): ?>
+                    <thead>
 
                         <tr>
 
-                            <td>
-
-                                <?php
-
-                                $icon = '🔔';
-
-                                switch ($notification['title']) {
-
-                                    case 'Proposal Ready':
-                                        $icon = '📄';
-                                        break;
-
-                                    case 'Payment Rejected':
-                                        $icon = '❌';
-                                        break;
-
-                                    case 'Payment Approved':
-                                        $icon = '✅';
-                                        break;
-
-                                    case 'Service Scheduled':
-                                        $icon = '📅';
-                                        break;
-
-                                    case 'Service Completed':
-                                        $icon = '🎉';
-                                        break;
-
-                                    case 'Refund Approved':
-                                        $icon = '💰';
-                                        break;
-                                }
-
-                                ?>
-
-                                <?= $icon ?>
-
-                                <?= htmlspecialchars(
-                                    $notification['title']
-                                ) ?>
-
-                                <?php if (
-                                    (int) $notification['is_read'] === 0
-                                ): ?>
-
-                                    <span class="badge bg-primary ms-2">
-                                        New
-                                    </span>
-
-                                <?php endif; ?>
-
-                            </td>
-
-
-                            <td>
-
-                                <?= htmlspecialchars(
-                                    $notification['message']
-                                ) ?>
-
-                            </td>
-
-
-                            <td>
-
-                                <?= formatDateTime(
-                                    $notification['created_at']
-                                ) ?>
-
-                            </td>
-
-
-                            <td>
-
-                                <?php if (!empty($notification['link'])): ?>
-
-                                    <a
-                                        href="?page=customer-notifications&id=<?= (int) $notification['id'] ?>"
-                                        class="btn btn-primary btn-sm">
-
-                                        Open
-
-                                    </a>
-
-                                <?php else: ?>
-
-                                    -
-
-                                <?php endif; ?>
-
-                            </td>
+                            <th>Status</th>
+                            <th>Title</th>
+                            <th>Message</th>
+                            <th>Date</th>
+                            <th>Action</th>
 
                         </tr>
 
-                    <?php endforeach; ?>
+                    </thead>
 
-                </tbody>
+                    <tbody>
 
-            </table>
+                        <?php foreach ($notifications as $notification): ?>
+
+                            <?php
+                                $isUnread =
+                                    (int) $notification['is_read'] === 0;
+                            ?>
+
+                            <tr class="<?= $isUnread ? 'table-warning' : '' ?>">
+
+                                <td>
+
+                                    <?php if ($isUnread): ?>
+
+                                        <span class="badge bg-warning text-dark">
+                                            🔔 New
+                                        </span>
+
+                                    <?php else: ?>
+
+                                        <span class="badge bg-success">
+                                            ✓ Read
+                                        </span>
+
+                                    <?php endif; ?>
+
+                                </td>
+
+
+                                <td>
+
+                                    <?php
+                                    $icon = '🔔';
+
+                                    switch ($notification['title']) {
+
+                                        case 'Proposal Ready':
+                                            $icon = '📄';
+                                            break;
+
+                                        case 'Payment Rejected':
+                                            $icon = '❌';
+                                            break;
+
+                                        case 'Payment Approved':
+                                            $icon = '✅';
+                                            break;
+
+                                        case 'Service Scheduled':
+                                            $icon = '📅';
+                                            break;
+
+                                        case 'Service Completed':
+                                            $icon = '🎉';
+                                            break;
+
+                                        case 'Refund Approved':
+                                            $icon = '💰';
+                                            break;
+                                    }
+                                    ?>
+
+                                    <?= $icon ?>
+
+                                    <?= htmlspecialchars(
+                                        $notification['title'],
+                                        ENT_QUOTES,
+                                        'UTF-8'
+                                    ) ?>
+
+                                </td>
+
+
+                                <td>
+
+                                    <?= htmlspecialchars(
+                                        $notification['message'],
+                                        ENT_QUOTES,
+                                        'UTF-8'
+                                    ) ?>
+
+                                </td>
+
+
+                                <td>
+
+                                    <?= formatDateTime(
+                                        $notification['created_at']
+                                    ) ?>
+
+                                </td>
+
+
+                                <td>
+
+                                    <?php if (!empty($notification['link'])): ?>
+
+                                        <a
+                                            href="?page=customer-notifications&id=<?= (int) $notification['id'] ?>"
+                                            class="btn btn-primary btn-sm">
+
+                                            Open
+
+                                        </a>
+
+                                    <?php else: ?>
+
+                                        -
+
+                                    <?php endif; ?>
+
+                                </td>
+
+                            </tr>
+
+                        <?php endforeach; ?>
+
+                    </tbody>
+
+                </table>
+
+            </div>
 
         <?php endif; ?>
 

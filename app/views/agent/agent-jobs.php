@@ -1,68 +1,182 @@
 <?php
 
 require_once APP_PATH . '/helpers/DateHelper.php';
+require_once HELPER_PATH . '/auth.php';
 
-if (!isset($_SESSION['agent'])) {
+$isDemoAgent = isset($_SESSION['demo_agent']);
 
-    header('Location: ?page=public-login');
-    exit;
+if ($isDemoAgent) {
+
+    requireDemoAgent();
+
+    require_once CONFIG_PATH . '/demo-database.php';
+
+    $agentId = (int) ($_SESSION['demo_agent']['id'] ?? 0);
+    $demoTenantId = (int) ($_SESSION['demo_agent']['demo_tenant_id'] ?? 0);
+
+    if ($agentId <= 0 || $demoTenantId <= 0) {
+        unset($_SESSION['demo_agent']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    $agentPdo = $demoPdo;
+
+    $agentStmt = $agentPdo->prepare("
+        SELECT id
+        FROM agents
+        WHERE id = ?
+          AND demo_tenant_id = ?
+          AND is_demo_account = 1
+          AND status = 'Active'
+        LIMIT 1
+    ");
+
+    $agentStmt->execute([
+        $agentId,
+        $demoTenantId
+    ]);
+
+    if (!$agentStmt->fetchColumn()) {
+        unset($_SESSION['demo_agent']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+} else {
+
+    /*
+     * This page is an Agent page. The normal Agent session is required.
+     */
+    if (!isset($_SESSION['agent'])) {
+        header('Location: ?page=public-login');
+        exit;
+    }
+
+    if (!isset($_SESSION['agent'])) {
+        header('Location: ?page=public-login');
+        exit;
+    }
+
+    require_once CONFIG_PATH . '/database.php';
+
+    $agentId = (int) $_SESSION['agent']['id'];
+    $agentPdo = $pdo;
 }
 
-require_once CONFIG_PATH . '/database.php';
+if ($isDemoAgent) {
 
-$agentId = (int) $_SESSION['agent']['id'];
+    $stmt = $agentPdo->prepare("
+        SELECT
 
-$stmt = $pdo->prepare("
-    SELECT
+            sb.id,
 
-        sb.id,
+            r.id AS request_id,
 
-        r.id AS request_id,
+            c.name AS customer_name,
 
-        c.name AS customer_name,
+            s.title AS service_name,
 
-        s.title AS service_name,
+            ss.service_date,
 
-        ss.service_date,
+            ss.service_time,
 
-        ss.service_time,
+            r.job_status,
+            r.workflow_stage
 
-        r.job_status,
-        r.workflow_stage
+        FROM service_bookings sb
 
-    FROM service_bookings sb
+        INNER JOIN service_slots ss
+            ON ss.id = sb.slot_id
 
-    INNER JOIN service_slots ss
-        ON ss.id = sb.slot_id
+        INNER JOIN requests r
+            ON r.id = sb.request_id
 
-    INNER JOIN requests r
-        ON r.id = sb.request_id
+        INNER JOIN customers c
+            ON c.id = r.customer_id
 
-    INNER JOIN customers c
-        ON c.id = r.customer_id
+        INNER JOIN services s
+            ON s.id = r.service_id
 
-    INNER JOIN services s
-        ON s.id = r.service_id
+        WHERE
+            sb.agent_id = ?
 
-    WHERE
-        sb.agent_id = ?
+            AND c.demo_tenant_id = ?
+            AND c.is_demo_account = 1
 
-        AND r.workflow_stage IN (
-            'Service Scheduled',
-            'Service Active',
-            'Missed Service',
-            'Service Explanation Required',
-            'Needs Admin Review'
-        )
+            AND r.workflow_stage IN (
+                'Service Scheduled',
+                'Service Active',
+                'Missed Service',
+                'Service Explanation Required',
+                'Needs Admin Review'
+            )
 
-    ORDER BY
-        ss.service_date,
-        ss.service_time
-");
+        ORDER BY
+            ss.service_date,
+            ss.service_time
+    ");
 
-$stmt->execute([
-    $agentId
-]);
+    $stmt->execute([
+        $agentId,
+        $demoTenantId
+    ]);
+
+} else {
+
+    $stmt = $agentPdo->prepare("
+        SELECT
+
+            sb.id,
+
+            r.id AS request_id,
+
+            c.name AS customer_name,
+
+            s.title AS service_name,
+
+            ss.service_date,
+
+            ss.service_time,
+
+            r.job_status,
+            r.workflow_stage
+
+        FROM service_bookings sb
+
+        INNER JOIN service_slots ss
+            ON ss.id = sb.slot_id
+
+        INNER JOIN requests r
+            ON r.id = sb.request_id
+
+        INNER JOIN customers c
+            ON c.id = r.customer_id
+
+        INNER JOIN services s
+            ON s.id = r.service_id
+
+        WHERE
+            sb.agent_id = ?
+
+            AND r.workflow_stage IN (
+                'Service Scheduled',
+                'Service Active',
+                'Missed Service',
+                'Service Explanation Required',
+                'Needs Admin Review'
+            )
+
+        ORDER BY
+            ss.service_date,
+            ss.service_time
+    ");
+
+    $stmt->execute([
+        $agentId
+    ]);
+}
+
 
 $jobs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 

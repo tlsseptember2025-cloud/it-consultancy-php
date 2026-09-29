@@ -3,22 +3,58 @@
 require_once APP_PATH . '/helpers/DateHelper.php';
 require_once APP_PATH . '/helpers/RequestEventHelper.php';
 
-if (!isset($_SESSION['agent'])) {
+
+/*
+|--------------------------------------------------------------------------
+| Agent Authentication
+|--------------------------------------------------------------------------
+*/
+
+$isDemoAgent = isset($_SESSION['demo_agent']);
+
+if (!$isDemoAgent && !isset($_SESSION['agent'])) {
 
     header('Location: ?page=public-login');
     exit;
 }
 
-require_once CONFIG_PATH . '/database.php';
 
-$agentId = (int) $_SESSION['agent']['id'];
+/*
+|--------------------------------------------------------------------------
+| Database
+|--------------------------------------------------------------------------
+*/
+
+if ($isDemoAgent) {
+
+    require_once CONFIG_PATH . '/demo-database.php';
+
+    $db = $demoPdo;
+
+    $agentId = (int) $_SESSION['demo_agent']['id'];
+    $demoTenantId = (int) ($_SESSION['demo_agent']['demo_tenant_id'] ?? 0);
+
+    if ($demoTenantId <= 0) {
+
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+} else {
+
+    require_once CONFIG_PATH . '/database.php';
+
+    $db = $pdo;
+
+    $agentId = (int) $_SESSION['agent']['id'];
+}
+
 
 $bookingId = (int) ($_GET['id'] ?? 0);
 
 if ($bookingId <= 0) {
 
     die('Invalid service booking.');
-
 }
 
 
@@ -26,52 +62,122 @@ if ($bookingId <= 0) {
 |--------------------------------------------------------------------------
 | Load Service Job
 |--------------------------------------------------------------------------
+|
+| Normal Agent:
+|   Load the assigned service booking from the main database.
+|
+| Demo Agent:
+|   Load only a service booking assigned to this Demo Agent where the
+|   customer and service belong to the logged-in Demo tenant.
+|
 */
 
-$stmt = $pdo->prepare("
-    SELECT
+if ($isDemoAgent) {
 
-        sb.id AS service_booking_id,
+    $stmt = $db->prepare("
+        SELECT
 
-        r.id AS request_id,
-        r.workflow_stage,
-        r.job_status,
-        r.review_type,
-        r.incomplete_reason,
-        r.admin_review_comments,
+            sb.id AS service_booking_id,
 
-        c.name AS customer_name,
+            r.id AS request_id,
+            r.workflow_stage,
+            r.job_status,
+            r.review_type,
+            r.incomplete_reason,
+            r.admin_review_comments,
 
-        s.title AS service_name,
+            c.name AS customer_name,
 
-        ss.service_date,
-        ss.service_time
+            s.title AS service_name,
 
-    FROM service_bookings sb
+            ss.service_date,
+            ss.service_time
 
-    INNER JOIN requests r
-        ON r.id = sb.request_id
+        FROM service_bookings sb
 
-    INNER JOIN customers c
-        ON c.id = r.customer_id
+        INNER JOIN requests r
+            ON r.id = sb.request_id
 
-    INNER JOIN services s
-        ON s.id = r.service_id
+        INNER JOIN customers c
+            ON c.id = r.customer_id
 
-    INNER JOIN service_slots ss
-        ON ss.id = sb.slot_id
+        INNER JOIN services s
+            ON s.id = r.service_id
 
-    WHERE
-        sb.id = ?
-        AND sb.agent_id = ?
+        INNER JOIN service_slots ss
+            ON ss.id = sb.slot_id
 
-    LIMIT 1
-");
+        INNER JOIN agents a
+            ON a.id = sb.agent_id
 
-$stmt->execute([
-    $bookingId,
-    $agentId
-]);
+        WHERE
+            sb.id = ?
+            AND sb.agent_id = ?
+            AND a.demo_tenant_id = ?
+            AND a.is_demo_account = 1
+            AND c.demo_tenant_id = ?
+            AND c.is_demo_account = 1
+            AND s.demo_tenant_id = ?
+
+        LIMIT 1
+    ");
+
+    $stmt->execute([
+        $bookingId,
+        $agentId,
+        $demoTenantId,
+        $demoTenantId,
+        $demoTenantId
+    ]);
+
+} else {
+
+    $stmt = $db->prepare("
+        SELECT
+
+            sb.id AS service_booking_id,
+
+            r.id AS request_id,
+            r.workflow_stage,
+            r.job_status,
+            r.review_type,
+            r.incomplete_reason,
+            r.admin_review_comments,
+
+            c.name AS customer_name,
+
+            s.title AS service_name,
+
+            ss.service_date,
+            ss.service_time
+
+        FROM service_bookings sb
+
+        INNER JOIN requests r
+            ON r.id = sb.request_id
+
+        INNER JOIN customers c
+            ON c.id = r.customer_id
+
+        INNER JOIN services s
+            ON s.id = r.service_id
+
+        INNER JOIN service_slots ss
+            ON ss.id = sb.slot_id
+
+        WHERE
+            sb.id = ?
+            AND sb.agent_id = ?
+
+        LIMIT 1
+    ");
+
+    $stmt->execute([
+        $bookingId,
+        $agentId
+    ]);
+}
+
 
 $job = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -79,7 +185,6 @@ $job = $stmt->fetch(PDO::FETCH_ASSOC);
 if (!$job) {
 
     die('Service job not found.');
-
 }
 
 
@@ -96,7 +201,6 @@ if (
     die(
         'This service job is not currently awaiting an agent response.'
     );
-
 }
 
 
@@ -127,83 +231,139 @@ if (
     } else {
 
         /*
-|--------------------------------------------------------------------------
-| Save Agent Explanation to Review History
-|--------------------------------------------------------------------------
-*/
+        |--------------------------------------------------------------------------
+        | Save Agent Explanation to Review History
+        |--------------------------------------------------------------------------
+        */
 
-$history = $pdo->prepare("
-    INSERT INTO service_review_history
-    (
-        request_id,
-        actor_type,
-        agent_id,
-        action_type,
-        message
-    )
-    VALUES
-    (
-        ?,
-        'agent',
-        ?,
-        'agent_explanation',
-        ?
-    )
-");
+        $history = $db->prepare("
+            INSERT INTO service_review_history
+            (
+                request_id,
+                actor_type,
+                agent_id,
+                action_type,
+                message
+            )
+            VALUES
+            (
+                ?,
+                'agent',
+                ?,
+                'agent_explanation',
+                ?
+            )
+        ");
 
-$history->execute([
-    $job['request_id'],
-    $agentId,
-    $explanation
-]);
-
-
-/*
-|--------------------------------------------------------------------------
-| Update Current Workflow State
-|--------------------------------------------------------------------------
-*/
-
-$update = $pdo->prepare("
-    UPDATE requests
-
-    SET
-        incomplete_reason = ?,
-        workflow_stage = 'Needs Admin Review',
-        job_status = 'Needs Admin Review',
-        review_type = 'service_overdue'
-
-    WHERE
-        id = ?
-
-        AND workflow_stage = 'Service Explanation Required'
-");
-
-$update->execute([
-    $explanation,
-    $job['request_id']
-]);
+        $history->execute([
+            $job['request_id'],
+            $agentId,
+            $explanation
+        ]);
 
 
-if ($update->rowCount() !== 1) {
+        /*
+        |--------------------------------------------------------------------------
+        | Update Current Workflow State
+        |--------------------------------------------------------------------------
+        */
 
-    die(
-        'This service review could not be updated.'
-    );
+        if ($isDemoAgent) {
 
-}
+            $update = $db->prepare("
+                UPDATE requests r
+
+                SET
+                    r.incomplete_reason = ?,
+                    r.workflow_stage = 'Needs Admin Review',
+                    r.job_status = 'Needs Admin Review',
+                    r.review_type = 'service_overdue'
+
+                WHERE
+                    r.id = ?
+                    AND r.workflow_stage = 'Service Explanation Required'
+
+                    AND EXISTS (
+                        SELECT 1
+                        FROM service_bookings sb
+                        INNER JOIN customers c
+                            ON c.id = r.customer_id
+                        INNER JOIN services s
+                            ON s.id = r.service_id
+                        INNER JOIN agents a
+                            ON a.id = sb.agent_id
+                        WHERE
+                            sb.request_id = r.id
+                            AND sb.id = ?
+                            AND sb.agent_id = ?
+                            AND a.demo_tenant_id = ?
+                            AND a.is_demo_account = 1
+                            AND c.demo_tenant_id = ?
+                            AND c.is_demo_account = 1
+                            AND s.demo_tenant_id = ?
+                    )
+            ");
+
+            $update->execute([
+                $explanation,
+                $job['request_id'],
+                $bookingId,
+                $agentId,
+                $demoTenantId,
+                $demoTenantId,
+                $demoTenantId
+            ]);
+
+        } else {
+
+            $update = $db->prepare("
+                UPDATE requests r
+
+                SET
+                    r.incomplete_reason = ?,
+                    r.workflow_stage = 'Needs Admin Review',
+                    r.job_status = 'Needs Admin Review',
+                    r.review_type = 'service_overdue'
+
+                WHERE
+                    r.id = ?
+                    AND r.workflow_stage = 'Service Explanation Required'
+
+                    AND EXISTS (
+                        SELECT 1
+                        FROM service_bookings sb
+                        WHERE
+                            sb.request_id = r.id
+                            AND sb.id = ?
+                            AND sb.agent_id = ?
+                    )
+            ");
+
+            $update->execute([
+                $explanation,
+                $job['request_id'],
+                $bookingId,
+                $agentId
+            ]);
+        }
+
 
         if ($update->rowCount() !== 1) {
 
             die(
                 'This service review could not be updated.'
             );
-
         }
 
 
+        /*
+        |--------------------------------------------------------------------------
+        | Record Workflow Event
+        |--------------------------------------------------------------------------
+        */
+
         RequestEventHelper::addCurrentUser(
-            $pdo,
+            $db,
             (int) $job['request_id'],
             'SERVICE_EXPLANATION_RESUBMITTED',
             RequestEventHelper::TYPE_SERVICE,
@@ -221,6 +381,12 @@ if ($update->rowCount() !== 1) {
     }
 }
 
+
+/*
+|--------------------------------------------------------------------------
+| Header
+|--------------------------------------------------------------------------
+*/
 
 require VIEW_PATH . '/layouts/header-agent.php';
 
@@ -296,156 +462,163 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
     </div>
 
+
     <?php
 
-$historyStmt = $pdo->prepare("
-    SELECT
-        h.*,
-        a.name AS agent_name,
-        u.email AS admin_email
+    /*
+    |--------------------------------------------------------------------------
+    | Review History
+    |--------------------------------------------------------------------------
+    */
 
-    FROM service_review_history h
+    $historyStmt = $db->prepare("
+        SELECT
+            h.*,
+            a.name AS agent_name,
+            u.email AS admin_email
 
-    LEFT JOIN agents a
-        ON a.id = h.agent_id
+        FROM service_review_history h
 
-    LEFT JOIN users u
-        ON u.id = h.admin_id
+        LEFT JOIN agents a
+            ON a.id = h.agent_id
 
-    WHERE
-        h.request_id = ?
+        LEFT JOIN users u
+            ON u.id = h.admin_id
 
-    ORDER BY
-        h.created_at ASC,
-        h.id ASC
-");
+        WHERE
+            h.request_id = ?
 
-$historyStmt->execute([
-    $job['request_id']
-]);
+        ORDER BY
+            h.created_at ASC,
+            h.id ASC
+    ");
 
-$reviewHistory = $historyStmt->fetchAll(PDO::FETCH_ASSOC);
+    $historyStmt->execute([
+        $job['request_id']
+    ]);
 
-?>
+    $reviewHistory = $historyStmt->fetchAll(PDO::FETCH_ASSOC);
 
-<div class="card shadow-sm mb-4">
+    ?>
 
-    <div class="card-header bg-dark text-white">
-        Service Review History
-    </div>
 
-    <div class="card-body">
+    <div class="card shadow-sm mb-4">
 
-        <?php if (empty($reviewHistory)): ?>
+        <div class="card-header bg-dark text-white">
+            Service Review History
+        </div>
 
-            <div class="text-muted">
-                No previous review history.
-            </div>
+        <div class="card-body">
 
-        <?php else: ?>
+            <?php if (empty($reviewHistory)): ?>
 
-            <?php foreach ($reviewHistory as $entry): ?>
+                <div class="text-muted">
+                    No previous review history.
+                </div>
 
-                <?php
+            <?php else: ?>
 
-                if ($entry['actor_type'] === 'agent') {
+                <?php foreach ($reviewHistory as $entry): ?>
 
-                    $actorLabel = 'Agent';
-                    $actorName = $entry['agent_name'] ?: 'Agent';
-                    $badgeClass = 'bg-primary';
+                    <?php
 
-                } elseif ($entry['actor_type'] === 'admin') {
+                    if ($entry['actor_type'] === 'agent') {
 
-                    $actorLabel = 'Administrator';
-                    $actorName = $entry['admin_email'] ?: 'Administrator';
-                    $badgeClass = 'bg-danger';
+                        $actorLabel = 'Agent';
+                        $actorName = $entry['agent_name'] ?: 'Agent';
+                        $badgeClass = 'bg-primary';
 
-                } else {
+                    } elseif ($entry['actor_type'] === 'admin') {
 
-                    $actorLabel = 'System';
-                    $actorName = 'System';
-                    $badgeClass = 'bg-secondary';
+                        $actorLabel = 'Administrator';
+                        $actorName = $entry['admin_email'] ?: 'Administrator';
+                        $badgeClass = 'bg-danger';
 
-                }
+                    } else {
 
-                if ($entry['action_type'] === 'agent_explanation') {
+                        $actorLabel = 'System';
+                        $actorName = 'System';
+                        $badgeClass = 'bg-secondary';
+                    }
 
-                    $actionLabel = 'Agent Explanation';
 
-                } elseif ($entry['action_type'] === 'admin_rejection') {
+                    if ($entry['action_type'] === 'agent_explanation') {
 
-                    $actionLabel = 'Explanation Rejected';
+                        $actionLabel = 'Agent Explanation';
 
-                } elseif ($entry['action_type'] === 'admin_decision') {
+                    } elseif ($entry['action_type'] === 'admin_rejection') {
 
-                    $actionLabel = 'Administrator Decision';
+                        $actionLabel = 'Explanation Rejected';
 
-                } else {
+                    } elseif ($entry['action_type'] === 'admin_decision') {
 
-                    $actionLabel = ucfirst(
-                        str_replace(
-                            '_',
-                            ' ',
-                            $entry['action_type']
-                        )
-                    );
+                        $actionLabel = 'Administrator Decision';
 
-                }
+                    } else {
 
-                ?>
+                        $actionLabel = ucfirst(
+                            str_replace(
+                                '_',
+                                ' ',
+                                $entry['action_type']
+                            )
+                        );
+                    }
 
-                <div class="border rounded p-3 mb-3">
+                    ?>
 
-                    <div class="d-flex justify-content-between">
+                    <div class="border rounded p-3 mb-3">
 
-                        <div>
+                        <div class="d-flex justify-content-between">
 
-                            <span class="badge <?= $badgeClass ?>">
-                                <?= htmlspecialchars($actorLabel) ?>
-                            </span>
+                            <div>
 
-                            <strong class="ms-2">
-                                <?= htmlspecialchars($actorName) ?>
-                            </strong>
+                                <span class="badge <?= $badgeClass ?>">
+                                    <?= htmlspecialchars($actorLabel) ?>
+                                </span>
+
+                                <strong class="ms-2">
+                                    <?= htmlspecialchars($actorName) ?>
+                                </strong>
+
+                            </div>
+
+                            <small class="text-muted">
+
+                                <?= date(
+                                    'd-m-Y h:i A',
+                                    strtotime($entry['created_at'])
+                                ) ?>
+
+                            </small>
 
                         </div>
 
-                        <small class="text-muted">
+                        <div class="fw-bold mt-2 mb-2">
 
-                            <?= date(
-                                'd-m-Y h:i A',
-                                strtotime($entry['created_at'])
+                            <?= htmlspecialchars($actionLabel) ?>
+
+                        </div>
+
+                        <div class="border rounded bg-light p-3">
+
+                            <?= nl2br(
+                                htmlspecialchars(
+                                    $entry['message']
+                                )
                             ) ?>
 
-                        </small>
+                        </div>
 
                     </div>
 
-                    <div class="fw-bold mt-2 mb-2">
+                <?php endforeach; ?>
 
-                        <?= htmlspecialchars($actionLabel) ?>
+            <?php endif; ?>
 
-                    </div>
-
-                    <div class="border rounded bg-light p-3">
-
-                        <?= nl2br(
-                            htmlspecialchars(
-                                $entry['message']
-                            )
-                        ) ?>
-
-                    </div>
-
-                </div>
-
-            <?php endforeach; ?>
-
-        <?php endif; ?>
+        </div>
 
     </div>
-
-</div>
 
 
     <!-- Service Information -->
@@ -546,7 +719,9 @@ $reviewHistory = $historyStmt->fetchAll(PDO::FETCH_ASSOC);
                         placeholder="Explain what happened and address the administrator's concerns..."></textarea>
 
                     <div class="form-text">
+
                         Your response will be sent back to the administrator for review.
+
                     </div>
 
                 </div>
