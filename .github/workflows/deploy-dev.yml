@@ -65,14 +65,19 @@ jobs:
       # ------------------------------------------------------------
       # Create DEV environment file
       #
-      # Contains both:
+      # Contains:
       #   1. Main System configuration
       #   2. Demo System configuration
+      #   3. Stripe configuration
       # ------------------------------------------------------------
 
       - name: Create development environment file
         env:
+
+          # ----------------------------------------------------------
           # Main System
+          # ----------------------------------------------------------
+
           DB_HOST: ${{ secrets.DB_HOST }}
           DB_PORT: ${{ secrets.DB_PORT }}
           DB_NAME: ${{ secrets.DB_NAME }}
@@ -82,7 +87,10 @@ jobs:
           APP_URL: ${{ secrets.APP_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
 
+          # ----------------------------------------------------------
           # Demo System
+          # ----------------------------------------------------------
+
           DEMO_APP_URL: ${{ secrets.DEMO_APP_URL }}
           DEMO_DB_HOST: ${{ secrets.DEMO_DB_HOST }}
           DEMO_DB_PORT: ${{ secrets.DEMO_DB_PORT }}
@@ -90,6 +98,14 @@ jobs:
           DEMO_DB_USER: ${{ secrets.DEMO_DB_USER }}
           DEMO_DB_PASS: ${{ secrets.DEMO_DB_PASS }}
           DEMO_DB_SSL_CA: ${{ secrets.DEMO_DB_SSL_CA }}
+
+          # ----------------------------------------------------------
+          # Stripe
+          # ----------------------------------------------------------
+
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
 
         run: |
           cat > .env <<EOF
@@ -118,6 +134,14 @@ jobs:
           DEMO_DB_USER=$DEMO_DB_USER
           DEMO_DB_PASS=$DEMO_DB_PASS
           DEMO_DB_SSL_CA=app/storage/certs/demo-ca.pem
+
+          # ----------------------------------------------------------
+          # Stripe
+          # ----------------------------------------------------------
+
+          STRIPE_SECRET_KEY=$STRIPE_SECRET_KEY
+          STRIPE_PUBLISHABLE_KEY=$STRIPE_PUBLISHABLE_KEY
+          STRIPE_WEBHOOK_SECRET=$STRIPE_WEBHOOK_SECRET
 
           EOF
 
