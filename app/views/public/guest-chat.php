@@ -4,6 +4,14 @@ require_once CONFIG_PATH . '/database.php';
 require_once HELPER_PATH . '/GuestChatHelper.php';
 require_once HELPER_PATH . '/notifications.php';
 
+
+if (empty($_SESSION['public_csrf_token']) || !is_string($_SESSION['public_csrf_token'])) {
+    $_SESSION['public_csrf_token'] = bin2hex(random_bytes(32));
+}
+
+$publicCsrfToken = $_SESSION['public_csrf_token'];
+
+
 $guestChatAvailability = getGuestChatAvailability($pdo);
 
 /*
@@ -84,6 +92,12 @@ if (!$guestChatAvailability['office_open']) {
 */
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+    $submittedCsrf = $_POST['csrf_token'] ?? '';
+    if (!is_string($submittedCsrf) || !hash_equals($publicCsrfToken, $submittedCsrf)) {
+        http_response_code(400);
+        exit('Invalid form submission. Please refresh the page and try again.');
+    }
 
     /*
      * Always re-check availability immediately before
@@ -187,6 +201,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 require dirname(__DIR__) . '/layouts/header-public.php';
+require dirname(__DIR__) . '/public/demo-banner.php';
 
 ?>
 
@@ -304,6 +319,9 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 
 
                     <form method="POST">
+
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($publicCsrfToken, ENT_QUOTES, 'UTF-8') ?>">
+
 
                         <div class="mb-3">
 

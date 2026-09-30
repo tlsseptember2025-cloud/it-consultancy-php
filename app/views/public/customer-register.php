@@ -3,18 +3,33 @@
 require CONFIG_PATH . '/database.php';
 require_once HELPER_PATH . '/email.php';
 
+
+if (empty($_SESSION['public_csrf_token']) || !is_string($_SESSION['public_csrf_token'])) {
+    $_SESSION['public_csrf_token'] = bin2hex(random_bytes(32));
+}
+
+$publicCsrfToken = $_SESSION['public_csrf_token'];
+
+
 require dirname(__DIR__) . '/layouts/header-public.php';
+require dirname(__DIR__) . '/public/demo-banner.php';
 
 $error = '';
 $success = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
+    $submittedCsrf = $_POST['csrf_token'] ?? '';
+    if (!is_string($submittedCsrf) || !hash_equals($publicCsrfToken, $submittedCsrf)) {
+        http_response_code(400);
+        exit('Invalid form submission. Please refresh the page and try again.');
+    }
+
     $name = trim($_POST['name'] ?? '');
     $email = trim($_POST['email'] ?? '');
     $phone = trim($_POST['phone'] ?? '');
-    $password = trim($_POST['password'] ?? '');
-    $confirmPassword = trim($_POST['confirm_password'] ?? '');
+    $password = $_POST['password'] ?? '';
+    $confirmPassword = $_POST['confirm_password'] ?? '';
 
     /*
     |--------------------------------------------------------------------------
@@ -249,6 +264,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <?php if (!$success): ?>
 
                     <form method="POST" autocomplete="off">
+
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($publicCsrfToken, ENT_QUOTES, 'UTF-8') ?>">
+
 
                         <div class="mb-3">
 

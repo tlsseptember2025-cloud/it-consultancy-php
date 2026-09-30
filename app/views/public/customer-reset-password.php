@@ -2,6 +2,13 @@
 
 require_once HELPER_PATH . '/email.php';
 
+if (empty($_SESSION['public_csrf_token']) || !is_string($_SESSION['public_csrf_token'])) {
+    $_SESSION['public_csrf_token'] = bin2hex(random_bytes(32));
+}
+
+$publicCsrfToken = $_SESSION['public_csrf_token'];
+
+
 $token = $_GET['token'] ?? '';
 
 $stmt = $pdo->prepare("
@@ -31,8 +38,14 @@ $message = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    $password = $_POST['password'];
-    $confirmPassword = $_POST['confirm_password'];
+    $submittedCsrf = $_POST['csrf_token'] ?? '';
+    if (!is_string($submittedCsrf) || !hash_equals($publicCsrfToken, $submittedCsrf)) {
+        http_response_code(400);
+        exit('Invalid form submission. Please refresh the page and try again.');
+    }
+
+    $password = $_POST['password'] ?? '';
+    $confirmPassword = $_POST['confirm_password'] ?? '';
 
     if ($password !== $confirmPassword) {
 
@@ -56,19 +69,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 reset_token = NULL,
                 reset_token_expires = NULL
             WHERE id = ?
+              AND reset_token = ?
+              AND reset_token_expires >= NOW()
         ");
 
         $stmt->execute([
             $hash,
-            $customer['id']
+            $customer['id'],
+            $token
         ]);
 
-        header('Location: ?page=public-login&reset=success');
-        exit;
+        if ($stmt->rowCount() !== 1) {
+            $message = 'This password reset link is no longer valid. Please request a new one.';
+        } 
     }
 }
 
 require VIEW_PATH . '/layouts/header-public.php';
+require dirname(__DIR__) . '/public/demo-banner.php';
 ?>
 
 <h2>Reset Password</h2>
@@ -84,6 +102,7 @@ require VIEW_PATH . '/layouts/header-public.php';
 <?php endif; ?>
 
 <form method="POST">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($publicCsrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
     <div class="mb-3">
 

@@ -93,6 +93,7 @@ if ($token === '') {
 }
 
 require dirname(__DIR__) . '/layouts/header-public.php';
+require dirname(__DIR__) . '/public/demo-banner.php';
 
 ?>
 

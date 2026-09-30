@@ -90,6 +90,7 @@ if ($confirmStmt->rowCount() !== 1) {
 </head>
 
 <body class="bg-light">
+<?php require dirname(__DIR__) . '/public/demo-banner.php'; ?>
 
 <div class="container py-5">
     <div class="row justify-content-center">

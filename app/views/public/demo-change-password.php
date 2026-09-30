@@ -2,6 +2,14 @@
 
 require_once CONFIG_PATH . '/demo-database.php';
 
+
+if (empty($_SESSION['public_csrf_token']) || !is_string($_SESSION['public_csrf_token'])) {
+    $_SESSION['public_csrf_token'] = bin2hex(random_bytes(32));
+}
+
+$publicCsrfToken = $_SESSION['public_csrf_token'];
+
+
 $isDemoAdmin    = isset($_SESSION['demo_user']);
 $isDemoCustomer = isset($_SESSION['demo_customer']);
 $isDemoAgent    = isset($_SESSION['demo_agent']);
@@ -73,6 +81,12 @@ if ((int) $demoUser['force_password_change'] !== 1) {
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+    $submittedCsrf = $_POST['csrf_token'] ?? '';
+    if (!is_string($submittedCsrf) || !hash_equals($publicCsrfToken, $submittedCsrf)) {
+        http_response_code(400);
+        exit('Invalid form submission. Please refresh the page and try again.');
+    }
     $newPassword     = $_POST['new_password'] ?? '';
     $confirmPassword = $_POST['confirm_password'] ?? '';
 
@@ -118,6 +132,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new RuntimeException('The Demo account could not be reloaded.');
             }
 
+            session_regenerate_id(true);
             $_SESSION[$sessionKey] = $updatedDemoUser;
 
             if ($accountType === 'admin') {
@@ -139,6 +154,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 require dirname(__DIR__) . '/layouts/header-public.php';
+require dirname(__DIR__) . '/public/demo-banner.php';
 ?>
 
 <div class="row justify-content-center mt-5">
@@ -166,6 +182,9 @@ require dirname(__DIR__) . '/layouts/header-public.php';
                 </div>
 
                 <form method="POST" action="?page=demo-change-password" autocomplete="off">
+
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($publicCsrfToken, ENT_QUOTES, 'UTF-8') ?>">
+
                     <div class="mb-3">
                         <label for="new_password" class="form-label">New Password</label>
                         <input type="password" class="form-control" id="new_password" name="new_password" minlength="8" autocomplete="new-password" required>

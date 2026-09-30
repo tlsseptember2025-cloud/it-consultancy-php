@@ -2,9 +2,23 @@
 
 require CONFIG_PATH . '/database.php';
 
+
+if (empty($_SESSION['public_csrf_token']) || !is_string($_SESSION['public_csrf_token'])) {
+    $_SESSION['public_csrf_token'] = bin2hex(random_bytes(32));
+}
+
+$publicCsrfToken = $_SESSION['public_csrf_token'];
+
+
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+    $submittedCsrf = $_POST['csrf_token'] ?? '';
+    if (!is_string($submittedCsrf) || !hash_equals($publicCsrfToken, $submittedCsrf)) {
+        http_response_code(400);
+        exit('Invalid form submission. Please refresh the page and try again.');
+    }
 
     $email = trim($_POST['email']);
     $password = trim($_POST['password']);
@@ -74,6 +88,7 @@ $isAgentLogin =
     $_SESSION['login_role'] === 'agent';
 
 require dirname(__DIR__) . '/layouts/header-public.php';
+require dirname(__DIR__) . '/public/demo-banner.php';
 
 ?>
 
@@ -115,6 +130,9 @@ require dirname(__DIR__) . '/layouts/header-public.php';
                 <?php endif; ?>
 
                 <form method="POST" autocomplete="off">
+
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($publicCsrfToken, ENT_QUOTES, 'UTF-8') ?>">
+
 
                     <div class="mb-3">
 

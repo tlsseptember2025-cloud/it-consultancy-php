@@ -175,6 +175,7 @@ if ($token === '') {
 }
 
 require VIEW_PATH . '/layouts/header-public.php';
+require dirname(__DIR__) . '/public/demo-banner.php';
 
 ?>
 

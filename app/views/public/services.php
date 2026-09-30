@@ -2,6 +2,7 @@
 
 require CONFIG_PATH . '/database.php';
 require dirname(__DIR__) . '/layouts/header-public.php';
+require dirname(__DIR__) . '/public/demo-banner.php';
 
 $stmt = $pdo->query("
     SELECT * FROM services
@@ -40,9 +41,58 @@ $services = $stmt->fetchAll();
                         $description,
                         '<p><div><br><strong><b><em><i><u><s><ul><ol><li><h1><h2><h3><h4><h5><h6><blockquote><a><span>'
                     );
-                    $description = preg_replace('~\son\w+\s*=\s*("[^"]*"|\'[^\']*\'|[^\s>]+)~i', '', $description);
-                    $description = preg_replace('~\s(href|src)\s*=\s*(["\'])\s*(javascript:|vbscript:|data:text/html)[^"\']*\2~i', '', $description);
-                    $description = preg_replace('~\b(?:expression|javascript|vbscript)\s*\(~i', '', $description);
+                    // The description is intentionally rendered as limited HTML.
+                    // Strip event handlers and unsafe URL schemes before output.
+                    $description = preg_replace(
+                        '~\son\w+\s*=\s*("[^"]*"|\'[^\']*\'|[^\s>]+)~i',
+                        '',
+                        $description
+                    );
+                    $description = preg_replace(
+                        '~\sstyle\s*=\s*("[^"]*"|\'[^\']*\'|[^\s>]+)~i',
+                        '',
+                        $description
+                    );
+                    $description = preg_replace_callback(
+                        '~\shref\s*=\s*("([^"]*)"|\'([^\']*)\'|([^\s>]+))~i',
+                        static function (array $match): string {
+                            $url = html_entity_decode(
+                                $match[2] !== ''
+                                    ? $match[2]
+                                    : ($match[3] !== '' ? $match[3] : $match[4]),
+                                ENT_QUOTES | ENT_HTML5,
+                                'UTF-8'
+                            );
+
+                            $normalizedUrl = preg_replace(
+                                '/[\x00-\x20\x7F]+/u',
+                                '',
+                                $url
+                            );
+
+                            if (
+                                $normalizedUrl === ''
+                                || preg_match(
+                                    '~^(?:javascript|vbscript|data):~i',
+                                    $normalizedUrl
+                                )
+                            ) {
+                                return '';
+                            }
+
+                            return ' href="' . htmlspecialchars(
+                                $url,
+                                ENT_QUOTES | ENT_HTML5,
+                                'UTF-8'
+                            ) . '"';
+                        },
+                        $description
+                    );
+                    $description = preg_replace(
+                        '~\b(?:expression|javascript|vbscript)\s*\(~i',
+                        '',
+                        $description
+                    );
                     ?>
 
                     <div class="card-text service-description">
