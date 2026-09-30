@@ -185,7 +185,7 @@ public const EVENT_CUSTOMER_REQUESTED_CANCELLATION =
 }
 
 return (int)$pdo->lastInsertId();
-    
+
 }
 
 /**
@@ -208,6 +208,10 @@ public static function addCurrentUser(
 
         $eventSource = self::SOURCE_ADMINISTRATOR;
 
+    } elseif (isset($_SESSION['demo_user'])) {
+
+        $eventSource = self::SOURCE_ADMINISTRATOR;
+
     } elseif (isset($_SESSION['agent'])) {
 
         $eventSource = self::SOURCE_AGENT;
@@ -216,6 +220,16 @@ public static function addCurrentUser(
             $sourceId = (int) $_SESSION['agent']['id'];
         } elseif (is_numeric($_SESSION['agent'])) {
             $sourceId = (int) $_SESSION['agent'];
+        }
+
+    } elseif (isset($_SESSION['demo_agent'])) {
+
+        $eventSource = self::SOURCE_AGENT;
+
+        if (is_array($_SESSION['demo_agent']) && isset($_SESSION['demo_agent']['id'])) {
+            $sourceId = (int) $_SESSION['demo_agent']['id'];
+        } elseif (is_numeric($_SESSION['demo_agent'])) {
+            $sourceId = (int) $_SESSION['demo_agent'];
         }
 
     } elseif (isset($_SESSION['customer'])) {
@@ -229,6 +243,19 @@ public static function addCurrentUser(
             $sourceId = (int) $_SESSION['customer']['id'];
         } elseif (is_numeric($_SESSION['customer'])) {
             $sourceId = (int) $_SESSION['customer'];
+        }
+
+    } elseif (isset($_SESSION['demo_customer'])) {
+
+        $eventSource = self::SOURCE_CUSTOMER;
+
+        if (
+            is_array($_SESSION['demo_customer'])
+            && isset($_SESSION['demo_customer']['id'])
+        ) {
+            $sourceId = (int) $_SESSION['demo_customer']['id'];
+        } elseif (is_numeric($_SESSION['demo_customer'])) {
+            $sourceId = (int) $_SESSION['demo_customer'];
         }
     }
 

@@ -79,8 +79,15 @@ function requireDemoCustomerNormalAccess(): void
 function requireAdminLogin(): void
 {
     /**
-     * Demo Admin session takes priority.
-     *
+     * Demo Super Admin has its own portal and must not enter
+     * the shared Main/Demo Admin pages.
+     */
+    if (isset($_SESSION['demo_super_admin'])) {
+        header('Location: ?page=demo-super-admin-dashboard');
+        exit;
+    }
+
+    /**
      * Demo Admin uses the same Admin pages as Main/Dev,
      * but its authentication session is stored separately.
      */
