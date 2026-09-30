@@ -61,7 +61,7 @@ if ($isDemoAdmin) {
           AND c.demo_tenant_id = ?
           AND c.is_demo_account = 1
           AND s.demo_tenant_id = ?
-          AND s.is_demo_account = 1
+
         LIMIT 1
     ");
 
@@ -108,7 +108,7 @@ if ($isDemoAdmin) {
           AND c.demo_tenant_id = ?
           AND c.is_demo_account = 1
           AND s.demo_tenant_id = ?
-          AND s.is_demo_account = 1
+
         LIMIT 1
     ");
 
@@ -209,7 +209,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 */
 
 RequestEventHelper::addCurrentUser(
-    $pdo,
+    $closurePdo,
     (int) $requestId,
     RequestEventHelper::EVENT_CONSULTATION_CLOSED,
     RequestEventHelper::TYPE_CONSULTATION,

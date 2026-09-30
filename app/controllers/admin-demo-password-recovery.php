@@ -1,14 +1,17 @@
 <?php
 
+require_once APP_PATH . '/helpers/auth.php';
 require_once CONFIG_PATH . '/demo-database.php';
 require_once CONFIG_PATH . '/database.php';
 require_once CONFIG_PATH . '/settings.php';
 require_once APP_PATH . '/helpers/email.php';
 
-if (!isset($_SESSION['user'])) {
-    header('Location: ?page=login');
+if (isset($_SESSION['demo_super_admin']) || isset($_SESSION['demo_user'])) {
+    header('Location: ?page=demo-super-admin-dashboard');
     exit;
 }
+
+requireAdminLogin();
 
 $requestId = isset($_POST['request_id'])
     ? (int) $_POST['request_id']

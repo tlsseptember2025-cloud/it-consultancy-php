@@ -44,32 +44,84 @@ if ($isDemoAdmin || $isDemoSuperAdmin) {
 
 /*
 |--------------------------------------------------------------------------
+| Determine Database Context
+|--------------------------------------------------------------------------
+*/
+
+require_once APP_PATH . '/helpers/auth.php';
+
+$isDemoAdmin = isset($_SESSION['demo_user']);
+$isDemoSuperAdmin = isset($_SESSION['demo_super_admin']);
+
+if ($isDemoSuperAdmin) {
+    header('Location: ?page=demo-super-admin-dashboard');
+    exit;
+}
+
+if (!$isDemoAdmin && !isset($_SESSION['user'])) {
+    header('Location: ?page=login');
+    exit;
+}
+
+requireAdminLogin();
+
+require_once CONFIG_PATH . '/database.php';
+
+$approvedClosuresPdo = $pdo;
+$demoTenantId = 0;
+
+if ($isDemoAdmin) {
+
+    require_once CONFIG_PATH . '/demo-database.php';
+
+    $approvedClosuresPdo = $demoPdo;
+
+    $demoTenantId = (int) (
+        $_SESSION['demo_user']['demo_tenant_id'] ?? 0
+    );
+
+    if ($demoTenantId <= 0) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    $tenantStmt = $approvedClosuresPdo->prepare("
+        SELECT id
+        FROM demo_tenants
+        WHERE id = ?
+          AND status = 'Active'
+          AND (expires_at IS NULL OR expires_at >= CURDATE())
+        LIMIT 1
+    ");
+    $tenantStmt->execute([$demoTenantId]);
+
+    if (!$tenantStmt->fetchColumn()) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+}
+
+/*
+|--------------------------------------------------------------------------
 | Load Approved Closures
 |--------------------------------------------------------------------------
 */
 
-if ($isDemoAdmin) {
-
-    /*
-    |--------------------------------------------------------------------------
-    | Demo Admin
-    |--------------------------------------------------------------------------
-    |
-    | Demo Admin can only see requests belonging to their own Demo tenant.
-    |
-    */
-
-    $demoTenantId = (int) (
-        $_SESSION['demo_user']['demo_tenant_id']
-        ?? 0
-    );
-
-    if ($demoTenantId <= 0) {
-        die('Invalid Demo tenant.');
-    }
-
-    $where = "WHERE r.workflow_stage = ?";
+$where = "WHERE r.workflow_stage = ?";
 $params = ['Closure Approved'];
+
+if ($isDemoAdmin) {
+    $where .= "
+        AND c.demo_tenant_id = ?
+        AND c.is_demo_account = 1
+        AND s.demo_tenant_id = ?
+    ";
+
+    $params[] = $demoTenantId;
+    $params[] = $demoTenantId;
+}
 
 if ($search !== '') {
     $where .= "
@@ -107,99 +159,23 @@ $sql = "
 $stmt = $approvedClosuresPdo->prepare($sql);
 $stmt->execute($params);
 
-} else {
-
-    /*
-    |--------------------------------------------------------------------------
-    | Main Admin / Demo Super Admin
-    |--------------------------------------------------------------------------
-    |
-    | Main Admin sees Main database records.
-    | Demo Super Admin sees Demo database records.
-    |
-    */
-
-    $where = "
-        WHERE r.workflow_stage = ?
-          AND c.demo_tenant_id = ?
-          AND c.is_demo_account = 1
-          AND s.demo_tenant_id = ?
-          AND s.is_demo_account = 1
-    ";
-    $params = [
-        'Closure Approved',
-        $demoTenantId,
-        $demoTenantId
-    ];
-
-    if ($search !== '') {
-
-        $where .= "
-            AND (
-                r.id LIKE ?
-                OR r.description LIKE ?
-                OR c.name LIKE ?
-                OR s.title LIKE ?
-            )
-        ";
-
-        $searchValue = '%' . $search . '%';
-
-        $params[] = $searchValue;
-        $params[] = $searchValue;
-        $params[] = $searchValue;
-        $params[] = $searchValue;
-    }
-
-    $sql = "
-        SELECT
-            r.*,
-            c.name AS customer_name,
-            s.title AS service_name
-        FROM requests r
-        INNER JOIN customers c
-            ON c.id = r.customer_id
-        INNER JOIN services s
-            ON s.id = r.service_id
-        {$where}
-        ORDER BY r.id DESC
-        LIMIT {$limit} OFFSET {$offset}
-    ";
-
-    $stmt = $approvedClosuresPdo->prepare($sql);
-    $stmt->execute($params);
-
-}
-
-
 $requests = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $countWhere = "WHERE r.workflow_stage = ?";
 $countParams = ['Closure Approved'];
 
 if ($isDemoAdmin) {
-
-    $countDemoTenantId = (int) (
-        $_SESSION['demo_user']['demo_tenant_id'] ?? 0
-    );
-
-    if ($countDemoTenantId <= 0) {
-        die('Invalid Demo tenant.');
-    }
-
     $countWhere .= "
         AND c.demo_tenant_id = ?
         AND c.is_demo_account = 1
         AND s.demo_tenant_id = ?
-        AND s.is_demo_account = 1
     ";
 
-    $countParams[] = $countDemoTenantId;
-    $countParams[] = $countDemoTenantId;
+    $countParams[] = $demoTenantId;
+    $countParams[] = $demoTenantId;
 }
 
 if ($search !== '') {
-
     $countWhere .= "
         AND (
             r.id LIKE ?

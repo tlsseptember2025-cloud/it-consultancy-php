@@ -48,7 +48,7 @@ if ($isDemoAdmin) {
         AND c.demo_tenant_id = ?
         AND c.is_demo_account = 1
         AND s.demo_tenant_id = ?
-        AND s.is_demo_account = 1
+
     ";
 
     $params[] = $demoTenantId;

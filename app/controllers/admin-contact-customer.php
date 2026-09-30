@@ -1,13 +1,16 @@
 <?php
 
+require_once APP_PATH . '/helpers/auth.php';
 require_once APP_PATH . '/helpers/email.php';
 require_once APP_PATH . '/helpers/VerificationEmailHelper.php';
 require_once APP_PATH . '/helpers/contact_history_helper.php';
 
-if (!isset($_SESSION['user'])) {
-    header('Location: ?page=login');
+if (isset($_SESSION['demo_super_admin']) || isset($_SESSION['demo_user'])) {
+    header('Location: ?page=demo-super-admin-dashboard');
     exit;
 }
+
+requireAdminLogin();
 
 require_once CONFIG_PATH . '/database.php';
 require_once APP_PATH . '/helpers/RequestEventHelper.php';
