@@ -77,6 +77,8 @@
 
         <form method="POST">
 
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken) ?>">
+
             <div class="mb-3">
 
                  <div class="alert alert-warning">

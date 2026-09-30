@@ -1,17 +1,83 @@
 <?php
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
 
-if (!isset($_SESSION['user'])) {
-    header('Location: ?page=login');
+require_once APP_PATH . '/helpers/auth.php';
+
+requireAdminLogin();
+
+$isMainAdmin      = isset($_SESSION['user']);
+$isDemoAdmin      = isset($_SESSION['demo_user']);
+$isDemoSuperAdmin = isset($_SESSION['demo_super_admin']);
+
+if ($isDemoSuperAdmin) {
+    header('Location: ?page=demo-super-admin-dashboard');
     exit;
+}
+
+if ($isDemoAdmin) {
+    require_once CONFIG_PATH . '/demo-database.php';
+    $slipPdo = $demoPdo;
+
+    $demoTenantId = (int) ($_SESSION['demo_user']['demo_tenant_id'] ?? 0);
+
+    if ($demoTenantId <= 0) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    $tenantStmt = $slipPdo->prepare("
+        SELECT id, status, expires_at
+        FROM demo_tenants
+        WHERE id = ?
+        LIMIT 1
+    ");
+    $tenantStmt->execute([$demoTenantId]);
+    $tenant = $tenantStmt->fetch(PDO::FETCH_ASSOC);
+
+    if (
+        !$tenant ||
+        ($tenant['status'] ?? '') !== 'Active' ||
+        (!empty($tenant['expires_at']) && strtotime($tenant['expires_at']) < time())
+    ) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    $accountStmt = $slipPdo->prepare("
+        SELECT id
+        FROM users
+        WHERE id = ?
+          AND is_demo_account = 1
+          AND is_super_admin = 0
+          AND demo_tenant_id = ?
+        LIMIT 1
+    ");
+    $accountStmt->execute([
+        (int) ($_SESSION['demo_user']['id'] ?? 0),
+        $demoTenantId
+    ]);
+
+    if (!$accountStmt->fetchColumn()) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+} else {
+    require_once CONFIG_PATH . '/database.php';
+    $slipPdo = $pdo;
 }
 
 $id = (int) ($_GET['id'] ?? 0);
 
 if ($id <= 0) {
-    die('Invalid payment slip.');
+    $_SESSION['error'] = 'Invalid payment slip.';
+    header('Location: ?page=deposit-slips');
+    exit;
 }
 
-$stmt = $pdo->prepare("
+$stmt = $slipPdo->prepare("
     SELECT
         ps.*,
         c.name AS customer_name,
@@ -26,15 +92,28 @@ $stmt = $pdo->prepare("
     JOIN services s
         ON r.service_id = s.id
     WHERE ps.id = ?
+      AND (
+          ? = 0
+          OR (
+              c.demo_tenant_id = ?
+              AND c.is_demo_account = 1
+          )
+      )
     LIMIT 1
 ");
 
-$stmt->execute([$id]);
+$stmt->execute([
+    $id,
+    $isDemoAdmin ? $demoTenantId : 0,
+    $isDemoAdmin ? $demoTenantId : 0
+]);
 
 $slip = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$slip) {
-    die('Payment slip not found.');
+    $_SESSION['error'] = 'Payment slip not found or you do not have access to it.';
+    header('Location: ?page=deposit-slips');
+    exit;
 }
 
 require dirname(__DIR__) . '/layouts/header-admin.php';
@@ -133,7 +212,7 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
         <?php if ($fileExtension === 'pdf'): ?>
 
             <iframe
-                src="uploads/slips/<?= htmlspecialchars($slip['file_name']) ?>"
+                src="uploads/slips/<?= htmlspecialchars($slip['file_name'], ENT_QUOTES, 'UTF-8') ?>"
                 width="100%"
                 height="600"
                 class="border">
@@ -142,7 +221,7 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
         <?php else: ?>
 
             <img
-                src="uploads/slips/<?= htmlspecialchars($slip['file_name']) ?>"
+                src="uploads/slips/<?= htmlspecialchars($slip['file_name'], ENT_QUOTES, 'UTF-8') ?>"
                 class="img-fluid border"
                 style="max-width: 100%;">
 
@@ -151,7 +230,7 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
         <hr>
 
         <a
-            href="uploads/slips/<?= htmlspecialchars($slip['file_name']) ?>"
+            href="uploads/slips/<?= htmlspecialchars($slip['file_name'], ENT_QUOTES, 'UTF-8') ?>"
             target="_blank"
             class="btn btn-primary me-2">
 
@@ -162,7 +241,7 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
         <?php if ($slip['status'] === 'Pending'): ?>
 
             <a
-                href="?page=approve-slip&id=<?= $slip['id'] ?>"
+                href="?page=approve-slip&id=<?= $slip['id'] ?>&csrf_token=<?= urlencode($csrfToken) ?>"
                 class="btn btn-success"
                 onclick="return confirm('Confirm that the receipt has been checked and shows the full required amount before approving this payment.');">
 
@@ -171,7 +250,7 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
             </a>
 
             <a
-                href="?page=reject-slip&id=<?= $slip['id'] ?>"
+                href="?page=reject-slip&id=<?= $slip['id'] ?>&csrf_token=<?= urlencode($csrfToken) ?>"
                 class="btn btn-danger"
                 onclick="return confirm('Reject this payment receipt?');">
 

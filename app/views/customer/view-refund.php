@@ -1,60 +1,208 @@
 <?php
 
 require_once APP_PATH . '/helpers/DateHelper.php';
+require_once HELPER_PATH . '/auth.php';
 
-if (!isset($_SESSION['customer'])) {
+
+/*
+|--------------------------------------------------------------------------
+| Determine Customer Environment
+|--------------------------------------------------------------------------
+*/
+
+$isDemoCustomer = isset($_SESSION['demo_customer']);
+$isMainCustomer = isset($_SESSION['customer']);
+
+
+/*
+|--------------------------------------------------------------------------
+| Authentication
+|--------------------------------------------------------------------------
+*/
+
+if (!$isMainCustomer && !$isDemoCustomer) {
+
     header('Location: ?page=public-login');
     exit;
 }
 
-require_once HELPER_PATH . '/auth.php';
 
-requireCustomerLogin();
+/*
+|--------------------------------------------------------------------------
+| Select Correct Database
+|--------------------------------------------------------------------------
+*/
 
-require CONFIG_PATH . '/database.php';
+if ($isDemoCustomer) {
 
-$customerId = (int) $_SESSION['customer']['id'];
-$refundId   = (int) ($_GET['id'] ?? 0);
+    requireDemoCustomer();
+
+    require_once CONFIG_PATH . '/demo-database.php';
+
+    $db = $demoPdo;
+
+    $customerId = (int) $_SESSION['demo_customer']['id'];
+
+    $demoTenantId = (int) (
+        $_SESSION['demo_customer']['demo_tenant_id'] ?? 0
+    );
+
+    if ($demoTenantId <= 0) {
+
+        unset($_SESSION['demo_customer']);
+
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Validate Demo Customer
+    |--------------------------------------------------------------------------
+    */
+
+    $customerCheckStmt = $db->prepare("
+        SELECT id
+        FROM customers
+        WHERE id = ?
+          AND is_demo_account = 1
+          AND demo_tenant_id = ?
+        LIMIT 1
+    ");
+
+    $customerCheckStmt->execute([
+        $customerId,
+        $demoTenantId
+    ]);
+
+    if (!$customerCheckStmt->fetch(PDO::FETCH_ASSOC)) {
+
+        unset($_SESSION['demo_customer']);
+
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+} else {
+
+    requireCustomerLogin();
+
+    require CONFIG_PATH . '/database.php';
+
+    $db = $pdo;
+
+    $customerId = (int) $_SESSION['customer']['id'];
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Refund ID
+|--------------------------------------------------------------------------
+*/
+
+$refundId = (int) ($_GET['id'] ?? 0);
+
+if ($refundId <= 0) {
+
+    header('Location: ?page=customer-refunds');
+    exit;
+}
+
 
 /*
 |--------------------------------------------------------------------------
 | Load Refund
 |--------------------------------------------------------------------------
+|
+| Demo:
+| - authenticated Demo customer
+| - same Demo tenant
+| - Demo service
+|
+| Normal:
+| - authenticated customer
+|
 */
 
-$stmt = $pdo->prepare("
-    SELECT
-        rr.*,
+if ($isDemoCustomer) {
 
-        r.customer_id,
-        r.service_id,
+    $stmt = $db->prepare("
+        SELECT
+            rr.*,
 
-        c.name AS customer_name,
-        c.email AS customer_email,
+            r.customer_id,
+            r.service_id,
 
-        s.title AS service_title
+            c.name AS customer_name,
+            c.email AS customer_email,
 
-    FROM refund_requests rr
+            s.title AS service_title
 
-    JOIN requests r
-        ON rr.request_id = r.id
+        FROM refund_requests rr
 
-    JOIN customers c
-        ON r.customer_id = c.id
+        JOIN requests r
+            ON rr.request_id = r.id
 
-    JOIN services s
-        ON r.service_id = s.id
+        JOIN customers c
+            ON r.customer_id = c.id
 
-    WHERE rr.id = ?
-      AND r.customer_id = ?
+        JOIN services s
+            ON r.service_id = s.id
 
-    LIMIT 1
-");
+        WHERE rr.id = ?
+          AND r.customer_id = ?
+          AND c.is_demo_account = 1
+          AND c.demo_tenant_id = ?
+          AND s.is_demo_account = 1
+          AND s.demo_tenant_id = c.demo_tenant_id
 
-$stmt->execute([
-    $refundId,
-    $customerId
-]);
+        LIMIT 1
+    ");
+
+    $stmt->execute([
+        $refundId,
+        $customerId,
+        $demoTenantId
+    ]);
+
+} else {
+
+    $stmt = $db->prepare("
+        SELECT
+            rr.*,
+
+            r.customer_id,
+            r.service_id,
+
+            c.name AS customer_name,
+            c.email AS customer_email,
+
+            s.title AS service_title
+
+        FROM refund_requests rr
+
+        JOIN requests r
+            ON rr.request_id = r.id
+
+        JOIN customers c
+            ON r.customer_id = c.id
+
+        JOIN services s
+            ON r.service_id = s.id
+
+        WHERE rr.id = ?
+          AND r.customer_id = ?
+
+        LIMIT 1
+    ");
+
+    $stmt->execute([
+        $refundId,
+        $customerId
+    ]);
+}
+
 
 $refund = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -66,6 +214,7 @@ $refund = $stmt->fetch(PDO::FETCH_ASSOC);
 */
 
 if (!$refund) {
+
     header('Location: ?page=customer-refunds');
     exit;
 }
@@ -89,16 +238,16 @@ if ($refundStatus === 'Rejected') {
     $statusClass   = 'bg-danger';
 
 } elseif (
-    $refundStatus === 'Approved' &&
-    $paymentStatus === 'Completed'
+    $refundStatus === 'Approved'
+    && $paymentStatus === 'Completed'
 ) {
 
     $displayStatus = 'Completed';
     $statusClass   = 'bg-success';
 
 } elseif (
-    $refundStatus === 'Approved' &&
-    $paymentStatus === 'Processing'
+    $refundStatus === 'Approved'
+    && $paymentStatus === 'Processing'
 ) {
 
     $displayStatus = 'Processing';
@@ -120,7 +269,6 @@ if ($refundStatus === 'Rejected') {
     } else {
 
         $statusClass = 'bg-secondary';
-
     }
 }
 
@@ -496,8 +644,8 @@ if ($refundStatus === 'Rejected') {
                 <!-- Processing -->
 
                 <?php if (
-                    $refundStatus === 'Approved' &&
-                    $paymentStatus === 'Processing'
+                    $refundStatus === 'Approved'
+                    && $paymentStatus === 'Processing'
                 ): ?>
 
                     <div class="mb-4">
@@ -541,8 +689,8 @@ if ($refundStatus === 'Rejected') {
                 <!-- Completed -->
 
                 <?php if (
-                    $refundStatus === 'Approved' &&
-                    $paymentStatus === 'Completed'
+                    $refundStatus === 'Approved'
+                    && $paymentStatus === 'Completed'
                 ): ?>
 
                     <div class="mb-2">

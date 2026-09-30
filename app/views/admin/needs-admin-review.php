@@ -22,8 +22,9 @@ require_once HELPER_PATH . '/auth.php';
 | Demo Super Admin:
 |   Separate portal/workflow.
 |
-|--------------------------------------------------------------------------
 */
+
+requireAdminLogin();
 
 $isDemoAdmin   = isset($_SESSION['demo_user']);
 $isNormalAdmin = isset($_SESSION['user']);
@@ -31,25 +32,13 @@ $isNormalAdmin = isset($_SESSION['user']);
 
 /*
 |--------------------------------------------------------------------------
-| Require Normal Admin OR Demo Admin
+| Block Demo Super Admin From Normal Admin Workflow
 |--------------------------------------------------------------------------
 */
 
-if (!$isNormalAdmin && !$isDemoAdmin) {
+if (isset($_SESSION['demo_super_admin'])) {
 
-    if (isset($_SESSION['demo_super_admin'])) {
-
-        header('Location: ?page=dashboard');
-
-    } elseif (!empty($_SESSION['demo_logged_out'])) {
-
-        header('Location: ?page=demo-login');
-
-    } else {
-
-        header('Location: ?page=login');
-    }
-
+    header('Location: ?page=demo-super-admin-dashboard');
     exit;
 }
 

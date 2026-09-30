@@ -1,18 +1,82 @@
 <?php
 
+require_once HELPER_PATH . '/auth.php';
 require_once APP_PATH . '/helpers/DateHelper.php';
-require_once HELPER_PATH . '/RequestEventHelper.php';
+require_once APP_PATH . '/helpers/RequestEventHelper.php';
+require_once HELPER_PATH . '/notifications.php';
 
-if (!isset($_SESSION['user'])) {
-    header('Location: ?page=login');
+/*
+|--------------------------------------------------------------------------
+| Admin Context
+|--------------------------------------------------------------------------
+*/
+
+requireAdminLogin();
+
+$isDemoAdmin = isset($_SESSION['demo_user']);
+$isDemoSuperAdmin = isset($_SESSION['demo_super_admin']);
+
+if ($isDemoSuperAdmin) {
+    header('Location: ?page=demo-super-admin-dashboard');
     exit;
 }
 
-require_once HELPER_PATH . '/notifications.php';
+/*
+|--------------------------------------------------------------------------
+| Select Correct Database
+|--------------------------------------------------------------------------
+*/
 
-$refundId = $_GET['id'] ?? 0;
+if ($isDemoAdmin) {
 
-$stmt = $pdo->prepare("
+    requireDemoAdmin();
+
+    require_once CONFIG_PATH . '/demo-database.php';
+
+    $reviewPdo = $demoPdo;
+
+    $demoTenantId = (int) (
+        $_SESSION['demo_user']['demo_tenant_id'] ?? 0
+    );
+
+    if ($demoTenantId <= 0) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+} else {
+
+    require_once CONFIG_PATH . '/database.php';
+
+    $reviewPdo = $pdo;
+
+    $demoTenantId = 0;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Refund ID
+|--------------------------------------------------------------------------
+*/
+
+$refundId = isset($_GET['id']) ? (int) $_GET['id'] : 0;
+
+if ($refundId <= 0) {
+    header('Location: ?page=refund-requests');
+    exit;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Load Refund Request
+|--------------------------------------------------------------------------
+| The tenant restriction is part of the query itself so a Demo Admin
+| cannot access another tenant's refund by changing the URL.
+|--------------------------------------------------------------------------
+*/
+
+$stmt = $reviewPdo->prepare("
     SELECT
         rr.*,
 
@@ -55,9 +119,21 @@ $stmt = $pdo->prepare("
         ON p.request_id = r.id
 
     WHERE rr.id = ?
+      AND (
+          ? = 0
+          OR (
+              c.demo_tenant_id = ?
+              AND c.is_demo_account = 1
+          )
+      )
+    LIMIT 1
 ");
 
-$stmt->execute([$refundId]);
+$stmt->execute([
+    $refundId,
+    $demoTenantId,
+    $demoTenantId
+]);
 
 $refund = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -65,110 +141,213 @@ if (!$refund) {
     die('Refund request not found.');
 }
 
-$error = '';
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-
-    $notes = trim($_POST['review_notes'] ?? '');
-    $decision = $_POST['decision'] ?? '';
-    $refundAmount = trim($_POST['refund_amount'] ?? '');
-
-    if ($decision == '') {
-
-    $error = 'Please select a decision.';
-
-    } elseif ($decision == 'approve' && $refundAmount == '') {
-
-        $error = 'Please enter the refund amount.';
-
-    } elseif ($decision == 'approve' && !is_numeric($refundAmount)) {
-
-        $error = 'Refund amount must be a valid number.';
-
-    } elseif ($decision == 'approve' && $refundAmount > $refund['payment_amount']) {
-
-        $error = 'Refund amount cannot exceed the amount paid by the customer.';
-
-    } elseif ($decision == 'reject' && $notes == '') {
-
-        $error = 'Please provide review notes when rejecting a refund request.';
-
-    } else {
-
-        $status = ($decision == 'approve')
-            ? 'Approved'
-            : 'Rejected';
-
-        $stmt = $pdo->prepare("
-            UPDATE refund_requests
-            SET
-                status = ?,
-                review_notes = ?,
-                refund_amount = ?,
-                refund_status = ?,
-                reviewed_at = NOW()
-            WHERE id = ?
-        ");
-
-        $stmt->execute([
-        $status,
-        $notes,
-        $decision == 'approve' ? $refundAmount : null,
-        $decision == 'approve' ? 'Processing' : null,
-        $refundId
-        ]);
-
-        /*
+/*
 |--------------------------------------------------------------------------
-| Record Refund Decision Event
+| CSRF Protection
 |--------------------------------------------------------------------------
 */
 
-if ($decision === 'approve') {
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
 
-    RequestEventHelper::addCurrentUser(
-        $pdo,
-        (int) $refund['request_id'],
-        'REFUND_APPROVED',
-        RequestEventHelper::TYPE_REFUND,
-        'Refund Approved',
-        'The administrator approved the refund request.',
-        true
-    );
+$error = '';
 
-} elseif ($decision === 'reject') {
+/*
+|--------------------------------------------------------------------------
+| Process Refund Decision
+|--------------------------------------------------------------------------
+*/
 
-    RequestEventHelper::addCurrentUser(
-        $pdo,
-        (int) $refund['request_id'],
-        'REFUND_REJECTED',
-        RequestEventHelper::TYPE_REFUND,
-        'Refund Rejected',
-        'The administrator rejected the refund request.',
-        true
-    );
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-}
+    if (!hash_equals($csrfToken, $_POST['csrf_token'] ?? '')) {
 
-        createNotification(
-            $pdo,
-            'customer',
-            $refund['customer_id'],
-            'Refund Request Updated',
-            'Your refund request for "' .
-                $refund['service_title'] .
-                '" has been ' .
-                strtolower($status) .
-                '.',
-            '?page=customer-refunds'
-        );
+        $error = 'Invalid security token. Please refresh the page and try again.';
 
-        header('Location: ?page=refund-requests');
-        exit;
+    } elseif (($refund['status'] ?? '') !== 'Pending') {
+
+        $error = 'This refund request has already been reviewed.';
+
+    } else {
+
+        $notes = trim($_POST['review_notes'] ?? '');
+        $decision = $_POST['decision'] ?? '';
+        $refundAmountInput = trim($_POST['refund_amount'] ?? '');
+
+        if (!in_array($decision, ['approve', 'reject'], true)) {
+
+            $error = 'Please select a valid decision.';
+
+        } elseif ($decision === 'approve') {
+
+            if ($refundAmountInput === '') {
+
+                $error = 'Please enter the refund amount.';
+
+            } elseif (!is_numeric($refundAmountInput)) {
+
+                $error = 'Refund amount must be a valid number.';
+
+            } else {
+
+                $refundAmount = round((float) $refundAmountInput, 2);
+                $paymentAmount = round((float) ($refund['payment_amount'] ?? 0), 2);
+
+                if ($refundAmount <= 0) {
+
+                    $error = 'Refund amount must be greater than zero.';
+
+                } elseif ($refundAmount > $paymentAmount) {
+
+                    $error = 'Refund amount cannot exceed the amount paid by the customer.';
+
+                }
+            }
+
+        } elseif ($decision === 'reject' && $notes === '') {
+
+            $error = 'Please provide review notes when rejecting a refund request.';
+
+        }
+
+        if ($error === '') {
+
+            $status = $decision === 'approve'
+                ? 'Approved'
+                : 'Rejected';
+
+            $finalRefundAmount = $decision === 'approve'
+                ? $refundAmount
+                : null;
+
+            $refundStatus = $decision === 'approve'
+                ? 'Processing'
+                : null;
+
+            try {
+
+                $reviewPdo->beginTransaction();
+
+                /*
+                |--------------------------------------------------------------------------
+                | Re-check Pending Status Inside Transaction
+                |--------------------------------------------------------------------------
+                */
+
+                $lockStmt = $reviewPdo->prepare("
+                    SELECT status
+                    FROM refund_requests
+                    WHERE id = ?
+                    FOR UPDATE
+                ");
+
+                $lockStmt->execute([$refundId]);
+
+                $lockedRefund = $lockStmt->fetch(PDO::FETCH_ASSOC);
+
+                if (!$lockedRefund || $lockedRefund['status'] !== 'Pending') {
+                    throw new RuntimeException(
+                        'This refund request has already been reviewed.'
+                    );
+                }
+
+                /*
+                |--------------------------------------------------------------------------
+                | Update Refund Request
+                |--------------------------------------------------------------------------
+                */
+
+                $updateStmt = $reviewPdo->prepare("
+                    UPDATE refund_requests
+                    SET
+                        status = ?,
+                        review_notes = ?,
+                        refund_amount = ?,
+                        refund_status = ?,
+                        reviewed_at = NOW()
+                    WHERE id = ?
+                ");
+
+                $updateStmt->execute([
+                    $status,
+                    $notes,
+                    $finalRefundAmount,
+                    $refundStatus,
+                    $refundId
+                ]);
+
+                /*
+                |--------------------------------------------------------------------------
+                | Record Refund Decision Event
+                |--------------------------------------------------------------------------
+                */
+
+                if ($decision === 'approve') {
+
+                    RequestEventHelper::addCurrentUser(
+                        $reviewPdo,
+                        (int) $refund['request_id'],
+                        'REFUND_APPROVED',
+                        RequestEventHelper::TYPE_REFUND,
+                        'Refund Approved',
+                        'The administrator approved the refund request.',
+                        true
+                    );
+
+                } else {
+
+                    RequestEventHelper::addCurrentUser(
+                        $reviewPdo,
+                        (int) $refund['request_id'],
+                        'REFUND_REJECTED',
+                        RequestEventHelper::TYPE_REFUND,
+                        'Refund Rejected',
+                        'The administrator rejected the refund request.',
+                        true
+                    );
+                }
+
+                /*
+                |--------------------------------------------------------------------------
+                | Customer Notification
+                |--------------------------------------------------------------------------
+                */
+
+                createNotification(
+                    $reviewPdo,
+                    'customer',
+                    $refund['customer_id'],
+                    'Refund Request Updated',
+                    'Your refund request for "' .
+                        $refund['service_title'] .
+                        '" has been ' .
+                        strtolower($status) .
+                        '.',
+                    '?page=customer-refunds'
+                );
+
+                $reviewPdo->commit();
+
+                header('Location: ?page=refund-requests');
+                exit;
+
+            } catch (Throwable $e) {
+
+                if ($reviewPdo->inTransaction()) {
+                    $reviewPdo->rollBack();
+                }
+
+                $error = $e->getMessage();
+
+                if ($error === '') {
+                    $error = 'Unable to process the refund request. Please try again.';
+                }
+            }
+        }
     }
 }
 
 require dirname(__DIR__) . '/layouts/header-admin.php';
+?>
 ?>
 
 <div class="container mt-4">
@@ -182,6 +361,8 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
     <?php endif; ?>
 
     <form method="POST">
+
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken) ?>">
 
         <!-- Customer Information -->
 

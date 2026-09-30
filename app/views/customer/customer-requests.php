@@ -124,38 +124,101 @@ $searchColumns = [
 
 $countParams = [$customerId];
 
+if ($isDemoCustomer) {
+    $countParams[] = $demoTenantId;
+}
+
 $countSearchCondition = buildSearchCondition(
     $searchColumns,
     $search,
     $countParams
 );
 
-$countSql = "
-    SELECT COUNT(DISTINCT r.id)
+if ($isDemoCustomer) {
 
-    FROM requests r
+    $countSql = "
+        SELECT COUNT(DISTINCT r.id)
 
-    JOIN services s
-        ON r.service_id = s.id
+        FROM requests r
 
-    LEFT JOIN consultation_bookings cb
-        ON cb.request_id = r.id
+        JOIN customers c
+            ON c.id = r.customer_id
 
-    LEFT JOIN consultation_slots cs
-        ON cs.id = cb.slot_id
+        JOIN services s
+            ON r.service_id = s.id
 
-    LEFT JOIN consultation_slots pending_cs
-        ON pending_cs.id = r.pending_reschedule_slot_id
+        LEFT JOIN consultation_bookings cb
+            ON cb.request_id = r.id
 
-    LEFT JOIN service_bookings sb
-        ON sb.request_id = r.id
+        LEFT JOIN agents ca
+            ON ca.id = cb.agent_id
 
-    LEFT JOIN service_slots ss
-        ON ss.id = sb.slot_id
+        LEFT JOIN consultation_slots cs
+            ON cs.id = cb.slot_id
 
-    WHERE r.customer_id = ?
-    {$countSearchCondition}
-";
+        LEFT JOIN consultation_slots pending_cs
+            ON pending_cs.id = r.pending_reschedule_slot_id
+
+        LEFT JOIN service_bookings sb
+            ON sb.request_id = r.id
+
+        LEFT JOIN agents sa
+            ON sa.id = sb.agent_id
+
+        LEFT JOIN service_slots ss
+            ON ss.id = sb.slot_id
+
+        WHERE r.customer_id = ?
+          AND c.demo_tenant_id = ?
+          AND c.is_demo_account = 1
+          AND s.demo_tenant_id = c.demo_tenant_id
+          AND s.is_demo_account = 1
+          AND (
+                cb.id IS NULL
+                OR (
+                    ca.demo_tenant_id = c.demo_tenant_id
+                    AND ca.is_demo_account = 1
+                )
+          )
+          AND (
+                sb.id IS NULL
+                OR (
+                    sa.demo_tenant_id = c.demo_tenant_id
+                    AND sa.is_demo_account = 1
+                )
+          )
+        {$countSearchCondition}
+    ";
+
+} else {
+
+    $countSql = "
+        SELECT COUNT(DISTINCT r.id)
+
+        FROM requests r
+
+        JOIN services s
+            ON r.service_id = s.id
+
+        LEFT JOIN consultation_bookings cb
+            ON cb.request_id = r.id
+
+        LEFT JOIN consultation_slots cs
+            ON cs.id = cb.slot_id
+
+        LEFT JOIN consultation_slots pending_cs
+            ON pending_cs.id = r.pending_reschedule_slot_id
+
+        LEFT JOIN service_bookings sb
+            ON sb.request_id = r.id
+
+        LEFT JOIN service_slots ss
+            ON ss.id = sb.slot_id
+
+        WHERE r.customer_id = ?
+        {$countSearchCondition}
+    ";
+}
 
 $countStmt = $customerPdo->prepare($countSql);
 
@@ -204,56 +267,137 @@ $offset = getPageOffset(
 
 $requestParams = [$customerId];
 
+if ($isDemoCustomer) {
+    $requestParams[] = $demoTenantId;
+}
+
 $requestSearchCondition = buildSearchCondition(
     $searchColumns,
     $search,
     $requestParams
 );
 
-$requestSql = "
-    SELECT
-        r.*,
+if ($isDemoCustomer) {
 
-        s.title AS service_title,
+    $requestSql = "
+        SELECT
+            r.*,
 
-        cs.slot_date,
-        cs.slot_time,
+            s.title AS service_title,
 
-        pending_cs.slot_date AS pending_slot_date,
-        pending_cs.slot_time AS pending_slot_time,
+            cs.slot_date,
+            cs.slot_time,
 
-        cs.consultation_method,
+            pending_cs.slot_date AS pending_slot_date,
+            pending_cs.slot_time AS pending_slot_time,
 
-        ss.service_date,
-        ss.service_time
+            cs.consultation_method,
 
-    FROM requests r
+            ss.service_date,
+            ss.service_time
 
-    JOIN services s
-        ON r.service_id = s.id
+        FROM requests r
 
-    LEFT JOIN consultation_bookings cb
-        ON cb.request_id = r.id
+        JOIN customers c
+            ON c.id = r.customer_id
 
-    LEFT JOIN consultation_slots cs
-        ON cs.id = cb.slot_id
+        JOIN services s
+            ON r.service_id = s.id
 
-    LEFT JOIN consultation_slots pending_cs
-        ON pending_cs.id = r.pending_reschedule_slot_id
+        LEFT JOIN consultation_bookings cb
+            ON cb.request_id = r.id
 
-    LEFT JOIN service_bookings sb
-        ON sb.request_id = r.id
+        LEFT JOIN agents ca
+            ON ca.id = cb.agent_id
 
-    LEFT JOIN service_slots ss
-        ON ss.id = sb.slot_id
+        LEFT JOIN consultation_slots cs
+            ON cs.id = cb.slot_id
 
-    WHERE r.customer_id = ?
-    {$requestSearchCondition}
+        LEFT JOIN consultation_slots pending_cs
+            ON pending_cs.id = r.pending_reschedule_slot_id
 
-    ORDER BY r.id DESC
+        LEFT JOIN service_bookings sb
+            ON sb.request_id = r.id
 
-    LIMIT ? OFFSET ?
-";
+        LEFT JOIN agents sa
+            ON sa.id = sb.agent_id
+
+        LEFT JOIN service_slots ss
+            ON ss.id = sb.slot_id
+
+        WHERE r.customer_id = ?
+          AND c.demo_tenant_id = ?
+          AND c.is_demo_account = 1
+          AND s.demo_tenant_id = c.demo_tenant_id
+          AND s.is_demo_account = 1
+          AND (
+                cb.id IS NULL
+                OR (
+                    ca.demo_tenant_id = c.demo_tenant_id
+                    AND ca.is_demo_account = 1
+                )
+          )
+          AND (
+                sb.id IS NULL
+                OR (
+                    sa.demo_tenant_id = c.demo_tenant_id
+                    AND sa.is_demo_account = 1
+                )
+          )
+        {$requestSearchCondition}
+
+        ORDER BY r.id DESC
+
+        LIMIT ? OFFSET ?
+    ";
+
+} else {
+
+    $requestSql = "
+        SELECT
+            r.*,
+
+            s.title AS service_title,
+
+            cs.slot_date,
+            cs.slot_time,
+
+            pending_cs.slot_date AS pending_slot_date,
+            pending_cs.slot_time AS pending_slot_time,
+
+            cs.consultation_method,
+
+            ss.service_date,
+            ss.service_time
+
+        FROM requests r
+
+        JOIN services s
+            ON r.service_id = s.id
+
+        LEFT JOIN consultation_bookings cb
+            ON cb.request_id = r.id
+
+        LEFT JOIN consultation_slots cs
+            ON cs.id = cb.slot_id
+
+        LEFT JOIN consultation_slots pending_cs
+            ON pending_cs.id = r.pending_reschedule_slot_id
+
+        LEFT JOIN service_bookings sb
+            ON sb.request_id = r.id
+
+        LEFT JOIN service_slots ss
+            ON ss.id = sb.slot_id
+
+        WHERE r.customer_id = ?
+        {$requestSearchCondition}
+
+        ORDER BY r.id DESC
+
+        LIMIT ? OFFSET ?
+    ";
+}
 
 $stmt = $customerPdo->prepare($requestSql);
 
@@ -361,6 +505,17 @@ if ($page < $totalPages) {
 }
 
 ?>
+
+<?php if (!empty($_SESSION['stripe_error'])): ?>
+
+    <div class="alert alert-warning">
+        <?= htmlspecialchars($_SESSION['stripe_error'], ENT_QUOTES, 'UTF-8') ?>
+    </div>
+
+    <?php unset($_SESSION['stripe_error']); ?>
+
+<?php endif; ?>
+
 
 <?php if (!empty($_SESSION['success'])): ?>
 
@@ -1067,13 +1222,24 @@ $hasNormalRescheduleAvailable =
     $request['workflow_stage'] === 'Awaiting Payment'
 ): ?>
 
-    <a
-        href="?page=customer-upload-slip&request_id=<?= $request['id'] ?>"
-        class="btn btn-warning btn-sm">
+    <div class="d-flex flex-wrap gap-2">
 
-        Upload Payment Receipt
+        <form method="POST" action="?page=stripe-create-checkout" class="d-inline">
+            <input type="hidden" name="request_id" value="<?= (int) $request['id'] ?>">
+            <button type="submit" class="btn btn-primary btn-sm">
+                <i class="bi bi-credit-card"></i>
+                Pay by Card
+            </button>
+        </form>
 
-    </a>
+        <a
+            href="?page=customer-upload-slip&request_id=<?= $request['id'] ?>"
+            class="btn btn-warning btn-sm">
+            <i class="bi bi-bank"></i>
+            Bank Transfer
+        </a>
+
+    </div>
 
 <?php endif; ?>
 

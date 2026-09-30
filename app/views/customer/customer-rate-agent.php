@@ -1,171 +1,372 @@
 <?php
 
-if (!isset($_SESSION['customer'])) {
-
-    header('Location: ?page=public-login');
-    exit;
-}
-
-require_once CONFIG_PATH . '/database.php';
-
-
-$bookingId = (int) ($_GET['booking_id'] ?? 0);
-
-$serviceBookingId = (int) ($_GET['service_booking_id'] ?? 0);
-
-$requestId = (int) ($_GET['request_id'] ?? 0);
-
-$type = $_GET['type'] ?? '';
-
-if (!in_array($type, ['consultation', 'service'], true)) {
-
-    die('Invalid rating request.');
-
-}
-
-if ($type === 'consultation' && $bookingId <= 0) {
-
-    die('Invalid consultation rating request.');
-
-}
-
-if ($type === 'service' && $serviceBookingId <= 0) {
-
-    die('Invalid service rating request.');
-
-}
-
-if (!in_array($type, ['consultation', 'service'], true)) {
-
-    die('Invalid rating request.');
-
-}
-
-if ($type === 'consultation' && $bookingId <= 0) {
-
-    die('Invalid consultation rating request.');
-
-}
-
-if ($type === 'service' && $requestId <= 0) {
-
-    die('Invalid service rating request.');
-
-}
-
-$customerId = (int) $_SESSION['customer']['id'];
-
+require_once HELPER_PATH . '/auth.php';
 
 /*
- * Get the request and verify that it belongs
- * to the logged-in customer.
- */
+|--------------------------------------------------------------------------
+| Customer database / authentication context
+|--------------------------------------------------------------------------
+*/
 
-if ($type === 'consultation') {
+$isDemoCustomer = isset($_SESSION['demo_customer']);
 
-    $stmt = $pdo->prepare("
-        SELECT
-            r.id,
-            r.customer_id,
-            r.agent_id,
-            r.workflow_stage,
-            r.job_status,
-            r.completed_at,
+if ($isDemoCustomer) {
 
-            cb.id AS consultation_booking_id,
-            cb.agent_id AS booking_agent_id,
+    requireDemoCustomer();
 
-            c.name AS customer_name,
-            c.email,
+    require_once CONFIG_PATH . '/demo-database.php';
 
-            s.title AS service_name,
+    $ratingPdo = $demoPdo;
 
-            a.name AS agent_name
+    $customerId = (int) (
+        $_SESSION['demo_customer']['id'] ?? 0
+    );
 
-        FROM consultation_bookings cb
+    $demoTenantId = (int) (
+        $_SESSION['demo_customer']['demo_tenant_id'] ?? 0
+    );
 
-        INNER JOIN requests r
-            ON r.id = cb.request_id
+    if ($customerId <= 0 || $demoTenantId <= 0) {
 
-        INNER JOIN customers c
-            ON c.id = r.customer_id
+        unset($_SESSION['demo_customer']);
 
-        INNER JOIN services s
-            ON s.id = r.service_id
+        header('Location: ?page=demo-login');
+        exit;
+    }
 
-        LEFT JOIN agents a
-            ON a.id = cb.agent_id
+    /*
+    |--------------------------------------------------------------------------
+    | Verify Demo Customer
+    |--------------------------------------------------------------------------
+    */
 
-        WHERE
-            cb.id = ?
-            AND r.customer_id = ?
-
+    $demoCustomerCheck = $ratingPdo->prepare("
+        SELECT id
+        FROM customers
+        WHERE id = ?
+          AND demo_tenant_id = ?
+          AND is_demo_account = 1
         LIMIT 1
     ");
 
-    $stmt->execute([
-        $bookingId,
-        $customerId
+    $demoCustomerCheck->execute([
+        $customerId,
+        $demoTenantId
     ]);
+
+    if (!$demoCustomerCheck->fetchColumn()) {
+
+        unset($_SESSION['demo_customer']);
+
+        header('Location: ?page=demo-login');
+        exit;
+    }
 
 } else {
 
-    $stmt = $pdo->prepare("
-        SELECT
-            r.id,
-            r.customer_id,
-            r.agent_id,
-            r.workflow_stage,
-            r.job_status,
-            r.completed_at,
+    if (!isset($_SESSION['customer'])) {
 
-            sb.id AS service_booking_id,
-            sb.agent_id AS booking_agent_id,
+        header('Location: ?page=public-login');
+        exit;
+    }
 
-            c.name AS customer_name,
-            c.email,
+    requireCustomerLogin();
 
-            s.title AS service_name,
+    require_once CONFIG_PATH . '/database.php';
 
-            a.name AS agent_name
+    $ratingPdo = $pdo;
 
-        FROM service_bookings sb
+    $customerId = (int) $_SESSION['customer']['id'];
+}
 
-        INNER JOIN requests r
-            ON r.id = sb.request_id
+/*
+|--------------------------------------------------------------------------
+| Request Parameters
+|--------------------------------------------------------------------------
+*/
 
-        INNER JOIN customers c
-            ON c.id = r.customer_id
+$bookingId = (int) (
+    $_GET['booking_id'] ?? 0
+);
 
-        INNER JOIN services s
-            ON s.id = r.service_id
+$serviceBookingId = (int) (
+    $_GET['service_booking_id'] ?? 0
+);
 
-        LEFT JOIN agents a
-            ON a.id = sb.agent_id
+$requestId = (int) (
+    $_GET['request_id'] ?? 0
+);
 
-        WHERE
-            sb.id = ?
-            AND r.customer_id = ?
+$type = $_GET['type'] ?? '';
 
-        LIMIT 1
-    ");
+/*
+|--------------------------------------------------------------------------
+| Validate Rating Type
+|--------------------------------------------------------------------------
+*/
 
-    $stmt->execute([
-        $serviceBookingId,
-        $customerId
-    ]);
+if (!in_array($type, ['consultation', 'service'], true)) {
 
+    die('Invalid rating request.');
+}
+
+if (
+    $type === 'consultation'
+    && $bookingId <= 0
+) {
+
+    die('Invalid consultation rating request.');
+}
+
+if (
+    $type === 'service'
+    && $serviceBookingId <= 0
+) {
+
+    die('Invalid service rating request.');
+}
+
+/*
+|--------------------------------------------------------------------------
+| Load Consultation / Service
+|--------------------------------------------------------------------------
+*/
+
+if ($type === 'consultation') {
+
+    /*
+    |--------------------------------------------------------------------------
+    | Consultation Rating
+    |--------------------------------------------------------------------------
+    */
+
+    if ($isDemoCustomer) {
+
+        $stmt = $ratingPdo->prepare("
+            SELECT
+                r.id,
+                r.customer_id,
+                r.agent_id,
+                r.workflow_stage,
+                r.job_status,
+                r.completed_at,
+
+                cb.id AS consultation_booking_id,
+                cb.agent_id AS booking_agent_id,
+
+                c.name AS customer_name,
+                c.email,
+
+                s.title AS service_name,
+
+                a.name AS agent_name
+
+            FROM consultation_bookings cb
+
+            INNER JOIN requests r
+                ON r.id = cb.request_id
+
+            INNER JOIN customers c
+                ON c.id = r.customer_id
+
+            INNER JOIN services s
+                ON s.id = r.service_id
+
+            LEFT JOIN agents a
+                ON a.id = cb.agent_id
+
+            WHERE cb.id = ?
+              AND r.customer_id = ?
+
+              AND c.demo_tenant_id = ?
+              AND c.is_demo_account = 1
+
+              AND s.demo_tenant_id = c.demo_tenant_id
+              AND s.is_demo_account = 1
+
+              AND a.demo_tenant_id = c.demo_tenant_id
+              AND a.is_demo_account = 1
+
+            LIMIT 1
+        ");
+
+        $stmt->execute([
+            $bookingId,
+            $customerId,
+            $demoTenantId
+        ]);
+
+    } else {
+
+        $stmt = $ratingPdo->prepare("
+            SELECT
+                r.id,
+                r.customer_id,
+                r.agent_id,
+                r.workflow_stage,
+                r.job_status,
+                r.completed_at,
+
+                cb.id AS consultation_booking_id,
+                cb.agent_id AS booking_agent_id,
+
+                c.name AS customer_name,
+                c.email,
+
+                s.title AS service_name,
+
+                a.name AS agent_name
+
+            FROM consultation_bookings cb
+
+            INNER JOIN requests r
+                ON r.id = cb.request_id
+
+            INNER JOIN customers c
+                ON c.id = r.customer_id
+
+            INNER JOIN services s
+                ON s.id = r.service_id
+
+            LEFT JOIN agents a
+                ON a.id = cb.agent_id
+
+            WHERE cb.id = ?
+              AND r.customer_id = ?
+
+            LIMIT 1
+        ");
+
+        $stmt->execute([
+            $bookingId,
+            $customerId
+        ]);
+    }
+
+} else {
+
+    /*
+    |--------------------------------------------------------------------------
+    | Service Rating
+    |--------------------------------------------------------------------------
+    */
+
+    if ($isDemoCustomer) {
+
+        $stmt = $ratingPdo->prepare("
+            SELECT
+                r.id,
+                r.customer_id,
+                r.agent_id,
+                r.workflow_stage,
+                r.job_status,
+                r.completed_at,
+
+                sb.id AS service_booking_id,
+                sb.agent_id AS booking_agent_id,
+
+                c.name AS customer_name,
+                c.email,
+
+                s.title AS service_name,
+
+                a.name AS agent_name
+
+            FROM service_bookings sb
+
+            INNER JOIN requests r
+                ON r.id = sb.request_id
+
+            INNER JOIN customers c
+                ON c.id = r.customer_id
+
+            INNER JOIN services s
+                ON s.id = r.service_id
+
+            LEFT JOIN agents a
+                ON a.id = sb.agent_id
+
+            WHERE sb.id = ?
+              AND r.customer_id = ?
+
+              AND c.demo_tenant_id = ?
+              AND c.is_demo_account = 1
+
+              AND s.demo_tenant_id = c.demo_tenant_id
+              AND s.is_demo_account = 1
+
+              AND a.demo_tenant_id = c.demo_tenant_id
+              AND a.is_demo_account = 1
+
+            LIMIT 1
+        ");
+
+        $stmt->execute([
+            $serviceBookingId,
+            $customerId,
+            $demoTenantId
+        ]);
+
+    } else {
+
+        $stmt = $ratingPdo->prepare("
+            SELECT
+                r.id,
+                r.customer_id,
+                r.agent_id,
+                r.workflow_stage,
+                r.job_status,
+                r.completed_at,
+
+                sb.id AS service_booking_id,
+                sb.agent_id AS booking_agent_id,
+
+                c.name AS customer_name,
+                c.email,
+
+                s.title AS service_name,
+
+                a.name AS agent_name
+
+            FROM service_bookings sb
+
+            INNER JOIN requests r
+                ON r.id = sb.request_id
+
+            INNER JOIN customers c
+                ON c.id = r.customer_id
+
+            INNER JOIN services s
+                ON s.id = r.service_id
+
+            LEFT JOIN agents a
+                ON a.id = sb.agent_id
+
+            WHERE sb.id = ?
+              AND r.customer_id = ?
+
+            LIMIT 1
+        ");
+
+        $stmt->execute([
+            $serviceBookingId,
+            $customerId
+        ]);
+    }
 }
 
 $request = $stmt->fetch(PDO::FETCH_ASSOC);
 
-
 if (!$request) {
 
     die('Request not found.');
-
 }
 
+/*
+|--------------------------------------------------------------------------
+| Confirm Agent Assignment
+|--------------------------------------------------------------------------
+*/
 
 if (empty($request['booking_agent_id'])) {
 
@@ -174,12 +375,14 @@ if (empty($request['booking_agent_id'])) {
             ? 'No agent is assigned to this consultation.'
             : 'No agent is assigned to this service.'
     );
-
 }
 
 /*
- * Make sure the relevant work has actually been completed.
- */
+|--------------------------------------------------------------------------
+| Make Sure Work Has Actually Been Completed
+|--------------------------------------------------------------------------
+*/
+
 if ($type === 'consultation') {
 
     if (
@@ -188,11 +391,12 @@ if ($type === 'consultation') {
         || empty($request['completed_at'])
     ) {
 
-        die('This consultation is not available for rating yet.');
-
+        die(
+            'This consultation is not available for rating yet.'
+        );
     }
 
-} elseif ($type === 'service') {
+} else {
 
     if (
         empty($request['service_booking_id'])
@@ -200,20 +404,21 @@ if ($type === 'consultation') {
         || empty($request['completed_at'])
     ) {
 
-        die('This service is not available for rating yet.');
-
+        die(
+            'This service is not available for rating yet.'
+        );
     }
-
 }
 
 /*
- * Check whether the customer has already rated
- * this request and rating type.
- */
+|--------------------------------------------------------------------------
+| Check Existing Rating
+|--------------------------------------------------------------------------
+*/
 
 if ($type === 'consultation') {
 
-    $stmt = $pdo->prepare("
+    $stmt = $ratingPdo->prepare("
         SELECT rating
         FROM agent_ratings
         WHERE consultation_booking_id = ?
@@ -228,7 +433,7 @@ if ($type === 'consultation') {
 
 } else {
 
-    $stmt = $pdo->prepare("
+    $stmt = $ratingPdo->prepare("
         SELECT rating
         FROM agent_ratings
         WHERE service_booking_id = ?
@@ -244,37 +449,48 @@ if ($type === 'consultation') {
 
 $existingRating = $stmt->fetchColumn();
 
-
 if ($existingRating !== false) {
 
-    die('You have already rated this ' . $type . '.');
-
+    die(
+        'You have already rated this ' . $type . '.'
+    );
 }
-
 
 $error = null;
 $success = null;
 
+/*
+|--------------------------------------------------------------------------
+| Submit Rating
+|--------------------------------------------------------------------------
+*/
 
 if (
     $_SERVER['REQUEST_METHOD'] === 'POST'
     && isset($_POST['submit_rating'])
 ) {
 
-    $submittedRating = (int) ($_POST['rating'] ?? 0);
+    $submittedRating = (int) (
+        $_POST['rating'] ?? 0
+    );
 
+    if (
+        $submittedRating < 1
+        || $submittedRating > 5
+    ) {
 
-    if ($submittedRating < 1 || $submittedRating > 5) {
-
-        $error = 'Please select a rating from 1 to 5.';
+        $error =
+            'Please select a rating from 1 to 5.';
 
     } else {
 
         /*
-         * Re-check that the customer has not already
-         * submitted this rating.
-         */
-        $stmt = $pdo->prepare("
+        |--------------------------------------------------------------------------
+        | Re-check Existing Rating
+        |--------------------------------------------------------------------------
+        */
+
+        $stmt = $ratingPdo->prepare("
             SELECT id
             FROM agent_ratings
             WHERE request_id = ?
@@ -283,80 +499,79 @@ if (
         ");
 
         $stmt->execute([
-            $requestId,
+            $request['id'],
             $type
         ]);
 
-
         if ($stmt->fetch()) {
 
-            $error = 'You have already rated this ' . $type . '.';
+            $error =
+                'You have already rated this ' . $type . '.';
 
         } else {
 
             /*
-             * Save the rating.
-             */
-            
+            |--------------------------------------------------------------------------
+            | Save Rating
+            |--------------------------------------------------------------------------
+            */
+
             if ($type === 'consultation') {
 
-    $stmt = $pdo->prepare("
-        INSERT INTO agent_ratings
-        (
-            request_id,
-            consultation_booking_id,
-            service_booking_id,
-            customer_id,
-            agent_id,
-            rating_type,
-            rating
-        )
-        VALUES (?, ?, NULL, ?, ?, ?, ?)
-    ");
+                $stmt = $ratingPdo->prepare("
+                    INSERT INTO agent_ratings
+                    (
+                        request_id,
+                        consultation_booking_id,
+                        service_booking_id,
+                        customer_id,
+                        agent_id,
+                        rating_type,
+                        rating
+                    )
+                    VALUES (?, ?, NULL, ?, ?, ?, ?)
+                ");
 
-    $stmt->execute([
-        $request['id'],
-        $request['consultation_booking_id'],
-        $customerId,
-        $request['booking_agent_id'],
-        $type,
-        $submittedRating
-    ]);
+                $stmt->execute([
+                    $request['id'],
+                    $request['consultation_booking_id'],
+                    $customerId,
+                    $request['booking_agent_id'],
+                    $type,
+                    $submittedRating
+                ]);
 
-} else {
+            } else {
 
-    $stmt = $pdo->prepare("
-        INSERT INTO agent_ratings
-        (
-            request_id,
-            consultation_booking_id,
-            service_booking_id,
-            customer_id,
-            agent_id,
-            rating_type,
-            rating
-        )
-        VALUES (?, NULL, ?, ?, ?, ?, ?)
-    ");
+                $stmt = $ratingPdo->prepare("
+                    INSERT INTO agent_ratings
+                    (
+                        request_id,
+                        consultation_booking_id,
+                        service_booking_id,
+                        customer_id,
+                        agent_id,
+                        rating_type,
+                        rating
+                    )
+                    VALUES (?, NULL, ?, ?, ?, ?, ?)
+                ");
 
-    $stmt->execute([
-        $request['id'],
-        $request['service_booking_id'],
-        $customerId,
-        $request['booking_agent_id'],
-        $type,
-        $submittedRating
-    ]);
-}
-            
-            $success = 'Thank you for your rating.';
+                $stmt->execute([
+                    $request['id'],
+                    $request['service_booking_id'],
+                    $customerId,
+                    $request['booking_agent_id'],
+                    $type,
+                    $submittedRating
+                ]);
+            }
 
+            $success =
+                'Thank you for your rating.';
         }
-
     }
-
 }
-
 
 require VIEW_PATH . '/layouts/header-customer.php';
 
@@ -383,22 +598,24 @@ require VIEW_PATH . '/layouts/header-customer.php';
 
                 </div>
 
-
                 <div class="card-body text-center">
 
                     <?php if (!empty($success)): ?>
 
                         <div class="alert alert-success">
+
                             <?= htmlspecialchars($success) ?>
+
                         </div>
 
                     <?php endif; ?>
 
-
                     <?php if (!empty($error)): ?>
 
                         <div class="alert alert-danger">
+
                             <?= htmlspecialchars($error) ?>
+
                         </div>
 
                     <?php endif; ?>
@@ -406,23 +623,29 @@ require VIEW_PATH . '/layouts/header-customer.php';
                     <p class="mb-1">
 
                         <strong>
-                            <?= htmlspecialchars($request['service_name']) ?>
+
+                            <?= htmlspecialchars(
+                                $request['service_name']
+                            ) ?>
+
                         </strong>
 
                     </p>
 
-
                     <p class="text-muted">
 
                         Consultant:
-                        <?= htmlspecialchars($request['agent_name']) ?>
+
+                        <?= htmlspecialchars(
+                            $request['agent_name']
+                        ) ?>
 
                     </p>
-
 
                     <p class="mt-4 mb-3">
 
                         How would you rate your
+
                         <?= $type === 'consultation'
                             ? 'consultation'
                             : 'service'
@@ -430,19 +653,17 @@ require VIEW_PATH . '/layouts/header-customer.php';
 
                     </p>
 
-
                     <form method="POST">
 
                         <input
                             type="hidden"
                             name="request_id"
-                            value="<?= $requestId ?>">
+                            value="<?= (int) $request['id'] ?>">
 
                         <input
                             type="hidden"
                             name="type"
                             value="<?= htmlspecialchars($type) ?>">
-
 
                         <div class="mb-4">
 
@@ -450,7 +671,11 @@ require VIEW_PATH . '/layouts/header-customer.php';
                                 class="rating-stars"
                                 style="font-size: 2.5rem;">
 
-                                <?php for ($i = 1; $i <= 5; $i++): ?>
+                                <?php for (
+                                    $i = 1;
+                                    $i <= 5;
+                                    $i++
+                                ): ?>
 
                                     <button
                                         type="button"
@@ -465,7 +690,6 @@ require VIEW_PATH . '/layouts/header-customer.php';
                                 <?php endfor; ?>
 
                             </div>
-
 
                             <input
                                 type="hidden"
@@ -497,6 +721,7 @@ require VIEW_PATH . '/layouts/header-customer.php';
 </div>
 
 <script>
+
 document.querySelectorAll('.rating-star').forEach(function (star) {
 
     star.addEventListener('click', function () {
@@ -506,25 +731,29 @@ document.querySelectorAll('.rating-star').forEach(function (star) {
             10
         );
 
-        document.getElementById('rating').value = selectedRating;
+        document.getElementById('rating').value =
+            selectedRating;
 
-        document.querySelectorAll('.rating-star').forEach(function (item) {
+        document.querySelectorAll('.rating-star').forEach(
+            function (item) {
 
-            const itemRating = parseInt(
-                item.dataset.rating,
-                10
-            );
+                const itemRating = parseInt(
+                    item.dataset.rating,
+                    10
+                );
 
-            item.textContent =
-                itemRating <= selectedRating
-                    ? '★'
-                    : '☆';
+                item.textContent =
+                    itemRating <= selectedRating
+                        ? '★'
+                        : '☆';
 
-        });
+            }
+        );
 
     });
 
 });
+
 </script>
 
 <?php require VIEW_PATH . '/layouts/footer.php'; ?>

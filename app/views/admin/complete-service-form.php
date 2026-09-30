@@ -1,14 +1,29 @@
 <?php
 
-if (!isset($_SESSION['user'])) {
+$isDemoAdmin = isset($_SESSION['demo_user']);
+
+if ($isDemoAdmin) {
+
+    requireDemoAdmin();
+
+} elseif (isset($_SESSION['user'])) {
+
+    requireAdminLogin();
+
+if (isset($_SESSION['demo_super_admin'])) {
+    header('Location: ?page=demo-super-admin-dashboard');
+    exit;
+}
+
+} else {
+
     header("Location: ?page=login");
     exit;
 }
 
-require_once HELPER_PATH . '/auth.php';
 require dirname(__DIR__) . '/layouts/header-admin.php';
 
-$id = $_GET['id'] ?? 0;
+$id = (int) ($_GET['id'] ?? 0);
 
 ?>
 

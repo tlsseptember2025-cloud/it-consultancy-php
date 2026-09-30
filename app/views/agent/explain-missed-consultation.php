@@ -36,10 +36,6 @@ require_once APP_PATH . '/helpers/RequestEventHelper.php';
 
 
 
-$agentId = (int) $_SESSION['agent']['id'];
-
-
-
 $requestId = (int) ($_GET['id'] ?? 0);
 
 

@@ -21,15 +21,21 @@ require_once HELPER_PATH . '/SearchPaginationHelper.php';
 |
 */
 
-$isDemoAdmin =
-    isset($_SESSION['demo_user']) ||
-    isset($_SESSION['demo_super_admin']);
+requireAdminLogin();
 
+$isDemoAdmin = isset($_SESSION['demo_user']);
+$isDemoSuperAdmin = isset($_SESSION['demo_super_admin']);
 $isMainAdmin = isset($_SESSION['user']);
 
 
-if (!$isMainAdmin && !$isDemoAdmin) {
-    header("Location: ?page=login");
+/*
+|--------------------------------------------------------------------------
+| Demo Super Admin Uses Separate Portal
+|--------------------------------------------------------------------------
+*/
+
+if ($isDemoSuperAdmin) {
+    header('Location: ?page=demo-super-admin-dashboard');
     exit;
 }
 

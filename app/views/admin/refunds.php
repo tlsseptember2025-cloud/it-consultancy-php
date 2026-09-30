@@ -1,7 +1,7 @@
 <?php
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
 
 require_once HELPER_PATH . '/auth.php';
-require_once CONFIG_PATH . '/database.php';
 require_once APP_PATH . '/helpers/SearchPaginationHelper.php';
 
 
@@ -11,7 +11,15 @@ require_once APP_PATH . '/helpers/SearchPaginationHelper.php';
 |--------------------------------------------------------------------------
 */
 
+requireAdminLogin();
+
 $isDemoAdmin = isset($_SESSION['demo_user']);
+$isDemoSuperAdmin = isset($_SESSION['demo_super_admin']);
+
+if ($isDemoSuperAdmin) {
+    header('Location: ?page=demo-super-admin-dashboard');
+    exit;
+}
 
 if ($isDemoAdmin) {
 
@@ -35,7 +43,7 @@ if ($isDemoAdmin) {
 
 } else {
 
-    requireAdminLogin();
+    require_once CONFIG_PATH . '/database.php';
 
     $refundPdo = $pdo;
 
@@ -52,7 +60,7 @@ $search = getSearchTerm();
 
 $page = getPageNumber();
 
-$limit = 5;
+$limit = 10;
 
 $offset = getPageOffset(
     $page,
@@ -103,6 +111,7 @@ if ($search !== '') {
     $where .= "
         AND (
             c.name LIKE ?
+            OR CAST(rr.id AS CHAR) LIKE ?
             OR s.title LIKE ?
             OR rr.reason_type LIKE ?
             OR CAST(rr.refund_amount AS CHAR) LIKE ?
@@ -123,6 +132,7 @@ if ($search !== '') {
 
     $searchValue = '%' . $search . '%';
 
+    $params[] = $searchValue;
     $params[] = $searchValue;
     $params[] = $searchValue;
     $params[] = $searchValue;
@@ -223,6 +233,7 @@ if ($search !== '') {
     $countWhere .= "
         AND (
             c.name LIKE ?
+            OR CAST(rr.id AS CHAR) LIKE ?
             OR s.title LIKE ?
             OR rr.reason_type LIKE ?
             OR CAST(rr.refund_amount AS CHAR) LIKE ?
@@ -243,6 +254,7 @@ if ($search !== '') {
 
     $searchValue = '%' . $search . '%';
 
+    $countParams[] = $searchValue;
     $countParams[] = $searchValue;
     $countParams[] = $searchValue;
     $countParams[] = $searchValue;
@@ -515,7 +527,7 @@ $totalPages = max(
 
 
                                         <a
-                                            href="?page=complete-refund&id=<?= (int) $refund['id'] ?>"
+                                            href="?page=complete-refund&id=<?= (int) $refund['id'] ?>&csrf_token=<?= urlencode($csrfToken) ?>"
                                             class="btn btn-success btn-sm"
                                         >
                                             Complete Refund

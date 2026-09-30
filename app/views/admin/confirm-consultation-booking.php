@@ -1,6 +1,42 @@
 <?php
+// CSRF protection for this state-changing GET action.
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+$submittedCsrfToken = $_GET['csrf_token'] ?? '';
+if (!is_string($submittedCsrfToken) || !hash_equals($csrfToken, $submittedCsrfToken)) {
+    http_response_code(403);
+    exit('Invalid CSRF token.');
+}
 
-if (!isset($_SESSION['user'])) {
+
+$isDemoAdmin = isset($_SESSION['demo_user']);
+
+if ($isDemoAdmin) {
+
+    requireDemoAdmin();
+    require_once CONFIG_PATH . '/demo-database.php';
+
+    $consultationPdo = $demoPdo;
+    $demoTenantId = (int) ($_SESSION['demo_user']['demo_tenant_id'] ?? 0);
+
+    if ($demoTenantId <= 0) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+} elseif (isset($_SESSION['user'])) {
+
+    requireAdminLogin();
+
+if (isset($_SESSION['demo_super_admin'])) {
+    header('Location: ?page=demo-super-admin-dashboard');
+    exit;
+}
+    require_once CONFIG_PATH . '/database.php';
+
+    $consultationPdo = $pdo;
+
+} else {
 
     header('Location: ?page=login');
     exit;
@@ -20,13 +56,36 @@ $id = $_GET['id'] ?? 0;
 |--------------------------------------------------------------------------
 */
 
-$stmt = $pdo->prepare("
-    UPDATE requests
-    SET workflow_stage = 'Consultation Confirmed'
-    WHERE id = ?
-");
+if ($isDemoAdmin) {
 
-$stmt->execute([$id]);
+    $stmt = $consultationPdo->prepare("
+        UPDATE requests r
+        INNER JOIN customers c ON c.id = r.customer_id
+        INNER JOIN services s ON s.id = r.service_id
+        SET r.workflow_stage = 'Consultation Confirmed'
+        WHERE r.id = ?
+          AND c.demo_tenant_id = ?
+          AND c.is_demo_account = 1
+          AND s.demo_tenant_id = ?
+          AND s.is_demo_account = 1
+    ");
+
+    $stmt->execute([$id, $demoTenantId, $demoTenantId]);
+
+} else {
+
+    $stmt = $consultationPdo->prepare("
+        UPDATE requests
+        SET workflow_stage = 'Consultation Confirmed'
+        WHERE id = ?
+    ");
+
+    $stmt->execute([$id]);
+}
+
+if ($stmt->rowCount() === 0) {
+    die('Consultation request not found or access denied.');
+}
 
 /*
 |--------------------------------------------------------------------------
@@ -35,7 +94,7 @@ $stmt->execute([$id]);
 */
 
 RequestEventHelper::add(
-    $pdo,
+    $consultationPdo,
     $id,
     'CONSULTATION_CONFIRMED',
     RequestEventHelper::TYPE_SYSTEM,
@@ -51,35 +110,58 @@ RequestEventHelper::add(
 |--------------------------------------------------------------------------
 */
 
-$stmt = $pdo->prepare("
-    SELECT
-        c.id AS customer_id,
-        c.name,
-        c.email,
-        s.title AS service_title,
-        cs.slot_date,
-        cs.slot_time,
-        cs.consultation_method
+if ($isDemoAdmin) {
 
-    FROM requests r
+    $stmt = $consultationPdo->prepare("
+        SELECT
+            c.id AS customer_id,
+            c.name,
+            c.email,
+            s.title AS service_title,
+            cs.slot_date,
+            cs.slot_time,
+            cs.consultation_method
+        FROM requests r
+        INNER JOIN customers c ON c.id = r.customer_id
+        INNER JOIN services s ON s.id = r.service_id
+        LEFT JOIN consultation_bookings cb ON cb.request_id = r.id
+        LEFT JOIN consultation_slots cs ON cs.id = cb.slot_id
+        WHERE r.id = ?
+          AND c.demo_tenant_id = ?
+          AND c.is_demo_account = 1
+          AND s.demo_tenant_id = ?
+          AND s.is_demo_account = 1
+    ");
 
-    JOIN customers c
-        ON c.id = r.customer_id
+    $stmt->execute([$id, $demoTenantId, $demoTenantId]);
 
-    JOIN services s
-        ON s.id = r.service_id
+} else {
 
-    LEFT JOIN consultation_bookings cb
-        ON cb.request_id = r.id
+    $stmt = $consultationPdo->prepare("
+        SELECT
+            c.id AS customer_id,
+            c.name,
+            c.email,
+            s.title AS service_title,
+            cs.slot_date,
+            cs.slot_time,
+            cs.consultation_method
+        FROM requests r
+        INNER JOIN customers c ON c.id = r.customer_id
+        INNER JOIN services s ON s.id = r.service_id
+        LEFT JOIN consultation_bookings cb ON cb.request_id = r.id
+        LEFT JOIN consultation_slots cs ON cs.id = cb.slot_id
+        WHERE r.id = ?
+    ");
 
-    LEFT JOIN consultation_slots cs
-        ON cs.id = cb.slot_id
+    $stmt->execute([$id]);
+}
 
-    WHERE r.id = ?
-");
-
-$stmt->execute([$id]);
 $request = $stmt->fetch();
+
+if (!$request) {
+    die('Consultation request not found or access denied.');
+}
 
 /*
 |--------------------------------------------------------------------------
@@ -191,7 +273,7 @@ when it becomes available.
 */
 
 createNotification(
-    $pdo,
+    $consultationPdo,
     'customer',
     $request['customer_id'],
     'Consultation Confirmed',

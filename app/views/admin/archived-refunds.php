@@ -36,6 +36,11 @@ if ($isDemoAdmin) {
 
     requireAdminLogin();
 
+if (isset($_SESSION['demo_super_admin'])) {
+    header('Location: ?page=demo-super-admin-dashboard');
+    exit;
+}
+
     $refundPdo = $pdo;
 
 }
@@ -94,8 +99,11 @@ if ($isDemoAdmin) {
     $where .= "
         AND c.demo_tenant_id = ?
         AND c.is_demo_account = 1
+        AND s.demo_tenant_id = ?
+        AND s.is_demo_account = 1
     ";
 
+    $params[] = $demoTenantId;
     $params[] = $demoTenantId;
 }
 

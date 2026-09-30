@@ -1,4 +1,14 @@
 <?php
+// CSRF protection for all state-changing POST requests.
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $submittedCsrfToken = $_POST['csrf_token'] ?? '';
+    if (!is_string($submittedCsrfToken) || !hash_equals($csrfToken, $submittedCsrfToken)) {
+        http_response_code(403);
+        exit('Invalid CSRF token.');
+    }
+}
+
 
 require_once HELPER_PATH . '/auth.php';
 
@@ -33,15 +43,17 @@ if (!$isMainAdmin && !$isDemoAdmin && !$isDemoSuperAdmin) {
 |--------------------------------------------------------------------------
 */
 
-$customerStatusPdo = $pdo;
-
 if ($isDemoAdmin || $isDemoSuperAdmin) {
 
-    if (!isset($demoPdo)) {
-        require_once CONFIG_PATH . '/demo-database.php';
-    }
+    require_once CONFIG_PATH . '/demo-database.php';
 
     $customerStatusPdo = $demoPdo;
+
+} else {
+
+    require_once CONFIG_PATH . '/database.php';
+
+    $customerStatusPdo = $pdo;
 }
 
 
@@ -111,11 +123,11 @@ if ($isDemoAdmin) {
         $demoTenantId
     ]);
 
-} else {
+} elseif ($isDemoSuperAdmin) {
 
     /*
     |--------------------------------------------------------------------------
-    | Main Admin OR Demo Super Admin
+    | Demo Super Admin - All Demo Customers
     |--------------------------------------------------------------------------
     */
 
@@ -123,6 +135,30 @@ if ($isDemoAdmin) {
         SELECT *
         FROM customers
         WHERE id = ?
+          AND is_demo_account = 1
+        LIMIT 1
+    ");
+
+    $stmt->execute([
+        $customerId
+    ]);
+
+} else {
+
+    /*
+    |--------------------------------------------------------------------------
+    | Main Admin - Main Customers Only
+    |--------------------------------------------------------------------------
+    */
+
+    $stmt = $customerStatusPdo->prepare("
+        SELECT *
+        FROM customers
+        WHERE id = ?
+          AND (
+              is_demo_account = 0
+              OR is_demo_account IS NULL
+          )
         LIMIT 1
     ");
 
@@ -693,12 +729,30 @@ if ($isDemoAdmin) {
         $demoTenantId
     ]);
 
+} elseif ($isDemoSuperAdmin) {
+
+    $stmt = $customerStatusPdo->prepare("
+        SELECT *
+        FROM customers
+        WHERE id = ?
+          AND is_demo_account = 1
+        LIMIT 1
+    ");
+
+    $stmt->execute([
+        $customerId
+    ]);
+
 } else {
 
     $stmt = $customerStatusPdo->prepare("
         SELECT *
         FROM customers
         WHERE id = ?
+          AND (
+              is_demo_account = 0
+              OR is_demo_account IS NULL
+          )
         LIMIT 1
     ");
 
@@ -876,6 +930,7 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                                             <form
                                                 method="POST"
                                                 class="m-0">
+<input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
                                                 <input
                                                     type="hidden"
@@ -947,6 +1002,7 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
 
 
                         <form method="POST">
+<input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
 
                             <div class="mb-4">
@@ -1074,6 +1130,7 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                             <form
                                 method="POST"
                                 class="mb-3">
+<input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
                                 <button
                                     type="submit"

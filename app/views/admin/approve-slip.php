@@ -1,4 +1,12 @@
 <?php
+// CSRF protection for this state-changing GET action.
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+$submittedCsrfToken = $_GET['csrf_token'] ?? '';
+if (!is_string($submittedCsrfToken) || !hash_equals($csrfToken, $submittedCsrfToken)) {
+    http_response_code(403);
+    exit('Invalid CSRF token.');
+}
+
 
 require_once APP_PATH . '/helpers/RequestEventHelper.php';
 require_once HELPER_PATH . '/auth.php';
@@ -119,11 +127,14 @@ if ($isDemoAdmin) {
         WHERE ps.id = ?
           AND c.demo_tenant_id = ?
           AND c.is_demo_account = 1
+          AND s.demo_tenant_id = ?
+          AND s.is_demo_account = 1
         LIMIT 1
     ");
 
     $stmt->execute([
         $id,
+        $demoTenantId,
         $demoTenantId
     ]);
 
@@ -305,11 +316,20 @@ try {
                   WHERE demo_tenant_id = ?
                     AND is_demo_account = 1
               )
+              AND request_id IN (
+                  SELECT r.id
+                  FROM requests r
+                  INNER JOIN services s
+                      ON s.id = r.service_id
+                  WHERE s.demo_tenant_id = ?
+                    AND s.is_demo_account = 1
+              )
               AND status = 'Pending'
         ");
 
         $stmt->execute([
             $id,
+            $demoTenantId,
             $demoTenantId
         ]);
 
@@ -358,11 +378,12 @@ try {
         (
             request_id,
             amount,
+            payment_method,
             status,
             payment_date,
             notes
         )
-        VALUES (?, ?, 'Paid', NOW(), ?)
+        VALUES (?, ?, 'Bank Transfer', 'Paid', NOW(), ?)
     ");
 
     $stmt->execute([
@@ -430,10 +451,17 @@ try {
                   WHERE demo_tenant_id = ?
                     AND is_demo_account = 1
               )
+              AND service_id IN (
+                  SELECT id
+                  FROM services
+                  WHERE demo_tenant_id = ?
+                    AND is_demo_account = 1
+              )
         ");
 
         $stmt->execute([
             $request['request_id'],
+            $demoTenantId,
             $demoTenantId
         ]);
 

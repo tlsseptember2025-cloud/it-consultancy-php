@@ -4,6 +4,15 @@ require_once HELPER_PATH . '/auth.php';
 
 requireAdminLogin();
 
+$isDemoAdmin = isset($_SESSION['demo_user']);
+$isDemoSuperAdmin = isset($_SESSION['demo_super_admin']);
+
+if ($isDemoSuperAdmin) {
+    header('Location: ?page=demo-super-admin-dashboard');
+    exit;
+}
+
+
 
 /*
 |--------------------------------------------------------------------------
@@ -11,20 +20,59 @@ requireAdminLogin();
 |--------------------------------------------------------------------------
 */
 
-if (isset($_SESSION['demo_user'])) {
+if ($isDemoAdmin) {
 
     require_once CONFIG_PATH . '/demo-database.php';
 
     $agentPdo = $demoPdo;
+    $demoTenantId = (int) ($_SESSION['demo_user']['demo_tenant_id'] ?? 0);
 
-    $demoTenantId = (int) $_SESSION['demo_user']['demo_tenant_id'];
+    if ($demoTenantId <= 0) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    $tenantStmt = $agentPdo->prepare(
+        "SELECT id
+         FROM demo_tenants
+         WHERE id = ?
+           AND status = 'Active'
+           AND (expires_at IS NULL OR expires_at >= CURDATE())
+         LIMIT 1"
+    );
+    $tenantStmt->execute([$demoTenantId]);
+
+    if (!$tenantStmt->fetchColumn()) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    $adminStmt = $agentPdo->prepare(
+        "SELECT id
+         FROM users
+         WHERE id = ?
+           AND is_demo_account = 1
+           AND is_super_admin = 0
+           AND demo_tenant_id = ?
+         LIMIT 1"
+    );
+    $adminStmt->execute([
+        (int) ($_SESSION['demo_user']['id'] ?? 0),
+        $demoTenantId
+    ]);
+
+    if (!$adminStmt->fetchColumn()) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
 
 } else {
 
     require CONFIG_PATH . '/database.php';
-
     $agentPdo = $pdo;
-
     $demoTenantId = null;
 }
 

@@ -5,8 +5,10 @@ require_once APP_PATH . '/helpers/DateHelper.php';
 require_once CONFIG_PATH . '/database.php';
 require_once APP_PATH . '/helpers/email.php';
 
-if (!isset($_SESSION['user'])) {
-    header('Location: ?page=login');
+requireAdminLogin();
+
+if (isset($_SESSION['demo_super_admin'])) {
+    header('Location: ?page=demo-super-admin-dashboard');
     exit;
 }
 
@@ -136,6 +138,18 @@ if (
 */
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+    if (!hash_equals(
+        $_SESSION['csrf_token'] ?? '',
+        (string) ($_POST['csrf_token'] ?? '')
+    )) {
+        $_SESSION['error'] = 'Invalid security token. Please try again.';
+        header(
+            'Location: ?page=guest-chat-conversation-admin&id='
+            . $conversationId
+        );
+        exit;
+    }
 
     $action = $_POST['action'] ?? '';
 
@@ -968,6 +982,11 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
 
                     <input
                         type="hidden"
+                        name="csrf_token"
+                        value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+
+                    <input
+                        type="hidden"
                         name="action"
                         value="send_message">
 
@@ -1023,6 +1042,11 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                             'Are you sure you want to close this guest chat? The complete conversation will be emailed to the guest.'
                         );
                     ">
+
+                    <input
+                        type="hidden"
+                        name="csrf_token"
+                        value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
 
                     <input
                         type="hidden"

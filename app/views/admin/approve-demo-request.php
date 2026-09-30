@@ -1,4 +1,12 @@
 <?php
+// CSRF protection for this state-changing GET action.
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+$submittedCsrfToken = $_GET['csrf_token'] ?? '';
+if (!is_string($submittedCsrfToken) || !hash_equals($csrfToken, $submittedCsrfToken)) {
+    http_response_code(403);
+    exit('Invalid CSRF token.');
+}
+
 
 if (!isset($_SESSION['user'])) {
     header("Location: ?page=login");

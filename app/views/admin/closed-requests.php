@@ -39,6 +39,11 @@ if ($isDemoAdmin) {
 
     requireAdminLogin();
 
+if (isset($_SESSION['demo_super_admin'])) {
+    header('Location: ?page=demo-super-admin-dashboard');
+    exit;
+}
+
 } else {
 
     header('Location: ?page=login');
@@ -128,8 +133,11 @@ if ($isDemoAdmin) {
     $where .= "
         AND customers.demo_tenant_id = ?
         AND customers.is_demo_account = 1
+        AND services.demo_tenant_id = ?
+        AND services.is_demo_account = 1
     ";
 
+    $params[] = $demoTenantId;
     $params[] = $demoTenantId;
 }
 

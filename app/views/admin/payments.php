@@ -3,24 +3,63 @@
 require_once HELPER_PATH . '/auth.php';
 requireAdminLogin();
 
-require CONFIG_PATH . '/database.php';
-
-$paymentsPdo = $pdo;
-
 require_once APP_PATH . '/helpers/SearchPaginationHelper.php';
+
+$isDemoAdmin = isset($_SESSION['demo_user']);
+$isDemoSuperAdmin = isset($_SESSION['demo_super_admin']);
+$isMainAdmin = isset($_SESSION['user']);
+
+
+/*
+|--------------------------------------------------------------------------
+| Demo Super Admin Uses Separate Portal
+|--------------------------------------------------------------------------
+*/
+
+if ($isDemoSuperAdmin) {
+    header('Location: ?page=demo-super-admin-dashboard');
+    exit;
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Select Correct Database
+|--------------------------------------------------------------------------
+*/
+
+if ($isDemoAdmin) {
+
+    require CONFIG_PATH . '/demo-database.php';
+
+    $paymentsPdo = $demoPdo;
+
+} else {
+
+    require CONFIG_PATH . '/database.php';
+
+    $paymentsPdo = $pdo;
+}
 
 $search = getSearchTerm();
 $page = getPageNumber();
 $limit = 10;
 $offset = getPageOffset($page, $limit);
 
-if (isset($_SESSION['demo_user'])) {
+$demoTenantId = 0;
 
-    require CONFIG_PATH . '/demo-database.php';
+if ($isDemoAdmin) {
 
-    $paymentsPdo = $demoPdo;
+    $demoTenantId = (int) (
+        $_SESSION['demo_user']['demo_tenant_id']
+        ?? 0
+    );
 
-    $demoTenantId = (int) $_SESSION['demo_user']['demo_tenant_id'];
+    if ($demoTenantId <= 0) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
 
     $where = "
         WHERE customers.demo_tenant_id = ?
@@ -200,6 +239,7 @@ $totalPages = max(1, (int) ceil($totalRecords / $limit));
             <th>Customer</th>
             <th>Service</th>
             <th>Amount</th>
+            <th>Method</th>
             <th>Status</th>
             <th>Date</th>
             <th>Action</th>
@@ -224,6 +264,10 @@ $totalPages = max(1, (int) ceil($totalRecords / $limit));
 
                 <td>
                     AED <?= number_format($payment['amount'], 2) ?>
+                </td>
+
+                <td>
+                    <?= htmlspecialchars(($payment['payment_method'] ?? null) ?: 'Bank Transfer') ?>
                 </td>
 
                 <td>

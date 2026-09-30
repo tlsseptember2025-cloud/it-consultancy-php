@@ -406,17 +406,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 |--------------------------------------------------------------------------
                                 */
 
-                                $updateStmt = $customerPdo->prepare("
-                                    UPDATE requests
-                                    SET workflow_stage = 'Payment Submitted'
-                                    WHERE id = ?
-                                      AND customer_id = ?
-                                ");
+                                if ($isDemoCustomer) {
 
-                                $updateStmt->execute([
-                                    $requestId,
-                                    $customerId
-                                ]);
+                                    $updateStmt = $customerPdo->prepare("
+                                        UPDATE requests r
+                                        INNER JOIN customers c
+                                            ON c.id = r.customer_id
+                                        INNER JOIN services s
+                                            ON s.id = r.service_id
+                                        SET r.workflow_stage = 'Payment Submitted'
+                                        WHERE r.id = ?
+                                          AND r.customer_id = ?
+                                          AND c.is_demo_account = 1
+                                          AND c.demo_tenant_id = ?
+                                          AND s.is_demo_account = 1
+                                          AND s.demo_tenant_id = c.demo_tenant_id
+                                    ");
+
+                                    $updateStmt->execute([
+                                        $requestId,
+                                        $customerId,
+                                        (int) $_SESSION['demo_customer']['demo_tenant_id']
+                                    ]);
+
+                                } else {
+
+                                    $updateStmt = $customerPdo->prepare("
+                                        UPDATE requests
+                                        SET workflow_stage = 'Payment Submitted'
+                                        WHERE id = ?
+                                          AND customer_id = ?
+                                    ");
+
+                                    $updateStmt->execute([
+                                        $requestId,
+                                        $customerId
+                                    ]);
+                                }
+
+                                if ($updateStmt->rowCount() !== 1) {
+                                    throw new RuntimeException(
+                                        'The payment request could not be updated.'
+                                    );
+                                }
 
 
                                 /*

@@ -6,11 +6,98 @@ require_once APP_PATH . '/helpers/RequestEventHelper.php';
 require_once HELPER_PATH . '/email.php';
 require_once HELPER_PATH . '/notifications.php';
 require_once HELPER_PATH . '/security.php';
+require_once HELPER_PATH . '/auth.php';
 
-if (!isset($_SESSION['customer'])) {
 
-    header('Location: ?page=public-login');
-    exit;
+/*
+|--------------------------------------------------------------------------
+| Customer Authentication
+|--------------------------------------------------------------------------
+*/
+
+$isDemoCustomer = isset($_SESSION['demo_customer']);
+
+if ($isDemoCustomer) {
+
+    requireDemoCustomer();
+
+    require_once CONFIG_PATH . '/demo-database.php';
+
+    $db = $demoPdo;
+
+    $customerId = (int) (
+        $_SESSION['demo_customer']['id'] ?? 0
+    );
+
+    $sessionTenantId = (int) (
+        $_SESSION['demo_customer']['demo_tenant_id'] ?? 0
+    );
+
+    if (
+        $customerId <= 0 ||
+        $sessionTenantId <= 0
+    ) {
+
+        unset($_SESSION['demo_customer']);
+
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Verify Current Demo Customer
+    |--------------------------------------------------------------------------
+    */
+
+    $customerCheck = $db->prepare("
+        SELECT
+            id,
+            demo_tenant_id,
+            is_demo_account
+        FROM customers
+        WHERE id = ?
+          AND demo_tenant_id = ?
+          AND is_demo_account = 1
+        LIMIT 1
+    ");
+
+    $customerCheck->execute([
+        $customerId,
+        $sessionTenantId
+    ]);
+
+    $customerRecord = $customerCheck->fetch(
+        PDO::FETCH_ASSOC
+    );
+
+    if (!$customerRecord) {
+
+        unset($_SESSION['demo_customer']);
+
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    $demoTenantId = (int) $customerRecord['demo_tenant_id'];
+
+} else {
+
+    requireCustomerLogin();
+
+    $db = $pdo;
+
+    $customerId = (int) (
+        $_SESSION['customer']['id'] ?? 0
+    );
+
+    if ($customerId <= 0) {
+
+        unset($_SESSION['customer']);
+
+        header('Location: ?page=public-login');
+        exit;
+    }
 }
 
 
@@ -20,12 +107,40 @@ if (!isset($_SESSION['customer'])) {
 |--------------------------------------------------------------------------
 */
 
-$requestId = (int)($_GET['request_id'] ?? 0);
-$slotId    = (int)($_GET['slot_id'] ?? 0);
+$requestId = (int) (
+    $_GET['request_id'] ?? 0
+);
 
-$customerId = (int)$_SESSION['customer']['id'];
+$slotId = (int) (
+    $_GET['slot_id'] ?? 0
+);
 
-verifyCustomerRequest($pdo, $requestId);
+if (
+    $requestId <= 0 ||
+    $slotId <= 0
+) {
+
+    $_SESSION['error'] =
+        'Invalid consultation request or slot.';
+
+    header('Location: ?page=customer-requests');
+    exit;
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Verify Request Ownership
+|--------------------------------------------------------------------------
+*/
+
+if (!$isDemoCustomer) {
+
+    verifyCustomerRequest(
+        $db,
+        $requestId
+    );
+}
 
 
 /*
@@ -34,33 +149,72 @@ verifyCustomerRequest($pdo, $requestId);
 |--------------------------------------------------------------------------
 */
 
-$stmt = $pdo->prepare("
-    SELECT
-        r.id,
-        r.customer_id,
-        r.agent_id,
-        c.name AS customer_name,
-        c.email AS customer_email,
-        s.title AS service_name
-    FROM requests r
+if ($isDemoCustomer) {
 
-    INNER JOIN customers c
-        ON c.id = r.customer_id
+    $stmt = $db->prepare("
+        SELECT
+            r.id,
+            r.customer_id,
+            r.agent_id,
+            c.name AS customer_name,
+            c.email AS customer_email,
+            s.title AS service_name
+        FROM requests r
 
-    LEFT JOIN services s
-        ON s.id = r.service_id
+        INNER JOIN customers c
+            ON c.id = r.customer_id
+           AND c.demo_tenant_id = ?
+           AND c.is_demo_account = 1
 
-    WHERE r.id = ?
-      AND r.customer_id = ?
-    LIMIT 1
-");
+        LEFT JOIN services s
+            ON s.id = r.service_id
+           AND s.demo_tenant_id = ?
+           AND s.is_demo_account = 1
 
-$stmt->execute([
-    $requestId,
-    $customerId
-]);
+        WHERE r.id = ?
+          AND r.customer_id = ?
+        LIMIT 1
+    ");
 
-$request = $stmt->fetch(PDO::FETCH_ASSOC);
+    $stmt->execute([
+        $demoTenantId,
+        $demoTenantId,
+        $requestId,
+        $customerId
+    ]);
+
+} else {
+
+    $stmt = $db->prepare("
+        SELECT
+            r.id,
+            r.customer_id,
+            r.agent_id,
+            c.name AS customer_name,
+            c.email AS customer_email,
+            s.title AS service_name
+        FROM requests r
+
+        INNER JOIN customers c
+            ON c.id = r.customer_id
+
+        LEFT JOIN services s
+            ON s.id = r.service_id
+
+        WHERE r.id = ?
+          AND r.customer_id = ?
+        LIMIT 1
+    ");
+
+    $stmt->execute([
+        $requestId,
+        $customerId
+    ]);
+}
+
+$request = $stmt->fetch(
+    PDO::FETCH_ASSOC
+);
 
 
 if (!$request) {
@@ -73,7 +227,7 @@ if (!$request) {
 }
 
 
-$assignedAgentId = (int)$request['agent_id'];
+$assignedAgentId = (int) $request['agent_id'];
 
 
 /*
@@ -94,11 +248,51 @@ if ($assignedAgentId <= 0) {
 
 /*
 |--------------------------------------------------------------------------
+| Verify Assigned Agent Belongs To Correct Environment
+|--------------------------------------------------------------------------
+*/
+
+if ($isDemoCustomer) {
+
+    $agentCheck = $db->prepare("
+        SELECT
+            id,
+            demo_tenant_id,
+            is_demo_account
+        FROM agents
+        WHERE id = ?
+          AND demo_tenant_id = ?
+          AND is_demo_account = 1
+        LIMIT 1
+    ");
+
+    $agentCheck->execute([
+        $assignedAgentId,
+        $demoTenantId
+    ]);
+
+    $assignedAgentCheck = $agentCheck->fetch(
+        PDO::FETCH_ASSOC
+    );
+
+    if (!$assignedAgentCheck) {
+
+        $_SESSION['error'] =
+            'The assigned agent is not available for this Demo account.';
+
+        header('Location: ?page=customer-requests');
+        exit;
+    }
+}
+
+
+/*
+|--------------------------------------------------------------------------
 | Check If Already Booked
 |--------------------------------------------------------------------------
 */
 
-$stmt = $pdo->prepare("
+$stmt = $db->prepare("
     SELECT COUNT(*)
     FROM consultation_bookings
     WHERE request_id = ?
@@ -108,20 +302,28 @@ $stmt->execute([
     $requestId
 ]);
 
-$alreadyBooked = (int)$stmt->fetchColumn() > 0;
+$alreadyBooked =
+    (int) $stmt->fetchColumn() > 0;
 
 
 if ($alreadyBooked) {
 
-    require dirname(__DIR__) . '/layouts/header-customer.php';
+    require dirname(__DIR__) .
+        '/layouts/header-customer.php';
+
     ?>
 
     <div class="alert alert-info">
+
         You have already scheduled your consultation for this request.
+
     </div>
 
     <?php
-    require dirname(__DIR__) . '/layouts/footer.php';
+
+    require dirname(__DIR__) .
+        '/layouts/footer.php';
+
     exit;
 }
 
@@ -132,7 +334,7 @@ if ($alreadyBooked) {
 |--------------------------------------------------------------------------
 */
 
-$stmt = $pdo->prepare("
+$stmt = $db->prepare("
     SELECT
         id,
         agent_id,
@@ -148,7 +350,9 @@ $stmt->execute([
     $slotId
 ]);
 
-$slot = $stmt->fetch(PDO::FETCH_ASSOC);
+$slot = $stmt->fetch(
+    PDO::FETCH_ASSOC
+);
 
 
 if (!$slot) {
@@ -163,7 +367,10 @@ if (!$slot) {
 |--------------------------------------------------------------------------
 */
 
-if ((int)$slot['agent_id'] !== $assignedAgentId) {
+if (
+    (int) $slot['agent_id']
+    !== $assignedAgentId
+) {
 
     die('Invalid consultation slot.');
 }
@@ -175,7 +382,7 @@ if ((int)$slot['agent_id'] !== $assignedAgentId) {
 |--------------------------------------------------------------------------
 */
 
-if ((int)$slot['is_booked'] === 1) {
+if ((int) $slot['is_booked'] === 1) {
 
     $error =
         'Sorry, this consultation slot is no longer available.';
@@ -183,8 +390,11 @@ if ((int)$slot['is_booked'] === 1) {
 } else {
 
     $consultationDateTime = strtotime(
-        $slot['slot_date'] . ' ' . $slot['slot_time']
+        $slot['slot_date'] .
+        ' ' .
+        $slot['slot_time']
     );
+
 
     /*
     |--------------------------------------------------------------------------
@@ -213,21 +423,45 @@ if ((int)$slot['is_booked'] === 1) {
 |--------------------------------------------------------------------------
 */
 
-$stmt = $pdo->prepare("
-    SELECT
-        id,
-        name,
-        email
-    FROM agents
-    WHERE id = ?
-    LIMIT 1
-");
+if ($isDemoCustomer) {
 
-$stmt->execute([
-    $assignedAgentId
-]);
+    $stmt = $db->prepare("
+        SELECT
+            id,
+            name,
+            email
+        FROM agents
+        WHERE id = ?
+          AND demo_tenant_id = ?
+          AND is_demo_account = 1
+        LIMIT 1
+    ");
 
-$agent = $stmt->fetch(PDO::FETCH_ASSOC);
+    $stmt->execute([
+        $assignedAgentId,
+        $demoTenantId
+    ]);
+
+} else {
+
+    $stmt = $db->prepare("
+        SELECT
+            id,
+            name,
+            email
+        FROM agents
+        WHERE id = ?
+        LIMIT 1
+    ");
+
+    $stmt->execute([
+        $assignedAgentId
+    ]);
+}
+
+$agent = $stmt->fetch(
+    PDO::FETCH_ASSOC
+);
 
 
 if (!$agent) {
@@ -242,9 +476,13 @@ if (!$agent) {
 |--------------------------------------------------------------------------
 */
 
-$mailConfig = require dirname(__DIR__, 3) . '/config/mail_config.php';
+$mailConfig = require dirname(
+    __DIR__,
+    3
+) . '/config/mail_config.php';
 
-$adminEmail = $mailConfig['admin_email'] ?? '';
+$adminEmail =
+    $mailConfig['admin_email'] ?? '';
 
 
 /*
@@ -256,7 +494,9 @@ $adminEmail = $mailConfig['admin_email'] ?? '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $consultationMethod =
-        trim($_POST['consultation_method'] ?? '');
+        trim(
+            $_POST['consultation_method'] ?? ''
+        );
 
 
     /*
@@ -270,12 +510,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'Zoom'
     ];
 
-    if (!in_array($consultationMethod, $allowedMethods, true)) {
+    if (
+        !in_array(
+            $consultationMethod,
+            $allowedMethods,
+            true
+        )
+    ) {
 
         $error =
             'Please select a valid meeting method.';
 
     } else {
+
 
         /*
         |--------------------------------------------------------------------------
@@ -283,8 +530,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         |--------------------------------------------------------------------------
         */
 
-        $checkStmt = $pdo->prepare("
+        $checkStmt = $db->prepare("
             SELECT
+                id,
+                agent_id,
                 is_booked
             FROM consultation_slots
             WHERE id = ?
@@ -295,20 +544,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $slotId
         ]);
 
-        $isBooked = $checkStmt->fetchColumn();
+        $checkedSlot =
+            $checkStmt->fetch(
+                PDO::FETCH_ASSOC
+            );
 
 
-        if ($isBooked === false) {
+        if (!$checkedSlot) {
 
             $error =
                 'Consultation slot not found.';
 
-        } elseif ((int)$isBooked === 1) {
+        } elseif (
+            (int) $checkedSlot['agent_id']
+            !== $assignedAgentId
+        ) {
+
+            $error =
+                'Invalid consultation slot.';
+
+        } elseif (
+            (int) $checkedSlot['is_booked'] === 1
+        ) {
 
             $error =
                 'Sorry, this consultation slot is no longer available.';
 
         } else {
+
 
             /*
             |--------------------------------------------------------------------------
@@ -316,7 +579,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             |--------------------------------------------------------------------------
             */
 
-            $stmt = $pdo->prepare("
+            $stmt = $db->prepare("
                 INSERT INTO consultation_bookings
                 (
                     request_id,
@@ -339,17 +602,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             |--------------------------------------------------------------------------
             */
 
-            $stmt = $pdo->prepare("
+            $stmt = $db->prepare("
                 UPDATE consultation_slots
                 SET
                     is_booked = 1,
                     consultation_method = ?
                 WHERE id = ?
+                  AND agent_id = ?
+                  AND is_booked = 0
             ");
 
             $stmt->execute([
                 $consultationMethod,
-                $slotId
+                $slotId,
+                $assignedAgentId
             ]);
 
 
@@ -359,15 +625,62 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             |--------------------------------------------------------------------------
             */
 
-            $stmt = $pdo->prepare("
-                UPDATE requests
-                SET workflow_stage = 'Consultation Scheduled'
-                WHERE id = ?
-            ");
+            if ($isDemoCustomer) {
 
-            $stmt->execute([
-                $requestId
-            ]);
+                $stmt = $db->prepare("
+                    UPDATE requests r
+
+                    INNER JOIN customers c
+                        ON c.id = r.customer_id
+                       AND c.demo_tenant_id = ?
+                       AND c.is_demo_account = 1
+
+                    INNER JOIN services s
+                        ON s.id = r.service_id
+                       AND s.demo_tenant_id = ?
+                       AND s.is_demo_account = 1
+
+                    INNER JOIN agents a
+                        ON a.id = r.agent_id
+                       AND a.demo_tenant_id = ?
+                       AND a.is_demo_account = 1
+
+                    SET
+                        r.workflow_stage =
+                            'Consultation Scheduled'
+
+                    WHERE r.id = ?
+                      AND r.customer_id = ?
+                      AND r.agent_id = ?
+                ");
+
+                $stmt->execute([
+                    $demoTenantId,
+                    $demoTenantId,
+                    $demoTenantId,
+                    $requestId,
+                    $customerId,
+                    $assignedAgentId
+                ]);
+
+            } else {
+
+                $stmt = $db->prepare("
+                    UPDATE requests
+                    SET
+                        workflow_stage =
+                            'Consultation Scheduled'
+                    WHERE id = ?
+                      AND customer_id = ?
+                      AND agent_id = ?
+                ");
+
+                $stmt->execute([
+                    $requestId,
+                    $customerId,
+                    $assignedAgentId
+                ]);
+            }
 
 
             /*
@@ -377,7 +690,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             */
 
             RequestEventHelper::addCurrentUser(
-                $pdo,
+                $db,
                 $requestId,
                 RequestEventHelper::EVENT_CONSULTATION_SCHEDULED,
                 RequestEventHelper::TYPE_CONSULTATION,
@@ -410,10 +723,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'UTF-8'
             );
 
-            $customerEmail = $request['customer_email'] ?? '';
+            $customerEmail =
+                $request['customer_email'] ?? '';
 
             $serviceName = htmlspecialchars(
-                $request['service_name'] ?? 'Service Request',
+                $request['service_name']
+                    ?? 'Service Request',
                 ENT_QUOTES,
                 'UTF-8'
             );
@@ -440,6 +755,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!empty($customerEmail)) {
 
                 $customerBody = "
+
                     <h2>Hello {$customerName},</h2>
 
                     <p>
@@ -484,13 +800,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         Kind Regards,<br>
                         <strong>IT Consultancy Team</strong>
                     </p>
+
                 ";
+
 
                 $emailSent = sendEmail(
                     $customerEmail,
-                    'Consultation Scheduled - Request #' . $requestId,
+                    'Consultation Scheduled - Request #' .
+                        $requestId,
                     $customerBody
                 );
+
 
                 if (!$emailSent) {
 
@@ -509,12 +829,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             */
 
             createNotification(
-                $pdo,
+                $db,
                 'agent',
-                (int)$agent['id'],
+                (int) $agent['id'],
                 'Consultation Scheduled',
                 'Customer '
-                    . ($request['customer_name'] ?? 'Customer')
+                    . (
+                        $request['customer_name']
+                        ?? 'Customer'
+                    )
                     . ' scheduled Request #'
                     . $requestId
                     . ' for '
@@ -535,6 +858,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!empty($agent['email'])) {
 
                 $agentBody = "
+
                     <h2>Hello {$agentName},</h2>
 
                     <p>
@@ -601,13 +925,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         Kind Regards,<br>
                         <strong>IT Consultancy Team</strong>
                     </p>
+
                 ";
+
 
                 $emailSent = sendEmail(
                     $agent['email'],
-                    'Consultation Scheduled - Request #' . $requestId,
+                    'Consultation Scheduled - Request #' .
+                        $requestId,
                     $agentBody
                 );
+
 
                 if (!$emailSent) {
 
@@ -626,12 +954,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             */
 
             createNotification(
-                $pdo,
+                $db,
                 'admin',
                 null,
                 'Consultation Scheduled',
                 'Customer '
-                    . ($request['customer_name'] ?? 'Customer')
+                    . (
+                        $request['customer_name']
+                        ?? 'Customer'
+                    )
                     . ' scheduled Request #'
                     . $requestId
                     . ' for '
@@ -652,6 +983,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!empty($adminEmail)) {
 
                 $adminBody = "
+
                     <h2>Consultation Scheduled</h2>
 
                     <p>
@@ -672,11 +1004,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     <p>
                         <strong>Customer Email:</strong>
-                        " . htmlspecialchars(
+                        "
+                        . htmlspecialchars(
                             $customerEmail,
                             ENT_QUOTES,
                             'UTF-8'
-                        ) . "
+                        )
+                        . "
                     </p>
 
                     <p>
@@ -726,13 +1060,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             Open Admin Requests
                         </a>
                     </p>
+
                 ";
+
 
                 $emailSent = sendEmail(
                     $adminEmail,
-                    'Consultation Scheduled - Request #' . $requestId,
+                    'Consultation Scheduled - Request #' .
+                        $requestId,
                     $adminBody
                 );
+
 
                 if (!$emailSent) {
 
@@ -750,7 +1088,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             |--------------------------------------------------------------------------
             */
 
-            header('Location: ?page=customer-requests');
+            header(
+                'Location: ?page=customer-requests'
+            );
+
             exit;
         }
     }
@@ -763,7 +1104,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 |--------------------------------------------------------------------------
 */
 
-require dirname(__DIR__) . '/layouts/header-customer.php';
+require dirname(__DIR__) .
+    '/layouts/header-customer.php';
 
 ?>
 
@@ -772,14 +1114,18 @@ require dirname(__DIR__) . '/layouts/header-customer.php';
     <div class="card-body">
 
         <h2 class="mb-4">
+
             Confirm Consultation
+
         </h2>
 
 
         <?php if (!empty($error)): ?>
 
             <div class="alert alert-danger">
+
                 <?= htmlspecialchars($error) ?>
+
             </div>
 
         <?php endif; ?>
@@ -788,25 +1134,44 @@ require dirname(__DIR__) . '/layouts/header-customer.php';
         <div class="mb-4">
 
             <p>
+
                 <strong>Service:</strong>
+
                 <?= htmlspecialchars(
-                    $request['service_name'] ?? 'Service Request'
+                    $request['service_name']
+                        ?? 'Service Request'
                 ) ?>
+
             </p>
 
             <p>
+
                 <strong>Date:</strong>
-                <?= formatDate($slot['slot_date']) ?>
+
+                <?= formatDate(
+                    $slot['slot_date']
+                ) ?>
+
             </p>
 
             <p>
+
                 <strong>Time:</strong>
-                <?= formatTime($slot['slot_time']) ?>
+
+                <?= formatTime(
+                    $slot['slot_time']
+                ) ?>
+
             </p>
 
             <p>
+
                 <strong>Assigned Agent:</strong>
-                <?= htmlspecialchars($agent['name']) ?>
+
+                <?= htmlspecialchars(
+                    $agent['name']
+                ) ?>
+
             </p>
 
         </div>
@@ -817,7 +1182,9 @@ require dirname(__DIR__) . '/layouts/header-customer.php';
             <div class="mb-3">
 
                 <label class="form-label">
+
                     <strong>Meeting Method</strong>
+
                 </label>
 
 
@@ -830,9 +1197,15 @@ require dirname(__DIR__) . '/layouts/header-customer.php';
                         id="google_meet"
                         value="Google Meet"
                         <?= (
-                            ($_POST['consultation_method'] ?? 'Google Meet')
+                            (
+                                $_POST[
+                                    'consultation_method'
+                                ] ?? 'Google Meet'
+                            )
                             === 'Google Meet'
-                        ) ? 'checked' : '' ?>
+                        )
+                            ? 'checked'
+                            : '' ?>
                         required>
 
                     <label
@@ -855,9 +1228,15 @@ require dirname(__DIR__) . '/layouts/header-customer.php';
                         id="zoom"
                         value="Zoom"
                         <?= (
-                            ($_POST['consultation_method'] ?? '')
+                            (
+                                $_POST[
+                                    'consultation_method'
+                                ] ?? ''
+                            )
                             === 'Zoom'
-                        ) ? 'checked' : '' ?>>
+                        )
+                            ? 'checked'
+                            : '' ?>>
 
                     <label
                         class="form-check-label"
@@ -899,4 +1278,7 @@ require dirname(__DIR__) . '/layouts/header-customer.php';
 
 </div>
 
-<?php require dirname(__DIR__) . '/layouts/footer.php'; ?>
+<?php
+require dirname(__DIR__) .
+    '/layouts/footer.php';
+?>

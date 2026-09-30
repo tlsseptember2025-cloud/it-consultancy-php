@@ -1,13 +1,103 @@
 <?php
 
-if (!isset($_SESSION['customer'])) {
+/*
+|--------------------------------------------------------------------------
+| Customer Authentication
+|--------------------------------------------------------------------------
+*/
 
-    header('Location: ?page=customer-login');
+if (
+    !isset($_SESSION['customer']) &&
+    !isset($_SESSION['demo_customer'])
+) {
+    header('Location: ?page=public-login');
     exit;
-
 }
 
-require_once HELPER_PATH . '/RequestEventHelper.php';
+
+/*
+|--------------------------------------------------------------------------
+| Determine Customer Environment
+|--------------------------------------------------------------------------
+*/
+
+$isDemoCustomer = isset($_SESSION['demo_customer']);
+
+if ($isDemoCustomer) {
+
+    requireDemoCustomer();
+
+    require_once CONFIG_PATH . '/demo-database.php';
+
+    $db = $demoPdo;
+
+    $customerId = (int) (
+        $_SESSION['demo_customer']['id'] ?? 0
+    );
+
+    $demoTenantId = (int) (
+        $_SESSION['demo_customer']['demo_tenant_id'] ?? 0
+    );
+
+    if (
+        $customerId <= 0 ||
+        $demoTenantId <= 0
+    ) {
+        unset($_SESSION['demo_customer']);
+
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Verify Demo Customer Tenant Ownership
+    |--------------------------------------------------------------------------
+    */
+
+    $customerCheck = $db->prepare("
+        SELECT id
+        FROM customers
+        WHERE id = ?
+          AND demo_tenant_id = ?
+          AND is_demo_account = 1
+        LIMIT 1
+    ");
+
+    $customerCheck->execute([
+        $customerId,
+        $demoTenantId
+    ]);
+
+    if (!$customerCheck->fetchColumn()) {
+
+        unset($_SESSION['demo_customer']);
+
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+} else {
+
+    requireCustomerLogin();
+
+    $db = $pdo;
+
+    $customerId = (int) (
+        $_SESSION['customer']['id'] ?? 0
+    );
+
+    if ($customerId <= 0) {
+
+        unset($_SESSION['customer']);
+
+        header('Location: ?page=public-login');
+        exit;
+    }
+}
+
+
+require_once APP_PATH . '/helpers/RequestEventHelper.php';
 
 
 /*
@@ -16,13 +106,14 @@ require_once HELPER_PATH . '/RequestEventHelper.php';
 |--------------------------------------------------------------------------
 */
 
-$requestId = (int) ($_GET['request_id'] ?? 0);
+$requestId = (int) (
+    $_GET['request_id'] ?? 0
+);
 
 if ($requestId <= 0) {
 
     header('Location: ?page=customer-requests');
     exit;
-
 }
 
 
@@ -30,25 +121,67 @@ if ($requestId <= 0) {
 |--------------------------------------------------------------------------
 | Get Consultation Request
 |--------------------------------------------------------------------------
+|
+| Demo requests do not have Demo tenant columns on requests.
+| Demo ownership is therefore verified through the linked
+| Demo customer and Demo service.
+|
+|--------------------------------------------------------------------------
 */
 
-$stmt = $pdo->prepare("
-    SELECT
-        r.*,
-        s.title AS service_name
-    FROM requests r
-    LEFT JOIN services s
-        ON s.id = r.service_id
-    WHERE
-        r.id = ?
-        AND r.customer_id = ?
-    LIMIT 1
-");
+if ($isDemoCustomer) {
 
-$stmt->execute([
-    $requestId,
-    $_SESSION['customer']['id']
-]);
+    $stmt = $db->prepare("
+        SELECT
+            r.*,
+            s.title AS service_name
+        FROM requests r
+
+        INNER JOIN customers c
+            ON c.id = r.customer_id
+           AND c.demo_tenant_id = ?
+           AND c.is_demo_account = 1
+
+        INNER JOIN services s
+            ON s.id = r.service_id
+           AND s.demo_tenant_id = ?
+           AND s.is_demo_account = 1
+
+        WHERE
+            r.id = ?
+            AND r.customer_id = ?
+        LIMIT 1
+    ");
+
+    $stmt->execute([
+        $demoTenantId,
+        $demoTenantId,
+        $requestId,
+        $customerId
+    ]);
+
+} else {
+
+    $stmt = $db->prepare("
+        SELECT
+            r.*,
+            s.title AS service_name
+        FROM requests r
+
+        LEFT JOIN services s
+            ON s.id = r.service_id
+
+        WHERE
+            r.id = ?
+            AND r.customer_id = ?
+        LIMIT 1
+    ");
+
+    $stmt->execute([
+        $requestId,
+        $customerId
+    ]);
+}
 
 $request = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -56,7 +189,6 @@ if (!$request) {
 
     header('Location: ?page=customer-requests');
     exit;
-
 }
 
 
@@ -73,7 +205,6 @@ if (
 
     header('Location: ?page=customer-requests');
     exit;
-
 }
 
 
@@ -97,34 +228,70 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($confirmation === 'completed') {
 
-        $pdo->beginTransaction();
+        $db->beginTransaction();
 
         try {
 
-           $update = $pdo->prepare("
-                UPDATE requests
-                SET
-                    workflow_stage = 'Needs Admin Final Approval',
-                    job_status = 'Pending',
-                    review_type = NULL
-                WHERE
-                    id = ?
-                    AND customer_id = ?
-                    AND workflow_stage = ?
-            ");
+            if ($isDemoCustomer) {
 
-            $update->execute([
-                $requestId,
-                $_SESSION['customer']['id'],
-                'Awaiting Customer Confirmation'
-            ]);
+                $update = $db->prepare("
+                    UPDATE requests r
+
+                    INNER JOIN customers c
+                        ON c.id = r.customer_id
+                       AND c.demo_tenant_id = ?
+                       AND c.is_demo_account = 1
+
+                    INNER JOIN services s
+                        ON s.id = r.service_id
+                       AND s.demo_tenant_id = ?
+                       AND s.is_demo_account = 1
+
+                    SET
+                        r.workflow_stage = 'Needs Admin Final Approval',
+                        r.job_status = 'Pending',
+                        r.review_type = NULL
+
+                    WHERE
+                        r.id = ?
+                        AND r.customer_id = ?
+                        AND r.workflow_stage = ?
+                ");
+
+                $update->execute([
+                    $demoTenantId,
+                    $demoTenantId,
+                    $requestId,
+                    $customerId,
+                    'Awaiting Customer Confirmation'
+                ]);
+
+            } else {
+
+                $update = $db->prepare("
+                    UPDATE requests
+                    SET
+                        workflow_stage = 'Needs Admin Final Approval',
+                        job_status = 'Pending',
+                        review_type = NULL
+                    WHERE
+                        id = ?
+                        AND customer_id = ?
+                        AND workflow_stage = ?
+                ");
+
+                $update->execute([
+                    $requestId,
+                    $customerId,
+                    'Awaiting Customer Confirmation'
+                ]);
+            }
 
             if ($update->rowCount() !== 1) {
 
                 throw new Exception(
                     'The consultation could not be confirmed because its status changed.'
                 );
-
             }
 
 
@@ -135,19 +302,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             */
 
             RequestEventHelper::add(
-                $pdo,
+                $db,
                 (int) $requestId,
                 'CONSULTATION_COMPLETION_CONFIRMED',
                 RequestEventHelper::TYPE_CONSULTATION,
                 'Consultation Completion Confirmed by Customer',
                 'The customer confirmed that the consultation was completed successfully. Final administrator approval is now required before a proposal can be created.',
                 RequestEventHelper::SOURCE_CUSTOMER,
-                (int) $_SESSION['customer']['id'],
+                $customerId,
                 true
             );
 
 
-            $pdo->commit();
+            $db->commit();
 
 
             $_SESSION['success'] =
@@ -161,16 +328,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         } catch (Exception $e) {
 
-            if ($pdo->inTransaction()) {
+            if ($db->inTransaction()) {
 
-                $pdo->rollBack();
-
+                $db->rollBack();
             }
 
             die($e->getMessage());
-
         }
-
     }
 
 
@@ -182,52 +346,95 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($confirmation === 'not_completed') {
 
-        $pdo->beginTransaction();
+        $db->beginTransaction();
 
         try {
 
-            $update = $pdo->prepare("
-                UPDATE requests
-                SET
-                    workflow_stage = 'Needs Admin Review',
-                    job_status = 'Needs Admin Review',
-                    review_type = 'consultation_not_completed',
-                    admin_instruction = NULL
-                WHERE
-                    id = ?
-                    AND customer_id = ?
-                    AND workflow_stage = ?
-            ");
+            if ($isDemoCustomer) {
 
-            $update->execute([
-                $requestId,
-                $_SESSION['customer']['id'],
-                'Awaiting Customer Confirmation'
-            ]);
+                $update = $db->prepare("
+                    UPDATE requests r
+
+                    INNER JOIN customers c
+                        ON c.id = r.customer_id
+                       AND c.demo_tenant_id = ?
+                       AND c.is_demo_account = 1
+
+                    INNER JOIN services s
+                        ON s.id = r.service_id
+                       AND s.demo_tenant_id = ?
+                       AND s.is_demo_account = 1
+
+                    SET
+                        r.workflow_stage = 'Needs Admin Review',
+                        r.job_status = 'Needs Admin Review',
+                        r.review_type = 'consultation_not_completed',
+                        r.admin_instruction = NULL
+
+                    WHERE
+                        r.id = ?
+                        AND r.customer_id = ?
+                        AND r.workflow_stage = ?
+                ");
+
+                $update->execute([
+                    $demoTenantId,
+                    $demoTenantId,
+                    $requestId,
+                    $customerId,
+                    'Awaiting Customer Confirmation'
+                ]);
+
+            } else {
+
+                $update = $db->prepare("
+                    UPDATE requests
+                    SET
+                        workflow_stage = 'Needs Admin Review',
+                        job_status = 'Needs Admin Review',
+                        review_type = 'consultation_not_completed',
+                        admin_instruction = NULL
+                    WHERE
+                        id = ?
+                        AND customer_id = ?
+                        AND workflow_stage = ?
+                ");
+
+                $update->execute([
+                    $requestId,
+                    $customerId,
+                    'Awaiting Customer Confirmation'
+                ]);
+            }
 
             if ($update->rowCount() !== 1) {
 
                 throw new Exception(
                     'The consultation response could not be processed because its status changed.'
                 );
-
             }
 
 
+            /*
+            |--------------------------------------------------------------------------
+            | Record Customer Response Event
+            |--------------------------------------------------------------------------
+            */
+
             RequestEventHelper::add(
-                $pdo,
+                $db,
                 (int) $requestId,
                 'CONSULTATION_NOT_COMPLETED_CONFIRMED',
                 RequestEventHelper::TYPE_CONSULTATION,
                 'Consultation Not Completed',
                 'The customer reported that the consultation was not completed after the administrator accepted the agent explanation.',
                 RequestEventHelper::SOURCE_CUSTOMER,
-                (int) $_SESSION['customer']['id'],
+                $customerId,
                 true
             );
 
 
-            $pdo->commit();
+            $db->commit();
 
 
             $_SESSION['success'] =
@@ -241,18 +448,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         } catch (Exception $e) {
 
-            if ($pdo->inTransaction()) {
+            if ($db->inTransaction()) {
 
-                $pdo->rollBack();
-
+                $db->rollBack();
             }
 
             die($e->getMessage());
-
         }
-
     }
-
 }
 
 
@@ -262,9 +465,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 |--------------------------------------------------------------------------
 */
 
-$pageTitle = 'Consultation Completion Confirmation';
+$pageTitle =
+    'Consultation Completion Confirmation';
 
-require dirname(__DIR__) . '/layouts/header-customer.php';
+require dirname(__DIR__) .
+    '/layouts/header-customer.php';
 
 ?>
 
@@ -348,4 +553,7 @@ require dirname(__DIR__) . '/layouts/header-customer.php';
 
 </div>
 
-<?php require dirname(__DIR__) . '/layouts/footer.php'; ?>
+<?php
+require dirname(__DIR__) .
+    '/layouts/footer.php';
+?>

@@ -108,12 +108,9 @@ function sendPaymentRequestEmail(
         </p>
 
         <p>
-            Please review the attached document and proceed with the payment.
-        </p>
-
-        <p>
-            Once payment has been made, log in to your customer portal
-            and upload your payment slip.
+            Please review the attached document and proceed with the payment
+            through your customer portal. You can pay by card or choose the
+            existing bank-transfer option and upload your payment receipt.
         </p>
 
         <br>

@@ -1,5 +1,23 @@
 <?php
 
+/*
+|--------------------------------------------------------------------------
+| Already Logged In
+|--------------------------------------------------------------------------
+|
+| Keep each admin role on its own login/dashboard flow.
+|
+*/
+if (isset($_SESSION['demo_super_admin'])) {
+    header('Location: ?page=demo-super-admin');
+    exit;
+}
+
+if (isset($_SESSION['demo_user'])) {
+    header('Location: ?page=dashboard');
+    exit;
+}
+
 if (isset($_SESSION['user'])) {
     header('Location: ?page=dashboard');
     exit;
@@ -12,7 +30,10 @@ $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $email = trim($_POST['email'] ?? '');
-    $password = trim($_POST['password'] ?? '');
+    /*
+    | Do not trim passwords. Spaces may legitimately be part of a password.
+    */
+    $password = (string) ($_POST['password'] ?? '');
 
     $stmt = $pdo->prepare("
         SELECT *
@@ -105,6 +126,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             */
 
             clearRoleSessions();
+
+            /*
+            |--------------------------------------------------------------------------
+            | Prevent Session Fixation
+            |--------------------------------------------------------------------------
+            */
+            session_regenerate_id(true);
 
 
             /*

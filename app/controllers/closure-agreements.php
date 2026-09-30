@@ -3,6 +3,36 @@
 $pageTitle = 'Closure Agreements';
 
 require_once APP_PATH . '/helpers/SearchPaginationHelper.php';
+require_once APP_PATH . '/helpers/auth.php';
+
+$isDemoAdmin = isset($_SESSION['demo_user']);
+
+if ($isDemoAdmin) {
+    requireDemoAdmin();
+} elseif (isset($_SESSION['user'])) {
+    requireAdminLogin();
+} else {
+    header('Location: ?page=login');
+    exit;
+}
+
+require_once CONFIG_PATH . '/database.php';
+
+$closurePdo = $pdo;
+$demoTenantId = 0;
+
+if ($isDemoAdmin) {
+    require_once CONFIG_PATH . '/demo-database.php';
+
+    $closurePdo = $demoPdo;
+    $demoTenantId = (int) ($_SESSION['demo_user']['demo_tenant_id'] ?? 0);
+
+    if ($demoTenantId <= 0) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+}
 
 $search = getSearchTerm();
 $page = getPageNumber();
@@ -12,6 +42,18 @@ $offset = getPageOffset($page, $limit);
 $params = [];
 
 $where = "WHERE cca.status = 'Pending'";
+
+if ($isDemoAdmin) {
+    $where .= "
+        AND c.demo_tenant_id = ?
+        AND c.is_demo_account = 1
+        AND s.demo_tenant_id = ?
+        AND s.is_demo_account = 1
+    ";
+
+    $params[] = $demoTenantId;
+    $params[] = $demoTenantId;
+}
 
 if ($search !== '') {
     $where .= "
@@ -48,7 +90,7 @@ $sql = "
     LIMIT {$limit} OFFSET {$offset}
 ";
 
-$stmt = $pdo->prepare($sql);
+$stmt = $closurePdo->prepare($sql);
 $stmt->execute($params);
 
 $agreements = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -65,7 +107,7 @@ $countSql = "
     {$where}
 ";
 
-$countStmt = $pdo->prepare($countSql);
+$countStmt = $closurePdo->prepare($countSql);
 $countStmt->execute($params);
 
 $totalRecords = (int) $countStmt->fetchColumn();

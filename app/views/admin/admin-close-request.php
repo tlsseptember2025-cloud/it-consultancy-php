@@ -1,7 +1,22 @@
 <?php
+// CSRF protection for all state-changing POST requests.
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $submittedCsrfToken = $_POST['csrf_token'] ?? '';
+    if (!is_string($submittedCsrfToken) || !hash_equals($csrfToken, $submittedCsrfToken)) {
+        http_response_code(403);
+        exit('Invalid CSRF token.');
+    }
+}
+
 
 require_once HELPER_PATH . '/auth.php';
 requireAdminLogin();
+
+if (isset($_SESSION['demo_super_admin'])) {
+    header('Location: ?page=demo-super-admin-dashboard');
+    exit;
+}
 
 require_once CONFIG_PATH . '/database.php';
 
@@ -49,13 +64,19 @@ $stmt = $closePdo->prepare("
     WHERE r.id = ?
       AND (
           ? = 0
-          OR (c.demo_tenant_id = ? AND c.is_demo_account = 1)
+          OR (
+              c.demo_tenant_id = ?
+              AND c.is_demo_account = 1
+              AND s.demo_tenant_id = ?
+              AND s.is_demo_account = 1
+          )
       )
     LIMIT 1
 ");
 
 $stmt->execute([
     $requestId,
+    $demoTenantId ?? 0,
     $demoTenantId ?? 0,
     $demoTenantId ?? 0
 ]);
@@ -101,15 +122,44 @@ $adminId = $admin['id'];
 |--------------------------------------------------------------------------
 */
 
-$stmt = $closePdo->prepare("
-    SELECT *
-    FROM consultation_closure_agreements
-    WHERE request_id = ?
-    ORDER BY id DESC
-    LIMIT 1
-");
+if ($isDemoAdmin) {
 
-$stmt->execute([$requestId]);
+    $stmt = $closePdo->prepare("
+        SELECT cca.*
+        FROM consultation_closure_agreements cca
+        INNER JOIN requests r
+            ON r.id = cca.request_id
+        INNER JOIN customers c
+            ON c.id = r.customer_id
+        INNER JOIN services s
+            ON s.id = r.service_id
+        WHERE cca.request_id = ?
+          AND c.demo_tenant_id = ?
+          AND c.is_demo_account = 1
+          AND s.demo_tenant_id = ?
+          AND s.is_demo_account = 1
+        ORDER BY cca.id DESC
+        LIMIT 1
+    ");
+
+    $stmt->execute([
+        $requestId,
+        $demoTenantId,
+        $demoTenantId
+    ]);
+
+} else {
+
+    $stmt = $closePdo->prepare("
+        SELECT *
+        FROM consultation_closure_agreements
+        WHERE request_id = ?
+        ORDER BY id DESC
+        LIMIT 1
+    ");
+
+    $stmt->execute([$requestId]);
+}
 
 $existingAgreement = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -410,19 +460,52 @@ if (
     |--------------------------------------------------------------------------
     */
 
-    $update = $closePdo->prepare("
-        UPDATE requests
-        SET
-            closure_notes = ?,
-            workflow_stage = ?
-        WHERE id = ?
-    ");
+    if ($isDemoAdmin) {
 
-    $update->execute([
-        $closureNotes,
-        'Closure Agreement Sent',
-        $requestId
-    ]);
+        $update = $closePdo->prepare("
+            UPDATE requests r
+            INNER JOIN customers c
+                ON c.id = r.customer_id
+            INNER JOIN services s
+                ON s.id = r.service_id
+            SET
+                r.closure_notes = ?,
+                r.workflow_stage = ?
+            WHERE r.id = ?
+              AND c.demo_tenant_id = ?
+              AND c.is_demo_account = 1
+              AND s.demo_tenant_id = ?
+              AND s.is_demo_account = 1
+        ");
+
+        $update->execute([
+            $closureNotes,
+            'Closure Agreement Sent',
+            $requestId,
+            $demoTenantId,
+            $demoTenantId
+        ]);
+
+    } else {
+
+        $update = $closePdo->prepare("
+            UPDATE requests
+            SET
+                closure_notes = ?,
+                workflow_stage = ?
+            WHERE id = ?
+        ");
+
+        $update->execute([
+            $closureNotes,
+            'Closure Agreement Sent',
+            $requestId
+        ]);
+    }
+
+    if ($update->rowCount() !== 1) {
+        die('The request could not be updated.');
+    }
 
 
     /*
@@ -774,6 +857,7 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
 
                 <form method="post">
+<input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
                     <div class="mb-4">
 
@@ -859,6 +943,7 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
 
     <form method="post">
+<input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
         <div class="mb-4">
 

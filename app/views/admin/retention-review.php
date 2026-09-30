@@ -20,6 +20,11 @@ if ($isDemoAdmin) {
     }
 } else {
     requireAdminLogin();
+
+if (isset($_SESSION['demo_super_admin'])) {
+    header('Location: ?page=demo-super-admin-dashboard');
+    exit;
+}
     $reviewPdo = $pdo;
     $demoTenantId = 0;
 }

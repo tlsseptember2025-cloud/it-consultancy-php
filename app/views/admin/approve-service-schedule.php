@@ -1,4 +1,12 @@
 <?php
+// CSRF protection for this state-changing GET action.
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+$submittedCsrfToken = $_GET['csrf_token'] ?? '';
+if (!is_string($submittedCsrfToken) || !hash_equals($csrfToken, $submittedCsrfToken)) {
+    http_response_code(403);
+    exit('Invalid CSRF token.');
+}
+
 
 require_once HELPER_PATH . '/auth.php';
 require_once HELPER_PATH . '/email.php';
@@ -6,6 +14,11 @@ require_once HELPER_PATH . '/notifications.php';
 require_once APP_PATH . '/helpers/RequestEventHelper.php';
 
 requireAdminLogin();
+
+if (isset($_SESSION['demo_super_admin'])) {
+    header('Location: ?page=demo-super-admin-dashboard');
+    exit;
+}
 
 $id = (int) ($_GET['id'] ?? 0);
 
@@ -62,10 +75,17 @@ if ($isDemoAdmin) {
               WHERE demo_tenant_id = ?
                 AND is_demo_account = 1
           )
+          AND service_id IN (
+              SELECT id
+              FROM services
+              WHERE demo_tenant_id = ?
+                AND is_demo_account = 1
+          )
     ");
 
     $stmt->execute([
         $id,
+        $demoTenantId,
         $demoTenantId
     ]);
 
@@ -138,11 +158,14 @@ if ($isDemoAdmin) {
         WHERE r.id = ?
           AND c.demo_tenant_id = ?
           AND c.is_demo_account = 1
+          AND s.demo_tenant_id = ?
+          AND s.is_demo_account = 1
         LIMIT 1
     ");
 
     $stmt->execute([
         $id,
+        $demoTenantId,
         $demoTenantId
     ]);
 

@@ -42,8 +42,28 @@ if ($isMainAdmin) {
  */
 
 /*
- * Destroy the current session.
+ * Clear the current session completely.
+ *
+ * Destroy the server-side session and remove the session cookie so
+ * the browser cannot continue sending the old session identifier.
  */
+$_SESSION = [];
+
+if (ini_get('session.use_cookies')) {
+
+    $params = session_get_cookie_params();
+
+    setcookie(
+        session_name(),
+        '',
+        time() - 42000,
+        $params['path'],
+        $params['domain'],
+        $params['secure'],
+        $params['httponly']
+    );
+}
+
 session_destroy();
 
 /*

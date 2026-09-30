@@ -3,126 +3,363 @@
 require_once APP_PATH . '/helpers/RequestEventHelper.php';
 require_once HELPER_PATH . '/notifications.php';
 require_once HELPER_PATH . '/email.php';
-
-if (!isset($_SESSION['customer'])) {
-
-    header('Location: ?page=public-login');
-    exit;
-}
-
 require_once HELPER_PATH . '/auth.php';
 
-$customerId = (int) $_SESSION['customer']['id'];
+/*
+|--------------------------------------------------------------------------
+| Customer Authentication / Database Selection
+|--------------------------------------------------------------------------
+*/
 
-$services = $pdo->query("
-    SELECT *
-    FROM services
-    ORDER BY title
-")->fetchAll();
+$isDemoCustomer = isset($_SESSION['demo_customer']);
+
+if ($isDemoCustomer) {
+
+    requireDemoCustomer();
+
+    require_once CONFIG_PATH . '/demo-database.php';
+
+    $customerPdo = $demoPdo;
+
+    $customerId = (int) (
+        $_SESSION['demo_customer']['id'] ?? 0
+    );
+
+    $demoTenantId = (int) (
+        $_SESSION['demo_customer']['demo_tenant_id'] ?? 0
+    );
+
+    if ($customerId <= 0 || $demoTenantId <= 0) {
+
+        unset($_SESSION['demo_customer']);
+
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Verify Demo Customer
+    |--------------------------------------------------------------------------
+    */
+
+    $customerCheck = $customerPdo->prepare("
+        SELECT id
+        FROM customers
+        WHERE id = ?
+          AND demo_tenant_id = ?
+          AND is_demo_account = 1
+        LIMIT 1
+    ");
+
+    $customerCheck->execute([
+        $customerId,
+        $demoTenantId
+    ]);
+
+    if (!$customerCheck->fetchColumn()) {
+
+        unset($_SESSION['demo_customer']);
+
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+} else {
+
+    if (!isset($_SESSION['customer'])) {
+
+        header('Location: ?page=public-login');
+        exit;
+    }
+
+    requireCustomerLogin();
+
+    require_once CONFIG_PATH . '/database.php';
+
+    $customerPdo = $pdo;
+
+    $customerId = (int) $_SESSION['customer']['id'];
+}
+
+/*
+|--------------------------------------------------------------------------
+| Load Available Services
+|--------------------------------------------------------------------------
+*/
+
+if ($isDemoCustomer) {
+
+    $stmt = $customerPdo->prepare("
+        SELECT *
+        FROM services
+        WHERE demo_tenant_id = ?
+          AND is_demo_account = 1
+        ORDER BY title
+    ");
+
+    $stmt->execute([
+        $demoTenantId
+    ]);
+
+    $services = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+} else {
+
+    $services = $customerPdo->query("
+        SELECT *
+        FROM services
+        ORDER BY title
+    ")->fetchAll(PDO::FETCH_ASSOC);
+}
+
+$error = null;
+
+/*
+|--------------------------------------------------------------------------
+| Submit Service Request
+|--------------------------------------------------------------------------
+*/
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    $stmt = $pdo->prepare("
-    INSERT INTO requests
-    (
-        customer_id,
-        service_id,
-        description,
-        status,
-        workflow_stage
-    )
-    VALUES (?, ?, ?, 'Pending', 'Submitted')
-");
+    $serviceId = (int) (
+        $_POST['service_id'] ?? 0
+    );
 
-$stmt->execute([
-    $_SESSION['customer']['id'],
-    $_POST['service_id'],
-    $_POST['description']
-]);
+    $description = trim(
+        $_POST['description'] ?? ''
+    );
 
-$requestId = (int) $pdo->lastInsertId();
+    if ($serviceId <= 0) {
 
-/*
-|--------------------------------------------------------------------------
-| Record Request Created Event
-|--------------------------------------------------------------------------
-*/
+        $error = 'Please select a service.';
 
-RequestEventHelper::addCurrentUser(
-    $pdo,
-    $requestId,
-    'REQUEST_CREATED',
-    RequestEventHelper::TYPE_REQUEST,
-    'Request Created',
-    'The customer submitted a new service request.',
-    true
-);
+    } elseif ($description === '') {
 
-$_SESSION['success'] = 'Service request submitted successfully.';
+        $error = 'Please provide a description.';
 
-/*
-|--------------------------------------------------------------------------
-| Notify Administrator
-|--------------------------------------------------------------------------
-*/
+    } else {
 
-$serviceStmt = $pdo->prepare("
-    SELECT title
-    FROM services
-    WHERE id = ?
-    LIMIT 1
-");
+        /*
+        |--------------------------------------------------------------------------
+        | Verify Selected Service Belongs to Correct Tenant
+        |--------------------------------------------------------------------------
+        */
 
-$serviceStmt->execute([
-    (int) $_POST['service_id']
-]);
+        if ($isDemoCustomer) {
 
-$service = $serviceStmt->fetch(PDO::FETCH_ASSOC);
+            $serviceStmt = $customerPdo->prepare("
+                SELECT
+                    id,
+                    title
+                FROM services
+                WHERE id = ?
+                  AND demo_tenant_id = ?
+                  AND is_demo_account = 1
+                LIMIT 1
+            ");
 
-$serviceName = $service['title'] ?? 'Unknown Service';
+            $serviceStmt->execute([
+                $serviceId,
+                $demoTenantId
+            ]);
 
-$customerName =
-    $_SESSION['customer']['name']
-    ?? 'Customer';
+        } else {
 
-$customerEmail =
-    $_SESSION['customer']['email']
-    ?? '';
+            $serviceStmt = $customerPdo->prepare("
+                SELECT
+                    id,
+                    title
+                FROM services
+                WHERE id = ?
+                LIMIT 1
+            ");
 
-/*
-|--------------------------------------------------------------------------
-| Admin In-App Notification
-|--------------------------------------------------------------------------
-*/
+            $serviceStmt->execute([
+                $serviceId
+            ]);
+        }
 
-createNotification(
-    $pdo,
-    'admin',
-    null,
-    'New Service Request',
-    'New Service Request #' . $requestId .
-        ' has been submitted for ' . $serviceName . '.',
-    '?page=view-request&id=' . $requestId
-);
+        $service = $serviceStmt->fetch(PDO::FETCH_ASSOC);
 
-/*
-|--------------------------------------------------------------------------
-| Admin Email
-|--------------------------------------------------------------------------
-*/
+        if (!$service) {
 
-sendNewServiceRequestAdminEmail(
-    $requestId,
-    $customerName,
-    $customerEmail,
-    $serviceName,
-    $_POST['description']
-);
+            $error = 'The selected service is not available.';
 
-header('Location: ?page=customer-requests');
-exit;
+        } else {
 
+            try {
 
+                $customerPdo->beginTransaction();
+
+                /*
+                |--------------------------------------------------------------------------
+                | Create Request
+                |--------------------------------------------------------------------------
+                */
+
+                $stmt = $customerPdo->prepare("
+                    INSERT INTO requests
+                    (
+                        customer_id,
+                        service_id,
+                        description,
+                        status,
+                        workflow_stage
+                    )
+                    VALUES
+                    (
+                        ?,
+                        ?,
+                        ?,
+                        'Pending',
+                        'Submitted'
+                    )
+                ");
+
+                $stmt->execute([
+                    $customerId,
+                    $serviceId,
+                    $description
+                ]);
+
+                $requestId = (int) $customerPdo->lastInsertId();
+
+                /*
+                |--------------------------------------------------------------------------
+                | Record Request Created Event
+                |--------------------------------------------------------------------------
+                */
+
+                RequestEventHelper::addCurrentUser(
+                    $customerPdo,
+                    $requestId,
+                    'REQUEST_CREATED',
+                    RequestEventHelper::TYPE_REQUEST,
+                    'Request Created',
+                    'The customer submitted a new service request.',
+                    true
+                );
+
+                /*
+                |--------------------------------------------------------------------------
+                | Customer Details
+                |--------------------------------------------------------------------------
+                */
+
+                if ($isDemoCustomer) {
+
+                    $customerStmt = $customerPdo->prepare("
+                        SELECT
+                            name,
+                            email
+                        FROM customers
+                        WHERE id = ?
+                          AND demo_tenant_id = ?
+                          AND is_demo_account = 1
+                        LIMIT 1
+                    ");
+
+                    $customerStmt->execute([
+                        $customerId,
+                        $demoTenantId
+                    ]);
+
+                } else {
+
+                    $customerStmt = $customerPdo->prepare("
+                        SELECT
+                            name,
+                            email
+                        FROM customers
+                        WHERE id = ?
+                        LIMIT 1
+                    ");
+
+                    $customerStmt->execute([
+                        $customerId
+                    ]);
+                }
+
+                $customer = $customerStmt->fetch(PDO::FETCH_ASSOC);
+
+                if (!$customer) {
+
+                    throw new RuntimeException(
+                        'Customer account could not be verified.'
+                    );
+                }
+
+                $customerName =
+                    $customer['name'] ?? 'Customer';
+
+                $customerEmail =
+                    $customer['email'] ?? '';
+
+                $serviceName =
+                    $service['title'] ?? 'Unknown Service';
+
+                /*
+                |--------------------------------------------------------------------------
+                | Admin In-App Notification
+                |--------------------------------------------------------------------------
+                */
+
+                createNotification(
+                    $customerPdo,
+                    'admin',
+                    null,
+                    'New Service Request',
+                    'New Service Request #' . $requestId .
+                        ' has been submitted for ' .
+                        $serviceName . '.',
+                    '?page=view-request&id=' . $requestId
+                );
+
+                /*
+                |--------------------------------------------------------------------------
+                | Admin Email
+                |--------------------------------------------------------------------------
+                */
+
+                sendNewServiceRequestAdminEmail(
+                    $requestId,
+                    $customerName,
+                    $customerEmail,
+                    $serviceName,
+                    $description
+                );
+
+                /*
+                |--------------------------------------------------------------------------
+                | Commit
+                |--------------------------------------------------------------------------
+                */
+
+                $customerPdo->commit();
+
+                $_SESSION['success'] =
+                    'Service request submitted successfully.';
+
+                header(
+                    'Location: ?page=customer-requests'
+                );
+
+                exit;
+
+            } catch (Throwable $e) {
+
+                if ($customerPdo->inTransaction()) {
+
+                    $customerPdo->rollBack();
+                }
+
+                $error =
+                    'Unable to submit the service request. Please try again.';
+            }
+        }
+    }
 }
 
 require dirname(__DIR__) . '/layouts/header-customer.php';
@@ -137,11 +374,11 @@ require dirname(__DIR__) . '/layouts/header-customer.php';
             Request Service
         </h2>
 
-        <?php if (!empty($success)): ?>
+        <?php if (!empty($error)): ?>
 
-            <div class="alert alert-success">
+            <div class="alert alert-danger">
 
-                <?= $success ?>
+                <?= htmlspecialchars($error) ?>
 
             </div>
 
@@ -167,7 +404,7 @@ require dirname(__DIR__) . '/layouts/header-customer.php';
                     <?php foreach ($services as $service): ?>
 
                         <option
-                            value="<?= $service['id'] ?>">
+                            value="<?= (int) $service['id'] ?>">
 
                             <?= htmlspecialchars($service['title']) ?>
 
@@ -202,17 +439,17 @@ require dirname(__DIR__) . '/layouts/header-customer.php';
             </button>
 
             <a
-        href="?page=customer-requests"
-        class="btn btn-secondary ms-2">
+                href="?page=customer-requests"
+                class="btn btn-secondary ms-2">
 
-        Cancel
+                Cancel
 
-        </a>
+            </a>
 
-                </form>
+        </form>
 
-            </div>
+    </div>
 
-        </div>
+</div>
 
 <?php require dirname(__DIR__) . '/layouts/footer.php'; ?>

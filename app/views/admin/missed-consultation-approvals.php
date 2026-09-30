@@ -1,13 +1,86 @@
 <?php
 
-if (!isset($_SESSION['user'])) {
-    header('Location: ?page=login');
-    exit;
+require_once HELPER_PATH . '/auth.php';
+requireAdminLogin();
+
+
+/*
+|--------------------------------------------------------------------------
+| Determine Admin Type
+|--------------------------------------------------------------------------
+|
+| Main Admin:
+|   Uses the Main database.
+|
+| Demo Admin:
+|   Uses the Demo database and is restricted to its own tenant.
+|
+| Demo Super Admin:
+|   Uses the Demo database and can review all Demo records.
+|
+*/
+
+$isDemoAdmin = isset($_SESSION['demo_user']);
+$isDemoSuperAdmin = isset($_SESSION['demo_super_admin']);
+
+if ($isDemoAdmin || $isDemoSuperAdmin) {
+
+    require_once CONFIG_PATH . '/demo-database.php';
+
+    $adminPdo = $demoPdo;
+
+} else {
+
+    require_once CONFIG_PATH . '/database.php';
+
+    $adminPdo = $pdo;
 }
 
-require_once CONFIG_PATH . '/database.php';
 
-$stmt = $pdo->query("
+/*
+|--------------------------------------------------------------------------
+| Demo Tenant Scope
+|--------------------------------------------------------------------------
+*/
+
+$tenantCondition = '';
+$tenantParams = [];
+
+if ($isDemoAdmin) {
+
+    $demoTenantId = (int) (
+        $_SESSION['demo_user']['demo_tenant_id'] ?? 0
+    );
+
+    if ($demoTenantId <= 0) {
+        die('Invalid Demo tenant.');
+    }
+
+    /*
+     * Demo Admin may only see requests belonging to its own
+     * Demo customers and Demo services.
+     */
+    $tenantCondition = "
+        AND c.demo_tenant_id = ?
+        AND c.is_demo_account = 1
+        AND s.demo_tenant_id = ?
+        AND s.is_demo_account = 1
+    ";
+
+    $tenantParams = [
+        $demoTenantId,
+        $demoTenantId
+    ];
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Load Missed Consultation Reviews
+|--------------------------------------------------------------------------
+*/
+
+$stmt = $adminPdo->prepare("
     SELECT
         r.id,
         r.workflow_stage,
@@ -37,15 +110,19 @@ $stmt = $pdo->query("
         ON cs.id = cb.slot_id
 
     WHERE
-    r.workflow_stage = 'Missed Consultation Review'
+        r.workflow_stage = 'Missed Consultation Review'
 
-    AND r.job_status = 'Pending'
+        AND r.job_status = 'Pending'
 
-    AND TIMESTAMP(cs.slot_date, cs.slot_time)
-        < DATE_SUB(NOW(), INTERVAL 1 HOUR)
+        AND TIMESTAMP(cs.slot_date, cs.slot_time)
+            < DATE_SUB(NOW(), INTERVAL 1 HOUR)
+
+        $tenantCondition
 
     ORDER BY cs.slot_date DESC, cs.slot_time DESC
 ");
+
+$stmt->execute($tenantParams);
 
 $missedConsultations = $stmt->fetchAll(PDO::FETCH_ASSOC);
 

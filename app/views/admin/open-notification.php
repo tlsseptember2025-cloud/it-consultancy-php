@@ -9,22 +9,22 @@ require_once HELPER_PATH . '/auth.php';
 |--------------------------------------------------------------------------
 */
 
-$isDemoAdmin =
-    isset($_SESSION['demo_user']) ||
-    isset($_SESSION['demo_super_admin']);
+requireAdminLogin();
 
+$isDemoAdmin = isset($_SESSION['demo_user']);
+$isDemoSuperAdmin = isset($_SESSION['demo_super_admin']);
 $isMainAdmin = isset($_SESSION['user']);
 
 
 /*
 |--------------------------------------------------------------------------
-| Authentication
+| Demo Super Admin Uses Separate Portal
 |--------------------------------------------------------------------------
 */
 
-if (!$isMainAdmin && !$isDemoAdmin) {
+if ($isDemoSuperAdmin) {
 
-    header("Location: ?page=login");
+    header('Location: ?page=demo-super-admin-dashboard');
     exit;
 }
 

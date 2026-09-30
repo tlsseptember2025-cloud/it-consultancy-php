@@ -5,6 +5,11 @@ require_once HELPER_PATH . '/SearchPaginationHelper.php';
 
 requireAdminLogin();
 
+if (isset($_SESSION['demo_super_admin'])) {
+    header('Location: ?page=demo-super-admin-dashboard');
+    exit;
+}
+
 
 /*
 |--------------------------------------------------------------------------
@@ -18,7 +23,12 @@ if (isset($_SESSION['demo_user'])) {
 
     $agentsPdo = $demoPdo;
 
-    $demoTenantId = (int) $_SESSION['demo_user']['demo_tenant_id'];
+    $demoTenantId = (int) ($_SESSION['demo_user']['demo_tenant_id'] ?? 0);
+
+    if ($demoTenantId <= 0) {
+        http_response_code(403);
+        exit('Invalid Demo tenant.');
+    }
 
 } else {
 
@@ -355,8 +365,6 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
 
                             <td class="text-center">
 
-                                <td class="text-center">
-
     <?php if (isset($_SESSION['demo_user'])): ?>
 
         <a
@@ -380,8 +388,6 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
     <?php endif; ?>
 
 </td>
-
-                            </td>
 
                         </tr>
 

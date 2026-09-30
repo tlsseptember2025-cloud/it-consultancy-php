@@ -1,16 +1,27 @@
 <?php
-
-if (!isset($_SESSION['user'])) {
-    header("Location: ?page=login");
-    exit;
+// CSRF protection for all state-changing POST requests.
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $submittedCsrfToken = $_POST['csrf_token'] ?? '';
+    if (!is_string($submittedCsrfToken) || !hash_equals($csrfToken, $submittedCsrfToken)) {
+        http_response_code(403);
+        exit('Invalid CSRF token.');
+    }
 }
 
+
 require_once HELPER_PATH . '/auth.php';
+requireAdminLogin();
+
+if (isset($_SESSION['demo_super_admin'])) {
+    header('Location: ?page=demo-super-admin-dashboard');
+    exit;
+}
 require CONFIG_PATH . '/database.php';
 
 $id = $_GET['id'] ?? 0;
 
-$stmt = $pdo->prepare("
+$stmt = $agentPdo->prepare("
     SELECT *
     FROM agents
     WHERE id = ?
@@ -30,18 +41,36 @@ $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    // Check duplicate email
-    $stmt = $pdo->prepare("
-        SELECT id
-        FROM agents
-        WHERE email = ?
-        AND id != ?
-    ");
-
-    $stmt->execute([
-        trim($_POST['email']),
-        $id
-    ]);
+    // Check duplicate email within the current environment/tenant.
+    if ($isDemoAdmin) {
+        $stmt = $agentPdo->prepare("
+            SELECT id
+            FROM agents
+            WHERE email = ?
+              AND id != ?
+              AND demo_tenant_id = ?
+              AND is_demo_account = 1
+            LIMIT 1
+        ");
+        $stmt->execute([
+            trim($_POST['email'] ?? ''),
+            $id,
+            $demoTenantId
+        ]);
+    } else {
+        $stmt = $agentPdo->prepare("
+            SELECT id
+            FROM agents
+            WHERE email = ?
+              AND id != ?
+              AND (is_demo_account = 0 OR is_demo_account IS NULL)
+            LIMIT 1
+        ");
+        $stmt->execute([
+            trim($_POST['email'] ?? ''),
+            $id
+        ]);
+    }
 
     if ($stmt->fetch()) {
 
@@ -49,7 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     } else {
 
-        $stmt = $pdo->prepare("
+        $stmt = $agentPdo->prepare("
             UPDATE agents
             SET
                 name = ?,
@@ -105,6 +134,7 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                 <?php endif; ?>
 
                 <form method="POST">
+<input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
                     <div class="mb-3">
 

@@ -119,8 +119,18 @@ $stmt->execute($params);
     |
     */
 
-    $where = "WHERE r.workflow_stage = ?";
-    $params = ['Closure Approved'];
+    $where = "
+        WHERE r.workflow_stage = ?
+          AND c.demo_tenant_id = ?
+          AND c.is_demo_account = 1
+          AND s.demo_tenant_id = ?
+          AND s.is_demo_account = 1
+    ";
+    $params = [
+        'Closure Approved',
+        $demoTenantId,
+        $demoTenantId
+    ];
 
     if ($search !== '') {
 
@@ -180,8 +190,11 @@ if ($isDemoAdmin) {
     $countWhere .= "
         AND c.demo_tenant_id = ?
         AND c.is_demo_account = 1
+        AND s.demo_tenant_id = ?
+        AND s.is_demo_account = 1
     ";
 
+    $countParams[] = $countDemoTenantId;
     $countParams[] = $countDemoTenantId;
 }
 

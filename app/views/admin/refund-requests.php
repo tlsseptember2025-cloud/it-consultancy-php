@@ -12,10 +12,23 @@ require_once HELPER_PATH . '/auth.php';
 */
 
 $isDemoAdmin = isset($_SESSION['demo_user']);
+$isDemoSuperAdmin = isset($_SESSION['demo_super_admin']);
+
+/*
+|--------------------------------------------------------------------------
+| Authentication / Admin Context
+|--------------------------------------------------------------------------
+*/
+
+requireAdminLogin();
+
+if ($isDemoSuperAdmin) {
+
+    header('Location: ?page=demo-super-admin-dashboard');
+    exit;
+}
 
 if ($isDemoAdmin) {
-
-    requireDemoAdmin();
 
     require_once CONFIG_PATH . '/demo-database.php';
 
@@ -34,8 +47,6 @@ if ($isDemoAdmin) {
     }
 
 } else {
-
-    requireAdminLogin();
 
     require_once CONFIG_PATH . '/database.php';
 

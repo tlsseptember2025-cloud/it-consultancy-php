@@ -1,24 +1,92 @@
 <?php
+// CSRF protection for this state-changing GET action.
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+$submittedCsrfToken = $_GET['csrf_token'] ?? '';
+if (!is_string($submittedCsrfToken) || !hash_equals($csrfToken, $submittedCsrfToken)) {
+    http_response_code(403);
+    exit('Invalid CSRF token.');
+}
 
-if (!isset($_SESSION['user'])) {
-    header("Location: ?page=login");
+
+$isDemoAdmin = isset($_SESSION['demo_user']);
+
+if ($isDemoAdmin) {
+
+    requireDemoAdmin();
+    require_once CONFIG_PATH . '/demo-database.php';
+
+    $refundPdo = $demoPdo;
+    $demoTenantId = (int) ($_SESSION['demo_user']['demo_tenant_id'] ?? 0);
+
+    if ($demoTenantId <= 0) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+} elseif (isset($_SESSION['user'])) {
+
+    requireAdminLogin();
+
+if (isset($_SESSION['demo_super_admin'])) {
+    header('Location: ?page=demo-super-admin-dashboard');
+    exit;
+}
+    require_once CONFIG_PATH . '/database.php';
+
+    $refundPdo = $pdo;
+
+} else {
+
+    header('Location: ?page=login');
     exit;
 }
 
 require_once HELPER_PATH . '/email.php';
-require CONFIG_PATH . '/database.php';
 require_once APP_PATH . '/helpers/notifications.php';
 
 $refundId = (int) ($_GET['id'] ?? 0);
 
-// Get refund details
-$stmt = $pdo->prepare("
-    SELECT *
-    FROM refund_requests
-    WHERE id = ?
-");
+if ($refundId <= 0) {
+    die('Invalid refund request.');
+}
 
-$stmt->execute([$refundId]);
+if ($isDemoAdmin) {
+
+    $stmt = $refundPdo->prepare("
+        SELECT rr.*
+        FROM refund_requests rr
+        INNER JOIN requests r
+            ON r.id = rr.request_id
+        INNER JOIN customers c
+            ON c.id = r.customer_id
+        INNER JOIN services s
+            ON s.id = r.service_id
+        WHERE rr.id = ?
+          AND c.demo_tenant_id = ?
+          AND c.is_demo_account = 1
+          AND s.demo_tenant_id = ?
+          AND s.is_demo_account = 1
+        LIMIT 1
+    ");
+
+    $stmt->execute([
+        $refundId,
+        $demoTenantId,
+        $demoTenantId
+    ]);
+
+} else {
+
+    $stmt = $refundPdo->prepare("
+        SELECT *
+        FROM refund_requests
+        WHERE id = ?
+        LIMIT 1
+    ");
+
+    $stmt->execute([$refundId]);
+}
 
 $refund = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -33,16 +101,44 @@ if ($refund['refund_status'] === 'Completed') {
 }
 
 // Mark refund as completed
-$stmt = $pdo->prepare("
-    UPDATE refund_requests
-    SET refund_status = 'Completed'
-    WHERE id = ?
-");
+if ($isDemoAdmin) {
 
-$stmt->execute([$refundId]);
+    $stmt = $refundPdo->prepare("
+        UPDATE refund_requests rr
+        INNER JOIN requests r
+            ON r.id = rr.request_id
+        INNER JOIN customers c
+            ON c.id = r.customer_id
+        INNER JOIN services s
+            ON s.id = r.service_id
+        SET rr.refund_status = 'Completed'
+        WHERE rr.id = ?
+          AND c.demo_tenant_id = ?
+          AND c.is_demo_account = 1
+          AND s.demo_tenant_id = ?
+          AND s.is_demo_account = 1
+          AND rr.refund_status <> 'Completed'
+    ");
+
+    $stmt->execute([
+        $refundId,
+        $demoTenantId,
+        $demoTenantId
+    ]);
+
+} else {
+
+    $stmt = $refundPdo->prepare("
+        UPDATE refund_requests
+        SET refund_status = 'Completed'
+        WHERE id = ?
+    ");
+
+    $stmt->execute([$refundId]);
+}
 
 // Record completed refund in finance history
-$stmt = $pdo->prepare("
+$stmt = $refundPdo->prepare("
     INSERT INTO refunds (
         request_id,
         amount,
@@ -59,29 +155,58 @@ $stmt->execute([
     $refund['reason_type']
 ]);
 
-$stmt = $pdo->prepare("
-    SELECT
-        c.id AS customer_id,
-        c.name,
-        c.email,
-        s.title AS service_title,
-        rr.refund_amount
+if ($isDemoAdmin) {
 
-    FROM refund_requests rr
+    $stmt = $refundPdo->prepare("
+        SELECT
+            c.id AS customer_id,
+            c.name,
+            c.email,
+            s.title AS service_title,
+            rr.refund_amount
+        FROM refund_requests rr
+        INNER JOIN requests r
+            ON rr.request_id = r.id
+        INNER JOIN customers c
+            ON r.customer_id = c.id
+        INNER JOIN services s
+            ON r.service_id = s.id
+        WHERE rr.id = ?
+          AND c.demo_tenant_id = ?
+          AND c.is_demo_account = 1
+          AND s.demo_tenant_id = ?
+          AND s.is_demo_account = 1
+        LIMIT 1
+    ");
 
-    JOIN requests r
-        ON rr.request_id = r.id
+    $stmt->execute([
+        $refundId,
+        $demoTenantId,
+        $demoTenantId
+    ]);
 
-    JOIN customers c
-        ON r.customer_id = c.id
+} else {
 
-    JOIN services s
-        ON r.service_id = s.id
+    $stmt = $refundPdo->prepare("
+        SELECT
+            c.id AS customer_id,
+            c.name,
+            c.email,
+            s.title AS service_title,
+            rr.refund_amount
+        FROM refund_requests rr
+        INNER JOIN requests r
+            ON rr.request_id = r.id
+        INNER JOIN customers c
+            ON r.customer_id = c.id
+        INNER JOIN services s
+            ON r.service_id = s.id
+        WHERE rr.id = ?
+        LIMIT 1
+    ");
 
-    WHERE rr.id = ?
-");
-
-$stmt->execute([$refundId]);
+    $stmt->execute([$refundId]);
+}
 
 $customer = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -125,7 +250,7 @@ IT Consultancy Team
 }
 
 createNotification(
-    $pdo,
+    $refundPdo,
     'customer',
     $customer['customer_id'],
     'Refund Completed',

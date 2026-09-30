@@ -1,4 +1,5 @@
 <?php
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
 
 require_once HELPER_PATH . '/auth.php';
 
@@ -416,7 +417,7 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                 <!-- Approve -->
 
                 <a
-                    href="?page=approve-customer-registration&id=<?= (int) $customer['id'] ?>"
+                    href="?page=approve-customer-registration&id=<?= (int) $customer['id'] ?>&csrf_token=<?= urlencode($csrfToken) ?>"
                     class="btn btn-success"
                     onclick="return confirm('Approve this customer registration?');">
 

@@ -1,9 +1,66 @@
 <?php
 
-if (!isset($_SESSION['user'])) {
+require_once APP_PATH . '/helpers/auth.php';
 
-    header('Location: ?page=login');
+requireAdminLogin();
+
+if (isset($_SESSION['demo_super_admin'])) {
+    header('Location: ?page=demo-super-admin-dashboard');
     exit;
+}
+
+$isDemoAdmin = isset($_SESSION['demo_user']);
+$adminTenantId = 0;
+
+if ($isDemoAdmin) {
+    require_once CONFIG_PATH . '/demo-database.php';
+    $proposalPdo = $demoPdo;
+    $adminTenantId = (int) ($_SESSION['demo_user']['demo_tenant_id'] ?? 0);
+
+    if ($adminTenantId <= 0) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    $tenantStmt = $proposalPdo->prepare("
+        SELECT id
+        FROM demo_tenants
+        WHERE id = ?
+          AND status = 'active'
+          AND (expires_at IS NULL OR expires_at >= CURDATE())
+        LIMIT 1
+    ");
+    $tenantStmt->execute([$adminTenantId]);
+
+    if (!$tenantStmt->fetchColumn()) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    $accountStmt = $proposalPdo->prepare("
+        SELECT id
+        FROM users
+        WHERE id = ?
+          AND is_demo_account = 1
+          AND is_super_admin = 0
+          AND demo_tenant_id = ?
+        LIMIT 1
+    ");
+    $accountStmt->execute([
+        (int) ($_SESSION['demo_user']['id'] ?? 0),
+        $adminTenantId
+    ]);
+
+    if (!$accountStmt->fetchColumn()) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+} else {
+    require_once CONFIG_PATH . '/database.php';
+    $proposalPdo = $pdo;
 }
 
 require_once HELPER_PATH . '/email.php';
@@ -11,9 +68,25 @@ require_once HELPER_PATH . '/notifications.php';
 require_once HELPER_PATH . '/proposal.php';
 require_once APP_PATH . '/helpers/RequestEventHelper.php';
 
-$id = $_GET['id'] ?? 0;
+$id = (int) ($_GET['id'] ?? 0);
 
-$stmt = $pdo->prepare("
+if ($id <= 0) {
+    $_SESSION['error'] = 'Invalid request.';
+    header('Location: ?page=requests');
+    exit;
+}
+
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' ||
+    !hash_equals($csrfToken, $_POST['csrf_token'] ?? '')
+) {
+    $_SESSION['error'] = 'Invalid or expired security request.';
+    header('Location: ?page=admin-view-proposal&id=' . $id);
+    exit;
+}
+
+$stmt = $proposalPdo->prepare("
     SELECT
         r.*,
         c.id AS customer_id,
@@ -26,9 +99,13 @@ $stmt = $pdo->prepare("
     JOIN services s
         ON s.id = r.service_id
     WHERE r.id = ?
+      AND (
+          ? = 0
+          OR (c.demo_tenant_id = ? AND c.is_demo_account = 1)
+      )
 ");
 
-$stmt->execute([$id]);
+$stmt->execute([$id, $adminTenantId, $adminTenantId]);
 
 $request = $stmt->fetch();
 
@@ -74,7 +151,7 @@ $emailSent = sendEmail(
     $request['email'],
     'Proposal Ready',
     "
-    <h2>Hello {$request['name']},</h2>
+    <h2>Hello " . htmlspecialchars($request['name'], ENT_QUOTES, 'UTF-8') . ",</h2>
 
     <p>
         Your proposal is now ready for review.
@@ -82,7 +159,7 @@ $emailSent = sendEmail(
 
     <p>
         <strong>Service:</strong>
-        {$request['service_title']}
+        " . htmlspecialchars($request['service_title'], ENT_QUOTES, 'UTF-8') . "
     </p>
 
     <p>
@@ -90,7 +167,7 @@ $emailSent = sendEmail(
     </p>
 
     <p>
-        " . nl2br($request['proposal']) . "
+        " . nl2br(htmlspecialchars($request['proposal'], ENT_QUOTES, 'UTF-8')) . "
     </p>
 
     <p>
@@ -143,7 +220,7 @@ if (!$emailSent) {
 }
 
 createNotification(
-    $pdo,
+    $proposalPdo,
     'customer',
     $request['customer_id'],
     '📄 Proposal Ready',
@@ -151,7 +228,7 @@ createNotification(
     '?page=view-proposal&id=' . $id
 );
 
-$update = $pdo->prepare("
+$update = $proposalPdo->prepare("
     UPDATE requests
     SET
         workflow_stage = 'Proposal Sent'
@@ -167,7 +244,7 @@ $update->execute([$id]);
 */
 
 RequestEventHelper::addCurrentUser(
-    $pdo,
+    $proposalPdo,
     $id,
     RequestEventHelper::EVENT_PROPOSAL_SENT,
     RequestEventHelper::TYPE_PROPOSAL,

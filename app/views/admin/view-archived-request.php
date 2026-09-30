@@ -1,11 +1,70 @@
 <?php
 
-if (!isset($_SESSION['user'])) {
-    header('Location: ?page=login');
+require_once APP_PATH . '/helpers/auth.php';
+
+requireAdminLogin();
+
+$isDemoAdmin = isset($_SESSION['demo_user']);
+$isDemoSuperAdmin = isset($_SESSION['demo_super_admin']);
+
+if ($isDemoSuperAdmin) {
+    header('Location: ?page=demo-super-admin-dashboard');
     exit;
 }
 
-require_once CONFIG_PATH . '/database.php';
+if ($isDemoAdmin) {
+    require_once CONFIG_PATH . '/demo-database.php';
+    $archivePdo = $demoPdo;
+
+    $demoTenantId = (int) ($_SESSION['demo_user']['demo_tenant_id'] ?? 0);
+
+    if ($demoTenantId <= 0) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    $tenantStmt = $archivePdo->prepare(
+        "SELECT id
+         FROM demo_tenants
+         WHERE id = ?
+           AND status = 'Active'
+           AND (expires_at IS NULL OR expires_at >= CURDATE())
+         LIMIT 1"
+    );
+    $tenantStmt->execute([$demoTenantId]);
+
+    if (!$tenantStmt->fetchColumn()) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    $adminStmt = $archivePdo->prepare(
+        "SELECT id
+         FROM users
+         WHERE id = ?
+           AND is_demo_account = 1
+           AND is_super_admin = 0
+           AND demo_tenant_id = ?
+         LIMIT 1"
+    );
+    $adminStmt->execute([
+        (int) ($_SESSION['demo_user']['id'] ?? 0),
+        $demoTenantId
+    ]);
+
+    if (!$adminStmt->fetchColumn()) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+} else {
+    require_once CONFIG_PATH . '/database.php';
+    $archivePdo = $pdo;
+    $demoTenantId = null;
+}
+
 require_once CONFIG_PATH . '/request-events.php';
 require_once CONFIG_PATH . '/request-event-display.php';
 
@@ -22,7 +81,7 @@ if ($requestId <= 0) {
 |--------------------------------------------------------------------------
 */
 
-$stmt = $pdo->prepare("
+$stmt = $archivePdo->prepare("
     SELECT
         requests.*,
 
@@ -48,11 +107,22 @@ $stmt = $pdo->prepare("
 
     WHERE requests.id = ?
       AND requests.workflow_stage = 'Archived'
+      AND (
+          ? = 0
+          OR (
+              customers.demo_tenant_id = ?
+              AND customers.is_demo_account = 1
+          )
+      )
 
     LIMIT 1
 ");
 
-$stmt->execute([$requestId]);
+$stmt->execute([
+    $requestId,
+    $demoTenantId ?? 0,
+    $demoTenantId ?? 0
+]);
 
 $request = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -68,7 +138,7 @@ if (!$request) {
 |--------------------------------------------------------------------------
 */
 
-$stmt = $pdo->prepare("
+$stmt = $archivePdo->prepare("
     SELECT
         *
     FROM request_events

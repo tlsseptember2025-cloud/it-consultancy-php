@@ -1,11 +1,104 @@
 <?php
 
-if (!isset($_SESSION['user'])) {
+require_once APP_PATH . '/helpers/auth.php';
+require_once CONFIG_PATH . '/database.php';
+require_once APP_PATH . '/helpers/DateHelper.php';
+require_once APP_PATH . '/helpers/RequestEventHelper.php';
 
-    header('Location: ?page=login');
+requireAdminLogin();
+
+if (isset($_SESSION['demo_super_admin'])) {
+    header('Location: ?page=demo-super-admin-dashboard');
     exit;
-
 }
+
+$isDemoAdmin = isset($_SESSION['demo_user']);
+$reviewPdo = $pdo;
+$adminTenantId = 0;
+
+if ($isDemoAdmin) {
+    $demoDbPath = CONFIG_PATH . '/demo-database.php';
+    if (!is_file($demoDbPath)) {
+        die('Demo database configuration not found.');
+    }
+
+    require $demoDbPath;
+
+    if (!isset($demoPdo) || !($demoPdo instanceof PDO)) {
+        die('Demo database connection unavailable.');
+    }
+
+    $reviewPdo = $demoPdo;
+    $adminTenantId = (int) ($_SESSION['demo_user']['demo_tenant_id'] ?? 0);
+
+    if ($adminTenantId <= 0) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    $tenantStmt = $reviewPdo->prepare("
+        SELECT id
+        FROM demo_tenants
+        WHERE id = ?
+          AND status = 'Active'
+          AND (expires_at IS NULL OR expires_at >= CURDATE())
+        LIMIT 1
+    ");
+    $tenantStmt->execute([$adminTenantId]);
+
+    if (!$tenantStmt->fetchColumn()) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    $adminId = (int) ($_SESSION['demo_user']['id'] ?? 0);
+
+    $adminStmt = $reviewPdo->prepare("
+        SELECT id
+        FROM users
+        WHERE id = ?
+          AND is_demo_account = 1
+          AND is_super_admin = 0
+          AND demo_tenant_id = ?
+        LIMIT 1
+    ");
+    $adminStmt->execute([$adminId, $adminTenantId]);
+
+    if (!$adminStmt->fetchColumn()) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+} else {
+    $adminEmail = (string) ($_SESSION['user']['email'] ?? '');
+
+    if ($adminEmail === '') {
+        session_destroy();
+        header('Location: ?page=login');
+        exit;
+    }
+
+    $adminStmt = $reviewPdo->prepare("
+        SELECT id
+        FROM users
+        WHERE email = ?
+          AND is_demo_account = 0
+          AND is_super_admin = 0
+        LIMIT 1
+    ");
+    $adminStmt->execute([$adminEmail]);
+    $adminId = (int) ($adminStmt->fetchColumn() ?: 0);
+
+    if ($adminId <= 0) {
+        session_destroy();
+        header('Location: ?page=login');
+        exit;
+    }
+}
+
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
 
 require_once APP_PATH . '/helpers/DateHelper.php';
 require_once APP_PATH . '/helpers/RequestEventHelper.php';
@@ -19,7 +112,7 @@ $requestId = (int) ($_GET['id'] ?? 0);
 |--------------------------------------------------------------------------
 */
 
-$stmt = $pdo->prepare("
+$stmt = $reviewPdo->prepare("
     SELECT
 
         r.*,
@@ -64,11 +157,18 @@ $stmt = $pdo->prepare("
         r.id = ?
         AND r.workflow_stage = 'Awaiting Reschedule Approval'
         AND r.pending_reschedule_slot_id IS NOT NULL
+        AND (
+            ? = 0
+            OR (
+                c.demo_tenant_id = ?
+                AND c.is_demo_account = 1
+            )
+        )
 
     LIMIT 1
 ");
 
-$stmt->execute([$requestId]);
+$stmt->execute([$requestId, $adminTenantId, $adminTenantId]);
 
 $service = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -90,9 +190,15 @@ if (
     && isset($_POST['approve_reschedule'])
 ) {
 
+    if (!hash_equals($csrfToken, (string) ($_POST['csrf_token'] ?? ''))) {
+        $_SESSION['error'] = 'Invalid security token. Please try again.';
+        header('Location: ?page=review-reschedule-service&id=' . $service['id']);
+        exit;
+    }
+
     try {
 
-        $pdo->beginTransaction();
+        $reviewPdo->beginTransaction();
 
 
         /*
@@ -101,7 +207,7 @@ if (
         |------------------------------------------------------------------
         */
 
-        $stmt = $pdo->prepare("
+        $stmt = $reviewPdo->prepare("
             SELECT is_booked
             FROM service_slots
             WHERE id = ?
@@ -139,7 +245,7 @@ if (
         |------------------------------------------------------------------
         */
 
-        $stmt = $pdo->prepare("
+        $stmt = $reviewPdo->prepare("
             UPDATE service_slots
             SET is_booked = 0
             WHERE id = ?
@@ -156,7 +262,7 @@ if (
         |------------------------------------------------------------------
         */
 
-        $stmt = $pdo->prepare("
+        $stmt = $reviewPdo->prepare("
             UPDATE service_slots
             SET is_booked = 1
             WHERE id = ?
@@ -173,7 +279,7 @@ if (
         |------------------------------------------------------------------
         */
 
-        $stmt = $pdo->prepare("
+        $stmt = $reviewPdo->prepare("
             UPDATE service_bookings
             SET slot_id = ?
             WHERE request_id = ?
@@ -191,7 +297,7 @@ if (
         |------------------------------------------------------------------
         */
 
-        $stmt = $pdo->prepare("
+        $stmt = $reviewPdo->prepare("
             UPDATE requests
             SET
                 service_reschedules = service_reschedules + 1,
@@ -223,7 +329,7 @@ if (
         */
 
         RequestEventHelper::addCurrentUser(
-            $pdo,
+            $reviewPdo,
             (int) $service['id'],
             'SERVICE_RESCHEDULE_APPROVED',
             RequestEventHelper::TYPE_SERVICE,
@@ -233,7 +339,7 @@ if (
         );
 
 
-        $pdo->commit();
+        $reviewPdo->commit();
 
 
         $_SESSION['success'] =
@@ -249,9 +355,9 @@ if (
 
     } catch (Exception $e) {
 
-        if ($pdo->inTransaction()) {
+        if ($reviewPdo->inTransaction()) {
 
-            $pdo->rollBack();
+            $reviewPdo->rollBack();
 
         }
 
@@ -279,6 +385,12 @@ if (
     && isset($_POST['reject_reschedule'])
 ) {
 
+    if (!hash_equals($csrfToken, (string) ($_POST['csrf_token'] ?? ''))) {
+        $_SESSION['error'] = 'Invalid security token. Please try again.';
+        header('Location: ?page=review-reschedule-service&id=' . $service['id']);
+        exit;
+    }
+
     $rejectionReason = trim(
         $_POST['rejection_reason'] ?? ''
     );
@@ -298,7 +410,7 @@ if (
 
     try {
 
-        $pdo->beginTransaction();
+        $reviewPdo->beginTransaction();
 
 
         /*
@@ -312,7 +424,7 @@ if (
         |
         */
 
-        $stmt = $pdo->prepare("
+        $stmt = $reviewPdo->prepare("
             UPDATE requests
             SET
                 workflow_stage = 'Service Rejected',
@@ -332,7 +444,7 @@ if (
 
         $stmt->execute([
     $rejectionReason,
-    (int) $_SESSION['user'],
+    $adminId,
     $service['id']
 ]);
 
@@ -344,7 +456,7 @@ if (
         */
 
         RequestEventHelper::addCurrentUser(
-            $pdo,
+            $reviewPdo,
             (int) $service['id'],
             'SERVICE_RESCHEDULE_REJECTED',
             RequestEventHelper::TYPE_SERVICE,
@@ -355,7 +467,7 @@ if (
         );
 
 
-        $pdo->commit();
+        $reviewPdo->commit();
 
 
         $_SESSION['success'] =
@@ -371,9 +483,9 @@ if (
 
     } catch (Exception $e) {
 
-        if ($pdo->inTransaction()) {
+        if ($reviewPdo->inTransaction()) {
 
-            $pdo->rollBack();
+            $reviewPdo->rollBack();
 
         }
 
@@ -655,6 +767,7 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
 
         <form method="POST">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken) ?>">
 
             <div class="row">
 

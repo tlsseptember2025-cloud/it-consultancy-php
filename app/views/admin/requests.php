@@ -26,27 +26,20 @@ require_once HELPER_PATH . '/auth.php';
 |--------------------------------------------------------------------------
 */
 
+requireAdminLogin();
 
 $isDemoAdmin = isset($_SESSION['demo_user']);
-$isNormalAdmin = isset($_SESSION['user']);
+$isDemoSuperAdmin = isset($_SESSION['demo_super_admin']);
 
 
 /*
 |--------------------------------------------------------------------------
-| Require Normal Admin OR Demo Admin
+| Demo Super Admin Must Use Its Own Portal
 |--------------------------------------------------------------------------
 */
 
-if (!$isNormalAdmin && !$isDemoAdmin) {
-
-    if (isset($_SESSION['demo_super_admin'])) {
-        header('Location: ?page=dashboard');
-    } elseif (!empty($_SESSION['demo_logged_out'])) {
-        header('Location: ?page=demo-login');
-    } else {
-        header('Location: ?page=login');
-    }
-
+if ($isDemoSuperAdmin) {
+    header('Location: ?page=demo-super-admin-dashboard');
     exit;
 }
 
@@ -520,13 +513,13 @@ $requests = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                     <td>
 
-                        <?php if ($request['quoted_price'] > 0): ?>
+                        <?php if ((float) ($request['quoted_price'] ?? 0) > 0): ?>
 
                             <span class="badge bg-success">
 
                                 AED
                                 <?= number_format(
-                                    $request['quoted_price'],
+                                    (float) $request['quoted_price'],
                                     2
                                 ) ?>
 
@@ -534,21 +527,9 @@ $requests = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                         <?php else: ?>
 
-                            <?php if ($request['quoted_price'] > 0): ?>
-
-                                AED
-                                <?= number_format(
-                                    $request['quoted_price'],
-                                    2
-                                ) ?>
-
-                            <?php else: ?>
-
-                                <span class="text-muted">
-                                    Awaiting Quote
-                                </span>
-
-                            <?php endif; ?>
+                            <span class="text-muted">
+                                Awaiting Quote
+                            </span>
 
                         <?php endif; ?>
 

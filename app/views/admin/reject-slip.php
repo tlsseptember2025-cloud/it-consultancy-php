@@ -1,4 +1,12 @@
 <?php
+// CSRF protection for this state-changing GET action.
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+$submittedCsrfToken = $_GET['csrf_token'] ?? '';
+if (!is_string($submittedCsrfToken) || !hash_equals($csrfToken, $submittedCsrfToken)) {
+    http_response_code(403);
+    exit('Invalid CSRF token.');
+}
+
 
 require_once HELPER_PATH . '/auth.php';
 require_once HELPER_PATH . '/email.php';
@@ -8,26 +16,17 @@ require_once APP_PATH . '/helpers/RequestEventHelper.php';
 
 /*
 |--------------------------------------------------------------------------
-| Determine Admin Type
+| Admin Context
 |--------------------------------------------------------------------------
 */
 
-$isDemoAdmin =
-    isset($_SESSION['demo_user']) ||
-    isset($_SESSION['demo_super_admin']);
+requireAdminLogin();
 
-$isMainAdmin = isset($_SESSION['user']);
+$isDemoAdmin = isset($_SESSION['demo_user']);
+$isDemoSuperAdmin = isset($_SESSION['demo_super_admin']);
 
-
-/*
-|--------------------------------------------------------------------------
-| Authentication
-|--------------------------------------------------------------------------
-*/
-
-if (!$isMainAdmin && !$isDemoAdmin) {
-
-    header("Location: ?page=login");
+if ($isDemoSuperAdmin) {
+    header('Location: ?page=demo-super-admin-dashboard');
     exit;
 }
 
@@ -40,17 +39,27 @@ if (!$isMainAdmin && !$isDemoAdmin) {
 
 if ($isDemoAdmin) {
 
-    if (!isset($demoPdo)) {
-        require_once CONFIG_PATH . '/demo-database.php';
-    }
+    require_once CONFIG_PATH . '/demo-database.php';
 
     $adminPdo = $demoPdo;
+
+    $adminTenantId = (int) (
+        $_SESSION['demo_user']['demo_tenant_id'] ?? 0
+    );
+
+    if ($adminTenantId <= 0) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
 
 } else {
 
     require_once CONFIG_PATH . '/database.php';
 
     $adminPdo = $pdo;
+
+    $adminTenantId = 0;
 }
 
 
@@ -95,11 +104,20 @@ $stmt = $adminPdo->prepare("
     JOIN services s
         ON s.id = r.service_id
     WHERE ps.id = ?
+      AND (
+          ? = 0
+          OR (
+              c.demo_tenant_id = ?
+              AND c.is_demo_account = 1
+          )
+      )
 ");
 
 
 $stmt->execute([
-    $id
+    $id,
+    $adminTenantId,
+    $adminTenantId
 ]);
 
 

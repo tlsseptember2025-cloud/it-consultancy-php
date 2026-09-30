@@ -6,11 +6,11 @@ require_once APP_PATH . '/helpers/SearchPaginationHelper.php';
 require_once CONFIG_PATH . '/database.php';
 
 
-if (!isset($_SESSION['user'])) {
+requireAdminLogin();
 
-    header('Location: ?page=login');
+if (isset($_SESSION['demo_super_admin'])) {
+    header('Location: ?page=demo-super-admin-dashboard');
     exit;
-
 }
 
 
@@ -50,7 +50,8 @@ if ($search !== '') {
 
     $where .= "
         AND (
-            guest_name LIKE ?
+            CAST(id AS CHAR) LIKE ?
+            OR guest_name LIKE ?
             OR guest_email LIKE ?
             OR subject LIKE ?
             OR DATE_FORMAT(started_at, '%d-%m-%Y') LIKE ?
@@ -64,6 +65,7 @@ if ($search !== '') {
 
     $searchValue = '%' . $search . '%';
 
+    $params[] = $searchValue;
     $params[] = $searchValue;
     $params[] = $searchValue;
     $params[] = $searchValue;

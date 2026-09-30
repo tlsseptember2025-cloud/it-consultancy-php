@@ -1,7 +1,46 @@
 <?php
+// CSRF protection for all state-changing POST requests.
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $submittedCsrfToken = $_POST['csrf_token'] ?? '';
+    if (!is_string($submittedCsrfToken) || !hash_equals($csrfToken, $submittedCsrfToken)) {
+        http_response_code(403);
+        exit('Invalid CSRF token.');
+    }
+}
 
-if (!isset($_SESSION['user'])) {
-    header("Location: ?page=login");
+
+$isDemoAdmin = isset($_SESSION['demo_user']);
+
+if ($isDemoAdmin) {
+
+    requireDemoAdmin();
+    require_once CONFIG_PATH . '/demo-database.php';
+
+    $servicePdo = $demoPdo;
+    $demoTenantId = (int) ($_SESSION['demo_user']['demo_tenant_id'] ?? 0);
+
+    if ($demoTenantId <= 0) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+} elseif (isset($_SESSION['user'])) {
+
+    requireAdminLogin();
+
+if (isset($_SESSION['demo_super_admin'])) {
+    header('Location: ?page=demo-super-admin-dashboard');
+    exit;
+}
+    require_once CONFIG_PATH . '/database.php';
+
+    $servicePdo = $pdo;
+
+} else {
+
+    header('Location: ?page=login');
     exit;
 }
 
@@ -12,30 +51,70 @@ require_once HELPER_PATH . '/service_report.php';
 require_once HELPER_PATH . '/notifications.php';
 require_once APP_PATH . '/helpers/RequestEventHelper.php';
 
-$id = $_GET['id'] ?? 0;
+$id = (int) ($_GET['id'] ?? 0);
+
+if ($id <= 0) {
+    die('Invalid request.');
+}
 
 $completionNotes = trim($_POST['completion_notes'] ?? '');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    $notes = trim($_POST['completion_notes']);
+    $notes = trim($_POST['completion_notes'] ?? '');
 
-    $stmt = $pdo->prepare("
-    UPDATE requests
-    SET
-        workflow_stage = ?,
-        status = 'Completed',
-        job_status = 'Completed',
-        completed_at = NOW(),
-        completion_notes = ?
-    WHERE id = ?
-");
+    if ($isDemoAdmin) {
 
-    $stmt->execute([
-    WORKFLOW_STAGE_CLOSED,
-    $notes,
-    $id
-]);
+        $stmt = $servicePdo->prepare("
+            UPDATE requests r
+            INNER JOIN customers c
+                ON c.id = r.customer_id
+            INNER JOIN services s
+                ON s.id = r.service_id
+            SET
+                r.workflow_stage = ?,
+                r.status = 'Completed',
+                r.job_status = 'Completed',
+                r.completed_at = NOW(),
+                r.completion_notes = ?
+            WHERE r.id = ?
+              AND c.demo_tenant_id = ?
+              AND c.is_demo_account = 1
+              AND s.demo_tenant_id = ?
+              AND s.is_demo_account = 1
+        ");
+
+        $stmt->execute([
+            WORKFLOW_STAGE_CLOSED,
+            $notes,
+            $id,
+            $demoTenantId,
+            $demoTenantId
+        ]);
+
+    } else {
+
+        $stmt = $servicePdo->prepare("
+            UPDATE requests
+            SET
+                workflow_stage = ?,
+                status = 'Completed',
+                job_status = 'Completed',
+                completed_at = NOW(),
+                completion_notes = ?
+            WHERE id = ?
+        ");
+
+        $stmt->execute([
+            WORKFLOW_STAGE_CLOSED,
+            $notes,
+            $id
+        ]);
+    }
+
+    if ($stmt->rowCount() === 0) {
+        die('Service request not found or access denied.');
+    }
 
 /*
 |--------------------------------------------------------------------------
@@ -44,7 +123,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 */
 
 RequestEventHelper::addCurrentUser(
-    $pdo,
+    $servicePdo,
     (int) $id,
     RequestEventHelper::EVENT_SERVICE_COMPLETED,
     RequestEventHelper::TYPE_SERVICE,
@@ -55,47 +134,104 @@ RequestEventHelper::addCurrentUser(
 
 }
 
-$stmt = $pdo->prepare("
-    SELECT
-        r.id,
-        r.quoted_price,
-        r.completed_at,
-        r.completion_notes,
+if ($isDemoAdmin) {
 
-        c.id AS customer_id,
-        c.name AS customer_name,
-        c.email,
+    $stmt = $servicePdo->prepare("
+        SELECT
+            r.id,
+            r.quoted_price,
+            r.completed_at,
+            r.completion_notes,
 
-        s.title AS service_title,
+            c.id AS customer_id,
+            c.name AS customer_name,
+            c.email,
 
-        sb.id AS service_booking_id,
+            s.title AS service_title,
 
-        p.payment_date
+            sb.id AS service_booking_id,
 
-    FROM requests r
+            p.payment_date
 
-    JOIN customers c
-        ON c.id = r.customer_id
+        FROM requests r
 
-    JOIN services s
-        ON s.id = r.service_id
+        INNER JOIN customers c
+            ON c.id = r.customer_id
 
-    LEFT JOIN service_bookings sb
-        ON sb.request_id = r.id
+        INNER JOIN services s
+            ON s.id = r.service_id
 
-    LEFT JOIN payments p
-        ON p.request_id = r.id
+        LEFT JOIN service_bookings sb
+            ON sb.request_id = r.id
 
-    WHERE r.id = ?
+        LEFT JOIN payments p
+            ON p.request_id = r.id
 
-    ORDER BY p.payment_date DESC
+        WHERE r.id = ?
+          AND c.demo_tenant_id = ?
+          AND c.is_demo_account = 1
+          AND s.demo_tenant_id = ?
+          AND s.is_demo_account = 1
 
-    LIMIT 1
-");
+        ORDER BY p.payment_date DESC
 
-$stmt->execute([$id]);
+        LIMIT 1
+    ");
+
+    $stmt->execute([
+        $id,
+        $demoTenantId,
+        $demoTenantId
+    ]);
+
+} else {
+
+    $stmt = $servicePdo->prepare("
+        SELECT
+            r.id,
+            r.quoted_price,
+            r.completed_at,
+            r.completion_notes,
+
+            c.id AS customer_id,
+            c.name AS customer_name,
+            c.email,
+
+            s.title AS service_title,
+
+            sb.id AS service_booking_id,
+
+            p.payment_date
+
+        FROM requests r
+
+        INNER JOIN customers c
+            ON c.id = r.customer_id
+
+        INNER JOIN services s
+            ON s.id = r.service_id
+
+        LEFT JOIN service_bookings sb
+            ON sb.request_id = r.id
+
+        LEFT JOIN payments p
+            ON p.request_id = r.id
+
+        WHERE r.id = ?
+
+        ORDER BY p.payment_date DESC
+
+        LIMIT 1
+    ");
+
+    $stmt->execute([$id]);
+}
 
 $request = $stmt->fetch();
+
+if (!$request) {
+    die('Service request not found or access denied.');
+}
 
 if (!is_dir(dirname(__DIR__, 2) . '/storage/invoices')) {
 
@@ -146,7 +282,7 @@ sendServiceCompletedEmail(
 );
 
 createNotification(
-    $pdo,
+    $servicePdo,
     'customer',
     $request['customer_id'],
     'Service Completed',

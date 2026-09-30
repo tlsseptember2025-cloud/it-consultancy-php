@@ -1,14 +1,38 @@
 <?php
+// CSRF protection for all state-changing POST requests.
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $submittedCsrfToken = $_POST['csrf_token'] ?? '';
+    if (!is_string($submittedCsrfToken) || !hash_equals($csrfToken, $submittedCsrfToken)) {
+        http_response_code(403);
+        exit('Invalid CSRF token.');
+    }
+}
 
-if (!isset($_SESSION['user'])) {
 
-    header('Location: ?page=login');
+require_once HELPER_PATH . '/auth.php';
+requireAdminLogin();
+
+$isDemoAdmin = isset($_SESSION['demo_user']);
+if (isset($_SESSION['demo_super_admin'])) {
+    header('Location: ?page=demo-super-admin-dashboard');
     exit;
 }
 
-require_once HELPER_PATH . '/auth.php';
-require CONFIG_PATH . '/database.php';
-
+if ($isDemoAdmin) {
+    require_once CONFIG_PATH . '/demo-database.php';
+    $agentPdo = $demoPdo;
+    $demoTenantId = (int) ($_SESSION['demo_user']['demo_tenant_id'] ?? 0);
+    if ($demoTenantId <= 0) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+} else {
+    require_once CONFIG_PATH . '/database.php';
+    $agentPdo = $pdo;
+    $demoTenantId = null;
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
@@ -18,23 +42,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     } else {
 
-        $stmt = $pdo->prepare("
-            SELECT id
-            FROM agents
-            WHERE email = ?
-        ");
-
-        $stmt->execute([
-            trim($_POST['email'])
-        ]);
-
+        if ($isDemoAdmin) {
+            $stmt = $agentPdo->prepare("
+                SELECT id
+                FROM agents
+                WHERE email = ?
+                  AND demo_tenant_id = ?
+                  AND is_demo_account = 1
+                LIMIT 1
+            ");
+            $stmt->execute([
+                trim($_POST['email'] ?? ''),
+                $demoTenantId
+            ]);
+        } else {
+            $stmt = $agentPdo->prepare("
+                SELECT id
+                FROM agents
+                WHERE email = ?
+                  AND (is_demo_account = 0 OR is_demo_account IS NULL)
+                LIMIT 1
+            ");
+            $stmt->execute([trim($_POST['email'] ?? '')]);
+        }
         if ($stmt->fetch()) {
 
             $error = "An agent with this email already exists.";
 
         } else {
 
-            $stmt = $pdo->prepare("
+            $stmt = $agentPdo->prepare("
                 INSERT INTO agents
                 (
                     name,
@@ -90,6 +127,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <?php endif; ?>
 
                 <form method="POST" autocomplete="off">
+<input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
                     <div class="mb-3">
 

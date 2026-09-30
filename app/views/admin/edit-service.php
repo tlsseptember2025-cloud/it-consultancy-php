@@ -4,6 +4,11 @@ require_once HELPER_PATH . '/auth.php';
 
 requireAdminLogin();
 
+if (isset($_SESSION['demo_super_admin'])) {
+    header('Location: ?page=demo-super-admin-dashboard');
+    exit;
+}
+
 if (isset($_SESSION['demo_user'])) {
     require_once CONFIG_PATH . '/demo-database.php';
     $servicesPdo = $demoPdo;
@@ -12,7 +17,18 @@ if (isset($_SESSION['demo_user'])) {
     $servicesPdo = $pdo;
 }
 
-$id = $_GET['id'];
+$id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
+
+if ($id === false || $id === null || $id <= 0) {
+    header('Location: ?page=services-admin');
+    exit;
+}
+
+$csrfKey = 'edit_service_csrf';
+
+if (empty($_SESSION[$csrfKey])) {
+    $_SESSION[$csrfKey] = bin2hex(random_bytes(32));
+}
 
 $stmt = $servicesPdo->prepare("
     SELECT * FROM services WHERE id = ?
@@ -29,8 +45,24 @@ if (!$service) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    $title = trim($_POST['title']);
-    $description = trim($_POST['description'] ?? '');
+    $submittedToken = (string) ($_POST['csrf_token'] ?? '');
+    $sessionToken = (string) ($_SESSION[$csrfKey] ?? '');
+
+    if (
+        $sessionToken === '' ||
+        $submittedToken === '' ||
+        !hash_equals($sessionToken, $submittedToken)
+    ) {
+        http_response_code(403);
+        die('Invalid security token.');
+    }
+
+    $title = trim((string) ($_POST['title'] ?? ''));
+    $description = trim((string) ($_POST['description'] ?? ''));
+
+    if ($title === '') {
+        die('Service title is required.');
+    }
 
     // Allow rich-text HTML while removing executable content.
     $description = strip_tags(
@@ -55,14 +87,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $image = $service['image'];
 
-    if (!empty($_FILES['image']['name'])) {
+    if (
+        isset($_FILES['image']) &&
+        $_FILES['image']['error'] !== UPLOAD_ERR_NO_FILE
+    ) {
+        if ($_FILES['image']['error'] !== UPLOAD_ERR_OK) {
+            die('The image upload failed.');
+        }
 
-        $image = time() . '_' . basename($_FILES['image']['name']);
+        if ($_FILES['image']['size'] > 5 * 1024 * 1024) {
+            die('The image must be 5 MB or smaller.');
+        }
 
-        move_uploaded_file(
+        $imageInfo = @getimagesize($_FILES['image']['tmp_name']);
+
+        if ($imageInfo === false) {
+            die('Please upload a valid image.');
+        }
+
+        $allowedMimeTypes = [
+            'image/jpeg' => 'jpg',
+            'image/png'  => 'png',
+            'image/gif'  => 'gif',
+            'image/webp' => 'webp',
+        ];
+
+        $mimeType = $imageInfo['mime'] ?? '';
+
+        if (!isset($allowedMimeTypes[$mimeType])) {
+            die('Only JPG, PNG, GIF, and WebP images are allowed.');
+        }
+
+        $uploadDirectory = ROOT_PATH . '/public/uploads/services';
+
+        if (!is_dir($uploadDirectory) && !mkdir($uploadDirectory, 0755, true)) {
+            die('The image upload directory could not be created.');
+        }
+
+        $image = bin2hex(random_bytes(16)) . '.' . $allowedMimeTypes[$mimeType];
+
+        if (!move_uploaded_file(
             $_FILES['image']['tmp_name'],
-            ROOT_PATH . '/public/uploads/services/' . $image
-        );
+            $uploadDirectory . '/' . $image
+        )) {
+            die('The image could not be saved.');
+        }
     }
 
     $stmt = $servicesPdo->prepare("

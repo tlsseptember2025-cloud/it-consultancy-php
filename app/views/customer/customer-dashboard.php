@@ -11,53 +11,195 @@ if (
 
 require_once HELPER_PATH . '/auth.php';
 
-if (isset($_SESSION['demo_customer'])) {
+/*
+|--------------------------------------------------------------------------
+| Select Customer Context / Database
+|--------------------------------------------------------------------------
+*/
+
+$isDemoCustomer = isset($_SESSION['demo_customer']);
+
+if ($isDemoCustomer) {
+
     $customerId = (int) $_SESSION['demo_customer']['id'];
+
+    require_once CONFIG_PATH . '/demo-database.php';
+
+    $db = $demoPdo;
+
 } else {
+
     $customerId = (int) $_SESSION['customer']['id'];
+
+    require_once CONFIG_PATH . '/database.php';
+
+    $db = $pdo;
 }
 
-require CONFIG_PATH . '/database.php';
+/*
+|--------------------------------------------------------------------------
+| Verify Demo Customer
+|--------------------------------------------------------------------------
+*/
 
-$requests = $pdo->prepare("
-    SELECT
-        requests.*,
-        services.title
-    FROM requests
-    JOIN services
-        ON services.id = requests.service_id
-    WHERE requests.customer_id = ?
-    ORDER BY requests.id DESC
-");
+if ($isDemoCustomer) {
 
-$requests->execute([$customerId]);
-$requests = $requests->fetchAll();
+    $stmt = $db->prepare("
+        SELECT id
+        FROM customers
+        WHERE id = ?
+          AND is_demo_account = 1
+          AND demo_tenant_id IS NOT NULL
+        LIMIT 1
+    ");
 
-$payments = $pdo->prepare("
-    SELECT
-        payments.*
-    FROM payments
-    JOIN requests
-        ON requests.id = payments.request_id
-    WHERE requests.customer_id = ?
-    ORDER BY payments.id DESC
-");
+    $stmt->execute([
+        $customerId
+    ]);
 
-$payments->execute([$customerId]);
-$payments = $payments->fetchAll();
+    if (!$stmt->fetchColumn()) {
 
-$refunds = $pdo->prepare("
-    SELECT
-        rr.*
-    FROM refund_requests rr
-    JOIN requests r
-        ON r.id = rr.request_id
-    WHERE r.customer_id = ?
-    ORDER BY rr.id DESC
-");
+        unset($_SESSION['demo_customer']);
 
-$refunds->execute([$customerId]);
-$refunds = $refunds->fetchAll();
+        header('Location: ?page=demo-login');
+        exit;
+    }
+}
+
+/*
+|--------------------------------------------------------------------------
+| Customer Requests
+|--------------------------------------------------------------------------
+*/
+
+if ($isDemoCustomer) {
+
+    $stmt = $db->prepare("
+        SELECT
+            r.*,
+            s.title
+        FROM requests r
+        JOIN services s
+            ON s.id = r.service_id
+        JOIN customers c
+            ON c.id = r.customer_id
+        WHERE r.customer_id = ?
+          AND c.is_demo_account = 1
+          AND c.demo_tenant_id IS NOT NULL
+          AND s.is_demo_account = 1
+          AND s.demo_tenant_id = c.demo_tenant_id
+        ORDER BY r.id DESC
+    ");
+
+} else {
+
+    $stmt = $db->prepare("
+        SELECT
+            r.*,
+            s.title
+        FROM requests r
+        JOIN services s
+            ON s.id = r.service_id
+        WHERE r.customer_id = ?
+        ORDER BY r.id DESC
+    ");
+}
+
+$stmt->execute([
+    $customerId
+]);
+
+$requests = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+/*
+|--------------------------------------------------------------------------
+| Customer Payments
+|--------------------------------------------------------------------------
+*/
+
+if ($isDemoCustomer) {
+
+    $stmt = $db->prepare("
+        SELECT
+            p.*
+        FROM payments p
+        JOIN requests r
+            ON r.id = p.request_id
+        JOIN customers c
+            ON c.id = r.customer_id
+        JOIN services s
+            ON s.id = r.service_id
+        WHERE r.customer_id = ?
+          AND c.is_demo_account = 1
+          AND c.demo_tenant_id IS NOT NULL
+          AND s.is_demo_account = 1
+          AND s.demo_tenant_id = c.demo_tenant_id
+        ORDER BY p.id DESC
+    ");
+
+} else {
+
+    $stmt = $db->prepare("
+        SELECT
+            p.*
+        FROM payments p
+        JOIN requests r
+            ON r.id = p.request_id
+        WHERE r.customer_id = ?
+        ORDER BY p.id DESC
+    ");
+}
+
+$stmt->execute([
+    $customerId
+]);
+
+$payments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+/*
+|--------------------------------------------------------------------------
+| Customer Refunds
+|--------------------------------------------------------------------------
+*/
+
+if ($isDemoCustomer) {
+
+    $stmt = $db->prepare("
+        SELECT
+            rr.*
+        FROM refund_requests rr
+        JOIN requests r
+            ON r.id = rr.request_id
+        JOIN customers c
+            ON c.id = r.customer_id
+        JOIN services s
+            ON s.id = r.service_id
+        WHERE r.customer_id = ?
+          AND c.is_demo_account = 1
+          AND c.demo_tenant_id IS NOT NULL
+          AND s.is_demo_account = 1
+          AND s.demo_tenant_id = c.demo_tenant_id
+        ORDER BY rr.id DESC
+    ");
+
+} else {
+
+    $stmt = $db->prepare("
+        SELECT
+            rr.*
+        FROM refund_requests rr
+        JOIN requests r
+            ON r.id = rr.request_id
+        WHERE r.customer_id = ?
+        ORDER BY rr.id DESC
+    ");
+}
+
+$stmt->execute([
+    $customerId
+]);
+
+$refunds = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 ?>
 
@@ -68,11 +210,11 @@ $refunds = $refunds->fetchAll();
     <h1>
 
         Welcome,
-       <?= htmlspecialchars(
-    isset($_SESSION['demo_customer'])
-        ? $_SESSION['demo_customer']['username']
-        : $_SESSION['customer']['name']
-) ?>
+        <?= htmlspecialchars(
+            $isDemoCustomer
+                ? $_SESSION['demo_customer']['username']
+                : $_SESSION['customer']['name']
+        ) ?>
 
     </h1>
 
@@ -84,59 +226,55 @@ $refunds = $refunds->fetchAll();
 
     <div class="row">
 
-    <div class="col-md-4 mb-3">
+        <div class="col-md-4 mb-3">
 
-        <div class="card border-primary">
+            <div class="card border-primary">
 
-            <div class="card-body text-center">
+                <div class="card-body text-center">
 
-                <h5>My Requests</h5>
+                    <h5>My Requests</h5>
 
-                <h2><?= count($requests) ?></h2>
+                    <h2><?= count($requests) ?></h2>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="col-md-4 mb-3">
+
+            <div class="card border-success">
+
+                <div class="card-body text-center">
+
+                    <h5>My Payments</h5>
+
+                    <h2><?= count($payments) ?></h2>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="col-md-4 mb-3">
+
+            <div class="card border-danger">
+
+                <div class="card-body text-center">
+
+                    <h5>My Refunds</h5>
+
+                    <h2><?= count($refunds) ?></h2>
+
+                </div>
 
             </div>
 
         </div>
 
     </div>
-
-    <div class="col-md-4 mb-3">
-
-        <div class="card border-success">
-
-            <div class="card-body text-center">
-
-                <h5>My Payments</h5>
-
-                <h2><?= count($payments) ?></h2>
-
-            </div>
-
-        </div>
-
-    </div>
-
-    <div class="col-md-4 mb-3">
-
-        <div class="card border-danger">
-
-            <div class="card-body text-center">
-
-                <h5>My Refunds</h5>
-
-                <h2><?= count($refunds) ?></h2>
-
-            </div>
-
-        </div>
-
-    </div>
-
-</div>
-
-</div>
-
-</div>
 
 </div>
 

@@ -13,12 +13,15 @@ if ($isDemoCustomer) {
     $profilePdo = $demoPdo;
 
     $customerId = (int) ($_SESSION['demo_customer']['id'] ?? 0);
+
     $demoTenantId = (int) (
         $_SESSION['demo_customer']['demo_tenant_id'] ?? 0
     );
 
     if ($customerId <= 0 || $demoTenantId <= 0) {
+
         unset($_SESSION['demo_customer']);
+
         header('Location: ?page=demo-login');
         exit;
     }
@@ -38,7 +41,9 @@ if ($isDemoCustomer) {
     ]);
 
     if (!$demoCustomerCheck->fetchColumn()) {
+
         unset($_SESSION['demo_customer']);
+
         header('Location: ?page=demo-login');
         exit;
     }
@@ -54,6 +59,12 @@ if ($isDemoCustomer) {
     $customerId = (int) $_SESSION['customer']['id'];
 }
 
+/*
+|--------------------------------------------------------------------------
+| Load Customer Profile
+|--------------------------------------------------------------------------
+*/
+
 $stmt = $profilePdo->prepare("
     SELECT
         id,
@@ -65,20 +76,38 @@ $stmt = $profilePdo->prepare("
     LIMIT 1
 ");
 
-$stmt->execute([$customerId]);
+$stmt->execute([
+    $customerId
+]);
 
 $customer = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$customer) {
 
-    unset($_SESSION['customer']);
-    header('Location: ?page=public-login');
+    if ($isDemoCustomer) {
+
+        unset($_SESSION['demo_customer']);
+
+        header('Location: ?page=demo-login');
+
+    } else {
+
+        unset($_SESSION['customer']);
+
+        header('Location: ?page=public-login');
+    }
 
     exit;
 }
 
 $error = null;
 $success = null;
+
+/*
+|--------------------------------------------------------------------------
+| Save Profile
+|--------------------------------------------------------------------------
+*/
 
 if (
     $_SERVER['REQUEST_METHOD'] === 'POST'
@@ -122,6 +151,9 @@ if (
 
         } else {
 
+            /*
+             * Update the authenticated customer only.
+             */
             $stmt = $profilePdo->prepare("
                 UPDATE customers
                 SET
@@ -143,9 +175,12 @@ if (
              * with the database.
              */
             if ($isDemoCustomer) {
+
                 $_SESSION['demo_customer']['name'] = $name;
                 $_SESSION['demo_customer']['email'] = $email;
+
             } else {
+
                 $_SESSION['customer']['name'] = $name;
                 $_SESSION['customer']['email'] = $email;
             }
@@ -154,7 +189,8 @@ if (
             $customer['email'] = $email;
             $customer['phone'] = $phone;
 
-            $success = 'Your profile has been updated successfully.';
+            $success =
+                'Your profile has been updated successfully.';
         }
     }
 }

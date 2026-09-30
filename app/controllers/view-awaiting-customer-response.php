@@ -24,27 +24,14 @@ require_once APP_PATH . '/helpers/RequestEventHelper.php';
 
 
 $isDemoAdmin = isset($_SESSION['demo_user']);
+$isDemoSuperAdmin = isset($_SESSION['demo_super_admin']);
 
-
-/*
-|--------------------------------------------------------------------------
-| Authentication
-|--------------------------------------------------------------------------
-*/
-
-if ($isDemoAdmin) {
-
-    requireDemoAdmin();
-
-} elseif (isset($_SESSION['user'])) {
-
-    requireAdminLogin();
-
-} else {
-
-    header('Location: ?page=login');
+if ($isDemoSuperAdmin) {
+    header('Location: ?page=demo-super-admin-dashboard');
     exit;
 }
+
+requireAdminLogin();
 
 
 /*
@@ -91,7 +78,46 @@ if ($isDemoAdmin) {
         header('Location: ?page=demo-login');
         exit;
     }
+
+    $tenantStmt = $requestPdo->prepare(
+        "SELECT id
+         FROM demo_tenants
+         WHERE id = ?
+           AND status = 'Active'
+           AND (expires_at IS NULL OR expires_at >= CURDATE())
+         LIMIT 1"
+    );
+    $tenantStmt->execute([$demoTenantId]);
+
+    if (!$tenantStmt->fetchColumn()) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    $adminStmt = $requestPdo->prepare(
+        "SELECT id
+         FROM users
+         WHERE id = ?
+           AND is_demo_account = 1
+           AND is_super_admin = 0
+           AND demo_tenant_id = ?
+         LIMIT 1"
+    );
+    $adminStmt->execute([
+        (int) ($_SESSION['demo_user']['id'] ?? 0),
+        $demoTenantId
+    ]);
+
+    if (!$adminStmt->fetchColumn()) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
 }
+
+
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
 
 
 /*
@@ -210,8 +236,17 @@ if (!$consultation) {
 |--------------------------------------------------------------------------
 */
 
-if (isset($_POST['save_customer_response'])) {
+if (
+    $_SERVER['REQUEST_METHOD'] === 'POST'
+    && isset($_POST['save_customer_response'])
+) {
 
+    if (
+        !isset($_POST['csrf_token'])
+        || !hash_equals($csrfToken, (string) $_POST['csrf_token'])
+    ) {
+        die('Invalid security token.');
+    }
 
     /*
     |--------------------------------------------------------------------------
@@ -238,13 +273,35 @@ if (isset($_POST['save_customer_response'])) {
     |--------------------------------------------------------------------------
     */
 
+    $allowedResponseMethods = [
+        'Email',
+        'Phone',
+        'WhatsApp',
+        'Other'
+    ];
+
+    $allowedCustomerDecisions = [
+        'continue',
+        'reschedule',
+        'cancel'
+    ];
+
     if (
-        $responseMethod === ''
-        || $customerDecision === ''
+        !in_array($responseMethod, $allowedResponseMethods, true)
+        || !in_array($customerDecision, $allowedCustomerDecisions, true)
         || $responseNotes === ''
     ) {
+        die('Invalid customer response data.');
+    }
 
-        die('All fields are required.');
+    if (mb_strlen($responseNotes) > 5000) {
+        die('Administrator notes are too long.');
+    }
+
+    if (
+        ($consultation['workflow_stage'] ?? '') !== 'Awaiting Customer Response'
+    ) {
+        die('This customer response is no longer awaiting review.');
     }
 
 
@@ -420,6 +477,7 @@ if (isset($_POST['save_customer_response'])) {
             r.job_status = ?
 
         WHERE r.id = ?
+          AND r.workflow_stage = 'Awaiting Customer Response'
     ";
 
 
@@ -444,6 +502,10 @@ if (isset($_POST['save_customer_response'])) {
     $stmt = $requestPdo->prepare($updateSql);
 
     $stmt->execute($updateParams);
+
+    if ($stmt->rowCount() !== 1) {
+        die('The customer response could not be recorded because the request status has changed.');
+    }
 
 
     /*
@@ -487,6 +549,10 @@ if (isset($_POST['save_customer_response'])) {
         $admin = $stmt->fetch(PDO::FETCH_ASSOC);
 
         $adminId = $admin['id'] ?? null;
+    }
+
+    if (!$adminId) {
+        die('Administrator account could not be verified.');
     }
 
 

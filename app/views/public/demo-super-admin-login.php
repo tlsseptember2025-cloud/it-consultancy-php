@@ -138,9 +138,9 @@ require dirname(__DIR__) . '/layouts/header-public.php';
 
                     <p class="mt-3 text-center mb-2">
 
-                        <a href="?page=demo-super-admin-forgot-password">
+                        <a href="?page=admin-account-recovery">
 
-                            Forgot Password?
+                            Account Locked? Recover Admin Access
 
                         </a>
 

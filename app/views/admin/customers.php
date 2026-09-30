@@ -207,14 +207,18 @@ $countStmt->execute($params);
 
 $totalCustomers = (int) $countStmt->fetchColumn();
 
-$totalPages = getTotalPages(
-    $totalCustomers,
-    $limit
+$totalPages = max(
+    1,
+    getTotalPages(
+        $totalCustomers,
+        $limit
+    )
 );
 
-if ($page > $totalPages) {
-    $page = $totalPages;
-}
+$page = max(
+    1,
+    min($page, $totalPages)
+);
 
 $offset = getPageOffset(
     $page,

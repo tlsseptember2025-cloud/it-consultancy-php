@@ -1,14 +1,105 @@
 <?php
 
-if (!isset($_SESSION['user'])) {
-
-    header('Location: ?page=login');
-    exit;
-}
-
+require_once APP_PATH . '/helpers/auth.php';
 require_once CONFIG_PATH . '/database.php';
 require_once APP_PATH . '/helpers/RequestEventHelper.php';
 require_once HELPER_PATH . '/meeting.php';
+
+requireAdminLogin();
+
+if (isset($_SESSION['demo_super_admin'])) {
+    header('Location: ?page=demo-super-admin-dashboard');
+    exit;
+}
+
+$isDemoAdmin = isset($_SESSION['demo_user']);
+$reviewPdo = $pdo;
+$adminTenantId = 0;
+
+if ($isDemoAdmin) {
+    $demoDbPath = CONFIG_PATH . '/demo-database.php';
+    if (!is_file($demoDbPath)) {
+        die('Demo database configuration not found.');
+    }
+
+    require $demoDbPath;
+
+    if (!isset($demoPdo) || !($demoPdo instanceof PDO)) {
+        die('Demo database connection unavailable.');
+    }
+
+    $reviewPdo = $demoPdo;
+    $adminTenantId = (int) ($_SESSION['demo_user']['demo_tenant_id'] ?? 0);
+
+    if ($adminTenantId <= 0) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    $tenantStmt = $reviewPdo->prepare("
+        SELECT id
+        FROM demo_tenants
+        WHERE id = ?
+          AND status = 'Active'
+          AND (expires_at IS NULL OR expires_at >= CURDATE())
+        LIMIT 1
+    ");
+    $tenantStmt->execute([$adminTenantId]);
+
+    if (!$tenantStmt->fetchColumn()) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    $adminId = (int) ($_SESSION['demo_user']['id'] ?? 0);
+
+    $adminStmt = $reviewPdo->prepare("
+        SELECT id
+        FROM users
+        WHERE id = ?
+          AND is_demo_account = 1
+          AND is_super_admin = 0
+          AND demo_tenant_id = ?
+        LIMIT 1
+    ");
+    $adminStmt->execute([$adminId, $adminTenantId]);
+
+    if (!$adminStmt->fetchColumn()) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+} else {
+    $adminId = 0;
+    $adminEmail = (string) ($_SESSION['user']['email'] ?? '');
+
+    if ($adminEmail === '') {
+        session_destroy();
+        header('Location: ?page=login');
+        exit;
+    }
+
+    $adminStmt = $reviewPdo->prepare("
+        SELECT id
+        FROM users
+        WHERE email = ?
+          AND is_demo_account = 0
+          AND is_super_admin = 0
+        LIMIT 1
+    ");
+    $adminStmt->execute([$adminEmail]);
+    $adminId = (int) ($adminStmt->fetchColumn() ?: 0);
+
+    if ($adminId <= 0) {
+        session_destroy();
+        header('Location: ?page=login');
+        exit;
+    }
+}
+
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
 
 $requestId = (int) ($_GET['id'] ?? 0);
 
@@ -23,7 +114,7 @@ if ($requestId <= 0) {
 |--------------------------------------------------------------------------
 */
 
-$stmt = $pdo->prepare("
+$stmt = $reviewPdo->prepare("
     SELECT
         r.id,
         r.customer_id,
@@ -70,11 +161,18 @@ $stmt = $pdo->prepare("
         r.id = ?
         AND r.workflow_stage = 'Awaiting Reschedule Approval'
         AND r.pending_reschedule_slot_id IS NOT NULL
+        AND (
+            ? = 0
+            OR (
+                c.demo_tenant_id = ?
+                AND c.is_demo_account = 1
+            )
+        )
 
     LIMIT 1
 ");
 
-$stmt->execute([$requestId]);
+$stmt->execute([$requestId, $adminTenantId, $adminTenantId]);
 
 $consultation = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -94,8 +192,19 @@ if (
     $_SERVER['REQUEST_METHOD'] === 'POST'
     && isset($_POST['decision'])
 ) {
+    if (!hash_equals($csrfToken, (string) ($_POST['csrf_token'] ?? ''))) {
+        $_SESSION['error'] = 'Invalid security token. Please try again.';
+        header('Location: ?page=review-reschedule-consultation&id=' . $requestId);
+        exit;
+    }
 
-    $decision = $_POST['decision'];
+    $decision = (string) $_POST['decision'];
+
+    if (!in_array($decision, ['approve', 'reject'], true)) {
+        $_SESSION['error'] = 'Invalid decision.';
+        header('Location: ?page=review-reschedule-consultation&id=' . $requestId);
+        exit;
+    }
 
 
     /*
@@ -108,7 +217,7 @@ if (
 
         try {
 
-            $pdo->beginTransaction();
+            $reviewPdo->beginTransaction();
 
 
             /*
@@ -117,7 +226,7 @@ if (
             |--------------------------------------------------------------------------
             */
 
-            $stmt = $pdo->prepare("
+            $stmt = $reviewPdo->prepare("
                 SELECT
                     id,
                     is_booked,
@@ -155,7 +264,7 @@ if (
             |--------------------------------------------------------------------------
             */
 
-            $stmt = $pdo->prepare("
+            $stmt = $reviewPdo->prepare("
                 SELECT
                     cb.id AS booking_id,
                     cb.slot_id AS old_slot_id,
@@ -202,7 +311,7 @@ if (
             |--------------------------------------------------------------------------
             */
 
-            $stmt = $pdo->prepare("
+            $stmt = $reviewPdo->prepare("
                 UPDATE consultation_slots
 
                 SET
@@ -224,7 +333,7 @@ if (
             |--------------------------------------------------------------------------
             */
 
-            $stmt = $pdo->prepare("
+            $stmt = $reviewPdo->prepare("
                 UPDATE consultation_slots
 
                 SET
@@ -248,7 +357,7 @@ if (
             |--------------------------------------------------------------------------
             */
 
-            $stmt = $pdo->prepare("
+            $stmt = $reviewPdo->prepare("
                 UPDATE consultation_bookings
 
                 SET
@@ -269,7 +378,7 @@ if (
             |--------------------------------------------------------------------------
             */
 
-            $stmt = $pdo->prepare("
+            $stmt = $reviewPdo->prepare("
                 UPDATE requests
 
                 SET
@@ -309,7 +418,7 @@ if (
             */
 
             RequestEventHelper::addCurrentUser(
-                $pdo,
+                $reviewPdo,
                 $requestId,
                 'CONSULTATION_RESCHEDULE_APPROVED',
                 RequestEventHelper::TYPE_CONSULTATION,
@@ -319,7 +428,7 @@ if (
             );
 
 
-            $pdo->commit();
+            $reviewPdo->commit();
 
 
             $_SESSION['success'] =
@@ -335,8 +444,8 @@ if (
 
         } catch (Throwable $e) {
 
-    if ($pdo->inTransaction()) {
-        $pdo->rollBack();
+    if ($reviewPdo->inTransaction()) {
+        $reviewPdo->rollBack();
     }
 
     die(
@@ -360,7 +469,7 @@ if (
 
     if ($decision === 'reject') {
 
-    $stmt = $pdo->prepare("
+    $stmt = $reviewPdo->prepare("
     UPDATE consultation_slots
     SET
         is_booked = 0,
@@ -373,7 +482,7 @@ $stmt->execute([
     $consultation['pending_reschedule_slot_id']
 ]);
 
-        $stmt = $pdo->prepare("
+        $stmt = $reviewPdo->prepare("
     UPDATE requests
     SET
         workflow_stage = 'Awaiting Customer Reschedule',
@@ -392,7 +501,7 @@ $stmt->execute([
 
 
         RequestEventHelper::addCurrentUser(
-            $pdo,
+            $reviewPdo,
             $requestId,
             'CONSULTATION_RESCHEDULE_REJECTED',
             RequestEventHelper::TYPE_CONSULTATION,
@@ -655,6 +764,11 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
                     <input
                         type="hidden"
+                        name="csrf_token"
+                        value="<?= htmlspecialchars($csrfToken) ?>">
+
+                    <input
+                        type="hidden"
                         name="decision"
                         value="approve">
 
@@ -670,6 +784,11 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
 
                 <form method="POST">
+
+                    <input
+                        type="hidden"
+                        name="csrf_token"
+                        value="<?= htmlspecialchars($csrfToken) ?>">
 
                     <input
                         type="hidden"

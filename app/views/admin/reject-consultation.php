@@ -1,18 +1,49 @@
 <?php
 
 require_once APP_PATH . '/helpers/DateHelper.php';
+require_once HELPER_PATH . '/auth.php';
+requireAdminLogin();
 
 /*
 |--------------------------------------------------------------------------
-| Authentication
+| Admin Context / Database
 |--------------------------------------------------------------------------
 */
 
-if (!isset($_SESSION['user'])) {
+$isDemoAdmin = isset($_SESSION['demo_user']);
+$isDemoSuperAdmin = isset($_SESSION['demo_super_admin']);
 
-    header('Location: ?page=login');
+if ($isDemoSuperAdmin) {
+    header('Location: ?page=demo-super-admin-dashboard');
     exit;
 }
+
+if ($isDemoAdmin) {
+    require_once CONFIG_PATH . '/demo-database.php';
+    $adminPdo = $demoPdo;
+    $demoTenantId = (int) ($_SESSION['demo_user']['demo_tenant_id'] ?? 0);
+
+    if ($demoTenantId <= 0) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+} else {
+    require_once CONFIG_PATH . '/database.php';
+    $adminPdo = $pdo;
+}
+
+/*
+|--------------------------------------------------------------------------
+| CSRF Protection
+|--------------------------------------------------------------------------
+*/
+
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
+$csrfToken = $_SESSION['csrf_token'];
 
 /*
 |--------------------------------------------------------------------------
@@ -44,9 +75,12 @@ if ($requestId <= 0) {
 |--------------------------------------------------------------------------
 */
 
-$consultationStmt = $pdo->prepare("
+$consultationStmt = $adminPdo->prepare("
     SELECT
         r.id,
+        r.workflow_stage,
+        c.demo_tenant_id,
+        c.is_demo_account,
         c.name,
         s.title AS service_title,
         cs.slot_date,
@@ -75,9 +109,25 @@ $consultationStmt->execute([$requestId]);
 $request = $consultationStmt->fetch();
 
 if (!$request) {
-
     die('Consultation not found.');
+}
 
+if (
+    ($request['workflow_stage'] ?? '') === 'Consultation Rejected'
+) {
+    die('This consultation has already been rejected.');
+}
+
+if (
+    $isDemoAdmin
+    && (
+        !isset($request['demo_tenant_id'])
+        || (int) $request['demo_tenant_id'] !== $demoTenantId
+        || !isset($request['is_demo_account'])
+        || (int) $request['is_demo_account'] !== 1
+    )
+) {
+    die('Consultation not found.');
 }
 
 /*
@@ -94,12 +144,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     |--------------------------------------------------------------------------
     */
 
+    if (
+        empty($_POST['csrf_token'])
+        || !hash_equals($csrfToken, (string) $_POST['csrf_token'])
+    ) {
+        die('Invalid security token.');
+    }
+
     $reason = trim($_POST['rejection_reason'] ?? '');
 
     if ($reason === '') {
-
         die('Please enter a rejection reason.');
+    }
 
+    if (mb_strlen($reason) > 5000) {
+        die('The rejection reason is too long.');
     }
 
     /*
@@ -108,13 +167,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     |--------------------------------------------------------------------------
     */
 
-    $adminStmt = $pdo->prepare("
-        SELECT id
-        FROM users
-        WHERE email = ?
-    ");
+    if ($isDemoAdmin) {
+        $adminStmt = $adminPdo->prepare("
+            SELECT id
+            FROM users
+            WHERE id = ?
+              AND demo_tenant_id = ?
+              AND is_demo_account = 1
+              AND is_super_admin = 0
+            LIMIT 1
+        ");
 
-    $adminStmt->execute([$_SESSION['user']]);
+        $adminStmt->execute([
+            (int) ($_SESSION['demo_user']['id'] ?? 0),
+            $demoTenantId
+        ]);
+    } else {
+        $adminStmt = $adminPdo->prepare("
+            SELECT id
+            FROM users
+            WHERE email = ?
+              AND is_demo_account = 0
+              AND demo_tenant_id IS NULL
+            LIMIT 1
+        ");
+
+        $adminStmt->execute([$_SESSION['user']]);
+    }
 
     $admin = $adminStmt->fetch();
 
@@ -154,7 +233,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     */
 
     RequestEventHelper::addCurrentUser(
-        $pdo,
+        $adminPdo,
         $requestId,
         RequestEventHelper::EVENT_CONSULTATION_REJECTED,
         RequestEventHelper::TYPE_CONSULTATION,
@@ -169,7 +248,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     |--------------------------------------------------------------------------
     */
 
-    $customerStmt = $pdo->prepare("
+    $customerStmt = $adminPdo->prepare("
         SELECT
             c.id AS customer_id,
             c.name,
@@ -192,9 +271,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $customer = $customerStmt->fetch();
 
     if (!$customer) {
-
         die('Customer not found.');
-
     }
 
     /*
@@ -203,11 +280,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     |--------------------------------------------------------------------------
     */
 
+    $customerNameHtml = htmlspecialchars(
+        (string) $customer['name'],
+        ENT_QUOTES,
+        'UTF-8'
+    );
+
+    $serviceTitleHtml = htmlspecialchars(
+        (string) $customer['service_title'],
+        ENT_QUOTES,
+        'UTF-8'
+    );
+
+    $reasonHtml = nl2br(
+        htmlspecialchars(
+            $reason,
+            ENT_QUOTES,
+            'UTF-8'
+        )
+    );
+
     sendEmail(
         $customer['email'],
         'Consultation Rejected',
         "
-        <h2>Hello {$customer['name']},</h2>
+        <h2>Hello {$customerNameHtml},</h2>
 
         <p>
             Unfortunately, your scheduled consultation has been rejected.
@@ -215,12 +312,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <p>
             <strong>Service</strong><br>
-            {$customer['service_title']}
+            {$serviceTitleHtml}
         </p>
 
         <p>
             <strong>Reason</strong><br>
-            " . nl2br(htmlspecialchars($reason)) . "
+            {$reasonHtml}
         </p>
 
         <p>
@@ -258,7 +355,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     */
 
     createNotification(
-        $pdo,
+        $adminPdo,
         'customer',
         $customer['customer_id'],
         'Consultation Rejected',
@@ -456,6 +553,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
 
             <form method="post">
+
+                <input
+                    type="hidden"
+                    name="csrf_token"
+                    value="<?= htmlspecialchars(
+                        $csrfToken,
+                        ENT_QUOTES,
+                        'UTF-8'
+                    ) ?>"
+                >
 
                 <div class="mb-4">
 

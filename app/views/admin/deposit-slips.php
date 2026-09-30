@@ -1,14 +1,27 @@
 <?php
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
 
-if (!isset($_SESSION['user'])) {
-    header("Location: ?page=login");
+require_once HELPER_PATH . '/auth.php';
+requireAdminLogin();
+
+if (isset($_SESSION['demo_super_admin'])) {
+    header('Location: ?page=demo-super-admin-dashboard');
     exit;
 }
 
-require dirname(__DIR__) . '/layouts/header-admin.php';
+$isDemoAdmin = isset($_SESSION['demo_user']);
 
+if ($isDemoAdmin) {
+    require_once CONFIG_PATH . '/demo-database.php';
+    $slipsPdo = $demoPdo;
 
-$stmt = $pdo->query("
+    $demoTenantId = (int) ($_SESSION['demo_user']['demo_tenant_id'] ?? 0);
+
+    if ($demoTenantId <= 0) {
+        die('Invalid Demo tenant.');
+    }
+
+    $stmt = $slipsPdo->prepare("
     SELECT
         ps.*,
         c.name AS customer_name,
@@ -20,10 +33,34 @@ $stmt = $pdo->query("
         ON ps.request_id = r.id
     JOIN services s
         ON r.service_id = s.id
+    WHERE c.demo_tenant_id = ?
+      AND c.is_demo_account = 1
     ORDER BY ps.uploaded_at DESC
 ");
 
-$slips = $stmt->fetchAll();
+    $stmt->execute([$demoTenantId]);
+    $slips = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} else {
+    require_once CONFIG_PATH . '/database.php';
+    $slipsPdo = $pdo;
+
+    $stmt = $slipsPdo->query("
+        SELECT
+            ps.*,
+            c.name AS customer_name,
+            s.title AS service_title
+        FROM payment_slips ps
+        JOIN customers c
+            ON ps.customer_id = c.id
+        JOIN requests r
+            ON ps.request_id = r.id
+        JOIN services s
+            ON r.service_id = s.id
+        ORDER BY ps.uploaded_at DESC
+    ");
+
+    $slips = $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
 
 ?>
 
@@ -81,7 +118,7 @@ $slips = $stmt->fetchAll();
                         <td>
 
                             <a
-                                href="uploads/slips/<?= $slip['file_name'] ?>"
+                                href="uploads/slips/<?= htmlspecialchars(rawurlencode(basename((string) $slip['file_name'])), ENT_QUOTES, 'UTF-8') ?>"
                                 target="_blank"
                                 class="btn btn-info btn-sm">
 
@@ -124,7 +161,7 @@ $slips = $stmt->fetchAll();
                             <?php if ($slip['status'] === 'Pending'): ?>
 
                                 <a
-                                    href="?page=approve-slip&id=<?= $slip['id'] ?>"
+                                    href="?page=approve-slip&id=<?= $slip['id'] ?>&csrf_token=<?= urlencode($csrfToken) ?>"
                                     class="btn btn-success btn-sm">
 
                                     Approve
@@ -132,7 +169,7 @@ $slips = $stmt->fetchAll();
                                 </a>
 
                                 <a
-                                    href="?page=reject-slip&id=<?= $slip['id'] ?>"
+                                    href="?page=reject-slip&id=<?= $slip['id'] ?>&csrf_token=<?= urlencode($csrfToken) ?>"
                                     class="btn btn-danger btn-sm">
 
                                     Reject

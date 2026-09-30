@@ -1,17 +1,118 @@
 <?php
 
-if (!isset($_SESSION['user'])) {
-    header('Location: ?page=login');
+require_once HELPER_PATH . '/auth.php';
+
+requireAdminLogin();
+
+$isDemoAdmin = isset($_SESSION['demo_user']);
+$isDemoSuperAdmin = isset($_SESSION['demo_super_admin']);
+
+if ($isDemoSuperAdmin) {
+    header('Location: ?page=demo-super-admin-dashboard');
     exit;
 }
 
 require_once CONFIG_PATH . '/database.php';
+
+$requestsPdo = $pdo;
+$demoTenantId = 0;
+
+if ($isDemoAdmin) {
+    require_once CONFIG_PATH . '/demo-database.php';
+    $requestsPdo = $demoPdo;
+
+    $demoTenantId = (int) ($_SESSION['demo_user']['demo_tenant_id'] ?? 0);
+
+    if ($demoTenantId <= 0) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    $tenantStmt = $requestsPdo->prepare("
+        SELECT id, status, expires_at
+        FROM demo_tenants
+        WHERE id = ?
+        LIMIT 1
+    ");
+    $tenantStmt->execute([$demoTenantId]);
+    $demoTenant = $tenantStmt->fetch(PDO::FETCH_ASSOC);
+
+    if (
+        !$demoTenant
+        || $demoTenant['status'] !== 'Active'
+        || (
+            $demoTenant['expires_at'] !== null
+            && strtotime($demoTenant['expires_at']) <= time()
+        )
+    ) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    $adminStmt = $requestsPdo->prepare("
+        SELECT id
+        FROM users
+        WHERE id = ?
+          AND demo_tenant_id = ?
+          AND is_demo_account = 1
+          AND is_super_admin = 0
+        LIMIT 1
+    ");
+    $adminStmt->execute([
+        (int) ($_SESSION['demo_user']['id'] ?? 0),
+        $demoTenantId
+    ]);
+
+    $demoAdmin = $adminStmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$demoAdmin) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    $adminId = (int) $demoAdmin['id'];
+} else {
+    $adminStmt = $pdo->prepare("
+        SELECT id
+        FROM users
+        WHERE email = ?
+          AND is_demo_account = 0
+        LIMIT 1
+    ");
+    $adminStmt->execute([$_SESSION['user']]);
+    $admin = $adminStmt->fetch(PDO::FETCH_ASSOC);
+    $adminId = isset($admin['id']) ? (int) $admin['id'] : null;
+}
+
 require_once APP_PATH . '/helpers/contact_history_helper.php';
 require_once APP_PATH . '/helpers/RequestEventHelper.php';
 
 $requestId = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 
-$stmt = $pdo->prepare("
+if ($requestId <= 0) {
+    die('Invalid request.');
+}
+
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $submittedToken = (string) ($_POST['csrf_token'] ?? '');
+
+    if (
+        $submittedToken === ''
+        || !hash_equals($_SESSION['csrf_token'], $submittedToken)
+    ) {
+        http_response_code(403);
+        die('Invalid security token.');
+    }
+}
+
+$stmt = $requestsPdo->prepare("
 SELECT
     r.*,
     c.name AS customer_name,
@@ -22,43 +123,26 @@ SELECT
     cs.slot_time,
     cs.consultation_method
 FROM requests r
-
-INNER JOIN customers c
-    ON c.id = r.customer_id
-
-INNER JOIN services s
-    ON s.id = r.service_id
-
-INNER JOIN consultation_bookings cb
-    ON cb.request_id = r.id
-
-INNER JOIN consultation_slots cs
-    ON cs.id = cb.slot_id
-
+INNER JOIN customers c ON c.id = r.customer_id
+INNER JOIN services s ON s.id = r.service_id
+INNER JOIN consultation_bookings cb ON cb.request_id = r.id
+INNER JOIN consultation_slots cs ON cs.id = cb.slot_id
 WHERE r.id = ?
+  AND (
+      ? = 0
+      OR (
+          c.demo_tenant_id = ?
+          AND c.is_demo_account = 1
+      )
+  )
 LIMIT 1
 ");
-
-$stmt->execute([$requestId]);
-
+$stmt->execute([$requestId, $demoTenantId, $demoTenantId]);
 $consultation = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$consultation) {
     die('Request not found.');
 }
-
-$stmt = $pdo->prepare("
-    SELECT id
-    FROM users
-    WHERE email = ?
-    LIMIT 1
-");
-
-$stmt->execute([$_SESSION['user']]);
-
-$admin = $stmt->fetch(PDO::FETCH_ASSOC);
-
-$adminId = $admin['id'] ?? null;
 
 if (isset($_POST['save_customer_response'])) {
 
@@ -108,7 +192,7 @@ if (isset($_POST['save_customer_response'])) {
 
     }
 
-    $stmt = $pdo->prepare("
+    $stmt = $requestsPdo->prepare("
         UPDATE requests
         SET
             workflow_stage = ?,
@@ -124,7 +208,7 @@ if (isset($_POST['save_customer_response'])) {
 
     addContactHistory(
 
-        $pdo,
+        $requestsPdo,
 
         $consultation['id'],
 
@@ -144,7 +228,7 @@ if (isset($_POST['save_customer_response'])) {
 
     RequestEventHelper::add(
 
-        $pdo,
+        $requestsPdo,
 
         $consultation['id'],
 
@@ -177,7 +261,7 @@ if (isset($_POST['continue_consultation'])) {
 
     if ($currentDateTime > $consultationDateTime) {
 
-        $stmt = $pdo->prepare("
+        $stmt = $requestsPdo->prepare("
             UPDATE requests
             SET
                 workflow_stage = 'Needs Admin Review',
@@ -190,7 +274,7 @@ if (isset($_POST['continue_consultation'])) {
 
         addContactHistory(
 
-            $pdo,
+            $requestsPdo,
 
             $requestId,
 
@@ -210,7 +294,7 @@ if (isset($_POST['continue_consultation'])) {
 
         RequestEventHelper::add(
 
-            $pdo,
+            $requestsPdo,
 
             $requestId,
 
@@ -234,7 +318,7 @@ if (isset($_POST['continue_consultation'])) {
 
     } else {
 
-        $stmt = $pdo->prepare("
+        $stmt = $requestsPdo->prepare("
             UPDATE requests
             SET
                 workflow_stage = 'Consultation Confirmed',
@@ -246,7 +330,7 @@ if (isset($_POST['continue_consultation'])) {
 
         addContactHistory(
 
-            $pdo,
+            $requestsPdo,
 
             $requestId,
 
@@ -264,7 +348,7 @@ if (isset($_POST['continue_consultation'])) {
 
         RequestEventHelper::add(
 
-            $pdo,
+            $requestsPdo,
 
             $requestId,
 
@@ -289,5 +373,7 @@ if (isset($_POST['continue_consultation'])) {
     }
 
 }
+
+$csrfToken = $_SESSION['csrf_token'];
 
 require VIEW_PATH . '/admin/review-cancellation-request.php';

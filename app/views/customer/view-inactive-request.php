@@ -1,16 +1,108 @@
 <?php
 
-if (!isset($_SESSION['customer'])) {
-    header('Location: ?page=public-login');
-    exit;
-}
-
-require_once CONFIG_PATH . '/database.php';
+require_once HELPER_PATH . '/auth.php';
 require_once APP_PATH . '/helpers/DateHelper.php';
 require_once APP_PATH . '/helpers/WorkflowHelper.php';
 require_once APP_PATH . '/helpers/RequestEventHelper.php';
 
-$customerId = (int) $_SESSION['customer']['id'];
+
+/*
+|--------------------------------------------------------------------------
+| Determine Customer Environment
+|--------------------------------------------------------------------------
+*/
+
+$isDemoCustomer = isset($_SESSION['demo_customer']);
+$isMainCustomer = isset($_SESSION['customer']);
+
+
+/*
+|--------------------------------------------------------------------------
+| Authentication
+|--------------------------------------------------------------------------
+*/
+
+if (!$isMainCustomer && !$isDemoCustomer) {
+
+    header('Location: ?page=public-login');
+    exit;
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Select Correct Database
+|--------------------------------------------------------------------------
+*/
+
+if ($isDemoCustomer) {
+
+    requireDemoCustomer();
+
+    require_once CONFIG_PATH . '/demo-database.php';
+
+    $db = $demoPdo;
+
+    $customerId = (int) $_SESSION['demo_customer']['id'];
+
+    $demoTenantId = (int) (
+        $_SESSION['demo_customer']['demo_tenant_id'] ?? 0
+    );
+
+    if ($demoTenantId <= 0) {
+
+        unset($_SESSION['demo_customer']);
+
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Validate Demo Customer
+    |--------------------------------------------------------------------------
+    */
+
+    $customerCheckStmt = $db->prepare("
+        SELECT id
+        FROM customers
+        WHERE id = ?
+          AND is_demo_account = 1
+          AND demo_tenant_id = ?
+        LIMIT 1
+    ");
+
+    $customerCheckStmt->execute([
+        $customerId,
+        $demoTenantId
+    ]);
+
+    if (!$customerCheckStmt->fetch(PDO::FETCH_ASSOC)) {
+
+        unset($_SESSION['demo_customer']);
+
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+} else {
+
+    requireCustomerLogin();
+
+    require_once CONFIG_PATH . '/database.php';
+
+    $db = $pdo;
+
+    $customerId = (int) $_SESSION['customer']['id'];
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Request ID
+|--------------------------------------------------------------------------
+*/
+
 $requestId = (int) ($_GET['request_id'] ?? 0);
 
 if ($requestId <= 0) {
@@ -22,24 +114,63 @@ if ($requestId <= 0) {
 |--------------------------------------------------------------------------
 | Load Customer Request
 |--------------------------------------------------------------------------
+|
+| Demo:
+| - authenticated Demo customer
+| - Demo tenant
+| - Demo service
+|
+| Normal:
+| - authenticated customer
+|
 */
 
-$stmt = $pdo->prepare("
-    SELECT
-        r.*,
-        s.title AS service_title
-    FROM requests r
-    INNER JOIN services s
-        ON s.id = r.service_id
-    WHERE r.id = ?
-      AND r.customer_id = ?
-    LIMIT 1
-");
+if ($isDemoCustomer) {
 
-$stmt->execute([
-    $requestId,
-    $customerId
-]);
+    $stmt = $db->prepare("
+        SELECT
+            r.*,
+            s.title AS service_title
+        FROM requests r
+        INNER JOIN services s
+            ON s.id = r.service_id
+        INNER JOIN customers c
+            ON c.id = r.customer_id
+        WHERE r.id = ?
+          AND r.customer_id = ?
+          AND c.is_demo_account = 1
+          AND c.demo_tenant_id = ?
+          AND s.is_demo_account = 1
+          AND s.demo_tenant_id = c.demo_tenant_id
+        LIMIT 1
+    ");
+
+    $stmt->execute([
+        $requestId,
+        $customerId,
+        $demoTenantId
+    ]);
+
+} else {
+
+    $stmt = $db->prepare("
+        SELECT
+            r.*,
+            s.title AS service_title
+        FROM requests r
+        INNER JOIN services s
+            ON s.id = r.service_id
+        WHERE r.id = ?
+          AND r.customer_id = ?
+        LIMIT 1
+    ");
+
+    $stmt->execute([
+        $requestId,
+        $customerId
+    ]);
+}
+
 
 $request = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -48,7 +179,6 @@ if (!$request) {
 }
 
 
-
 /*
 |--------------------------------------------------------------------------
 | Only Closed / Archived Requests
@@ -62,18 +192,6 @@ if (
     die('This request is not an inactive request.');
 }
 
-/*
-|--------------------------------------------------------------------------
-| Only Closed / Archived Requests
-|--------------------------------------------------------------------------
-*/
-
-if (
-    $request['workflow_stage'] !== 'Closed'
-    && $request['workflow_stage'] !== 'Archived'
-) {
-    die('This request is not an inactive request.');
-}
 
 /*
 |--------------------------------------------------------------------------
@@ -82,22 +200,10 @@ if (
 */
 
 $events = RequestEventHelper::getCustomerVisible(
-    $pdo,
+    $db,
     $requestId
 );
 
-/*
-|--------------------------------------------------------------------------
-| Customer-Visible Request History
-|--------------------------------------------------------------------------
-*/
-
-/*
-$events = RequestEventHelper::getCustomerVisible(
-    $pdo,
-    $requestId
-);
-*/
 
 /*
 |--------------------------------------------------------------------------
@@ -278,59 +384,73 @@ $isArchived = ($request['workflow_stage'] === 'Archived');
 
     </div>
 
+
     <?php if (!empty($events)): ?>
 
-    <div class="card mt-4">
+        <div class="card mt-4">
 
-        <div class="card-header bg-primary text-white">
-            <strong>Request History</strong>
-        </div>
+            <div class="card-header bg-primary text-white">
+                <strong>Request History</strong>
+            </div>
 
-        <div class="card-body">
+            <div class="card-body">
 
-            <?php foreach ($events as $event): ?>
+                <?php foreach ($events as $event): ?>
 
-                <div class="border-bottom pb-3 mb-3">
+                    <div class="border-bottom pb-3 mb-3">
 
-                    <div class="fw-bold">
-                        <?= htmlspecialchars($event['event_title']) ?>
+                        <div class="fw-bold">
+                            <?= htmlspecialchars(
+                                $event['event_title']
+                            ) ?>
+                        </div>
+
+                        <div class="small text-muted">
+                            <?= date(
+                                'd M Y h:i A',
+                                strtotime($event['created_at'])
+                            ) ?>
+                        </div>
+
+                        <?php
+
+                        $customerDescription = match (
+                            $event['event_code']
+                        ) {
+
+                            'CLOSURE_AGREEMENT_SENT' =>
+                                'The Consultation Closure Agreement was sent for your review.',
+
+                            'CLOSURE_AGREEMENT_RESENT' =>
+                                'The Consultation Closure Agreement was resent for your review.',
+
+                            default =>
+                                $event['event_description'] ?? ''
+                        };
+
+                        ?>
+
+                        <?php if ($customerDescription !== ''): ?>
+
+                            <div class="mt-2">
+                                <?= nl2br(
+                                    htmlspecialchars(
+                                        $customerDescription
+                                    )
+                                ) ?>
+                            </div>
+
+                        <?php endif; ?>
+
                     </div>
 
-                    <div class="small text-muted">
-                        <?= date('d M Y h:i A', strtotime($event['created_at'])) ?>
-                    </div>
+                <?php endforeach; ?>
 
-                    <?php
-$customerDescription = match ($event['event_code']) {
-
-    'CLOSURE_AGREEMENT_SENT' =>
-        'The Consultation Closure Agreement was sent for your review.',
-
-    'CLOSURE_AGREEMENT_RESENT' =>
-        'The Consultation Closure Agreement was resent for your review.',
-
-    default =>
-        $event['event_description'] ?? ''
-};
-?>
-
-<?php if ($customerDescription !== ''): ?>
-
-    <div class="mt-2">
-        <?= nl2br(htmlspecialchars($customerDescription)) ?>
-    </div>
-
-<?php endif; ?>
-
-                </div>
-
-            <?php endforeach; ?>
+            </div>
 
         </div>
 
-    </div>
-
-<?php endif; ?>
+    <?php endif; ?>
 
 
     <!-- Customer Actions -->

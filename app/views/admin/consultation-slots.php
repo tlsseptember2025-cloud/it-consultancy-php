@@ -1,42 +1,106 @@
 <?php
+// CSRF protection for all state-changing POST requests.
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $submittedCsrfToken = $_POST['csrf_token'] ?? '';
+    if (!is_string($submittedCsrfToken) || !hash_equals($csrfToken, $submittedCsrfToken)) {
+        http_response_code(403);
+        exit('Invalid CSRF token.');
+    }
+}
+
 
 require_once APP_PATH . '/helpers/DateHelper.php';
+require_once HELPER_PATH . '/auth.php';
 
-if (!isset($_SESSION['user'])) {
+$isDemoAdmin = isset($_SESSION['demo_user']);
+
+if ($isDemoAdmin) {
+
+    requireDemoAdmin();
+    require_once CONFIG_PATH . '/demo-database.php';
+
+    $slotPdo = $demoPdo;
+    $demoTenantId = (int) ($_SESSION['demo_user']['demo_tenant_id'] ?? 0);
+
+    if ($demoTenantId <= 0) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+} elseif (isset($_SESSION['user'])) {
+
+    requireAdminLogin();
+
+if (isset($_SESSION['demo_super_admin'])) {
+    header('Location: ?page=demo-super-admin-dashboard');
+    exit;
+}
+    require_once CONFIG_PATH . '/database.php';
+
+    $slotPdo = $pdo;
+
+} else {
 
     header('Location: ?page=login');
     exit;
 }
 
-require_once HELPER_PATH . '/auth.php';
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-$stmt = $pdo->prepare("
-    INSERT INTO consultation_slots
-    (
-        slot_date,
-        slot_time,
-        consultation_method,
-        meeting_link
-    )
-    VALUES (?, ?, ?, ?)
-");
+    $stmt = $slotPdo->prepare("
+        INSERT INTO consultation_slots
+        (
+            slot_date,
+            slot_time,
+            consultation_method,
+            meeting_link
+        )
+        VALUES (?, ?, ?, ?)
+    ");
 
-$stmt->execute([
-    $_POST['slot_date'],
-    $_POST['slot_time'],
-    $_POST['consultation_method'],
-    $_POST['meeting_link']
-]);   
-
+    $stmt->execute([
+        $_POST['slot_date'] ?? '',
+        $_POST['slot_time'] ?? '',
+        $_POST['consultation_method'] ?? '',
+        trim($_POST['meeting_link'] ?? '')
+    ]);
 }
 
-$slots = $pdo->query("
-    SELECT *
-    FROM consultation_slots
-    ORDER BY slot_date, slot_time
-")->fetchAll();
+if ($isDemoAdmin) {
+
+    /*
+     * consultation_slots has no demo_tenant_id column in the current schema.
+     * Existing booked slots are therefore isolated through their assigned
+     * Demo Agent. Unbooked slots remain visible so they can be assigned.
+     */
+    $stmt = $slotPdo->prepare("
+        SELECT cs.*
+        FROM consultation_slots cs
+        WHERE cs.is_booked = 0
+           OR EXISTS (
+                SELECT 1
+                FROM consultation_bookings cb
+                INNER JOIN agents a
+                    ON a.id = cb.agent_id
+                WHERE cb.slot_id = cs.id
+                  AND a.demo_tenant_id = ?
+                  AND a.is_demo_account = 1
+           )
+        ORDER BY cs.slot_date, cs.slot_time
+    ");
+    $stmt->execute([$demoTenantId]);
+    $slots = $stmt->fetchAll();
+
+} else {
+
+    $slots = $slotPdo->query("
+        SELECT *
+        FROM consultation_slots
+        ORDER BY slot_date, slot_time
+    ")->fetchAll();
+}
 
 require dirname(__DIR__) . '/layouts/header-admin.php';
 
@@ -51,6 +115,7 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
         </h2>
 
         <form method="POST" class="row g-3 mb-4">
+<input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
     <div class="col-md-2">
 
@@ -150,7 +215,7 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
 
     <td>
         <?php if (
-    !empty($consultation['meeting_link'])
+    !empty($slot['meeting_link'])
     &&
     shouldShowMeetingLink(
         $consultation['slot_date'],

@@ -1,7 +1,7 @@
 <?php
 
 require_once APP_PATH . '/helpers/DateHelper.php';
-require_once HELPER_PATH . '/SearchPaginationHelper.php';
+require_once APP_PATH . '/helpers/SearchPaginationHelper.php';
 require_once HELPER_PATH . '/auth.php';
 
 /*
@@ -17,6 +17,7 @@ require_once HELPER_PATH . '/auth.php';
 |   - Must belong to the tenant stored in the Demo session.
 |   - Must be marked as a Demo account.
 |
+|--------------------------------------------------------------------------
 */
 
 $isDemoCustomer = isset($_SESSION['demo_customer']);
@@ -29,12 +30,16 @@ if ($isDemoCustomer) {
 
     $customerPdo = $demoPdo;
 
-    $customerId = (int) ($_SESSION['demo_customer']['id'] ?? 0);
+    $customerId = (int) (
+        $_SESSION['demo_customer']['id'] ?? 0
+    );
+
     $demoTenantId = (int) (
         $_SESSION['demo_customer']['demo_tenant_id'] ?? 0
     );
 
     if ($customerId <= 0 || $demoTenantId <= 0) {
+
         unset($_SESSION['demo_customer']);
 
         header('Location: ?page=demo-login');
@@ -42,9 +47,11 @@ if ($isDemoCustomer) {
     }
 
     /*
-     * Confirm that the logged-in Demo Customer belongs to the
-     * current Demo tenant and is actually marked as a Demo account.
-     */
+    |--------------------------------------------------------------------------
+    | Confirm Demo Customer belongs to current Demo tenant
+    |--------------------------------------------------------------------------
+    */
+
     $demoCustomerCheck = $customerPdo->prepare("
         SELECT id
         FROM customers
@@ -60,6 +67,7 @@ if ($isDemoCustomer) {
     ]);
 
     if (!$demoCustomerCheck->fetchColumn()) {
+
         unset($_SESSION['demo_customer']);
 
         header('Location: ?page=demo-login');
@@ -69,6 +77,8 @@ if ($isDemoCustomer) {
 } else {
 
     requireCustomerLogin();
+
+    require_once CONFIG_PATH . '/database.php';
 
     $customerPdo = $pdo;
 
@@ -87,15 +97,35 @@ $limit  = getPageLimit(10);
 
 /*
 |--------------------------------------------------------------------------
-| Base Query
+| Base Query Conditions
 |--------------------------------------------------------------------------
 */
 
-$where = "
-    WHERE r.customer_id = ?
-";
+if ($isDemoCustomer) {
 
-$params = [$customerId];
+    $where = "
+        WHERE r.customer_id = ?
+          AND c.is_demo_account = 1
+          AND c.demo_tenant_id = ?
+          AND s.is_demo_account = 1
+          AND s.demo_tenant_id = c.demo_tenant_id
+    ";
+
+    $params = [
+        $customerId,
+        $demoTenantId
+    ];
+
+} else {
+
+    $where = "
+        WHERE r.customer_id = ?
+    ";
+
+    $params = [
+        $customerId
+    ];
+}
 
 /*
 |--------------------------------------------------------------------------
@@ -103,6 +133,7 @@ $params = [$customerId];
 |--------------------------------------------------------------------------
 |
 | Broad search across:
+|
 | - Refund reference
 | - Request reference
 | - Service
@@ -114,24 +145,38 @@ $params = [$customerId];
 | - Requested date
 |
 | Supports:
+|
 | DD-MM
 | DD-MM-YYYY
 | YYYY-MM-DD
 |
+|--------------------------------------------------------------------------
 */
 
 $searchColumns = [
+
     "CAST(rr.id AS CHAR)",
+
     "CAST(rr.request_id AS CHAR)",
+
     "s.title",
+
     "rr.reason_type",
+
     "rr.reason_details",
+
     "rr.status",
+
     "rr.refund_status",
+
     "CAST(rr.refund_amount AS CHAR)",
+
     "DATE_FORMAT(rr.created_at, '%d-%m')",
+
     "DATE_FORMAT(rr.created_at, '%d-%m-%Y')",
+
     "DATE_FORMAT(rr.created_at, '%Y-%m-%d')"
+
 ];
 
 $where .= buildSearchCondition(
@@ -148,6 +193,7 @@ $where .= buildSearchCondition(
 
 $countSql = "
     SELECT COUNT(*)
+
     FROM refund_requests rr
 
     JOIN requests r
@@ -155,6 +201,9 @@ $countSql = "
 
     JOIN services s
         ON r.service_id = s.id
+
+    JOIN customers c
+        ON r.customer_id = c.id
 
     {$where}
 ";
@@ -167,13 +216,20 @@ $stmt->execute($countParams);
 
 $totalRefunds = (int) $stmt->fetchColumn();
 
-$totalPages = getTotalPages($totalRefunds, $limit);
+$totalPages = getTotalPages(
+    $totalRefunds,
+    $limit
+);
 
 if ($page > $totalPages) {
+
     $page = $totalPages;
 }
 
-$offset = getPageOffset($page, $limit);
+$offset = getPageOffset(
+    $page,
+    $limit
+);
 
 /*
 |--------------------------------------------------------------------------
@@ -194,11 +250,15 @@ $sql = "
     JOIN services s
         ON r.service_id = s.id
 
+    JOIN customers c
+        ON r.customer_id = c.id
+
     {$where}
 
     ORDER BY rr.created_at DESC, rr.id DESC
 
     LIMIT {$limit}
+
     OFFSET {$offset}
 ";
 
@@ -212,6 +272,7 @@ $stmt = $customerPdo->prepare($sql);
 | The helper creates one parameter for every searchable column.
 | Bind them in the same order they were created.
 |
+|--------------------------------------------------------------------------
 */
 
 $stmt->execute($params);
@@ -241,7 +302,6 @@ $refunds = $stmt->fetchAll(PDO::FETCH_ASSOC);
         </p>
 
     </div>
-
 
     <!-- Search -->
 
@@ -280,34 +340,33 @@ $refunds = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                 <div class="col-md-3 d-flex gap-2">
 
-    <button
-        type="submit"
-        class="btn btn-primary flex-fill">
+                    <button
+                        type="submit"
+                        class="btn btn-primary flex-fill">
 
-        Search
+                        Search
 
-    </button>
+                    </button>
 
-    <?php if ($search !== ''): ?>
+                    <?php if ($search !== ''): ?>
 
-        <a
-            href="?page=customer-refunds"
-            class="btn btn-secondary">
+                        <a
+                            href="?page=customer-refunds"
+                            class="btn btn-secondary">
 
-            Clear
+                            Clear
 
-        </a>
+                        </a>
 
-    <?php endif; ?>
+                    <?php endif; ?>
 
-</div>
+                </div>
 
             </form>
 
         </div>
 
     </div>
-
 
     <!-- Refund Table -->
 
@@ -370,49 +429,77 @@ $refunds = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                 $paymentStatus = $refund['refund_status'] ?? '';
 
                                 $displayStatus = 'Pending';
-                                $statusClass   = 'bg-warning text-dark';
-                                $statusText    = 'Your refund request is under review.';
+
+                                $statusClass = 'bg-warning text-dark';
+
+                                $statusText =
+                                    'Your refund request is under review.';
 
                                 if ($refundStatus === 'Rejected') {
 
                                     $displayStatus = 'Rejected';
-                                    $statusClass   = 'bg-danger';
-                                    $statusText    = 'This refund request was not approved.';
+
+                                    $statusClass = 'bg-danger';
+
+                                    $statusText =
+                                        'This refund request was not approved.';
 
                                 } elseif (
-                                    $refundStatus === 'Approved' &&
+                                    $refundStatus === 'Approved'
+                                    &&
                                     $paymentStatus === 'Completed'
                                 ) {
 
                                     $displayStatus = 'Completed';
-                                    $statusClass   = 'bg-success';
-                                    $statusText    = 'Refund completed.';
+
+                                    $statusClass = 'bg-success';
+
+                                    $statusText =
+                                        'Refund completed.';
 
                                 } elseif (
-                                    $refundStatus === 'Approved' &&
+                                    $refundStatus === 'Approved'
+                                    &&
                                     $paymentStatus === 'Processing'
                                 ) {
 
                                     $displayStatus = 'Processing';
-                                    $statusClass   = 'bg-warning text-dark';
-                                    $statusText    = 'Refund is being processed.';
 
-                                } elseif ($refundStatus === 'Approved') {
+                                    $statusClass =
+                                        'bg-warning text-dark';
+
+                                    $statusText =
+                                        'Refund is being processed.';
+
+                                } elseif (
+                                    $refundStatus === 'Approved'
+                                ) {
 
                                     $displayStatus = 'Approved';
-                                    $statusClass   = 'bg-primary';
-                                    $statusText    = 'Refund approved.';
+
+                                    $statusClass = 'bg-primary';
+
+                                    $statusText =
+                                        'Refund approved.';
 
                                 } elseif ($refundStatus !== '') {
 
                                     $displayStatus = $refundStatus;
 
                                     if ($refundStatus === 'Pending') {
-                                        $statusClass = 'bg-warning text-dark';
-                                        $statusText  = 'Your refund request is under review.';
+
+                                        $statusClass =
+                                            'bg-warning text-dark';
+
+                                        $statusText =
+                                            'Your refund request is under review.';
+
                                     } else {
-                                        $statusClass = 'bg-secondary';
-                                        $statusText  = '';
+
+                                        $statusClass =
+                                            'bg-secondary';
+
+                                        $statusText = '';
                                     }
                                 }
 
@@ -437,7 +524,6 @@ $refunds = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                                     </td>
 
-
                                     <!-- Service -->
 
                                     <td>
@@ -447,7 +533,6 @@ $refunds = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                         ) ?>
 
                                     </td>
-
 
                                     <!-- Reason -->
 
@@ -477,14 +562,15 @@ $refunds = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                                     </td>
 
-
                                     <!-- Status -->
 
                                     <td>
 
                                         <span class="badge <?= $statusClass ?>">
 
-                                            <?= htmlspecialchars($displayStatus) ?>
+                                            <?= htmlspecialchars(
+                                                $displayStatus
+                                            ) ?>
 
                                         </span>
 
@@ -494,17 +580,22 @@ $refunds = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                                             <small class="text-muted">
 
-                                                <?= htmlspecialchars($statusText) ?>
+                                                <?= htmlspecialchars(
+                                                    $statusText
+                                                ) ?>
 
                                             </small>
 
                                         <?php endif; ?>
 
-
                                         <?php if (
                                             in_array(
                                                 $displayStatus,
-                                                ['Approved', 'Processing', 'Completed'],
+                                                [
+                                                    'Approved',
+                                                    'Processing',
+                                                    'Completed'
+                                                ],
                                                 true
                                             )
                                         ): ?>
@@ -519,14 +610,20 @@ $refunds = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                                                     <?php
 
-                                                    $amount = $refund['refund_amount'] ?? null;
+                                                    $amount =
+                                                        $refund['refund_amount']
+                                                        ?? null;
 
                                                     if ($amount !== null) {
-                                                        echo 'AED ' . number_format(
-                                                            (float) $amount,
-                                                            2
-                                                        );
+
+                                                        echo 'AED ' .
+                                                            number_format(
+                                                                (float) $amount,
+                                                                2
+                                                            );
+
                                                     } else {
+
                                                         echo 'Pending';
                                                     }
 
@@ -540,7 +637,6 @@ $refunds = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                                     </td>
 
-
                                     <!-- Requested On -->
 
                                     <td>
@@ -550,7 +646,6 @@ $refunds = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                         ) ?>
 
                                     </td>
-
 
                                     <!-- Action -->
 
@@ -601,7 +696,6 @@ $refunds = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             </div>
 
-
             <!-- Result Count -->
 
             <?php if ($totalRefunds > 0): ?>
@@ -617,7 +711,10 @@ $refunds = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     to
 
                     <strong>
-                        <?= min($offset + $limit, $totalRefunds) ?>
+                        <?= min(
+                            $offset + $limit,
+                            $totalRefunds
+                        ) ?>
                     </strong>
 
                     of
@@ -631,7 +728,6 @@ $refunds = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 </div>
 
             <?php endif; ?>
-
 
             <!-- Pagination -->
 
@@ -665,7 +761,6 @@ $refunds = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                             <?php endif; ?>
 
-
                             <?php for (
                                 $i = 1;
                                 $i <= $totalPages;
@@ -692,7 +787,6 @@ $refunds = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                 </li>
 
                             <?php endfor; ?>
-
 
                             <?php if ($page < $totalPages): ?>
 
@@ -730,18 +824,20 @@ $refunds = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 </div>
 
-
 <!-- Live Search -->
 
 <script>
 
 document.addEventListener('DOMContentLoaded', function () {
 
-    const searchInput = document.getElementById('refundSearch');
+    const searchInput =
+        document.getElementById('refundSearch');
 
-    const searchForm = document.getElementById('refundSearchForm');
+    const searchForm =
+        document.getElementById('refundSearchForm');
 
     if (!searchInput || !searchForm) {
+
         return;
     }
 
@@ -753,24 +849,38 @@ document.addEventListener('DOMContentLoaded', function () {
 
         searchTimer = setTimeout(function () {
 
-            const searchValue = searchInput.value.trim();
+            const searchValue =
+                searchInput.value.trim();
 
-            const url = new URL(window.location.href);
+            const url =
+                new URL(window.location.href);
 
-            url.searchParams.set('page', 'customer-refunds');
-            url.searchParams.set('p', '1');
+            url.searchParams.set(
+                'page',
+                'customer-refunds'
+            );
+
+            url.searchParams.set(
+                'p',
+                '1'
+            );
 
             if (searchValue !== '') {
 
-                url.searchParams.set('search', searchValue);
+                url.searchParams.set(
+                    'search',
+                    searchValue
+                );
 
             } else {
 
-                url.searchParams.delete('search');
-
+                url.searchParams.delete(
+                    'search'
+                );
             }
 
-            window.location.href = url.toString();
+            window.location.href =
+                url.toString();
 
         }, 300);
 
@@ -779,6 +889,5 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 </script>
-
 
 <?php require dirname(__DIR__) . '/layouts/footer.php'; ?>

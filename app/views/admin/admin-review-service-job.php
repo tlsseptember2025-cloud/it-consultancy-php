@@ -1,4 +1,14 @@
 <?php
+// CSRF protection for all state-changing POST requests.
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $submittedCsrfToken = $_POST['csrf_token'] ?? '';
+    if (!is_string($submittedCsrfToken) || !hash_equals($csrfToken, $submittedCsrfToken)) {
+        http_response_code(403);
+        exit('Invalid CSRF token.');
+    }
+}
+
 
 require_once APP_PATH . '/helpers/DateHelper.php';
 require_once APP_PATH . '/helpers/RequestEventHelper.php';
@@ -6,6 +16,11 @@ require_once APP_PATH . '/helpers/auth.php';
 
 
 requireAdminLogin();
+
+if (isset($_SESSION['demo_super_admin'])) {
+    header('Location: ?page=demo-super-admin-dashboard');
+    exit;
+}
 
 require_once CONFIG_PATH . '/database.php';
 
@@ -1674,6 +1689,7 @@ $reviewHistory = $historyStmt->fetchAll(PDO::FETCH_ASSOC);
 
 
         <form method="POST">
+<input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
             <div class="row g-4">
 

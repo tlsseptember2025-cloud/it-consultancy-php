@@ -159,9 +159,9 @@ if ($isDemoEnvironment) {
     'home',
     'demo-login',
     'demo-change-password',
+    'admin-account-recovery',
     'customer-forgot-password',
     'customer-reset-password',
-    'demo-super-admin-forgot-password',
     'rules',
 ];
 
@@ -169,7 +169,6 @@ if ($isDemoEnvironment) {
      * Routes available to Demo Super Admin
      */
     $demoSuperAdminRoutes = [
-        'dashboard',
         'demo-super-admin',
         'logout',
         'notifications',
@@ -179,10 +178,6 @@ if ($isDemoEnvironment) {
         'add-service',
         'edit-service',
         'delete-service',
-        'pricing',
-        'add-pricing',
-        'edit-pricing',
-        'delete-pricing',
         'customers',
         'view-customer',
         'agents',
@@ -247,11 +242,6 @@ if ($isDemoEnvironment) {
         'add-service',
         'edit-service',
         'delete-service',
-
-        'pricing',
-        'add-pricing',
-        'edit-pricing',
-        'delete-pricing',
 
         'customers',
         'view-customer',
@@ -476,14 +466,6 @@ switch ($page) {
     require VIEW_PATH . '/public/confirm-demo-customer.php';
     break;
 
-    case 'demo-super-admin-forgot-password':
-        require VIEW_PATH . '/public/demo-super-admin-forgot-password.php';
-        break;
-
-    case 'demo-super-admin-reset-password':
-        require VIEW_PATH . '/public/demo-super-admin-reset-password.php';
-        break;
-
     case 'admin-change-password':
         require VIEW_PATH . '/admin/admin-change-password.php';
         break;
@@ -665,22 +647,6 @@ case 'admin-suspension-chat':
         require VIEW_PATH . '/agent/logout.php';
         break;
 
-    case 'pricing':
-    require VIEW_PATH . '/admin/pricing.php';
-    break;
-
-    case 'add-pricing':
-    require VIEW_PATH . '/admin/add-pricing.php';
-    break;
-
-    case 'edit-pricing':
-    require VIEW_PATH . '/admin/edit-pricing.php';
-    break;
-
-    case 'delete-pricing':
-    require VIEW_PATH . '/admin/delete-pricing.php';
-    break;
-
     case 'approved-closures':
     require CONTROLLER_PATH . '/approved-closures.php';
     break;
@@ -769,6 +735,22 @@ case 'admin-suspension-chat':
 
     case 'customer-payments':
         require VIEW_PATH . '/customer/customer-payments.php';
+        break;
+
+    case 'stripe-create-checkout':
+        require CONTROLLER_PATH . '/stripe-create-checkout.php';
+        break;
+
+    case 'stripe-success':
+        require VIEW_PATH . '/customer/stripe-success.php';
+        break;
+
+    case 'stripe-cancel':
+        require VIEW_PATH . '/customer/stripe-cancel.php';
+        break;
+
+    case 'stripe-webhook':
+        require CONTROLLER_PATH . '/stripe-webhook.php';
         break;
 
     case 'customer-refunds':

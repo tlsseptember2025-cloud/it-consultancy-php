@@ -1,4 +1,5 @@
 <?php
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
 
 if (!isset($_SESSION['user'])) {
     header("Location: ?page=login");
@@ -653,7 +654,7 @@ function formatDemoDate(?string $date): string
                         <?php if ($request['status'] === 'Confirmed'): ?>
 
                             <a
-                                href="?page=approve-demo-request&id=<?= (int)$request['id'] ?>"
+                                href="?page=approve-demo-request&id=<?= (int)$request['id'] ?>&csrf_token=<?= urlencode($csrfToken) ?>"
                                 class="btn btn-success">
 
                                 Approve Demo

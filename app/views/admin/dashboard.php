@@ -1,23 +1,42 @@
 <?php
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
 
 require_once APP_PATH . '/helpers/DateHelper.php';
 require_once HELPER_PATH . '/auth.php';
-require_once CONFIG_PATH . '/demo-database.php';
 
 requireAdminLogin();
 
-$adminPdo = $pdo;
+$isDemoAdmin = isset($_SESSION['demo_user']);
 
-if (
-    isset($_SESSION['demo_super_admin']) ||
-    isset($_SESSION['demo_user'])
-) {
-    $adminPdo = $demoPdo;
+// Demo Super Admin has its own dashboard and navbar.
+// It must never use this normal Admin / Demo Admin dashboard.
+if (isset($_SESSION['demo_super_admin'])) {
+    die('Demo Super Admin must use the Demo Super Admin dashboard.');
 }
 
-require dirname(__DIR__) . '/layouts/header-admin.php';
-require_once CONFIG_PATH . '/database.php';
+if ($isDemoAdmin) {
+    require_once CONFIG_PATH . '/demo-database.php';
+    $adminPdo = $demoPdo;
+} else {
+    require_once CONFIG_PATH . '/database.php';
+    require_once CONFIG_PATH . '/demo-database.php';
+    $adminPdo = $pdo;
+}
+
+$demoTenantId = null;
+
+if ($isDemoAdmin) {
+    $demoTenantId = (int) (
+        $_SESSION['demo_user']['demo_tenant_id'] ?? 0
+    );
+
+    if ($demoTenantId <= 0) {
+        die('Invalid Demo tenant.');
+    }
+}
+
 require_once APP_PATH . '/helpers/retention_review_helper.php';
+require dirname(__DIR__) . '/layouts/header-admin.php';
 
 /*
 |--------------------------------------------------------------------------
@@ -47,6 +66,7 @@ if (isset($_SESSION['demo_user'])) {
             ON s.id = r.service_id
         WHERE ps.status = 'Pending'
           AND c.demo_tenant_id = ?
+          AND c.is_demo_account = 1
         ORDER BY ps.uploaded_at ASC
     ");
 
@@ -80,61 +100,144 @@ if (isset($_SESSION['demo_user'])) {
 
 }
 
-$newLeads = $adminPdo->query("
-    SELECT COUNT(*)
-    FROM contract_leads
-    WHERE status = 'New'
-")->fetchColumn();
+$newLeads = 0;
+$contactedLeads = 0;
+$convertedLeads = 0;
+$closedLeads = 0;
+$archivedLeads = 0;
+$pendingLeads = 0;
 
-$contactedLeads = $adminPdo->query("
-    SELECT COUNT(*)
-    FROM contract_leads
-    WHERE status = 'Contacted'
-")->fetchColumn();
+/*
+ * Company support leads are a Main Admin workflow. Demo Admins do not
+ * receive or manage these records, so the metrics remain zero for Demo.
+ */
+if (!$isDemoAdmin) {
+    $newLeads = $adminPdo->query("
+        SELECT COUNT(*)
+        FROM contract_leads
+        WHERE status = 'New'
+    " )->fetchColumn();
 
-$convertedLeads = $adminPdo->query("
-    SELECT COUNT(*)
-    FROM contract_leads
-    WHERE status = 'Converted'
-")->fetchColumn();
+    $contactedLeads = $adminPdo->query("
+        SELECT COUNT(*)
+        FROM contract_leads
+        WHERE status = 'Contacted'
+    " )->fetchColumn();
 
-$closedLeads = $adminPdo->query("
-    SELECT COUNT(*)
-    FROM contract_leads
-    WHERE status = 'Closed'
-")->fetchColumn();
+    $convertedLeads = $adminPdo->query("
+        SELECT COUNT(*)
+        FROM contract_leads
+        WHERE status = 'Converted'
+    " )->fetchColumn();
 
-$archivedLeads = $adminPdo->query("
-    SELECT COUNT(*)
-    FROM contract_leads
-    WHERE status = 'Archived'
-")->fetchColumn();
+    $closedLeads = $adminPdo->query("
+        SELECT COUNT(*)
+        FROM contract_leads
+        WHERE status = 'Closed'
+    " )->fetchColumn();
 
-$pendingLeads = $adminPdo->query("
-    SELECT COUNT(*)
-    FROM contract_leads
-    WHERE approval_status = 'Pending'
-")->fetchColumn();
+    $archivedLeads = $adminPdo->query("
+        SELECT COUNT(*)
+        FROM contract_leads
+        WHERE status = 'Archived'
+    " )->fetchColumn();
 
-$totalPayments = $adminPdo->query("
-    SELECT COALESCE(SUM(amount), 0)
-    FROM payments
-")->fetchColumn();
+    $pendingLeads = $adminPdo->query("
+        SELECT COUNT(*)
+        FROM contract_leads
+        WHERE approval_status = 'Pending'
+    " )->fetchColumn();
+}
 
-$totalRevenue = $adminPdo->query("
-    SELECT COALESCE(SUM(amount),0)
-    FROM payments
-")->fetchColumn();
+/*
+ * Financial totals are tenant-scoped for Demo Admins. Main Admin sees
+ * the Main database. Demo Super Admin uses its own dashboard.
+ */
+if ($isDemoAdmin) {
 
-$totalQuoted = $adminPdo->query("
-    SELECT COALESCE(SUM(quoted_price),0)
-    FROM requests
-")->fetchColumn();
+    $totalPaymentsStmt = $adminPdo->prepare("
+        SELECT COALESCE(SUM(p.amount), 0)
+        FROM payments p
+        INNER JOIN requests r ON r.id = p.request_id
+        INNER JOIN customers c ON c.id = r.customer_id
+        WHERE c.demo_tenant_id = ?
+          AND c.is_demo_account = 1
+    " );
+    $totalPaymentsStmt->execute([$demoTenantId]);
+    $totalPayments = $totalPaymentsStmt->fetchColumn();
 
-$totalRefunded = $adminPdo->query("
-    SELECT COALESCE(SUM(amount),0)
-    FROM refunds
-")->fetchColumn();
+    $totalQuotedStmt = $adminPdo->prepare("
+        SELECT COALESCE(SUM(r.quoted_price), 0)
+        FROM requests r
+        INNER JOIN customers c ON c.id = r.customer_id
+        WHERE c.demo_tenant_id = ?
+          AND c.is_demo_account = 1
+    " );
+    $totalQuotedStmt->execute([$demoTenantId]);
+    $totalQuoted = $totalQuotedStmt->fetchColumn();
+
+    $totalRefundedStmt = $adminPdo->prepare("
+        SELECT COALESCE(SUM(rr.amount), 0)
+        FROM refunds rr
+        INNER JOIN requests r ON r.id = rr.request_id
+        INNER JOIN customers c ON c.id = r.customer_id
+        WHERE c.demo_tenant_id = ?
+          AND c.is_demo_account = 1
+    " );
+    $totalRefundedStmt->execute([$demoTenantId]);
+    $totalRefunded = $totalRefundedStmt->fetchColumn();
+
+} else {
+
+    $totalPayments = $adminPdo->query("
+        SELECT COALESCE(SUM(amount), 0)
+        FROM payments
+    " )->fetchColumn();
+
+    $totalQuoted = $adminPdo->query("
+        SELECT COALESCE(SUM(quoted_price), 0)
+        FROM requests
+    " )->fetchColumn();
+
+    $totalRefunded = $adminPdo->query("
+        SELECT COALESCE(SUM(amount), 0)
+        FROM refunds
+    " )->fetchColumn();
+}
+
+$totalRevenue = $totalPayments;
+
+/*
+|--------------------------------------------------------------------------
+| Dashboard Customer Scope
+|--------------------------------------------------------------------------
+| Demo Admin sees only the current tenant. Main Admin sees the Main
+| database without a Demo restriction. Demo Super Admin is handled by
+| its own dashboard and never reaches this file.
+|--------------------------------------------------------------------------
+*/
+
+$dashboardCustomerScope = '';
+$dashboardCustomerParams = [];
+
+if ($isDemoAdmin) {
+    $dashboardCustomerScope = "
+        AND c.demo_tenant_id = :dashboard_demo_tenant_id
+        AND c.is_demo_account = 1
+    ";
+    $dashboardCustomerParams['dashboard_demo_tenant_id'] = $demoTenantId;
+}
+
+$fetchDashboardRows = static function (
+    PDO $pdo,
+    string $sql,
+    array $params = []
+): array {
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+};
+
 
 /*
 |--------------------------------------------------------------------------
@@ -161,10 +264,7 @@ $demoRequestsActionCount = 0;
 
 $demoPasswordRecoveryCount = 0;
 
-if (
-    !isset($_SESSION['demo_user']) &&
-    !isset($_SESSION['demo_super_admin'])
-) {
+if (!isset($_SESSION['demo_user'])) {
     $stmt = $demoPdo->query("
         SELECT COUNT(*)
         FROM demo_password_recovery_requests
@@ -174,10 +274,7 @@ if (
     $demoPasswordRecoveryCount = (int) $stmt->fetchColumn();
 }
 
-if (
-    !isset($_SESSION['demo_user']) &&
-    !isset($_SESSION['demo_super_admin'])
-) {
+if (!isset($_SESSION['demo_user'])) {
     $demoRequestsActionCount = $pdo->query("
         SELECT COUNT(*)
         FROM demo_requests
@@ -185,15 +282,10 @@ if (
     ")->fetchColumn();
 }
 
-$netRevenue = $totalRevenue - $totalRefunded;
-//$totalRevenue = $totalPayments - $totalRefunded;
-//$outstandingBalance = $totalQuoted - $totalRevenue;
-
-
-$totalRevenue = $totalPayments - $totalRefunded;
+$netRevenue = (float) $totalPayments - (float) $totalRefunded;
 $outstandingBalance = max(
     0,
-    $totalQuoted - $totalRevenue
+    (float) $totalQuoted - (float) $totalPayments
 );
 
 /*
@@ -216,7 +308,9 @@ $retentionReviewLatest = array_slice(
 |--------------------------------------------------------------------------
 */
 
-$needsAdminReview = $adminPdo->query("
+$needsAdminReview = $fetchDashboardRows(
+    $adminPdo,
+    "
     SELECT
         r.id,
         r.created_at,
@@ -232,9 +326,12 @@ $needsAdminReview = $adminPdo->query("
     JOIN services s
         ON s.id = r.service_id
     WHERE r.workflow_stage = 'Needs Admin Review'
+    $dashboardCustomerScope
     ORDER BY r.id DESC
     LIMIT 3
-")->fetchAll(PDO::FETCH_ASSOC);
+",
+    $dashboardCustomerParams
+);
 
 /*
 |--------------------------------------------------------------------------
@@ -242,7 +339,9 @@ $needsAdminReview = $adminPdo->query("
 |--------------------------------------------------------------------------
 */
 
-$awaitingRescheduleApproval = $adminPdo->query("
+$awaitingRescheduleApproval = $fetchDashboardRows(
+    $adminPdo,
+    "
     SELECT
         r.id,
         r.pending_reschedule_requested_at,
@@ -255,9 +354,12 @@ $awaitingRescheduleApproval = $adminPdo->query("
         ON s.id = r.service_id
     WHERE r.workflow_stage = 'Awaiting Reschedule Approval'
       AND r.pending_reschedule_slot_id IS NOT NULL
+    $dashboardCustomerScope
     ORDER BY r.pending_reschedule_requested_at ASC
     LIMIT 3
-")->fetchAll(PDO::FETCH_ASSOC);
+",
+    $dashboardCustomerParams
+);
 
 /*
 |--------------------------------------------------------------------------
@@ -268,6 +370,18 @@ $awaitingRescheduleApproval = $adminPdo->query("
 */
 
 $upcomingSchedule = [];
+
+$upcomingParams = $dashboardCustomerParams;
+$upcomingCustomerScope = $dashboardCustomerScope;
+
+if ($isDemoAdmin) {
+    $upcomingCustomerScope = str_replace(
+        ':dashboard_demo_tenant_id',
+        ':dashboard_demo_tenant_id_2',
+        $upcomingCustomerScope
+    );
+    $upcomingParams['dashboard_demo_tenant_id_2'] = $demoTenantId;
+}
 
 $stmt = $adminPdo->prepare("
     SELECT
@@ -297,6 +411,7 @@ $stmt = $adminPdo->prepare("
     'Consultation Confirmed'
 )
 AND TIMESTAMP(cs.slot_date, cs.slot_time) >= NOW()
+    $upcomingCustomerScope
 
 
     UNION ALL
@@ -326,12 +441,13 @@ AND TIMESTAMP(cs.slot_date, cs.slot_time) >= NOW()
 
     WHERE r.workflow_stage = 'Service Scheduled'
       AND TIMESTAMP(ss.service_date, ss.service_time) >= NOW()
+    $dashboardCustomerScope
 
 
     ORDER BY schedule_date ASC, schedule_time ASC
 ");
 
-$stmt->execute();
+$stmt->execute($upcomingParams);
 
 $upcomingSchedule = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -341,7 +457,9 @@ $upcomingSchedule = $stmt->fetchAll(PDO::FETCH_ASSOC);
 |--------------------------------------------------------------------------
 */
 
-$agentAssignmentNeeded = $adminPdo->query("
+$agentAssignmentNeeded = $fetchDashboardRows(
+    $adminPdo,
+    "
     SELECT
         r.id,
         r.created_at,
@@ -354,9 +472,12 @@ $agentAssignmentNeeded = $adminPdo->query("
         ON s.id = r.service_id
     WHERE r.workflow_stage = 'Submitted'
       AND r.agent_id IS NULL
+    $dashboardCustomerScope
     ORDER BY r.id DESC
     LIMIT 3
-")->fetchAll(PDO::FETCH_ASSOC);
+",
+    $dashboardCustomerParams
+);
 
 /*
 |--------------------------------------------------------------------------
@@ -364,7 +485,9 @@ $agentAssignmentNeeded = $adminPdo->query("
 |--------------------------------------------------------------------------
 */
 
-$awaitingCustomerResponse = $adminPdo->query("
+$awaitingCustomerResponse = $fetchDashboardRows(
+    $adminPdo,
+    "
     SELECT
         r.id,
         r.created_at,
@@ -380,9 +503,12 @@ $awaitingCustomerResponse = $adminPdo->query("
         'Waiting Customer Response',
         'Closure Agreement Sent'
     )
+    $dashboardCustomerScope
     ORDER BY r.id DESC
     LIMIT 3
-")->fetchAll(PDO::FETCH_ASSOC);
+",
+    $dashboardCustomerParams
+);
 
 /*
 |--------------------------------------------------------------------------
@@ -390,7 +516,9 @@ $awaitingCustomerResponse = $adminPdo->query("
 |--------------------------------------------------------------------------
 */
 
-$pendingClosureAgreements = $adminPdo->query("
+$pendingClosureAgreements = $fetchDashboardRows(
+    $adminPdo,
+    "
     SELECT
         ca.id AS agreement_id,
         ca.request_id,
@@ -407,9 +535,12 @@ $pendingClosureAgreements = $adminPdo->query("
     JOIN services s
         ON s.id = r.service_id
     WHERE ca.status = 'Pending'
+    $dashboardCustomerScope
     ORDER BY ca.id DESC
     LIMIT 3
-")->fetchAll(PDO::FETCH_ASSOC);
+",
+    $dashboardCustomerParams
+);
 
 /*
 |--------------------------------------------------------------------------
@@ -417,7 +548,9 @@ $pendingClosureAgreements = $adminPdo->query("
 |--------------------------------------------------------------------------
 */
 
-$refundRequests = $adminPdo->query("
+$refundRequests = $fetchDashboardRows(
+    $adminPdo,
+    "
     SELECT
         rr.id,
         rr.request_id,
@@ -433,9 +566,12 @@ $refundRequests = $adminPdo->query("
     JOIN services s
         ON s.id = r.service_id
     WHERE rr.status = 'Pending'
+    $dashboardCustomerScope
     ORDER BY rr.id DESC
     LIMIT 3
-")->fetchAll(PDO::FETCH_ASSOC);
+",
+    $dashboardCustomerParams
+);
 
 ?>
 
@@ -625,8 +761,8 @@ $refundRequests = $adminPdo->query("
         <a
             href="<?=
                 $item['schedule_type'] === 'Consultation'
-                    ? '?page=approve-consultation&id=' . (int)$item['request_id']
-                    : '?page=approve-service-schedule&id=' . (int)$item['request_id']
+                    ? '?page=approve-consultation&id=' . (int)$item['request_id'] . '&csrf_token=' . urlencode($csrfToken)
+                    : '?page=approve-service-schedule&id=' . (int)$item['request_id'] . '&csrf_token=' . urlencode($csrfToken)
             ?>"
             class="text-decoration-none text-dark d-block"
         >
@@ -913,10 +1049,8 @@ if ($item['review_type'] === 'consultation_overdue') {
                 <?php foreach ($agentAssignmentNeeded as $item): ?>
 
                     <a
-                        <a
-    href="?page=admin-assign-agent&id=<?= (int)$item['id'] ?>"
-    class="text-decoration-none text-dark d-block"
->
+                        href="?page=admin-assign-agent&id=<?= (int)$item['id'] ?>"
+                        class="text-decoration-none text-dark d-block"
                     >
 
                         <div class="p-3 border-bottom dashboard-action-item">
@@ -1085,10 +1219,8 @@ if ($item['review_type'] === 'consultation_overdue') {
                 <?php foreach ($pendingPayments as $payment): ?>
 
                     <a
-                        <a
-                            href="?page=view-slip&id=<?= (int)$payment['id'] ?>"
-                            class="text-decoration-none text-dark d-block"
-                        >
+                        href="?page=view-slip&id=<?= (int)$payment['id'] ?>"
+                        class="text-decoration-none text-dark d-block"
                     >
 
                         <div class="p-3 border-bottom dashboard-action-item">
@@ -1311,10 +1443,7 @@ if ($item['review_type'] === 'consultation_overdue') {
 <div class="col-lg-2">
 
     <!-- Demo Requests -->
-    <?php if (
-        !isset($_SESSION['demo_user']) &&
-        !isset($_SESSION['demo_super_admin'])
-    ): ?>
+    <?php if (!isset($_SESSION['demo_user'])): ?>
 
         <div class="card shadow-sm border-primary mb-4">
 
@@ -1362,10 +1491,7 @@ if ($item['review_type'] === 'consultation_overdue') {
 
 
     <!-- Demo Password Recovery -->
-    <?php if (
-        !isset($_SESSION['demo_user']) &&
-        !isset($_SESSION['demo_super_admin'])
-    ): ?>
+    <?php if (!isset($_SESSION['demo_user'])): ?>
 
         <div class="card shadow-sm border-danger mb-4">
 
@@ -1419,10 +1545,7 @@ if ($item['review_type'] === 'consultation_overdue') {
 
 
     <!-- Company Support Leads -->
-    <?php if (
-        !isset($_SESSION['demo_user']) &&
-        !isset($_SESSION['demo_super_admin'])
-    ): ?>
+    <?php if (!isset($_SESSION['demo_user'])): ?>
 
         <div class="card shadow-sm border-success mb-4">
 

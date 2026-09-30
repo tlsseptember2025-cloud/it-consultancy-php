@@ -25,12 +25,15 @@ if ($isDemoCustomer) {
     $customerPdo = $demoPdo;
 
     $customerId = (int) ($_SESSION['demo_customer']['id'] ?? 0);
+
     $demoTenantId = (int) (
         $_SESSION['demo_customer']['demo_tenant_id'] ?? 0
     );
 
     if ($customerId <= 0 || $demoTenantId <= 0) {
+
         unset($_SESSION['demo_customer']);
+
         header('Location: ?page=demo-login');
         exit;
     }
@@ -50,7 +53,9 @@ if ($isDemoCustomer) {
     ]);
 
     if (!$demoCustomerCheck->fetchColumn()) {
+
         unset($_SESSION['demo_customer']);
+
         header('Location: ?page=demo-login');
         exit;
     }
@@ -58,6 +63,7 @@ if ($isDemoCustomer) {
 } else {
 
     if (!isset($_SESSION['customer'])) {
+
         header('Location: ?page=public-login');
         exit;
     }
@@ -71,7 +77,6 @@ if ($isDemoCustomer) {
 
 require dirname(__DIR__) . '/layouts/header-customer.php';
 
-
 /*
 |--------------------------------------------------------------------------
 | Search + Pagination
@@ -81,7 +86,6 @@ require dirname(__DIR__) . '/layouts/header-customer.php';
 $search = getSearchTerm();
 $page   = getPageNumber();
 $limit  = getPageLimit(10);
-
 
 /*
 |--------------------------------------------------------------------------
@@ -129,14 +133,25 @@ $searchColumns = [
 
 ];
 
-
 /*
 |--------------------------------------------------------------------------
 | Count matching records
 |--------------------------------------------------------------------------
 */
 
-$countParams = [$customerId];
+if ($isDemoCustomer) {
+
+    $countParams = [
+        $customerId,
+        $demoTenantId
+    ];
+
+} else {
+
+    $countParams = [
+        $customerId
+    ];
+}
 
 $countSearchCondition = buildSearchCondition(
     $searchColumns,
@@ -144,26 +159,40 @@ $countSearchCondition = buildSearchCondition(
     $countParams
 );
 
+if ($isDemoCustomer) {
 
-$countSql = "
-    SELECT COUNT(*)
+    $countSql = "
+        SELECT COUNT(*)
+        FROM payments p
+        JOIN requests r
+            ON p.request_id = r.id
+        JOIN services s
+            ON r.service_id = s.id
+        JOIN customers c
+            ON r.customer_id = c.id
+        WHERE r.customer_id = ?
+          AND c.is_demo_account = 1
+          AND c.demo_tenant_id = ?
+          AND s.is_demo_account = 1
+          AND s.demo_tenant_id = c.demo_tenant_id
+          {$countSearchCondition}
+    ";
 
-    FROM payments p
+} else {
 
-    JOIN requests r
-        ON p.request_id = r.id
-
-    JOIN services s
-        ON r.service_id = s.id
-
-    WHERE r.customer_id = ?
-
-    {$countSearchCondition}
-";
-
+    $countSql = "
+        SELECT COUNT(*)
+        FROM payments p
+        JOIN requests r
+            ON p.request_id = r.id
+        JOIN services s
+            ON r.service_id = s.id
+        WHERE r.customer_id = ?
+          {$countSearchCondition}
+    ";
+}
 
 $countStmt = $customerPdo->prepare($countSql);
-
 
 /*
 |--------------------------------------------------------------------------
@@ -186,11 +215,9 @@ foreach ($countParams as $index => $value) {
 
 }
 
-
 $countStmt->execute();
 
 $totalRecords = (int) $countStmt->fetchColumn();
-
 
 /*
 |--------------------------------------------------------------------------
@@ -202,7 +229,6 @@ $totalPages = getTotalPages(
     $totalRecords,
     $limit
 );
-
 
 /*
 |--------------------------------------------------------------------------
@@ -216,12 +242,10 @@ if ($page > $totalPages) {
 
 }
 
-
 $offset = getPageOffset(
     $page,
     $limit
 );
-
 
 /*
 |--------------------------------------------------------------------------
@@ -229,7 +253,19 @@ $offset = getPageOffset(
 |--------------------------------------------------------------------------
 */
 
-$requestParams = [$customerId];
+if ($isDemoCustomer) {
+
+    $requestParams = [
+        $customerId,
+        $demoTenantId
+    ];
+
+} else {
+
+    $requestParams = [
+        $customerId
+    ];
+}
 
 $requestSearchCondition = buildSearchCondition(
     $searchColumns,
@@ -237,32 +273,48 @@ $requestSearchCondition = buildSearchCondition(
     $requestParams
 );
 
+if ($isDemoCustomer) {
 
-$sql = "
-    SELECT
-        p.*,
-        s.title AS service_title
+    $sql = "
+        SELECT
+            p.*,
+            s.title AS service_title
+        FROM payments p
+        JOIN requests r
+            ON p.request_id = r.id
+        JOIN services s
+            ON r.service_id = s.id
+        JOIN customers c
+            ON r.customer_id = c.id
+        WHERE r.customer_id = ?
+          AND c.is_demo_account = 1
+          AND c.demo_tenant_id = ?
+          AND s.is_demo_account = 1
+          AND s.demo_tenant_id = c.demo_tenant_id
+          {$requestSearchCondition}
+        ORDER BY p.id DESC
+        LIMIT ? OFFSET ?
+    ";
 
-    FROM payments p
+} else {
 
-    JOIN requests r
-        ON p.request_id = r.id
-
-    JOIN services s
-        ON r.service_id = s.id
-
-    WHERE r.customer_id = ?
-
-    {$requestSearchCondition}
-
-    ORDER BY p.id DESC
-
-    LIMIT ? OFFSET ?
-";
-
+    $sql = "
+        SELECT
+            p.*,
+            s.title AS service_title
+        FROM payments p
+        JOIN requests r
+            ON p.request_id = r.id
+        JOIN services s
+            ON r.service_id = s.id
+        WHERE r.customer_id = ?
+          {$requestSearchCondition}
+        ORDER BY p.id DESC
+        LIMIT ? OFFSET ?
+    ";
+}
 
 $stmt = $customerPdo->prepare($sql);
-
 
 /*
 |--------------------------------------------------------------------------
@@ -282,7 +334,6 @@ foreach ($requestParams as $value) {
 
 }
 
-
 /*
 |--------------------------------------------------------------------------
 | Bind pagination values
@@ -295,18 +346,15 @@ $stmt->bindValue(
     PDO::PARAM_INT
 );
 
-
 $stmt->bindValue(
     $bindIndex++,
     $offset,
     PDO::PARAM_INT
 );
 
-
 $stmt->execute();
 
 $payments = $stmt->fetchAll();
-
 
 /*
 |--------------------------------------------------------------------------
@@ -322,10 +370,8 @@ if ($search !== '') {
 
 }
 
-
 $previousPageUrl = null;
 $nextPageUrl     = null;
-
 
 if ($page > 1) {
 
@@ -336,7 +382,6 @@ if ($page > 1) {
     );
 
 }
-
 
 if ($page < $totalPages) {
 
@@ -350,11 +395,9 @@ if ($page < $totalPages) {
 
 ?>
 
-
 <h1 class="mb-4">
     My Payments
 </h1>
-
 
 <!--
 |--------------------------------------------------------------------------
@@ -378,7 +421,6 @@ if ($page < $totalPages) {
                 value="customer-payments"
             >
 
-
             <div class="row align-items-end">
 
                 <div class="col-md-8">
@@ -390,7 +432,6 @@ if ($page < $totalPages) {
                         Search Payments
                     </label>
 
-
                     <input
                         type="text"
                         class="form-control"
@@ -400,7 +441,6 @@ if ($page < $totalPages) {
                         placeholder="Search payment #, request #, service, amount or date..."
                         autocomplete="off"
                     >
-
 
                     <small class="text-muted">
 
@@ -414,7 +454,6 @@ if ($page < $totalPages) {
 
                 </div>
 
-
                 <div class="col-md-4 mt-3 mt-md-0">
 
                     <div class="d-flex gap-2">
@@ -425,7 +464,6 @@ if ($page < $totalPages) {
                         >
                             Search
                         </button>
-
 
                         <?php if ($search !== ''): ?>
 
@@ -449,7 +487,6 @@ if ($page < $totalPages) {
     </div>
 
 </div>
-
 
 <!--
 |--------------------------------------------------------------------------
@@ -494,7 +531,6 @@ if ($page < $totalPages) {
 
     </div>
 
-
     <?php if ($search !== ''): ?>
 
         <div class="text-muted">
@@ -511,7 +547,6 @@ if ($page < $totalPages) {
 
 </div>
 
-
 <!--
 |--------------------------------------------------------------------------
 | Payments table
@@ -521,7 +556,6 @@ if ($page < $totalPages) {
 <div class="card shadow-sm">
 
     <div class="card-body">
-
 
         <?php if (empty($payments)): ?>
 
@@ -534,7 +568,6 @@ if ($page < $totalPages) {
                         No payments matched your search.
 
                     </p>
-
 
                     <a
                         href="?page=customer-payments"
@@ -555,9 +588,7 @@ if ($page < $totalPages) {
 
             </div>
 
-
         <?php else: ?>
-
 
             <div class="table-responsive">
 
@@ -576,13 +607,16 @@ if ($page < $totalPages) {
                             </th>
 
                             <th>
+                                Method
+                            </th>
+
+                            <th>
                                 Date
                             </th>
 
                         </tr>
 
                     </thead>
-
 
                     <tbody>
 
@@ -598,10 +632,10 @@ if ($page < $totalPages) {
 
                                 </td>
 
-
                                 <td>
 
                                     AED
+
                                     <?= number_format(
                                         $payment['amount'],
                                         2
@@ -609,6 +643,14 @@ if ($page < $totalPages) {
 
                                 </td>
 
+                                <td>
+
+                                    <?= htmlspecialchars(
+                                        ($payment['payment_method'] ?? null)
+                                            ?: 'Bank Transfer'
+                                    ) ?>
+
+                                </td>
 
                                 <td>
 
@@ -631,14 +673,11 @@ if ($page < $totalPages) {
 
             </div>
 
-
         <?php endif; ?>
-
 
     </div>
 
 </div>
-
 
 <!--
 |--------------------------------------------------------------------------
@@ -671,7 +710,6 @@ if ($page < $totalPages) {
                 gap:8px !important;
             "
         >
-
 
             <!-- Previous -->
 
@@ -711,7 +749,6 @@ if ($page < $totalPages) {
 
             <?php endif; ?>
 
-
             <!-- Page numbers -->
 
             <?php for (
@@ -719,7 +756,6 @@ if ($page < $totalPages) {
                 $pageNumber <= $totalPages;
                 $pageNumber++
             ): ?>
-
 
                 <?php if ($pageNumber === $page): ?>
 
@@ -735,11 +771,8 @@ if ($page < $totalPages) {
                             font-weight:500;
                         "
                     >
-
                         <?= $pageNumber ?>
-
                     </span>
-
 
                 <?php else: ?>
 
@@ -762,16 +795,12 @@ if ($page < $totalPages) {
                             font-size:14px;
                         "
                     >
-
                         <?= $pageNumber ?>
-
                     </a>
 
                 <?php endif; ?>
 
-
             <?php endfor; ?>
-
 
             <!-- Next -->
 
@@ -811,13 +840,11 @@ if ($page < $totalPages) {
 
             <?php endif; ?>
 
-
         </div>
 
     </div>
 
 <?php endif; ?>
-
 
 <!--
 |--------------------------------------------------------------------------
@@ -845,16 +872,13 @@ document.addEventListener('DOMContentLoaded', function () {
             'customerPaymentSearchForm'
         );
 
-
     if (!searchInput || !searchForm) {
 
         return;
 
     }
 
-
     let searchTimer = null;
-
 
     searchInput.addEventListener(
         'input',
@@ -862,25 +886,21 @@ document.addEventListener('DOMContentLoaded', function () {
 
             clearTimeout(searchTimer);
 
-
             searchTimer = setTimeout(
                 function () {
 
                     const searchValue =
                         searchInput.value.trim();
 
-
                     const currentUrl =
                         new URL(
                             window.location.href
                         );
 
-
                     currentUrl.searchParams.set(
                         'page',
                         'customer-payments'
                     );
-
 
                     /*
                      * Every new search starts
@@ -890,7 +910,6 @@ document.addEventListener('DOMContentLoaded', function () {
                     currentUrl.searchParams.delete(
                         'p'
                     );
-
 
                     if (searchValue === '') {
 
@@ -907,7 +926,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
                     }
 
-
                     window.location.href =
                         currentUrl.toString();
 
@@ -921,6 +939,5 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 </script>
-
 
 <?php require dirname(__DIR__) . '/layouts/footer.php'; ?>

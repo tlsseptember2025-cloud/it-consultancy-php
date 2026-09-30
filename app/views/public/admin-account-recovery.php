@@ -1,6 +1,7 @@
 <?php
 
 require_once CONFIG_PATH . '/database.php';
+require_once CONFIG_PATH . '/demo-database.php';
 require_once HELPER_PATH . '/email.php';
 
 $error = '';
@@ -485,6 +486,9 @@ if (
         $_SESSION['admin_recovery_admin_id'] ?? 0
     );
 
+    $newPassword = $_POST['new_password'] ?? '';
+    $confirmPassword = $_POST['confirm_password'] ?? '';
+
     $otpVerified =
         isset($_SESSION['admin_recovery_otp_verified'])
         && $_SESSION['admin_recovery_otp_verified'] === true;
@@ -498,7 +502,19 @@ if (
     /*
      * Recovery verification expires after 10 minutes.
      */
-    if (
+    if ($newPassword === '' || $confirmPassword === '') {
+
+        $error = 'Please enter and confirm your new password.';
+
+    } elseif (strlen($newPassword) < 8) {
+
+        $error = 'Password must be at least 8 characters long.';
+
+    } elseif ($newPassword !== $confirmPassword) {
+
+        $error = 'Passwords do not match.';
+
+    } elseif (
         $adminId <= 0
         || !$otpVerified
         || $otpVerifiedAt <= 0
@@ -565,66 +581,163 @@ if (
                 );
 
             /*
-             * Unlock the Main Admin account and rotate
-             * the emergency recovery credential.
+             * Generate ONE password hash and use it for both
+             * the Main Admin and the Demo Super Admin.
              */
-            $updateStmt = $pdo->prepare("
-                UPDATE admin_security
-                SET
-                    recovery_credential_hash = ?,
-                    recovery_credential_rotated_at = NOW(),
-                    is_locked = 0,
-                    locked_at = NULL,
-                    lock_reason = NULL,
-                    failed_otp_attempts = 0
-                WHERE admin_id = ?
-            ");
+            $newPasswordHash =
+                password_hash(
+                    $newPassword,
+                    PASSWORD_DEFAULT
+                );
 
-            $updateStmt->execute([
-                $newRecoveryCredentialHash,
-                $adminId
-            ]);
+            try {
 
-            /*
-             * Remove any remaining recovery tokens.
-             */
-            $deleteStmt = $pdo->prepare("
-                DELETE FROM admin_security_tokens
-                WHERE admin_id = ?
-                  AND token_type = 'unlock_recovery'
-            ");
+                /*
+                 * Both databases must succeed before either transaction
+                 * is committed.
+                 */
+                $pdo->beginTransaction();
+                $demoPdo->beginTransaction();
 
-            $deleteStmt->execute([
-                $adminId
-            ]);
+                /*
+                 * Change the Main Admin password.
+                 */
+                $passwordStmt = $pdo->prepare("
+                    UPDATE users
+                    SET password = ?
+                    WHERE id = ?
+                      AND email = ?
+                ");
 
-            /*
-             * Keep the NEW credential temporarily in the session.
-             *
-             * It is displayed once on the recovery screen.
-             */
-            $_SESSION['admin_new_recovery_credential'] =
-                $newRecoveryCredential;
+                $passwordStmt->execute([
+                    $newPasswordHash,
+                    $adminId,
+                    $admin['email']
+                ]);
 
-            $_SESSION['admin_recovery_completed'] =
-                true;
+                if ($passwordStmt->rowCount() !== 1) {
+                    throw new RuntimeException(
+                        'Main Admin password update failed.'
+                    );
+                }
 
-            /*
-             * Clear verification state.
-             */
-            unset(
-                $_SESSION['admin_recovery_verified'],
-                $_SESSION['admin_recovery_verified_at'],
-                $_SESSION['admin_recovery_otp_pending'],
-                $_SESSION['admin_recovery_otp_verified'],
-                $_SESSION['admin_recovery_otp_verified_at']
-            );
+                /*
+                 * Unlock the Main Admin account and rotate
+                 * the emergency recovery credential.
+                 */
+                $securityStmt = $pdo->prepare("
+                    UPDATE admin_security
+                    SET
+                        recovery_credential_hash = ?,
+                        recovery_credential_rotated_at = NOW(),
+                        is_locked = 0,
+                        locked_at = NULL,
+                        lock_reason = NULL,
+                        failed_otp_attempts = 0
+                    WHERE admin_id = ?
+                ");
 
-            header(
-                'Location: ?page=admin-account-recovery&complete=1'
-            );
+                $securityStmt->execute([
+                    $newRecoveryCredentialHash,
+                    $adminId
+                ]);
 
-            exit;
+                if ($securityStmt->rowCount() !== 1) {
+                    throw new RuntimeException(
+                        'Main Admin security update failed.'
+                    );
+                }
+
+                /*
+                 * Update the permanent Demo Super Admin.
+                 */
+                $demoPasswordStmt = $demoPdo->prepare("
+                    UPDATE users
+                    SET
+                        password = ?,
+                        force_password_change = 0
+                    WHERE is_super_admin = 1
+                      AND is_demo_account = 0
+                      AND demo_tenant_id IS NULL
+                ");
+
+                $demoPasswordStmt->execute([
+                    $newPasswordHash
+                ]);
+
+                if ($demoPasswordStmt->rowCount() !== 1) {
+                    throw new RuntimeException(
+                        'Demo Super Admin password update failed.'
+                    );
+                }
+
+                /*
+                 * Remove remaining recovery tokens.
+                 */
+                $deleteStmt = $pdo->prepare("
+                    DELETE FROM admin_security_tokens
+                    WHERE admin_id = ?
+                      AND token_type = 'unlock_recovery'
+                ");
+
+                $deleteStmt->execute([
+                    $adminId
+                ]);
+
+                $demoPdo->commit();
+                $pdo->commit();
+
+            } catch (Throwable $e) {
+
+                if ($demoPdo->inTransaction()) {
+                    $demoPdo->rollBack();
+                }
+
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+
+                error_log(
+                    'Admin recovery password synchronization failed: '
+                    . $e->getMessage()
+                );
+
+                $error =
+                    'The password could not be synchronized. '
+                    . 'No password changes were saved. Please try again.';
+
+            }
+
+            if ($error === '') {
+
+                /*
+                 * Keep the NEW credential temporarily in the session.
+                 *
+                 * It is displayed once on the recovery screen.
+                 */
+                $_SESSION['admin_new_recovery_credential'] =
+                    $newRecoveryCredential;
+
+                $_SESSION['admin_recovery_completed'] =
+                    true;
+
+                /*
+                 * Clear verification state.
+                 */
+                unset(
+                    $_SESSION['admin_recovery_verified'],
+                    $_SESSION['admin_recovery_verified_at'],
+                    $_SESSION['admin_recovery_otp_pending'],
+                    $_SESSION['admin_recovery_otp_verified'],
+                    $_SESSION['admin_recovery_otp_verified_at']
+                );
+
+                header(
+                    'Location: ?page=admin-account-recovery&complete=1'
+                );
+
+                exit;
+            }
         }
     }
 }
@@ -700,11 +813,13 @@ require dirname(__DIR__) . '/layouts/header-public.php';
                     <div class="alert alert-success">
 
                         <strong>
-                            Main Admin account recovered successfully.
+                            Admin account recovered successfully.
                         </strong>
 
                         <p class="mb-0 mt-2">
-                            The account has been unlocked and a new
+                            The password has been changed and synchronized
+                            for both the Main Admin and Demo Super Admin accounts.
+                            The account has also been unlocked and a new
                             emergency recovery credential has been generated.
                         </p>
 
@@ -852,8 +967,10 @@ require dirname(__DIR__) . '/layouts/header-public.php';
                         </strong>
 
                         <p class="mb-0 mt-2">
-                            Continue to unlock the Main Admin account
-                            and generate a new emergency recovery credential.
+                            Enter a new password. It will be applied to both
+                            the Main Admin and Demo Super Admin accounts.
+                            The Main Admin account will also be unlocked and
+                            a new emergency recovery credential will be generated.
                         </p>
 
                     </div>
@@ -864,13 +981,61 @@ require dirname(__DIR__) . '/layouts/header-public.php';
                         action="?page=admin-account-recovery"
                         class="mt-3">
 
+                        <div class="mb-3">
+
+                            <label
+                                for="new_password"
+                                class="form-label">
+
+                                New Password
+
+                            </label>
+
+                            <input
+                                type="password"
+                                class="form-control"
+                                id="new_password"
+                                name="new_password"
+                                autocomplete="new-password"
+                                minlength="8"
+                                required>
+
+                            <div class="form-text">
+                                Password must be at least 8 characters long.
+                            </div>
+
+                        </div>
+
+
+                        <div class="mb-3">
+
+                            <label
+                                for="confirm_password"
+                                class="form-label">
+
+                                Confirm New Password
+
+                            </label>
+
+                            <input
+                                type="password"
+                                class="form-control"
+                                id="confirm_password"
+                                name="confirm_password"
+                                autocomplete="new-password"
+                                minlength="8"
+                                required>
+
+                        </div>
+
+
                         <button
                             type="submit"
                             name="complete_recovery"
                             value="1"
                             class="btn btn-danger w-100">
 
-                            Unlock Account & Generate New Recovery Credential
+                            Change Password & Recover Admin
 
                         </button>
 

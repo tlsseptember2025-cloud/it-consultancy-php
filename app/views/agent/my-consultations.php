@@ -70,8 +70,10 @@ if ($isDemoAgent) {
 |
 */
 
-$demoCustomerFilter = $isDemoAgent
-    ? " AND c.demo_tenant_id = {$demoTenantId} AND c.is_demo_account = 1"
+$demoTenantFilter = $isDemoAgent
+    ? " AND c.demo_tenant_id = {$demoTenantId}
+        AND c.is_demo_account = 1
+        AND s.demo_tenant_id = {$demoTenantId}"
     : '';
 
 $stmt = $consultationPdo->prepare("
@@ -109,7 +111,7 @@ r.incomplete_reason
 
     WHERE
         cb.agent_id = ?
-        {$demoCustomerFilter}
+        {$demoTenantFilter}
 
         AND r.workflow_stage IN (
     'Consultation Confirmed',
@@ -174,7 +176,7 @@ $stmt = $consultationPdo->prepare("
 
     WHERE
         cb.agent_id = ?
-        {$demoCustomerFilter}
+        {$demoTenantFilter}
 
         AND r.workflow_stage = 'Needs Admin Review'
 

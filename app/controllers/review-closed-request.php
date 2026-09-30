@@ -24,26 +24,23 @@ $pageTitle = 'Review Closed Request';
 require_once APP_PATH . '/helpers/auth.php';
 
 
-$isDemoAdmin = isset($_SESSION['demo_user']);
-
-
 /*
 |--------------------------------------------------------------------------
 | Authentication
 |--------------------------------------------------------------------------
+|
+| This page is part of the normal Admin / Demo Admin workflow.
+| Demo Super Admin uses its own dashboard/workflow.
+|
 */
 
-if ($isDemoAdmin) {
+requireAdminLogin();
 
-    requireDemoAdmin();
+$isDemoAdmin = isset($_SESSION['demo_user']);
+$isDemoSuperAdmin = isset($_SESSION['demo_super_admin']);
 
-} elseif (isset($_SESSION['user'])) {
-
-    requireAdminLogin();
-
-} else {
-
-    header('Location: ?page=login');
+if ($isDemoSuperAdmin) {
+    header('Location: ?page=demo-super-admin-dashboard');
     exit;
 }
 
@@ -80,6 +77,35 @@ if ($isDemoAdmin) {
 
 
     if ($demoTenantId <= 0) {
+
+        unset($_SESSION['demo_user']);
+
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Verify Demo Admin Belongs To This Tenant
+    |--------------------------------------------------------------------------
+    */
+
+    $adminStmt = $reviewPdo->prepare("
+        SELECT id
+        FROM users
+        WHERE id = ?
+          AND demo_tenant_id = ?
+          AND is_demo_account = 1
+          AND is_super_admin = 0
+        LIMIT 1
+    ");
+
+    $adminStmt->execute([
+        (int) ($_SESSION['demo_user']['id'] ?? 0),
+        $demoTenantId
+    ]);
+
+    if (!$adminStmt->fetch(PDO::FETCH_ASSOC)) {
 
         unset($_SESSION['demo_user']);
 

@@ -1,10 +1,26 @@
 <?php
+// CSRF protection for all state-changing POST requests.
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $submittedCsrfToken = $_POST['csrf_token'] ?? '';
+    if (!is_string($submittedCsrfToken) || !hash_equals($csrfToken, $submittedCsrfToken)) {
+        http_response_code(403);
+        exit('Invalid CSRF token.');
+    }
+}
+
 
 require_once CONFIG_PATH . '/database.php';
+require_once CONFIG_PATH . '/demo-database.php';
 require_once HELPER_PATH . '/auth.php';
 require_once HELPER_PATH . '/email.php';
 
 requireAdminLogin();
+
+if (isset($_SESSION['demo_super_admin'])) {
+    header('Location: ?page=demo-super-admin-dashboard');
+    exit;
+}
 
 $adminEmail = $_SESSION['user'] ?? '';
 
@@ -762,33 +778,95 @@ if (
                     PASSWORD_DEFAULT
                 );
 
+                try {
 
-                $stmt = $pdo->prepare("
-                    UPDATE users
-                    SET password = ?
-                    WHERE id = ?
-                      AND email = ?
-                ");
+                    /*
+                     * Keep the Main Admin and Demo Super Admin passwords
+                     * synchronized using the same generated hash.
+                     */
+                    $pdo->beginTransaction();
+                    $demoPdo->beginTransaction();
 
-                $stmt->execute([
-    $newPasswordHash,
-    $adminId,
-    $admin['email']
-]);
+                    $stmt = $pdo->prepare("
+                        UPDATE users
+                        SET password = ?
+                        WHERE id = ?
+                          AND email = ?
+                    ");
 
+                    $stmt->execute([
+                        $newPasswordHash,
+                        $adminId,
+                        $admin['email']
+                    ]);
 
-/*
- * Invalidate all password-change tokens.
- */
-$stmt = $pdo->prepare("
-    DELETE FROM admin_security_tokens
-    WHERE admin_id = ?
-      AND token_type = 'password_change'
-");
+                    if ($stmt->rowCount() !== 1) {
+                        throw new RuntimeException(
+                            'Main Admin password update failed.'
+                        );
+                    }
 
-$stmt->execute([
-    $adminId
-]);
+                    $demoStmt = $demoPdo->prepare("
+                        UPDATE users
+                        SET
+                            password = ?,
+                            force_password_change = 0
+                        WHERE is_super_admin = 1
+                          AND is_demo_account = 0
+                          AND demo_tenant_id IS NULL
+                    ");
+
+                    $demoStmt->execute([
+                        $newPasswordHash
+                    ]);
+
+                    if ($demoStmt->rowCount() !== 1) {
+                        throw new RuntimeException(
+                            'Demo Super Admin password update failed.'
+                        );
+                    }
+
+                    /*
+                     * Commit both password changes only after both
+                     * database updates have succeeded.
+                     */
+                    $demoPdo->commit();
+                    $pdo->commit();
+
+                } catch (Throwable $e) {
+
+                    if ($demoPdo->inTransaction()) {
+                        $demoPdo->rollBack();
+                    }
+
+                    if ($pdo->inTransaction()) {
+                        $pdo->rollBack();
+                    }
+
+                    error_log(
+                        'Admin password synchronization failed: '
+                        . $e->getMessage()
+                    );
+
+                    $error =
+                        'The password could not be synchronized. '
+                        . 'No password changes were saved. Please try again.';
+                }
+
+                if ($error === '') {
+
+                    /*
+                     * Invalidate all password-change tokens.
+                     */
+                    $stmt = $pdo->prepare("
+                        DELETE FROM admin_security_tokens
+                        WHERE admin_id = ?
+                          AND token_type = 'password_change'
+                    ");
+
+                    $stmt->execute([
+                        $adminId
+                    ]);
 
 
 /*
@@ -807,7 +885,7 @@ unset(
  * Store success message for the Dashboard.
  */
 $_SESSION['admin_password_change_success'] =
-    'Your Main Admin password has been changed successfully.';
+    'Your Admin password has been changed successfully for both the Main Admin and Demo Super Admin accounts.';
 
 
 /*
@@ -815,7 +893,9 @@ $_SESSION['admin_password_change_success'] =
  */
 header('Location: ?page=dashboard');
 exit;
-                
+
+                }
+
             }
         }
     }
@@ -882,6 +962,7 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
 
                     <form method="POST">
+<input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
                         <div class="mb-3">
 
@@ -1006,6 +1087,7 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
 
                     <form method="POST">
+<input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
                         <div class="mb-4">
 
@@ -1076,6 +1158,7 @@ require VIEW_PATH . '/layouts/header-admin.php';
                     ?>
 
                     <form method="POST" class="mt-3">
+<input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
                         <input
                             type="hidden"
@@ -1219,6 +1302,7 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
 
                     <form method="POST">
+<input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
                         <input
                             type="hidden"

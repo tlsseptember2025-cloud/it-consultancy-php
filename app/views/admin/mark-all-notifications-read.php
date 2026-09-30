@@ -2,6 +2,20 @@
 
 require_once HELPER_PATH . '/auth.php';
 
+/*
+|--------------------------------------------------------------------------
+| Authentication
+|--------------------------------------------------------------------------
+|
+| This route is available to authenticated Main Admin, Demo Admin,
+| and Demo Super Admin users.
+|
+| Keep authentication centralized through the shared Admin guard rather
+| than checking session variables manually.
+|
+*/
+requireAdminLogin();
+
 
 /*
 |--------------------------------------------------------------------------
@@ -18,28 +32,13 @@ $isMainAdmin = isset($_SESSION['user']);
 
 /*
 |--------------------------------------------------------------------------
-| Authentication
-|--------------------------------------------------------------------------
-*/
-
-if (!$isMainAdmin && !$isDemoAdmin) {
-
-    header("Location: ?page=login");
-    exit;
-}
-
-
-/*
-|--------------------------------------------------------------------------
 | Select Correct Database
 |--------------------------------------------------------------------------
 */
 
 if ($isDemoAdmin) {
 
-    if (!isset($demoPdo)) {
-        require_once CONFIG_PATH . '/demo-database.php';
-    }
+    require_once CONFIG_PATH . '/demo-database.php';
 
     $adminPdo = $demoPdo;
 

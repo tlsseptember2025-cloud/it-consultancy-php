@@ -1,41 +1,131 @@
 <?php
 
+require_once APP_PATH . '/helpers/auth.php';
 require_once APP_PATH . '/helpers/DateHelper.php';
 
-if (!isset($_SESSION['user'])) {
-    header("Location: ?page=login");
+$isDemoAdmin = isset($_SESSION['demo_user']);
+$isDemoSuperAdmin = isset($_SESSION['demo_super_admin']);
+
+if ($isDemoSuperAdmin) {
+    header('Location: ?page=demo-super-admin-dashboard');
     exit;
 }
 
-require_once CONFIG_PATH . '/database.php';
+requireAdminLogin();
+
+if ($isDemoAdmin) {
+    require_once CONFIG_PATH . '/demo-database.php';
+    $requestPdo = $demoPdo;
+
+    $demoTenantId = (int) ($_SESSION['demo_user']['demo_tenant_id'] ?? 0);
+
+    if ($demoTenantId <= 0) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    $tenantStmt = $requestPdo->prepare("
+        SELECT id
+        FROM demo_tenants
+        WHERE id = ?
+          AND status = 'Active'
+          AND (expires_at IS NULL OR expires_at >= CURDATE())
+        LIMIT 1
+    ");
+    $tenantStmt->execute([$demoTenantId]);
+
+    if (!$tenantStmt->fetchColumn()) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    $adminStmt = $requestPdo->prepare("
+        SELECT id
+        FROM users
+        WHERE id = ?
+          AND is_demo_account = 1
+          AND is_super_admin = 0
+          AND demo_tenant_id = ?
+        LIMIT 1
+    ");
+    $adminStmt->execute([
+        (int) ($_SESSION['demo_user']['id'] ?? 0),
+        $demoTenantId
+    ]);
+
+    if (!$adminStmt->fetchColumn()) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+} else {
+    require_once CONFIG_PATH . '/database.php';
+    $requestPdo = $pdo;
+    $demoTenantId = null;
+}
+
 require_once CONFIG_PATH . '/request-events.php';
 require_once CONFIG_PATH . '/request-event-display.php';
 require_once APP_PATH . '/helpers/RequestEventHelper.php';
 
-$id = $_GET['id'];
+$id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
 
-$stmt = $pdo->prepare("
-    SELECT
-        requests.*,
-        customers.name AS customer_name,
-        customers.email,
-        customers.phone,
-        customers.company,
-        services.title AS service_title
-    FROM requests
-    JOIN customers
-        ON customers.id = requests.customer_id
-    JOIN services
-        ON services.id = requests.service_id
-    WHERE requests.id = ?
-");
+if (!$id || $id <= 0) {
+    $_SESSION['error'] = 'Invalid request ID.';
+    header('Location: ?page=requests');
+    exit;
+}
 
-$stmt->execute([$id]);
+if ($isDemoAdmin) {
+    $stmt = $requestPdo->prepare("
+        SELECT
+            requests.*,
+            customers.name AS customer_name,
+            customers.email,
+            customers.phone,
+            customers.company,
+            services.title AS service_title
+        FROM requests
+        JOIN customers
+            ON customers.id = requests.customer_id
+        JOIN services
+            ON services.id = requests.service_id
+        WHERE requests.id = ?
+          AND customers.demo_tenant_id = ?
+          AND customers.is_demo_account = 1
+        LIMIT 1
+    ");
 
-$request = $stmt->fetch();
+    $stmt->execute([$id, $demoTenantId]);
+} else {
+    $stmt = $requestPdo->prepare("
+        SELECT
+            requests.*,
+            customers.name AS customer_name,
+            customers.email,
+            customers.phone,
+            customers.company,
+            services.title AS service_title
+        FROM requests
+        JOIN customers
+            ON customers.id = requests.customer_id
+        JOIN services
+            ON services.id = requests.service_id
+        WHERE requests.id = ?
+        LIMIT 1
+    ");
+
+    $stmt->execute([$id]);
+}
+
+$request = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$request) {
-    die('Request not found');
+    $_SESSION['error'] = 'Request not found or you do not have access to this request.';
+    header('Location: ?page=requests');
+    exit;
 }
 
 /*

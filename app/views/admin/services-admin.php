@@ -4,20 +4,82 @@ require_once HELPER_PATH . '/auth.php';
 
 requireAdminLogin();
 
-if (isset($_SESSION['demo_user'])) {
+$isDemoAdmin = isset($_SESSION['demo_user']);
+$isDemoSuperAdmin = isset($_SESSION['demo_super_admin']);
+
+if ($isDemoSuperAdmin) {
+    header('Location: ?page=demo-super-admin-dashboard');
+    exit;
+}
+
+if ($isDemoAdmin) {
     require_once CONFIG_PATH . '/demo-database.php';
     $servicesPdo = $demoPdo;
+
+    $adminTenantId = (int) ($_SESSION['demo_user']['demo_tenant_id'] ?? 0);
+    if ($adminTenantId <= 0) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    $tenantStmt = $servicesPdo->prepare("
+        SELECT id, status, expires_at
+        FROM demo_tenants
+        WHERE id = ?
+        LIMIT 1
+    " );
+    $tenantStmt->execute([$adminTenantId]);
+    $tenant = $tenantStmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$tenant || $tenant['status'] !== 'active' ||
+        (!empty($tenant['expires_at']) && strtotime($tenant['expires_at']) < time())) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    $accountStmt = $servicesPdo->prepare("
+        SELECT id
+        FROM users
+        WHERE id = ?
+          AND is_demo_account = 1
+          AND is_super_admin = 0
+          AND demo_tenant_id = ?
+        LIMIT 1
+    " );
+    $accountStmt->execute([
+        (int) ($_SESSION['demo_user']['id'] ?? 0),
+        $adminTenantId
+    ]);
+
+    if (!$accountStmt->fetchColumn()) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    $stmt = $servicesPdo->prepare("
+        SELECT *
+        FROM services
+        WHERE demo_tenant_id = ?
+          AND is_demo_account = 1
+        ORDER BY created_at DESC
+    " );
+    $stmt->execute([$adminTenantId]);
 } else {
     require_once CONFIG_PATH . '/database.php';
     $servicesPdo = $pdo;
+
+    $stmt = $servicesPdo->query("
+        SELECT *
+        FROM services
+        WHERE COALESCE(is_demo_account, 0) = 0
+        ORDER BY created_at DESC
+    " );
 }
 
-$stmt = $servicesPdo->query("
-    SELECT * FROM services
-    ORDER BY created_at DESC
-");
-
-$services = $stmt->fetchAll();
+$services = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 ?>
 

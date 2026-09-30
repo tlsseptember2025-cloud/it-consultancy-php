@@ -1,12 +1,60 @@
 <?php
 
-if (!isset($_SESSION['user'])) {
+require_once APP_PATH . '/helpers/auth.php';
 
-    header('Location: ?page=login');
+requireAdminLogin();
+
+if (isset($_SESSION['demo_super_admin'])) {
+    header('Location: ?page=demo-super-admin-dashboard');
     exit;
 }
 
+$isDemoAdmin = isset($_SESSION['demo_user']);
+
 require_once CONFIG_PATH . '/database.php';
+
+$reviewPdo = $pdo;
+$demoTenantId = 0;
+
+if ($isDemoAdmin) {
+    require_once CONFIG_PATH . '/demo-database.php';
+    $reviewPdo = $demoPdo;
+
+    $demoTenantId = (int) ($_SESSION['demo_user']['demo_tenant_id'] ?? 0);
+
+    if ($demoTenantId <= 0) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    $tenantStmt = $reviewPdo->prepare("SELECT id, status, expires_at FROM demo_tenants WHERE id = ? LIMIT 1");
+    $tenantStmt->execute([$demoTenantId]);
+    $demoTenant = $tenantStmt->fetch(PDO::FETCH_ASSOC);
+
+    if (
+        !$demoTenant ||
+        $demoTenant['status'] !== 'Active' ||
+        ($demoTenant['expires_at'] !== null && strtotime($demoTenant['expires_at']) <= time())
+    ) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    $adminStmt = $reviewPdo->prepare("
+        SELECT id FROM users
+        WHERE id = ? AND demo_tenant_id = ? AND is_demo_account = 1 AND is_super_admin = 0
+        LIMIT 1
+    ");
+    $adminStmt->execute([(int) ($_SESSION['demo_user']['id'] ?? 0), $demoTenantId]);
+
+    if (!$adminStmt->fetchColumn()) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+}
 require_once APP_PATH . '/helpers/RequestEventHelper.php';
 
 $requestId = (int) ($_GET['id'] ?? 0);
@@ -16,7 +64,21 @@ if ($requestId <= 0) {
     die('Invalid consultation.');
 }
 
-$adminId = (int) ($_SESSION['user']['id'] ?? 0);
+$adminId = $isDemoAdmin
+    ? (int) ($_SESSION['demo_user']['id'] ?? 0)
+    : 0;
+
+if (!$isDemoAdmin) {
+    $adminEmail = trim((string) ($_SESSION['user'] ?? ''));
+    $adminStmt = $pdo->prepare("SELECT id FROM users WHERE email = ? LIMIT 1");
+    $adminStmt->execute([$adminEmail]);
+    $adminId = (int) $adminStmt->fetchColumn();
+
+    if ($adminId <= 0) {
+        http_response_code(403);
+        exit('Administrator account could not be identified.');
+    }
+}
 
 
 /*
@@ -25,7 +87,7 @@ $adminId = (int) ($_SESSION['user']['id'] ?? 0);
 |--------------------------------------------------------------------------
 */
 
-$stmt = $pdo->prepare("
+$stmt = $reviewPdo->prepare("
     SELECT
         r.*,
 
@@ -63,10 +125,16 @@ $stmt = $pdo->prepare("
         AND r.workflow_stage = 'Needs Admin Review'
         AND r.missed_consultation_reason IS NOT NULL
         AND r.missed_consultation_reason <> ''
+        AND (
+            ? = 0
+            OR (c.demo_tenant_id = ? AND c.is_demo_account = 1)
+        )
 ");
 
 $stmt->execute([
-    $requestId
+    $requestId,
+    $demoTenantId,
+    $demoTenantId
 ]);
 
 $consultation = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -90,7 +158,7 @@ if (!$consultation) {
 |--------------------------------------------------------------------------
 */
 
-$historyStmt = $pdo->prepare("
+$historyStmt = $reviewPdo->prepare("
     SELECT
         h.*,
         a.name AS history_agent_name
@@ -121,12 +189,18 @@ $reviewHistory = $historyStmt->fetchAll(PDO::FETCH_ASSOC);
 |--------------------------------------------------------------------------
 */
 
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+
 $error = '';
 
 if (
     $_SERVER['REQUEST_METHOD'] === 'POST'
     && isset($_POST['missed_consultation_decision'])
 ) {
+
+    if (!hash_equals($csrfToken, (string) ($_POST['csrf_token'] ?? ''))) {
+        $error = 'Invalid security token. Please try again.';
+    }
 
     $decision = trim(
         $_POST['missed_consultation_decision']
@@ -143,7 +217,10 @@ if (
     |--------------------------------------------------------------------------
     */
 
-    if ($adminComment === '') {
+    if ($error !== '') {
+        // CSRF validation failed; do not process the decision.
+    }
+    elseif ($adminComment === '') {
 
         $error = 'Please enter an administrator comment before making a decision.';
     }
@@ -160,10 +237,10 @@ if (
 
             try {
 
-                $pdo->beginTransaction();
+                $reviewPdo->beginTransaction();
 
 
-                $update = $pdo->prepare("
+                $update = $reviewPdo->prepare("
                     UPDATE requests
 
                     SET
@@ -196,7 +273,7 @@ if (
                 |--------------------------------------------------------------------------
                 */
 
-                $history = $pdo->prepare("
+                $history = $reviewPdo->prepare("
                     INSERT INTO consultation_review_history
                     (
                         request_id,
@@ -228,7 +305,7 @@ if (
 
 
                 RequestEventHelper::addCurrentUser(
-                    $pdo,
+                    $reviewPdo,
                     $requestId,
                     'MISSED_CONSULTATION_APPROVED',
                     RequestEventHelper::TYPE_CONSULTATION,
@@ -238,7 +315,7 @@ if (
                 );
 
 
-                $pdo->commit();
+                $reviewPdo->commit();
 
 
                 header(
@@ -249,8 +326,8 @@ if (
 
             } catch (Throwable $e) {
 
-                if ($pdo->inTransaction()) {
-                    $pdo->rollBack();
+                if ($reviewPdo->inTransaction()) {
+                    $reviewPdo->rollBack();
                 }
 
                 die(
@@ -271,7 +348,7 @@ if (
 
             try {
 
-                $pdo->beginTransaction();
+                $reviewPdo->beginTransaction();
 
 
                 /*
@@ -280,7 +357,7 @@ if (
                 |--------------------------------------------------------------------------
                 */
 
-                $history = $pdo->prepare("
+                $history = $reviewPdo->prepare("
                     INSERT INTO consultation_review_history
                     (
                         request_id,
@@ -312,7 +389,7 @@ if (
 
 
                 RequestEventHelper::addCurrentUser(
-                    $pdo,
+                    $reviewPdo,
                     $requestId,
                     'MISSED_CONSULTATION_REASSIGNMENT_REQUIRED',
                     RequestEventHelper::TYPE_CONSULTATION,
@@ -322,7 +399,7 @@ if (
                 );
 
 
-                $pdo->commit();
+                $reviewPdo->commit();
 
 
                 header(
@@ -333,8 +410,8 @@ if (
 
             } catch (Throwable $e) {
 
-                if ($pdo->inTransaction()) {
-                    $pdo->rollBack();
+                if ($reviewPdo->inTransaction()) {
+                    $reviewPdo->rollBack();
                 }
 
                 die(
@@ -363,7 +440,7 @@ if (
 
             try {
 
-                $pdo->beginTransaction();
+                $reviewPdo->beginTransaction();
 
 
                 /*
@@ -372,7 +449,7 @@ if (
                 |--------------------------------------------------------------------------
                 */
 
-                $history = $pdo->prepare("
+                $history = $reviewPdo->prepare("
                     INSERT INTO consultation_review_history
                     (
                         request_id,
@@ -409,7 +486,7 @@ if (
                 |--------------------------------------------------------------------------
                 */
 
-                $update = $pdo->prepare("
+                $update = $reviewPdo->prepare("
                     UPDATE requests
 
                     SET
@@ -437,7 +514,7 @@ if (
 
 
                 RequestEventHelper::addCurrentUser(
-                    $pdo,
+                    $reviewPdo,
                     $requestId,
                     'MISSED_CONSULTATION_EXPLANATION_REJECTED',
                     RequestEventHelper::TYPE_CONSULTATION,
@@ -447,7 +524,7 @@ if (
                 );
 
 
-                $pdo->commit();
+                $reviewPdo->commit();
 
 
                 header(
@@ -458,8 +535,8 @@ if (
 
             } catch (Throwable $e) {
 
-                if ($pdo->inTransaction()) {
-                    $pdo->rollBack();
+                if ($reviewPdo->inTransaction()) {
+                    $reviewPdo->rollBack();
                 }
 
                 die(
@@ -1028,6 +1105,7 @@ require VIEW_PATH . '/layouts/header-admin.php';
                         method="POST"
                         id="decision-form"
                     >
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken) ?>">
 
                         <input
                             type="hidden"
@@ -1054,6 +1132,7 @@ require VIEW_PATH . '/layouts/header-admin.php';
                 <div class="col-md-4">
 
                     <form method="POST">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken) ?>">
 
                         <input
                             type="hidden"
@@ -1090,6 +1169,7 @@ require VIEW_PATH . '/layouts/header-admin.php';
                 <div class="col-md-4">
 
                     <form method="POST">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken) ?>">
 
                         <input
                             type="hidden"

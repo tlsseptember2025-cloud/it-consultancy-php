@@ -2,6 +2,7 @@
 
 require_once HELPER_PATH . '/auth.php';
 
+requireAdminLogin();
 
 /*
 |--------------------------------------------------------------------------
@@ -13,12 +14,6 @@ $isMainAdmin      = isset($_SESSION['user']);
 $isDemoAdmin      = isset($_SESSION['demo_user']);
 $isDemoSuperAdmin = isset($_SESSION['demo_super_admin']);
 
-if (!$isMainAdmin && !$isDemoAdmin && !$isDemoSuperAdmin) {
-
-    header('Location: ?page=login');
-    exit;
-}
-
 
 /*
 |--------------------------------------------------------------------------
@@ -26,11 +21,63 @@ if (!$isMainAdmin && !$isDemoAdmin && !$isDemoSuperAdmin) {
 |--------------------------------------------------------------------------
 */
 
-if ($isDemoAdmin || $isDemoSuperAdmin) {
+if ($isDemoSuperAdmin) {
+    header('Location: ?page=demo-super-admin-dashboard');
+    exit;
+}
+
+if ($isDemoAdmin) {
 
     require_once CONFIG_PATH . '/demo-database.php';
 
     $customerPdo = $demoPdo;
+
+    $demoTenantId = (int) ($_SESSION['demo_user']['demo_tenant_id'] ?? 0);
+
+    if ($demoTenantId <= 0) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    $tenantStmt = $customerPdo->prepare(
+        "SELECT id, status, expires_at
+         FROM demo_tenants
+         WHERE id = ?
+         LIMIT 1"
+    );
+    $tenantStmt->execute([$demoTenantId]);
+    $tenant = $tenantStmt->fetch(PDO::FETCH_ASSOC);
+
+    if (
+        !$tenant ||
+        ($tenant['status'] ?? '') !== 'Active' ||
+        (!empty($tenant['expires_at']) && strtotime($tenant['expires_at']) < time())
+    ) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    $accountStmt = $customerPdo->prepare(
+        "SELECT id
+         FROM users
+         WHERE id = ?
+           AND is_demo_account = 1
+           AND is_super_admin = 0
+           AND demo_tenant_id = ?
+         LIMIT 1"
+    );
+    $accountStmt->execute([
+        (int) ($_SESSION['demo_user']['id'] ?? 0),
+        $demoTenantId
+    ]);
+
+    if (!$accountStmt->fetchColumn()) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
 
 } else {
 
@@ -175,11 +222,25 @@ $requestsStmt = $customerPdo->prepare("
     JOIN services
         ON services.id = requests.service_id
     WHERE requests.customer_id = ?
+      AND (
+          ? = 0
+          OR (
+              EXISTS (
+                  SELECT 1
+                  FROM customers c
+                  WHERE c.id = requests.customer_id
+                    AND c.demo_tenant_id = ?
+                    AND c.is_demo_account = 1
+              )
+          )
+      )
     ORDER BY requests.created_at DESC
 ");
 
 $requestsStmt->execute([
-    $id
+    $id,
+    $isDemoAdmin ? $demoTenantId : 0,
+    $isDemoAdmin ? $demoTenantId : 0
 ]);
 
 $requests = $requestsStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -201,11 +262,25 @@ $paymentsStmt = $customerPdo->prepare("
     JOIN services
         ON services.id = requests.service_id
     WHERE requests.customer_id = ?
+      AND (
+          ? = 0
+          OR (
+              EXISTS (
+                  SELECT 1
+                  FROM customers c
+                  WHERE c.id = requests.customer_id
+                    AND c.demo_tenant_id = ?
+                    AND c.is_demo_account = 1
+              )
+          )
+      )
     ORDER BY payments.created_at DESC
 ");
 
 $paymentsStmt->execute([
-    $id
+    $id,
+    $isDemoAdmin ? $demoTenantId : 0,
+    $isDemoAdmin ? $demoTenantId : 0
 ]);
 
 $payments = $paymentsStmt->fetchAll(PDO::FETCH_ASSOC);

@@ -1,4 +1,14 @@
 <?php
+// CSRF protection for all state-changing POST requests.
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $submittedCsrfToken = $_POST['csrf_token'] ?? '';
+    if (!is_string($submittedCsrfToken) || !hash_equals($csrfToken, $submittedCsrfToken)) {
+        http_response_code(403);
+        exit('Invalid CSRF token.');
+    }
+}
+
 
 if (!isset($_SESSION['user'])) {
 
@@ -610,6 +620,7 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                     onsubmit="return confirm(
                         'Approve this company lead? It will be added to the active leads list as New.'
                     );">
+<input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
                     <input
                         type="hidden"
@@ -634,6 +645,7 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                     onsubmit="return confirm(
                         'Reject this submission? It will be permanently deleted as spam or an unwanted submission.'
                     );">
+<input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
                     <input
                         type="hidden"

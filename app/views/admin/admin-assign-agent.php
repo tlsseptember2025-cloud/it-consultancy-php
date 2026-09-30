@@ -1,4 +1,14 @@
 <?php
+// CSRF protection for all state-changing POST requests.
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $submittedCsrfToken = $_POST['csrf_token'] ?? '';
+    if (!is_string($submittedCsrfToken) || !hash_equals($csrfToken, $submittedCsrfToken)) {
+        http_response_code(403);
+        exit('Invalid CSRF token.');
+    }
+}
+
 
 require_once APP_PATH . '/helpers/DateHelper.php';
 require_once APP_PATH . '/helpers/RequestEventHelper.php';
@@ -7,6 +17,11 @@ require_once HELPER_PATH . '/notifications.php';
 require_once HELPER_PATH . '/auth.php';
 
 requireAdminLogin();
+
+if (isset($_SESSION['demo_super_admin'])) {
+    header('Location: ?page=demo-super-admin-dashboard');
+    exit;
+}
 
 require_once CONFIG_PATH . '/database.php';
 
@@ -51,11 +66,14 @@ if ($isDemoAdmin) {
         WHERE r.id = ?
           AND c.demo_tenant_id = ?
           AND c.is_demo_account = 1
+          AND s.demo_tenant_id = ?
+          AND s.is_demo_account = 1
         LIMIT 1
     ");
 
     $stmt->execute([
         $requestId,
+        $demoTenantId,
         $demoTenantId
     ]);
 
@@ -95,28 +113,71 @@ if (!$consultation) {
 |--------------------------------------------------------------------------
 */
 
-$stmt = $assignPdo->prepare("
-    SELECT
-        cb.id AS booking_id,
-        cb.agent_id,
-        cb.slot_id AS slot_id,
-        a.name AS agent_name,
-        cs.slot_date,
-        cs.slot_time,
-        cs.consultation_method,
-        cs.meeting_link
-    FROM consultation_bookings cb
-    INNER JOIN agents a
-        ON a.id = cb.agent_id
-    LEFT JOIN consultation_slots cs
-        ON cs.id = cb.slot_id
-    WHERE cb.request_id = ?
-    LIMIT 1
-");
+if ($isDemoAdmin) {
 
-$stmt->execute([
-    $requestId
-]);
+    $stmt = $assignPdo->prepare("
+        SELECT
+            cb.id AS booking_id,
+            cb.agent_id,
+            cb.slot_id AS slot_id,
+            a.name AS agent_name,
+            cs.slot_date,
+            cs.slot_time,
+            cs.consultation_method,
+            cs.meeting_link
+        FROM consultation_bookings cb
+        INNER JOIN requests r
+            ON r.id = cb.request_id
+        INNER JOIN customers c
+            ON c.id = r.customer_id
+        INNER JOIN services s
+            ON s.id = r.service_id
+        INNER JOIN agents a
+            ON a.id = cb.agent_id
+        LEFT JOIN consultation_slots cs
+            ON cs.id = cb.slot_id
+        WHERE cb.request_id = ?
+          AND c.demo_tenant_id = ?
+          AND c.is_demo_account = 1
+          AND s.demo_tenant_id = ?
+          AND s.is_demo_account = 1
+          AND a.demo_tenant_id = ?
+          AND a.is_demo_account = 1
+        LIMIT 1
+    ");
+
+    $stmt->execute([
+        $requestId,
+        $demoTenantId,
+        $demoTenantId,
+        $demoTenantId
+    ]);
+
+} else {
+
+    $stmt = $assignPdo->prepare("
+        SELECT
+            cb.id AS booking_id,
+            cb.agent_id,
+            cb.slot_id AS slot_id,
+            a.name AS agent_name,
+            cs.slot_date,
+            cs.slot_time,
+            cs.consultation_method,
+            cs.meeting_link
+        FROM consultation_bookings cb
+        INNER JOIN agents a
+            ON a.id = cb.agent_id
+        LEFT JOIN consultation_slots cs
+            ON cs.id = cb.slot_id
+        WHERE cb.request_id = ?
+        LIMIT 1
+    ");
+
+    $stmt->execute([
+        $requestId
+    ]);
+}
 
 $booking = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -334,15 +395,51 @@ if (isset($_POST['reassign_agent'])) {
 
         if (!empty($consultation['slot_id'])) {
 
-            $stmt = $assignPdo->prepare("
-                UPDATE consultation_slots
-                SET is_booked = 0
-                WHERE id = ?
-            ");
+            if ($isDemoAdmin) {
 
-            $stmt->execute([
-                $consultation['slot_id']
-            ]);
+                $stmt = $assignPdo->prepare("
+                    UPDATE consultation_slots cs
+                    INNER JOIN consultation_bookings cb
+                        ON cb.slot_id = cs.id
+                    INNER JOIN requests r
+                        ON r.id = cb.request_id
+                    INNER JOIN customers c
+                        ON c.id = r.customer_id
+                    INNER JOIN services s
+                        ON s.id = r.service_id
+                    INNER JOIN agents a
+                        ON a.id = cb.agent_id
+                    SET cs.is_booked = 0
+                    WHERE cs.id = ?
+                      AND cb.id = ?
+                      AND c.demo_tenant_id = ?
+                      AND c.is_demo_account = 1
+                      AND s.demo_tenant_id = ?
+                      AND s.is_demo_account = 1
+                      AND a.demo_tenant_id = ?
+                      AND a.is_demo_account = 1
+                ");
+
+                $stmt->execute([
+                    $consultation['slot_id'],
+                    $consultation['booking_id'],
+                    $demoTenantId,
+                    $demoTenantId,
+                    $demoTenantId
+                ]);
+
+            } else {
+
+                $stmt = $assignPdo->prepare("
+                    UPDATE consultation_slots
+                    SET is_booked = 0
+                    WHERE id = ?
+                ");
+
+                $stmt->execute([
+                    $consultation['slot_id']
+                ]);
+            }
         }
 
 
@@ -352,16 +449,59 @@ if (isset($_POST['reassign_agent'])) {
         |--------------------------------------------------------------------------
         */
 
-        $stmt = $assignPdo->prepare("
-            UPDATE consultation_bookings
-            SET agent_id = ?
-            WHERE id = ?
-        ");
+        if ($isDemoAdmin) {
 
-        $stmt->execute([
-            $newAgentId,
-            $consultation['booking_id']
-        ]);
+            $stmt = $assignPdo->prepare("
+                UPDATE consultation_bookings cb
+                INNER JOIN requests r
+                    ON r.id = cb.request_id
+                INNER JOIN customers c
+                    ON c.id = r.customer_id
+                INNER JOIN services s
+                    ON s.id = r.service_id
+                INNER JOIN agents old_a
+                    ON old_a.id = cb.agent_id
+                INNER JOIN agents new_a
+                    ON new_a.id = ?
+                SET cb.agent_id = ?
+                WHERE cb.id = ?
+                  AND c.demo_tenant_id = ?
+                  AND c.is_demo_account = 1
+                  AND s.demo_tenant_id = ?
+                  AND s.is_demo_account = 1
+                  AND old_a.demo_tenant_id = ?
+                  AND old_a.is_demo_account = 1
+                  AND new_a.demo_tenant_id = ?
+                  AND new_a.is_demo_account = 1
+            ");
+
+            $stmt->execute([
+                $newAgentId,
+                $newAgentId,
+                $consultation['booking_id'],
+                $demoTenantId,
+                $demoTenantId,
+                $demoTenantId,
+                $demoTenantId
+            ]);
+
+        } else {
+
+            $stmt = $assignPdo->prepare("
+                UPDATE consultation_bookings
+                SET agent_id = ?
+                WHERE id = ?
+            ");
+
+            $stmt->execute([
+                $newAgentId,
+                $consultation['booking_id']
+            ]);
+        }
+
+        if ($stmt->rowCount() !== 1) {
+            throw new Exception('The consultation booking could not be reassigned.');
+        }
 
 
         /*
@@ -379,25 +519,70 @@ if (isset($_POST['reassign_agent'])) {
                 'Please reschedule your consultation because the assigned agent has been replaced.';
         }
 
-        $stmt = $assignPdo->prepare("
-            UPDATE requests
-            SET
-                agent_id = ?,
-                workflow_stage = 'Awaiting Customer Reschedule',
-                status = 'Pending',
-                job_status = 'Pending',
-                admin_instruction = ?,
-                completed_at = NULL,
-                completion_notes = NULL,
-                incomplete_reason = NULL
-            WHERE id = ?
-        ");
+        if ($isDemoAdmin) {
 
-        $stmt->execute([
-            $newAgentId,
-            $adminInstruction,
-            $consultation['id']
-        ]);
+            $stmt = $assignPdo->prepare("
+                UPDATE requests r
+                INNER JOIN customers c
+                    ON c.id = r.customer_id
+                INNER JOIN services s
+                    ON s.id = r.service_id
+                INNER JOIN agents a
+                    ON a.id = ?
+                SET
+                    r.agent_id = ?,
+                    r.workflow_stage = 'Awaiting Customer Reschedule',
+                    r.status = 'Pending',
+                    r.job_status = 'Pending',
+                    r.admin_instruction = ?,
+                    r.completed_at = NULL,
+                    r.completion_notes = NULL,
+                    r.incomplete_reason = NULL
+                WHERE r.id = ?
+                  AND c.demo_tenant_id = ?
+                  AND c.is_demo_account = 1
+                  AND s.demo_tenant_id = ?
+                  AND s.is_demo_account = 1
+                  AND a.demo_tenant_id = ?
+                  AND a.is_demo_account = 1
+            ");
+
+            $stmt->execute([
+                $newAgentId,
+                $newAgentId,
+                $adminInstruction,
+                $consultation['id'],
+                $demoTenantId,
+                $demoTenantId,
+                $demoTenantId
+            ]);
+
+        } else {
+
+            $stmt = $assignPdo->prepare("
+                UPDATE requests
+                SET
+                    agent_id = ?,
+                    workflow_stage = 'Awaiting Customer Reschedule',
+                    status = 'Pending',
+                    job_status = 'Pending',
+                    admin_instruction = ?,
+                    completed_at = NULL,
+                    completion_notes = NULL,
+                    incomplete_reason = NULL
+                WHERE id = ?
+            ");
+
+            $stmt->execute([
+                $newAgentId,
+                $adminInstruction,
+                $consultation['id']
+            ]);
+        }
+
+        if ($stmt->rowCount() !== 1) {
+            throw new Exception('The service request could not be reassigned.');
+        }
 
 
         /*
@@ -508,17 +693,50 @@ if (isset($_POST['assign_agent'])) {
     |--------------------------------------------------------------------------
     */
 
-    $stmt = $assignPdo->prepare("
-        UPDATE requests
-        SET agent_id = ?
-        WHERE id = ?
-          AND agent_id IS NULL
-    ");
+    if ($isDemoAdmin) {
 
-    $stmt->execute([
-        $agentId,
-        $consultation['id']
-    ]);
+        $stmt = $assignPdo->prepare("
+            UPDATE requests r
+            INNER JOIN customers c
+                ON c.id = r.customer_id
+            INNER JOIN services s
+                ON s.id = r.service_id
+            INNER JOIN agents a
+                ON a.id = ?
+            SET r.agent_id = ?
+            WHERE r.id = ?
+              AND r.agent_id IS NULL
+              AND c.demo_tenant_id = ?
+              AND c.is_demo_account = 1
+              AND s.demo_tenant_id = ?
+              AND s.is_demo_account = 1
+              AND a.demo_tenant_id = ?
+              AND a.is_demo_account = 1
+        ");
+
+        $stmt->execute([
+            $agentId,
+            $agentId,
+            $consultation['id'],
+            $demoTenantId,
+            $demoTenantId,
+            $demoTenantId
+        ]);
+
+    } else {
+
+        $stmt = $assignPdo->prepare("
+            UPDATE requests
+            SET agent_id = ?
+            WHERE id = ?
+              AND agent_id IS NULL
+        ");
+
+        $stmt->execute([
+            $agentId,
+            $consultation['id']
+        ]);
+    }
 
     if ($stmt->rowCount() !== 1) {
 
@@ -876,6 +1094,7 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
 
     <form method="POST">
+<input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
         <div class="card shadow-sm mb-4">
 
