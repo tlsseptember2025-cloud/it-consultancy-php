@@ -22,6 +22,11 @@ $currentPage = isset($_GET['page']) && is_string($_GET['page'])
     ? $_GET['page']
     : '';
 
+$host = strtolower($_SERVER['HTTP_HOST'] ?? '');
+$host = preg_replace('/:\d+$/', '', $host) ?? $host;
+
+$isDemoHost = ($host === 'demo.wahbibconsultancy.com');
+
 $isDemoSession =
     isset($_SESSION['demo_user'])
     || isset($_SESSION['demo_customer'])
@@ -30,7 +35,7 @@ $isDemoSession =
 
 $isDemoRoute = in_array($currentPage, $demoPageRoutes, true);
 
-if ($isDemoSession || $isDemoRoute):
+if ($isDemoHost || $isDemoSession || $isDemoRoute):
 ?>
 
 <div class="demo-environment-banner" role="status" aria-label="Demo environment">
