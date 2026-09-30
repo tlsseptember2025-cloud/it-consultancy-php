@@ -21,6 +21,15 @@
 
 $basePath = dirname(__DIR__);
 
+/*
+|--------------------------------------------------------------------------
+| Prevent intermediary caching
+|--------------------------------------------------------------------------
+*/
+
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+
 
 /*
 |--------------------------------------------------------------------------
@@ -53,11 +62,24 @@ if ($env === false || empty($env['CRON_SECRET'])) {
 |--------------------------------------------------------------------------
 */
 
-$providedKey = $_GET['key'] ?? '';
+$providedKey = $_SERVER['HTTP_X_CRON_KEY'] ?? '';
+
+if ($providedKey === '') {
+    $authorization = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+
+    if (preg_match('/^Bearer\s+(.+)$/i', $authorization, $matches)) {
+        $providedKey = trim($matches[1]);
+    }
+}
+
+if ($providedKey === '') {
+    // Backward compatibility for existing IONOS cron URLs.
+    $providedKey = (string) ($_GET['key'] ?? '');
+}
 
 if (
-    empty($providedKey) ||
-    !hash_equals($env['CRON_SECRET'], $providedKey)
+    $providedKey === '' ||
+    !hash_equals((string) $env['CRON_SECRET'], $providedKey)
 ) {
 
     http_response_code(403);

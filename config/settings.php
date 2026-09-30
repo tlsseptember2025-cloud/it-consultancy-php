@@ -12,23 +12,20 @@
  * development
  * production
  */
-define('APP_MODE', 'development');
-
-date_default_timezone_set('Asia/Dubai');
-
-
 /*
 |--------------------------------------------------------------------------
 | Environment Configuration
 |--------------------------------------------------------------------------
 |
-| APP_URL is environment-specific.
+| APP_URL and APP_MODE are environment-specific.
 |
 | Local:
-| http://localhost/it-consultancy-php/public
+| APP_MODE=development
+| APP_URL=http://localhost/it-consultancy-php/public
 |
-| DEV:
-| https://dev.wahbibconsultancy.com
+| DEV / Production:
+| APP_MODE=production
+| APP_URL=https://dev.wahbibconsultancy.com
 |
 */
 
@@ -43,6 +40,16 @@ $env = parse_ini_file($envFile);
 if ($env === false) {
     die('Unable to load environment configuration.');
 }
+
+$appMode = strtolower(trim((string) ($env['APP_MODE'] ?? 'production')));
+
+if (!in_array($appMode, ['development', 'production'], true)) {
+    $appMode = 'production';
+}
+
+define('APP_MODE', $appMode);
+
+date_default_timezone_set('Asia/Dubai');
 
 if (empty($env['APP_URL'])) {
     die('APP_URL is not configured.');

@@ -76,7 +76,7 @@ try {
     $options = [
     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
     PDO::MYSQL_ATTR_SSL_CA => $sslCaPath,
-    PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT => false,
+    PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT => true,
 ];
 
     $demoPdo = new PDO(
