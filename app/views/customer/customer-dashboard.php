@@ -86,7 +86,7 @@ if ($isDemoCustomer) {
         WHERE r.customer_id = ?
           AND c.is_demo_account = 1
           AND c.demo_tenant_id IS NOT NULL
-          AND s.is_demo_account = 1
+          
           AND s.demo_tenant_id = c.demo_tenant_id
         ORDER BY r.id DESC
     ");
@@ -132,7 +132,7 @@ if ($isDemoCustomer) {
         WHERE r.customer_id = ?
           AND c.is_demo_account = 1
           AND c.demo_tenant_id IS NOT NULL
-          AND s.is_demo_account = 1
+          
           AND s.demo_tenant_id = c.demo_tenant_id
         ORDER BY p.id DESC
     ");
@@ -177,7 +177,7 @@ if ($isDemoCustomer) {
         WHERE r.customer_id = ?
           AND c.is_demo_account = 1
           AND c.demo_tenant_id IS NOT NULL
-          AND s.is_demo_account = 1
+          
           AND s.demo_tenant_id = c.demo_tenant_id
         ORDER BY rr.id DESC
     ");

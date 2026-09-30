@@ -182,7 +182,7 @@ if ($type === 'consultation') {
               AND c.is_demo_account = 1
 
               AND s.demo_tenant_id = c.demo_tenant_id
-              AND s.is_demo_account = 1
+              
 
               AND a.demo_tenant_id = c.demo_tenant_id
               AND a.is_demo_account = 1
@@ -293,7 +293,7 @@ if ($type === 'consultation') {
               AND c.is_demo_account = 1
 
               AND s.demo_tenant_id = c.demo_tenant_id
-              AND s.is_demo_account = 1
+              
 
               AND a.demo_tenant_id = c.demo_tenant_id
               AND a.is_demo_account = 1

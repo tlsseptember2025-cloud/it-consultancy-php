@@ -142,7 +142,7 @@ if ($isDemoCustomer) {
           AND r.customer_id = ?
           AND c.is_demo_account = 1
           AND c.demo_tenant_id = ?
-          AND s.is_demo_account = 1
+          
           AND s.demo_tenant_id = c.demo_tenant_id
         LIMIT 1
     ");
@@ -206,7 +206,7 @@ if ($proposal['workflow_stage'] === 'Proposal Sent') {
               AND r.customer_id = ?
               AND c.is_demo_account = 1
               AND c.demo_tenant_id = ?
-              AND s.is_demo_account = 1
+              
               AND s.demo_tenant_id = c.demo_tenant_id
         ");
 

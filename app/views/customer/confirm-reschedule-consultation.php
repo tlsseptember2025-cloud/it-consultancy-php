@@ -175,7 +175,7 @@ if ($isDemoCustomer) {
         INNER JOIN services s
             ON s.id = r.service_id
            AND s.demo_tenant_id = ?
-           AND s.is_demo_account = 1
+           
 
         INNER JOIN agents a
             ON a.id = r.agent_id
@@ -430,7 +430,7 @@ if ($isDemoCustomer) {
         INNER JOIN services s
             ON s.id = r.service_id
            AND s.demo_tenant_id = ?
-           AND s.is_demo_account = 1
+           
 
         INNER JOIN agents a
             ON a.id = r.agent_id
