@@ -47,6 +47,47 @@ $page = $_GET['page'] ?? 'home';
 
 /*
 |--------------------------------------------------------------------------
+| Demo First-Login Security Enforcement
+|--------------------------------------------------------------------------
+| A Demo account with force_password_change=1 must not be able to
+| bypass the mandatory first-login password change by navigating
+| directly to a dashboard or another authenticated route.
+|
+| Logout remains available so the user can leave the session without
+| completing the password change. The Demo login page itself is not
+| allowed as an escape route while the authenticated session still
+| requires the password change.
+|--------------------------------------------------------------------------
+*/
+if ($isDemoEnvironment) {
+
+    $forcedDemoSession = null;
+    $forcedDemoLogoutRoute = null;
+
+    if (isset($_SESSION['demo_user'])) {
+        $forcedDemoSession = $_SESSION['demo_user'];
+        $forcedDemoLogoutRoute = 'logout';
+    } elseif (isset($_SESSION['demo_customer'])) {
+        $forcedDemoSession = $_SESSION['demo_customer'];
+        $forcedDemoLogoutRoute = 'customer-logout';
+    } elseif (isset($_SESSION['demo_agent'])) {
+        $forcedDemoSession = $_SESSION['demo_agent'];
+        $forcedDemoLogoutRoute = 'agent-logout';
+    }
+
+    if (
+        is_array($forcedDemoSession)
+        && (int) ($forcedDemoSession['force_password_change'] ?? 0) === 1
+        && $page !== 'demo-change-password'
+        && $page !== $forcedDemoLogoutRoute
+    ) {
+        header('Location: ?page=demo-change-password');
+        exit;
+    }
+}
+
+/*
+|--------------------------------------------------------------------------
 | Authenticated User Default Landing
 |--------------------------------------------------------------------------
 | Send authenticated users to their dashboard whenever the requested
@@ -163,7 +204,6 @@ if ($isDemoEnvironment) {
     'customer-forgot-password',
     'customer-reset-password',
     'rules',
-    'stripe-webhook',
 ];
 
     /**
@@ -366,9 +406,6 @@ if ($isDemoEnvironment) {
         'view-proposal',
         'accept-proposal-confirm',
         'reject-proposal',
-        'stripe-create-checkout',
-        'stripe-success',
-        'stripe-cancel',
     ];
 
     /**
@@ -742,47 +779,20 @@ case 'admin-suspension-chat':
         break;
 
     case 'stripe-create-checkout':
-
-    if ($isDemoEnvironment) {
-        require CONTROLLER_PATH . '/demo-stripe-create-checkout.php';
-    } else {
         require CONTROLLER_PATH . '/stripe-create-checkout.php';
-    }
+        break;
 
-    break;
-
-
-case 'stripe-success':
-
-    if ($isDemoEnvironment) {
-        require VIEW_PATH . '/customer/demo-stripe-success.php';
-    } else {
+    case 'stripe-success':
         require VIEW_PATH . '/customer/stripe-success.php';
-    }
+        break;
 
-    break;
-
-
-case 'stripe-cancel':
-
-    if ($isDemoEnvironment) {
-        require VIEW_PATH . '/customer/demo-stripe-cancel.php';
-    } else {
+    case 'stripe-cancel':
         require VIEW_PATH . '/customer/stripe-cancel.php';
-    }
+        break;
 
-    break;
-
-
-case 'stripe-webhook':
-
-    if ($isDemoEnvironment) {
-        require CONTROLLER_PATH . '/demo-stripe-webhook.php';
-    } else {
+    case 'stripe-webhook':
         require CONTROLLER_PATH . '/stripe-webhook.php';
-    }
-
-    break;
+        break;
 
     case 'customer-refunds':
         require VIEW_PATH . '/customer/customer-refunds.php';
