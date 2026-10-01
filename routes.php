@@ -47,47 +47,6 @@ $page = $_GET['page'] ?? 'home';
 
 /*
 |--------------------------------------------------------------------------
-| Demo First-Login Security Enforcement
-|--------------------------------------------------------------------------
-| A Demo account with force_password_change=1 must not be able to
-| bypass the mandatory first-login password change by navigating
-| directly to a dashboard or another authenticated route.
-|
-| Logout remains available so the user can leave the session without
-| completing the password change. The Demo login page itself is not
-| allowed as an escape route while the authenticated session still
-| requires the password change.
-|--------------------------------------------------------------------------
-*/
-if ($isDemoEnvironment) {
-
-    $forcedDemoSession = null;
-    $forcedDemoLogoutRoute = null;
-
-    if (isset($_SESSION['demo_user'])) {
-        $forcedDemoSession = $_SESSION['demo_user'];
-        $forcedDemoLogoutRoute = 'logout';
-    } elseif (isset($_SESSION['demo_customer'])) {
-        $forcedDemoSession = $_SESSION['demo_customer'];
-        $forcedDemoLogoutRoute = 'customer-logout';
-    } elseif (isset($_SESSION['demo_agent'])) {
-        $forcedDemoSession = $_SESSION['demo_agent'];
-        $forcedDemoLogoutRoute = 'agent-logout';
-    }
-
-    if (
-        is_array($forcedDemoSession)
-        && (int) ($forcedDemoSession['force_password_change'] ?? 0) === 1
-        && $page !== 'demo-change-password'
-        && $page !== $forcedDemoLogoutRoute
-    ) {
-        header('Location: ?page=demo-change-password');
-        exit;
-    }
-}
-
-/*
-|--------------------------------------------------------------------------
 | Authenticated User Default Landing
 |--------------------------------------------------------------------------
 | Send authenticated users to their dashboard whenever the requested
@@ -211,6 +170,8 @@ if ($isDemoEnvironment) {
      */
     $demoSuperAdminRoutes = [
         'demo-super-admin',
+        'demo-company-report',
+        'demo-usage-reports',
         'logout',
         'notifications',
         'open-notification',
@@ -543,6 +504,14 @@ case 'create-demo-admin':
 
 case 'demo-super-admin':
     require VIEW_PATH . '/admin/demo-super-admin.php';
+    break;
+
+case 'demo-company-report':
+    require VIEW_PATH . '/admin/demo-company-report.php';
+    break;
+
+case 'demo-usage-reports':
+    require VIEW_PATH . '/admin/demo-usage-reports.php';
     break;
 
 case 'demo-super-admin-login':
