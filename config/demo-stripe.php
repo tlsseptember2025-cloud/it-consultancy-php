@@ -5,38 +5,50 @@
 | Demo Stripe Test/Sandbox Configuration
 |--------------------------------------------------------------------------
 |
-| The Demo uses the same Stripe Test/Sandbox account credentials as Dev.
-| The webhook signing secret is endpoint-specific and therefore must be
-| configured separately for the Demo webhook endpoint.
+| The Demo uses the same Stripe Test/Sandbox API credentials as Dev.
+| The Demo webhook has its own endpoint-specific signing secret.
 |
 */
 
-$envFile = dirname(__DIR__, 2) . '/.env';
-$env = parse_ini_file($envFile);
+$envFile = dirname(__DIR__) . '/.env';
+$env = parse_ini_file($envFile, false, INI_SCANNER_RAW);
 
 if ($env === false) {
     throw new RuntimeException('Unable to load environment configuration.');
 }
 
 if (!defined('DEMO_STRIPE_SECRET_KEY')) {
-    define('DEMO_STRIPE_SECRET_KEY', trim((string) ($env['STRIPE_SECRET_KEY'] ?? '')));
+    define(
+        'DEMO_STRIPE_SECRET_KEY',
+        trim((string) ($env['STRIPE_SECRET_KEY'] ?? ''))
+    );
 }
 
 if (!defined('DEMO_STRIPE_PUBLISHABLE_KEY')) {
-    define('DEMO_STRIPE_PUBLISHABLE_KEY', trim((string) ($env['STRIPE_PUBLISHABLE_KEY'] ?? '')));
+    define(
+        'DEMO_STRIPE_PUBLISHABLE_KEY',
+        trim((string) ($env['STRIPE_PUBLISHABLE_KEY'] ?? ''))
+    );
 }
 
 if (!defined('DEMO_STRIPE_WEBHOOK_SECRET')) {
-    define('DEMO_STRIPE_WEBHOOK_SECRET', trim((string) ($env['DEMO_STRIPE_WEBHOOK_SECRET'] ?? '')));
+    define(
+        'DEMO_STRIPE_WEBHOOK_SECRET',
+        trim((string) ($env['DEMO_STRIPE_WEBHOOK_SECRET'] ?? ''))
+    );
 }
 
 if (!defined('DEMO_STRIPE_API_BASE_URL')) {
-    define('DEMO_STRIPE_API_BASE_URL', 'https://api.stripe.com/v1/');
+    define(
+        'DEMO_STRIPE_API_BASE_URL',
+        'https://api.stripe.com/v1/'
+    );
 }
 
 function demoStripeIsConfigured(): bool
 {
-    return DEMO_STRIPE_SECRET_KEY !== '' && DEMO_STRIPE_WEBHOOK_SECRET !== '';
+    return DEMO_STRIPE_SECRET_KEY !== ''
+        && DEMO_STRIPE_WEBHOOK_SECRET !== '';
 }
 
 function demoStripeFlattenParams(array $params, string $prefix = ''): array
@@ -44,7 +56,9 @@ function demoStripeFlattenParams(array $params, string $prefix = ''): array
     $result = [];
 
     foreach ($params as $key => $value) {
-        $name = $prefix === '' ? (string) $key : $prefix . '[' . $key . ']';
+        $name = $prefix === ''
+            ? (string) $key
+            : $prefix . '[' . $key . ']';
 
         if (is_array($value)) {
             $result += demoStripeFlattenParams($value, $name);
@@ -93,7 +107,7 @@ function demoStripeApiRequest(
             'Content-Type: application/x-www-form-urlencoded';
     } elseif ($method === 'GET' && !empty($params)) {
         $url .= '?' . http_build_query($params);
-        curl_setopt($ch, CURLOPT_URL, $url);
+        $options[CURLOPT_URL] = $url;
     }
 
     curl_setopt_array($ch, $options);
@@ -136,10 +150,16 @@ function demoStripeVerifyWebhookSignature(
     $signatures = [];
 
     foreach (explode(',', $signatureHeader) as $part) {
-        [$key, $value] = array_pad(explode('=', trim($part), 2), 2, null);
+        [$key, $value] = array_pad(
+            explode('=', trim($part), 2),
+            2,
+            null
+        );
 
         if ($key === 't') {
-            $timestamp = ctype_digit((string) $value) ? (int) $value : null;
+            $timestamp = ctype_digit((string) $value)
+                ? (int) $value
+                : null;
         } elseif ($key === 'v1' && is_string($value)) {
             $signatures[] = $value;
         }
