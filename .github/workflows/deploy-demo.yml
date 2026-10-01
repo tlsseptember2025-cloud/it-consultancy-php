@@ -60,6 +60,14 @@ jobs:
           DEMO_DB_PASS: ${{ secrets.DEMO_DB_PASS }}
           DEMO_DB_SSL_CA: ${{ secrets.DEMO_DB_SSL_CA }}
 
+          # ----------------------------------------------------------
+          # Stripe Test/Sandbox
+          # Reuse the existing Dev/Test API credentials.
+          # The Demo webhook signing secret is endpoint-specific.
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
+          DEMO_STRIPE_WEBHOOK_SECRET: ${{ secrets.DEMO_STRIPE_WEBHOOK_SECRET }}
+
         run: |
           cat > .env <<EOF
           DB_HOST=$DEMO_DB_HOST
@@ -77,6 +85,13 @@ jobs:
           DEMO_DB_USER=$DEMO_DB_USER
           DEMO_DB_PASS=$DEMO_DB_PASS
           DEMO_DB_SSL_CA=app/storage/certs/ca.pem
+
+          # ----------------------------------------------------------
+          # Stripe Test/Sandbox
+          # ----------------------------------------------------------
+          STRIPE_SECRET_KEY=$STRIPE_SECRET_KEY
+          STRIPE_PUBLISHABLE_KEY=$STRIPE_PUBLISHABLE_KEY
+          DEMO_STRIPE_WEBHOOK_SECRET=$DEMO_STRIPE_WEBHOOK_SECRET
           EOF
 
           lftp -c "

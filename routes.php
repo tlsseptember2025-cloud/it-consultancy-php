@@ -163,6 +163,7 @@ if ($isDemoEnvironment) {
     'customer-forgot-password',
     'customer-reset-password',
     'rules',
+    'stripe-webhook',
 ];
 
     /**
@@ -365,6 +366,9 @@ if ($isDemoEnvironment) {
         'view-proposal',
         'accept-proposal-confirm',
         'reject-proposal',
+        'stripe-create-checkout',
+        'stripe-success',
+        'stripe-cancel',
     ];
 
     /**
@@ -738,19 +742,35 @@ case 'admin-suspension-chat':
         break;
 
     case 'stripe-create-checkout':
-        require CONTROLLER_PATH . '/stripe-create-checkout.php';
+        if ($isDemoEnvironment) {
+            require CONTROLLER_PATH . '/demo-stripe-create-checkout.php';
+        } else {
+            require CONTROLLER_PATH . '/stripe-create-checkout.php';
+        }
         break;
 
     case 'stripe-success':
-        require VIEW_PATH . '/customer/stripe-success.php';
+        if ($isDemoEnvironment) {
+            require VIEW_PATH . '/customer/demo-stripe-success.php';
+        } else {
+            require VIEW_PATH . '/customer/stripe-success.php';
+        }
         break;
 
     case 'stripe-cancel':
-        require VIEW_PATH . '/customer/stripe-cancel.php';
+        if ($isDemoEnvironment) {
+            require VIEW_PATH . '/customer/demo-stripe-cancel.php';
+        } else {
+            require VIEW_PATH . '/customer/stripe-cancel.php';
+        }
         break;
 
     case 'stripe-webhook':
-        require CONTROLLER_PATH . '/stripe-webhook.php';
+        if ($isDemoEnvironment) {
+            require CONTROLLER_PATH . '/demo-stripe-webhook.php';
+        } else {
+            require CONTROLLER_PATH . '/stripe-webhook.php';
+        }
         break;
 
     case 'customer-refunds':
