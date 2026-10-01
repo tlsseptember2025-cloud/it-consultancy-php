@@ -1,7 +1,5 @@
 <?php
 
-require_once HELPER_PATH . '/auth.php';
-requireCustomerLogin();
 require_once CONFIG_PATH . '/demo-database.php';
 require_once HELPER_PATH . '/demo_stripe_payment.php';
 
@@ -32,10 +30,7 @@ if ($sessionId !== '' && $customerId > 0 && $demoTenantId > 0) {
             && $sessionTenantId === $demoTenantId;
 
         if ($paid) {
-            demoStripeCompleteCheckoutPayment(
-                $demoPdo,
-                $session
-            );
+            demoStripeCompleteCheckoutPayment($demoPdo, $session);
         }
     } catch (Throwable $e) {
         error_log('Demo Stripe success verification failed: ' . $e->getMessage());

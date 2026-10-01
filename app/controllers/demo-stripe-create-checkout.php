@@ -1,10 +1,16 @@
 <?php
 
-require_once HELPER_PATH . '/auth.php';
-requireCustomerLogin();
 require_once CONFIG_PATH . '/demo-database.php';
 require_once HELPER_PATH . '/demo_stripe_payment.php';
 
+/*
+|--------------------------------------------------------------------------
+| Demo Customer Authentication
+|--------------------------------------------------------------------------
+| Do not use requireCustomerLogin() here. That function is for the Main
+| application and redirects to ?page=public-login, which is not a Demo route.
+|--------------------------------------------------------------------------
+*/
 if (!isset($_SESSION['demo_customer'])) {
     http_response_code(403);
     exit('Demo customer access required.');

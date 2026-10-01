@@ -1,7 +1,5 @@
 <?php
 
-require_once HELPER_PATH . '/auth.php';
-requireCustomerLogin();
 require_once CONFIG_PATH . '/demo-database.php';
 
 if (!isset($_SESSION['demo_customer'])) {

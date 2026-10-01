@@ -58,7 +58,7 @@ function demoStripeCreateCheckoutSessionForRequest(
     ");
     $paidStmt->execute([$requestId]);
 
-    if ($paidStmt->fetch()) {
+    if ($paidStmt->fetchColumn()) {
         throw new RuntimeException('This Demo request has already been paid.');
     }
 
@@ -100,11 +100,17 @@ function demoStripeCreateCheckoutSessionForRequest(
         throw new RuntimeException('Stripe did not return a checkout URL.');
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Demo payments has no Stripe-specific columns.
+    | Keep the Checkout Session ID in notes for audit/debugging and correlate
+    | the webhook using its signed metadata request_id/customer_id/tenant_id.
+    |--------------------------------------------------------------------------
+    */
     $pendingStmt = $pdo->prepare("
         SELECT id
         FROM payments
         WHERE request_id = ?
-          AND payment_method = 'Stripe'
           AND status = 'Pending'
         ORDER BY id DESC
         LIMIT 1
@@ -112,21 +118,22 @@ function demoStripeCreateCheckoutSessionForRequest(
     $pendingStmt->execute([$requestId]);
     $pendingPaymentId = $pendingStmt->fetchColumn();
 
+    $pendingNote =
+        'Demo Stripe Checkout session created in Test/Sandbox mode. Session: ' .
+        $sessionId;
+
     if ($pendingPaymentId) {
         $update = $pdo->prepare("
             UPDATE payments
             SET
                 amount = ?,
-                stripe_checkout_session_id = ?,
-                stripe_payment_intent_id = NULL,
                 notes = ?
             WHERE id = ?
               AND status = 'Pending'
         ");
         $update->execute([
             $amount,
-            $sessionId,
-            'Demo Stripe Checkout session created in Test/Sandbox mode.',
+            $pendingNote,
             $pendingPaymentId,
         ]);
     } else {
@@ -135,19 +142,16 @@ function demoStripeCreateCheckoutSessionForRequest(
             (
                 request_id,
                 amount,
-                payment_method,
-                stripe_checkout_session_id,
                 status,
                 payment_date,
                 notes
             )
-            VALUES (?, ?, 'Stripe', ?, 'Pending', NULL, ?)
+            VALUES (?, ?, 'Pending', NULL, ?)
         ");
         $insert->execute([
             $requestId,
             $amount,
-            $sessionId,
-            'Demo Stripe Checkout session created in Test/Sandbox mode.',
+            $pendingNote,
         ]);
     }
 
@@ -159,11 +163,11 @@ function demoStripeCompleteCheckoutPayment(
     array $session
 ): bool {
     $sessionId = (string) ($session['id'] ?? '');
-    $paymentIntentId = (string) ($session['payment_intent'] ?? '');
     $paymentStatus = (string) ($session['payment_status'] ?? '');
     $requestId = (int) ($session['metadata']['request_id'] ?? $session['client_reference_id'] ?? 0);
     $customerId = (int) ($session['metadata']['customer_id'] ?? 0);
     $demoTenantId = (int) ($session['metadata']['demo_tenant_id'] ?? 0);
+    $amountTotal = isset($session['amount_total']) ? (int) $session['amount_total'] : 0;
 
     if (
         $sessionId === ''
@@ -206,6 +210,12 @@ function demoStripeCompleteCheckoutPayment(
         throw new RuntimeException('Demo Stripe payment references an unknown request.');
     }
 
+    $expectedAmount = (int) round((float) $request['quoted_price'] * 100);
+
+    if ($amountTotal > 0 && $amountTotal !== $expectedAmount) {
+        throw new RuntimeException('Demo Stripe payment amount does not match the request amount.');
+    }
+
     $pdo->beginTransaction();
 
     try {
@@ -227,20 +237,24 @@ function demoStripeCompleteCheckoutPayment(
         $paymentStmt = $pdo->prepare("
             SELECT id
             FROM payments
-            WHERE stripe_checkout_session_id = ?
+            WHERE request_id = ?
+              AND status = 'Pending'
+            ORDER BY id DESC
             LIMIT 1
             FOR UPDATE
         ");
-        $paymentStmt->execute([$sessionId]);
+        $paymentStmt->execute([$requestId]);
         $paymentId = $paymentStmt->fetchColumn();
+
+        $paidNote =
+            'Demo payment confirmed automatically by Stripe Test/Sandbox. Session: ' .
+            $sessionId;
 
         if ($paymentId) {
             $update = $pdo->prepare("
                 UPDATE payments
                 SET
                     amount = ?,
-                    payment_method = 'Stripe',
-                    stripe_payment_intent_id = ?,
                     status = 'Paid',
                     payment_date = NOW(),
                     notes = ?
@@ -248,8 +262,7 @@ function demoStripeCompleteCheckoutPayment(
             ");
             $update->execute([
                 $request['quoted_price'],
-                $paymentIntentId !== '' ? $paymentIntentId : null,
-                'Demo payment confirmed automatically by Stripe Test/Sandbox.',
+                $paidNote,
                 $paymentId,
             ]);
         } else {
@@ -258,21 +271,16 @@ function demoStripeCompleteCheckoutPayment(
                 (
                     request_id,
                     amount,
-                    payment_method,
-                    stripe_checkout_session_id,
-                    stripe_payment_intent_id,
                     status,
                     payment_date,
                     notes
                 )
-                VALUES (?, ?, 'Stripe', ?, ?, 'Paid', NOW(), ?)
+                VALUES (?, ?, 'Paid', NOW(), ?)
             ");
             $insert->execute([
                 $requestId,
                 $request['quoted_price'],
-                $sessionId,
-                $paymentIntentId !== '' ? $paymentIntentId : null,
-                'Demo payment confirmed automatically by Stripe Test/Sandbox.',
+                $paidNote,
             ]);
         }
 
