@@ -17,6 +17,13 @@ if ($env === false) {
     throw new RuntimeException('Unable to load environment configuration.');
 }
 
+if (!defined('DEMO_APP_URL')) {
+    define(
+        'DEMO_APP_URL',
+        rtrim((string) ($env['DEMO_APP_URL'] ?? ''), '/')
+    );
+}
+
 if (!defined('DEMO_STRIPE_SECRET_KEY')) {
     define(
         'DEMO_STRIPE_SECRET_KEY',
@@ -47,7 +54,8 @@ if (!defined('DEMO_STRIPE_API_BASE_URL')) {
 
 function demoStripeIsConfigured(): bool
 {
-    return DEMO_STRIPE_SECRET_KEY !== ''
+    return DEMO_APP_URL !== ''
+        && DEMO_STRIPE_SECRET_KEY !== ''
         && DEMO_STRIPE_WEBHOOK_SECRET !== '';
 }
 
