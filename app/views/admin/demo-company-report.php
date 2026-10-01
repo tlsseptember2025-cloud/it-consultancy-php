@@ -436,7 +436,17 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                 <div class="card-body">
                     <p><strong>Domain:</strong> <?= htmlspecialchars($tenant['company_domain'] ?? '-', ENT_QUOTES, 'UTF-8') ?></p>
                     <p><strong>Email:</strong> <?= htmlspecialchars($tenant['registered_email'] ?? '-', ENT_QUOTES, 'UTF-8') ?></p>
-                    <p><strong>Status:</strong> <?= htmlspecialchars($tenant['status'] ?? '-', ENT_QUOTES, 'UTF-8') ?></p>
+                    <?php
+                    $reportStatus = $tenant['status'] ?? '-';
+
+                    if (
+                        !empty($tenant['expires_at']) &&
+                        strtotime($tenant['expires_at']) < time()
+                    ) {
+                        $reportStatus = 'Expired';
+                    }
+                    ?>
+                    <p><strong>Status:</strong> <?= htmlspecialchars($reportStatus, ENT_QUOTES, 'UTF-8') ?></p>
                     <p><strong>Started:</strong> <?= htmlspecialchars($tenant['started_at'] ?? '-', ENT_QUOTES, 'UTF-8') ?></p>
                     <p class="mb-0"><strong>Last recorded activity:</strong> <?= htmlspecialchars($latestActivity ?? 'No activity yet', ENT_QUOTES, 'UTF-8') ?></p>
                 </div>

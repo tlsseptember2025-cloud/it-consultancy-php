@@ -202,7 +202,7 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                 <i class="bi bi-archive me-1"></i>
                 Archived Demo Companies
             </a>
-            <a href="?page=demo-extension-requests" class="btn btn-outline-warning">
+            <a href="?page=demo-extension-requests" class="btn btn-warning">
                 <i class="bi bi-calendar-plus me-1"></i>
                 Extension Requests
             </a>

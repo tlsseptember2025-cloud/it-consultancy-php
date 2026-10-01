@@ -38,32 +38,106 @@ if ($isDemoAdmin) {
 |--------------------------------------------------------------------------
 | Demo Extension Status
 |--------------------------------------------------------------------------
+|
+| Demo rules:
+| - Original Demo period = 5 days.
+| - Extension can be requested only during the final 24 hours.
+| - One extension only.
+| - Approved extension adds 5 days after the original expiry.
+| - Maximum total lifetime = 10 days from started_at.
+|
 */
 $demoExtensionRequest = null;
+$demoTenantStarted = null;
 $demoTenantExpiry = null;
+$demoExtensionCanRequest = false;
+$demoExtensionNotice = null;
+$demoExtensionNoticeClass = 'alert-info';
 
 if ($isDemoAdmin) {
     try {
-        $tenantStatusStmt = $adminPdo->prepare(
-            "SELECT expires_at FROM demo_tenants WHERE id = ? LIMIT 1"
-        );
+        $tenantStatusStmt = $adminPdo->prepare("
+            SELECT started_at, expires_at
+            FROM demo_tenants
+            WHERE id = ?
+            LIMIT 1
+        ");
         $tenantStatusStmt->execute([$demoTenantId]);
-        $demoTenantExpiry = $tenantStatusStmt->fetchColumn() ?: null;
+        $demoTenant = $tenantStatusStmt->fetch(PDO::FETCH_ASSOC) ?: [];
 
-        $extensionTableStmt = $adminPdo->query("SHOW TABLES LIKE 'demo_extension_requests'");
+        $demoTenantStarted = $demoTenant['started_at'] ?? null;
+        $demoTenantExpiry = $demoTenant['expires_at'] ?? null;
+
+        $extensionTableStmt = $adminPdo->query(
+            "SHOW TABLES LIKE 'demo_extension_requests'"
+        );
 
         if ($extensionTableStmt && $extensionTableStmt->fetchColumn()) {
             $extensionStmt = $adminPdo->prepare("
-                SELECT status, requested_at, reviewed_at, review_notes
+                SELECT
+                    status,
+                    requested_at,
+                    reviewed_at,
+                    review_notes
                 FROM demo_extension_requests
                 WHERE demo_tenant_id = ?
                 LIMIT 1
-            " );
+            ");
             $extensionStmt->execute([$demoTenantId]);
-            $demoExtensionRequest = $extensionStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+            $demoExtensionRequest =
+                $extensionStmt->fetch(PDO::FETCH_ASSOC) ?: null;
         }
+
+        $now = time();
+        $expiryTimestamp = $demoTenantExpiry
+            ? strtotime((string) $demoTenantExpiry)
+            : false;
+
+        if ($expiryTimestamp !== false) {
+            $secondsRemaining = $expiryTimestamp - $now;
+
+            // If the extension has already been approved, the current
+            // expiry is Day 10. Day 6 starts exactly 5 days before it.
+            if (
+                $demoExtensionRequest &&
+                ($demoExtensionRequest['status'] ?? '') === 'Approved'
+            ) {
+                $extensionPeriodStart = $expiryTimestamp - (5 * 86400);
+                $daySixEnd = $extensionPeriodStart + 86400;
+
+                if ($now >= $extensionPeriodStart && $now < $daySixEnd) {
+                    $demoExtensionNotice =
+                        'Demo extended for another 5 days. There will be no more extension periods.';
+                    $demoExtensionNoticeClass = 'alert-success';
+                }
+            } elseif ($secondsRemaining > 0) {
+
+                // Final 24 hours = Day 5.
+                if ($secondsRemaining <= 86400) {
+                    $demoExtensionCanRequest = true;
+                    $demoExtensionNotice =
+                        'This is your last day. You can request a 5-day extension.';
+                    $demoExtensionNoticeClass = 'alert-warning';
+
+                // More than 24 hours but no more than 48 hours = Day 4.
+                } elseif ($secondsRemaining <= 172800) {
+                    $demoExtensionNotice =
+                        'You have 2 days left. You can request a 5-day extension on your last day.';
+                    $demoExtensionNoticeClass = 'alert-warning';
+                }
+            }
+        }
+
+        // Never show the request button if a request already exists.
+        if ($demoExtensionRequest) {
+            $demoExtensionCanRequest = false;
+        }
+
     } catch (Throwable $e) {
-        error_log('Demo extension dashboard lookup failed: ' . $e->getMessage());
+        error_log(
+            'Demo extension dashboard lookup failed: ' .
+            $e->getMessage()
+        );
     }
 }
 
@@ -143,7 +217,7 @@ $pendingLeads = 0;
  * Company support leads are a Main Admin workflow. Demo Admins do not
  * receive or manage these records, so the metrics remain zero for Demo.
  */
-if (!$isDemoEnvironment) {
+if (!$isDemoAdmin) {
     $newLeads = $adminPdo->query("
         SELECT COUNT(*)
         FROM contract_leads
@@ -694,44 +768,91 @@ $refundRequests = $fetchDashboardRows(
         <div class="card shadow-sm border-warning">
             <div class="card-body py-3">
                 <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
-                    <div>
+
+                    <div class="flex-grow-1">
                         <div class="small text-muted">Demo Period</div>
+
                         <div class="fw-semibold">
-                            <?php if ($demoTenantExpiry): ?>
-                                Expires <?= htmlspecialchars($demoTenantExpiry, ENT_QUOTES, 'UTF-8') ?>
-                            <?php else: ?>
-                                Expiry date unavailable
-                            <?php endif; ?>
+                        <?php if ($demoTenantExpiry): ?>
+                            <?php
+                                try {
+                                    $demoExpiryDate = new DateTimeImmutable(
+                                        $demoTenantExpiry,
+                                        new DateTimeZone('Asia/Dubai')
+                                    );
+
+                                    $demoExpiryDisplay = $demoExpiryDate
+                                        ->setTimezone(new DateTimeZone('Asia/Dubai'))
+                                        ->format('d/m/Y h:i A');
+                                } catch (Exception $e) {
+                                    $demoExpiryDisplay = $demoTenantExpiry;
+                                }
+                            ?>
+
+                            Expires <?= htmlspecialchars($demoExpiryDisplay, ENT_QUOTES, 'UTF-8') ?>
+                        <?php else: ?>
+                            Expiry date unavailable
+                        <?php endif; ?>
                         </div>
 
                         <?php if ($demoExtensionRequest): ?>
                             <?php
-                                $extensionStatus = (string) ($demoExtensionRequest['status'] ?? 'Pending');
+                                $extensionStatus = (string) (
+                                    $demoExtensionRequest['status'] ?? 'Pending'
+                                );
+
                                 $extensionBadge = match ($extensionStatus) {
                                     'Approved' => 'bg-success',
                                     'Rejected' => 'bg-danger',
                                     default => 'bg-warning text-dark',
                                 };
                             ?>
+
                             <div class="small mt-1">
                                 Extension request:
                                 <span class="badge <?= $extensionBadge ?>">
-                                    <?= htmlspecialchars($extensionStatus, ENT_QUOTES, 'UTF-8') ?>
+                                    <?= htmlspecialchars(
+                                        $extensionStatus,
+                                        ENT_QUOTES,
+                                        'UTF-8'
+                                    ) ?>
                                 </span>
+                            </div>
+                        <?php endif; ?>
+
+                        <?php if ($demoExtensionNotice): ?>
+                            <div class="alert <?= $demoExtensionNoticeClass ?> small mt-2 mb-0 py-2">
+                                <?= htmlspecialchars(
+                                    $demoExtensionNotice,
+                                    ENT_QUOTES,
+                                    'UTF-8'
+                                ) ?>
                             </div>
                         <?php endif; ?>
                     </div>
 
-                    <?php if (!$demoExtensionRequest): ?>
-                        <a href="?page=demo-extension-request" class="btn btn-outline-primary">
-                            <i class="bi bi-calendar-plus me-1"></i>
-                            Request 5-Day Extension
-                        </a>
-                    <?php else: ?>
-                        <a href="?page=demo-extension-request" class="btn btn-outline-secondary">
-                            View Extension Request
-                        </a>
-                    <?php endif; ?>
+                    <div class="d-flex flex-wrap gap-2">
+
+                        <?php if ($demoExtensionCanRequest): ?>
+                            <a
+                                href="?page=demo-extension-request"
+                                class="btn btn-primary"
+                            >
+                                <i class="bi bi-calendar-plus me-1"></i>
+                                Request 5-Day Extension
+                            </a>
+
+                        <?php elseif ($demoExtensionRequest): ?>
+                            <a
+                                href="?page=demo-extension-request"
+                                class="btn btn-outline-secondary"
+                            >
+                                View Extension Request
+                            </a>
+                        <?php endif; ?>
+
+                    </div>
+
                 </div>
             </div>
         </div>

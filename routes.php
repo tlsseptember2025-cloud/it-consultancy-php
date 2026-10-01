@@ -169,10 +169,12 @@ if ($isDemoEnvironment) {
      * Routes available to Demo Super Admin
      */
     $demoSuperAdminRoutes = [
-        'demo-super-admin',
-        'demo-archived-companies',
-        'demo-usage-reports',
-        'demo-extension-requests',
+       
+    'demo-super-admin',
+    'demo-archived-companies',
+    'demo-usage-reports',
+    'demo-company-report',
+    'demo-extension-requests',
         'logout',
         'notifications',
         'open-notification',
@@ -514,6 +516,10 @@ case 'demo-archived-companies':
 
 case 'demo-usage-reports':
     require VIEW_PATH . '/admin/demo-usage-reports.php';
+    break;
+
+case 'demo-company-report':
+    require VIEW_PATH . '/admin/demo-company-report.php';
     break;
 
 case 'demo-extension-requests':
