@@ -158,9 +158,6 @@ if ($isDemoEnvironment) {
     $demoPublicRoutes = [
     'home',
     'demo-login',
-    'demo-super-admin-login',
-    'demo-super-admin-forgot-password',
-    'demo-super-admin-reset-password',
     'demo-change-password',
     'admin-account-recovery',
     'customer-forgot-password',
@@ -173,8 +170,9 @@ if ($isDemoEnvironment) {
      */
     $demoSuperAdminRoutes = [
         'demo-super-admin',
-        'demo-company-report',
+        'demo-archived-companies',
         'demo-usage-reports',
+        'demo-extension-requests',
         'logout',
         'notifications',
         'open-notification',
@@ -238,6 +236,7 @@ if ($isDemoEnvironment) {
     $demoAdminRoutes = [
         'dashboard',
         'demo-setup',
+        'demo-extension-request',
         'logout',
         'notifications',
         'open-notification',
@@ -509,12 +508,20 @@ case 'demo-super-admin':
     require VIEW_PATH . '/admin/demo-super-admin.php';
     break;
 
-case 'demo-company-report':
-    require VIEW_PATH . '/admin/demo-company-report.php';
+case 'demo-archived-companies':
+    require VIEW_PATH . '/admin/demo-archived-companies.php';
     break;
 
 case 'demo-usage-reports':
     require VIEW_PATH . '/admin/demo-usage-reports.php';
+    break;
+
+case 'demo-extension-requests':
+    require VIEW_PATH . '/admin/demo-extension-requests.php';
+    break;
+
+case 'demo-extension-request':
+    require VIEW_PATH . '/admin/demo-extension-request.php';
     break;
 
 case 'demo-super-admin-login':

@@ -2,6 +2,96 @@
 
 require_once APP_PATH . '/helpers/DateHelper.php';
 
+
+/*
+|--------------------------------------------------------------------------
+| Dedicated Demo Super Admin Navbar
+|--------------------------------------------------------------------------
+|
+| Demo Super Admin must not use the normal Admin navigation.
+| Keep this branch here so all pages using navbar-admin.php automatically
+| receive the correct navigation without changing the shared header layout.
+|
+*/
+if (isset($_SESSION['demo_super_admin']) && is_array($_SESSION['demo_super_admin'])):
+?>
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark py-3">
+    <div class="container-fluid">
+
+        <a
+            class="navbar-brand fw-bold"
+            href="?page=demo-super-admin"
+            title="Demo Super Admin">
+            <?= COMPANY_NAME ?>
+        </a>
+
+        <button
+            class="navbar-toggler"
+            type="button"
+            data-bs-toggle="collapse"
+            data-bs-target="#navbarDemoSuperAdmin"
+            aria-controls="navbarDemoSuperAdmin"
+            aria-expanded="false"
+            aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div
+            class="collapse navbar-collapse"
+            id="navbarDemoSuperAdmin">
+
+            <ul class="navbar-nav ms-auto align-items-lg-center">
+
+                <li class="nav-item">
+                    <a
+                        class="nav-link"
+                        href="?page=demo-super-admin">
+                        <i class="bi bi-building me-1"></i>
+                        Demo Companies
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a
+                        class="nav-link"
+                        href="?page=demo-usage-reports">
+                        <i class="bi bi-bar-chart-line me-1"></i>
+                        Overall Usage Reports
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a class="nav-link" href="?page=demo-archived-companies">
+                        <i class="bi bi-archive me-1"></i>
+                        Archived Companies
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a class="nav-link" href="?page=demo-extension-requests">
+                        <i class="bi bi-calendar-plus me-1"></i>
+                        Extension Requests
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a
+                        class="nav-link text-danger"
+                        href="?page=logout">
+                        <i class="bi bi-box-arrow-right me-1"></i>
+                        Logout
+                    </a>
+                </li>
+
+            </ul>
+
+        </div>
+    </div>
+</nav>
+<?php
+return;
+endif;
+
 /*
 |--------------------------------------------------------------------------
 | Select Admin Database
@@ -518,6 +608,17 @@ try {
 
                 <?php endif; ?>
 
+
+                <?php if (isset($_SESSION['demo_user']) && !isset($_SESSION['demo_super_admin'])): ?>
+
+                    <li class="nav-item">
+                        <a class="nav-link" href="?page=demo-extension-request">
+                            <i class="bi bi-calendar-plus me-1"></i>
+                            Demo Extension
+                        </a>
+                    </li>
+
+                <?php endif; ?>
 
                 <!-- Notifications -->
 

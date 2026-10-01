@@ -31,7 +31,7 @@ if ($isDemoAdmin) {
     requireAdminLogin();
 
 if (isset($_SESSION['demo_super_admin'])) {
-    header('Location: ?page=demo-super-admin-dashboard');
+    header('Location: ?page=demo-super-admin');
     exit;
 }
     require_once CONFIG_PATH . '/database.php';

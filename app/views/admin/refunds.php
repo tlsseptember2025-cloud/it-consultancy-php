@@ -17,7 +17,7 @@ $isDemoAdmin = isset($_SESSION['demo_user']);
 $isDemoSuperAdmin = isset($_SESSION['demo_super_admin']);
 
 if ($isDemoSuperAdmin) {
-    header('Location: ?page=demo-super-admin-dashboard');
+    header('Location: ?page=demo-super-admin');
     exit;
 }
 

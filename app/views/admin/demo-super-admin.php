@@ -25,7 +25,12 @@ $companiesStmt = $demoPdo->query("
         t.company_name,
         t.company_domain,
         t.registered_email,
-        t.status,
+        CASE
+            WHEN t.status <> 'Active' THEN t.status
+            WHEN t.expires_at IS NULL THEN 'No Expiry'
+            WHEN t.expires_at <= NOW() THEN 'Expired'
+            ELSE 'Active'
+        END AS effective_status,
         t.started_at,
         t.expires_at,
 
@@ -101,11 +106,14 @@ $companiesStmt = $demoPdo->query("
               AND a.is_demo_account = 1
             ORDER BY a.id ASC
             LIMIT 1 OFFSET 1
-        ) AS agent2_name,
+        ) AS agent2_name
 
 
 
     FROM demo_tenants t
+    WHERE t.status = 'Active'
+      AND t.expires_at IS NOT NULL
+      AND t.expires_at > NOW()
     ORDER BY t.company_name ASC, t.id ASC
 ");
 
@@ -189,7 +197,15 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
             </p>
         </div>
 
-        <div class="d-flex gap-2">
+        <div class="d-flex flex-wrap gap-2">
+            <a href="?page=demo-archived-companies" class="btn btn-outline-secondary">
+                <i class="bi bi-archive me-1"></i>
+                Archived Demo Companies
+            </a>
+            <a href="?page=demo-extension-requests" class="btn btn-outline-warning">
+                <i class="bi bi-calendar-plus me-1"></i>
+                Extension Requests
+            </a>
             <a href="?page=demo-usage-reports" class="btn btn-primary">
                 <i class="bi bi-bar-chart-line me-1"></i>
                 Overall Usage Reports
@@ -205,7 +221,7 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
 
     <?php if (empty($companies)): ?>
         <div class="alert alert-secondary">
-            No Demo companies have been created yet.
+            No active Demo companies are currently available for live support.<br>Use <strong>Archived Demo Companies</strong> to view expired or inactive Demo companies.
         </div>
     <?php else: ?>
 
@@ -226,7 +242,7 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                                         </span>
                                     <?php endif; ?>
                                 </div>
-                                <?= demoCompanyStatusBadge($company['status'] ?? null) ?>
+                                <?= demoCompanyStatusBadge($company['effective_status'] ?? null) ?>
                             </div>
                         </div>
 

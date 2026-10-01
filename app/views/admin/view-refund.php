@@ -10,7 +10,7 @@ $isDemoSuperAdmin = isset($_SESSION['demo_super_admin']);
 
 // Demo Super Admin has a separate portal and must not use normal Admin pages.
 if ($isDemoSuperAdmin) {
-    header('Location: ?page=demo-super-admin-dashboard');
+    header('Location: ?page=demo-super-admin');
     exit;
 }
 

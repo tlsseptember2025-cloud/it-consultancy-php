@@ -188,13 +188,14 @@ if ($existingTenant) {
 | Create Demo Tenant
 |--------------------------------------------------------------------------
 |
-| The Demo period is NOT started here.
+| The Demo period starts when the Demo tenant is provisioned.
 |
-| started_at  = NULL
-| expires_at  = NULL
+| Standard Demo period:
+| - started_at = creation time
+| - expires_at = creation time + 5 days
 |
-| The tenant remains Active until the Demo activation/start logic
-| determines when the actual Demo period begins.
+| A later one-time extension may add up to 5 additional days,
+| with the overall Demo period capped at 10 days from started_at.
 |
 */
 
@@ -219,8 +220,8 @@ try {
             ?,
             ?,
             ?,
-            NULL,
-            NULL,
+            NOW(),
+            DATE_ADD(NOW(), INTERVAL 5 DAY),
             'Active'
         )
     ");

@@ -5,7 +5,7 @@ require_once APP_PATH . '/helpers/auth.php';
 requireAdminLogin();
 
 if (isset($_SESSION['demo_super_admin'])) {
-    header('Location: ?page=demo-super-admin-dashboard');
+    header('Location: ?page=demo-super-admin');
     exit;
 }
 

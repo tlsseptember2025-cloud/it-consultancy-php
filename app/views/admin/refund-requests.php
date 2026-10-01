@@ -24,7 +24,7 @@ requireAdminLogin();
 
 if ($isDemoSuperAdmin) {
 
-    header('Location: ?page=demo-super-admin-dashboard');
+    header('Location: ?page=demo-super-admin');
     exit;
 }
 
