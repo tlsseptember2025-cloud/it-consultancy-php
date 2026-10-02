@@ -773,27 +773,31 @@ $refundRequests = $fetchDashboardRows(
                         <div class="small text-muted">Demo Period</div>
 
                         <div class="fw-semibold">
-                        <?php if ($demoTenantExpiry): ?>
-                            <?php
-                                try {
-                                    $demoExpiryDate = new DateTimeImmutable(
-                                        $demoTenantExpiry,
-                                        new DateTimeZone('Asia/Dubai')
-                                    );
+    <?php if ($demoTenantExpiry): ?>
+        <?php
+            try {
+                $expiryDisplayDate = new DateTimeImmutable(
+                    (string) $demoTenantExpiry,
+                    new DateTimeZone('Asia/Dubai')
+                );
 
-                                    $demoExpiryDisplay = $demoExpiryDate
-                                        ->setTimezone(new DateTimeZone('Asia/Dubai'))
-                                        ->format('d/m/Y h:i A');
-                                } catch (Exception $e) {
-                                    $demoExpiryDisplay = $demoTenantExpiry;
-                                }
-                            ?>
+                $expiryDisplay = $expiryDisplayDate->format(
+                    'd/m/Y h:i A'
+                );
+            } catch (Exception $e) {
+                $expiryDisplay = (string) $demoTenantExpiry;
+            }
+        ?>
 
-                            Expires <?= htmlspecialchars($demoExpiryDisplay, ENT_QUOTES, 'UTF-8') ?>
-                        <?php else: ?>
-                            Expiry date unavailable
-                        <?php endif; ?>
-                        </div>
+        Expires <?= htmlspecialchars(
+            $expiryDisplay,
+            ENT_QUOTES,
+            'UTF-8'
+        ) ?>
+    <?php else: ?>
+        Expiry date unavailable
+    <?php endif; ?>
+</div>
 
                         <?php if ($demoExtensionRequest): ?>
                             <?php

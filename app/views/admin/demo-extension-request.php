@@ -302,22 +302,52 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                         </dd>
 
                         <dt class="col-sm-4">Started</dt>
-                        <dd class="col-sm-8">
-                            <?= htmlspecialchars(
-                                $tenant['started_at'] ?? '—',
-                                ENT_QUOTES,
-                                'UTF-8'
-                            ) ?>
-                        </dd>
+<dd class="col-sm-8">
+    <?php
+        try {
+            $startedDisplayDate = new DateTimeImmutable(
+                (string) ($tenant['started_at'] ?? ''),
+                new DateTimeZone('Asia/Dubai')
+            );
 
-                        <dt class="col-sm-4">Current Expiry</dt>
-                        <dd class="col-sm-8 fw-semibold">
-                            <?= htmlspecialchars(
-                                $expiresAt ?? '—',
-                                ENT_QUOTES,
-                                'UTF-8'
-                            ) ?>
-                        </dd>
+            $startedDisplay = $startedDisplayDate->format(
+                'd/m/Y h:i A'
+            );
+        } catch (Exception $e) {
+            $startedDisplay = $tenant['started_at'] ?? '—';
+        }
+    ?>
+
+    <?= htmlspecialchars(
+        $startedDisplay,
+        ENT_QUOTES,
+        'UTF-8'
+    ) ?>
+</dd>
+
+<dt class="col-sm-4">Current Expiry</dt>
+<dd class="col-sm-8 fw-semibold">
+    <?php
+        try {
+            $expiryDisplayDate = new DateTimeImmutable(
+                (string) ($expiresAt ?? ''),
+                new DateTimeZone('Asia/Dubai')
+            );
+
+            $expiryDisplay = $expiryDisplayDate->format(
+                'd/m/Y h:i A'
+            );
+        } catch (Exception $e) {
+            $expiryDisplay = $expiresAt ?? '—';
+        }
+    ?>
+
+    <?= htmlspecialchars(
+        $expiryDisplay,
+        ENT_QUOTES,
+        'UTF-8'
+    ) ?>
+</dd>
 
                         <dt class="col-sm-4">Approx. Days Remaining</dt>
                         <dd class="col-sm-8">
@@ -381,13 +411,27 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                             </div>
 
                             <div class="small text-muted">
-                                Requested
-                                <?= htmlspecialchars(
-                                    $extensionRequest['requested_at'] ?? '—',
-                                    ENT_QUOTES,
-                                    'UTF-8'
-                                ) ?>
-                            </div>
+    <?php
+        try {
+            $requestedDisplayDate = new DateTimeImmutable(
+                (string) ($extensionRequest['requested_at'] ?? ''),
+                new DateTimeZone('Asia/Dubai')
+            );
+
+            $requestedDisplay = $requestedDisplayDate->format(
+                'd/m/Y h:i A'
+            );
+        } catch (Exception $e) {
+            $requestedDisplay = $extensionRequest['requested_at'] ?? '—';
+        }
+    ?>
+
+    Requested <?= htmlspecialchars(
+        $requestedDisplay,
+        ENT_QUOTES,
+        'UTF-8'
+    ) ?>
+</div>
 
                             <?php if (!empty($extensionRequest['review_notes'])): ?>
 
