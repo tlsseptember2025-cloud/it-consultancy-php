@@ -498,6 +498,10 @@ switch ($page) {
     require CONTROLLER_PATH . '/google-meet-test.php';
     break;
 
+    case 'zoom-test':
+    require CONTROLLER_PATH . '/zoom-test.php';
+    break;
+
     case 'demo-support-sessions':
     require VIEW_PATH . '/admin/demo-support-sessions.php';
     break;
