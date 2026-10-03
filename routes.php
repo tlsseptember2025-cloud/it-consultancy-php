@@ -158,6 +158,7 @@ if ($isDemoEnvironment) {
     $demoPublicRoutes = [
     'home',
     'demo-login',
+    'demo-super-admin-login',
     'demo-change-password',
     'admin-account-recovery',
     'customer-forgot-password',
