@@ -172,6 +172,7 @@ if ($isDemoEnvironment) {
        
     'demo-super-admin',
     'demo-archived-companies',
+    'demo-support-sessions',
     'demo-usage-reports',
     'demo-company-report',
     'demo-extension-requests',
@@ -482,6 +483,22 @@ switch ($page) {
 
     case 'admin-account-recovery':
     require VIEW_PATH . '/public/admin-account-recovery.php';
+    break;
+
+    case 'google-meet-oauth-callback':
+    require CONTROLLER_PATH . '/google-meet-oauth-callback.php';
+    break;
+
+    case 'google-meet-connect':
+    require CONTROLLER_PATH . '/google-meet-connect.php';
+    break;
+
+    case 'google-meet-test':
+    require CONTROLLER_PATH . '/google-meet-test.php';
+    break;
+
+    case 'demo-support-sessions':
+    require VIEW_PATH . '/admin/demo-support-sessions.php';
     break;
     
     /*

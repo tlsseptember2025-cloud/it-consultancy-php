@@ -292,6 +292,7 @@ if ($isDemoCustomer) {
             pending_cs.slot_time AS pending_slot_time,
 
             cs.consultation_method,
+            cs.meeting_link,
 
             ss.service_date,
             ss.service_time
@@ -366,6 +367,7 @@ if ($isDemoCustomer) {
             pending_cs.slot_time AS pending_slot_time,
 
             cs.consultation_method,
+            cs.meeting_link,
 
             ss.service_date,
             ss.service_time
@@ -968,10 +970,7 @@ if (
 
 <?php
 
-$meetingLink = getMeetingLink(
-    $request['consultation_method'],
-    $request['slot_time']
-);
+$meetingLink = trim((string) ($request['meeting_link'] ?? ''));
 
 ?>
 
@@ -998,6 +997,7 @@ $meetingLink = getMeetingLink(
 
 
 <?php if (
+    $meetingLink !== '' &&
     shouldShowMeetingLink(
         $request['slot_date'],
         $request['slot_time']

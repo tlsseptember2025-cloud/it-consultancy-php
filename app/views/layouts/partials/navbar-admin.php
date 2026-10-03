@@ -15,15 +15,20 @@ require_once APP_PATH . '/helpers/DateHelper.php';
 */
 if (isset($_SESSION['demo_super_admin']) && is_array($_SESSION['demo_super_admin'])):
 ?>
+
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark py-3">
+
     <div class="container-fluid">
 
         <a
             class="navbar-brand fw-bold"
             href="?page=demo-super-admin"
             title="Demo Super Admin">
+
             <?= COMPANY_NAME ?>
+
         </a>
+
 
         <button
             class="navbar-toggler"
@@ -33,8 +38,11 @@ if (isset($_SESSION['demo_super_admin']) && is_array($_SESSION['demo_super_admin
             aria-controls="navbarDemoSuperAdmin"
             aria-expanded="false"
             aria-label="Toggle navigation">
+
             <span class="navbar-toggler-icon"></span>
+
         </button>
+
 
         <div
             class="collapse navbar-collapse"
@@ -42,52 +50,111 @@ if (isset($_SESSION['demo_super_admin']) && is_array($_SESSION['demo_super_admin
 
             <ul class="navbar-nav ms-auto align-items-lg-center">
 
+
+                <!-- Demo Companies -->
+
                 <li class="nav-item">
+
                     <a
                         class="nav-link"
                         href="?page=demo-super-admin">
+
                         <i class="bi bi-building me-1"></i>
                         Demo Companies
+
                     </a>
+
                 </li>
 
+
+                <!-- Overall Usage Reports -->
+
                 <li class="nav-item">
+
                     <a
                         class="nav-link"
                         href="?page=demo-usage-reports">
+
                         <i class="bi bi-bar-chart-line me-1"></i>
                         Overall Usage Reports
+
                     </a>
+
                 </li>
 
+
+                <!-- Archived Companies -->
+
                 <li class="nav-item">
-                    <a class="nav-link" href="?page=demo-archived-companies">
+
+                    <a
+                        class="nav-link"
+                        href="?page=demo-archived-companies">
+
                         <i class="bi bi-archive me-1"></i>
                         Archived Companies
+
                     </a>
+
                 </li>
 
+
+                <!-- Extension Requests -->
+
                 <li class="nav-item">
-                    <a class="nav-link" href="?page=demo-extension-requests">
+
+                    <a
+                        class="nav-link"
+                        href="?page=demo-extension-requests">
+
                         <i class="bi bi-calendar-plus me-1"></i>
                         Extension Requests
+
                     </a>
+
                 </li>
 
+
+                <!-- Support & Training -->
+
+<li class="nav-item">
+
+    <a
+        class="nav-link"
+        href="?page=demo-support-sessions">
+
+        <i class="bi bi-headset me-1"></i>
+        Support &amp; Training
+
+    </a>
+
+</li>
+
+
+                <!-- Logout -->
+
                 <li class="nav-item">
+
                     <a
                         class="nav-link text-danger"
                         href="?page=logout">
+
                         <i class="bi bi-box-arrow-right me-1"></i>
                         Logout
+
                     </a>
+
                 </li>
+
 
             </ul>
 
         </div>
+
     </div>
+
 </nav>
+
 <?php
 return;
 endif;

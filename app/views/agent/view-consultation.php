@@ -262,12 +262,9 @@ if (
     exit;
 }
 
-
-$meetingLink = getMeetingLink(
-    $consultation['consultation_method'],
-    $consultation['slot_time']
+$meetingLink = trim(
+    (string) ($consultation['meeting_link'] ?? '')
 );
-
 
 /*
 |--------------------------------------------------------------------------
@@ -703,11 +700,13 @@ require VIEW_PATH . '/layouts/header-agent.php';
                     <strong>Meeting</strong><br>
 
                     <?php if (
-                        shouldShowMeetingLink(
-                            $consultation['slot_date'],
-                            $consultation['slot_time']
-                        )
-                    ): ?>
+    $meetingLink !== ''
+    &&
+    shouldShowMeetingLink(
+        $consultation['slot_date'],
+        $consultation['slot_time']
+    )
+): ?>
 
                         <a
                             href="<?= htmlspecialchars($meetingLink) ?>"

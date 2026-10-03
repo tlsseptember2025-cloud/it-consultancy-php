@@ -1,12 +1,28 @@
 <?php
-// CSRF protection for this state-changing GET action.
+
+/*
+|--------------------------------------------------------------------------
+| CSRF Protection
+|--------------------------------------------------------------------------
+*/
+
 $csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
 $submittedCsrfToken = $_GET['csrf_token'] ?? '';
-if (!is_string($submittedCsrfToken) || !hash_equals($csrfToken, $submittedCsrfToken)) {
+
+if (
+    !is_string($submittedCsrfToken) ||
+    !hash_equals($csrfToken, $submittedCsrfToken)
+) {
     http_response_code(403);
     exit('Invalid CSRF token.');
 }
 
+
+/*
+|--------------------------------------------------------------------------
+| Determine Admin Type / Database
+|--------------------------------------------------------------------------
+*/
 
 $isDemoAdmin = isset($_SESSION['demo_user']);
 
@@ -16,10 +32,14 @@ if ($isDemoAdmin) {
     require_once CONFIG_PATH . '/demo-database.php';
 
     $consultationPdo = $demoPdo;
-    $demoTenantId = (int) ($_SESSION['demo_user']['demo_tenant_id'] ?? 0);
+
+    $demoTenantId = (int) (
+        $_SESSION['demo_user']['demo_tenant_id'] ?? 0
+    );
 
     if ($demoTenantId <= 0) {
         unset($_SESSION['demo_user']);
+
         header('Location: ?page=demo-login');
         exit;
     }
@@ -28,10 +48,11 @@ if ($isDemoAdmin) {
 
     requireAdminLogin();
 
-if (isset($_SESSION['demo_super_admin'])) {
-    header('Location: ?page=demo-super-admin');
-    exit;
-}
+    if (isset($_SESSION['demo_super_admin'])) {
+        header('Location: ?page=demo-super-admin');
+        exit;
+    }
+
     require_once CONFIG_PATH . '/database.php';
 
     $consultationPdo = $pdo;
@@ -42,13 +63,238 @@ if (isset($_SESSION['demo_super_admin'])) {
     exit;
 }
 
+
+/*
+|--------------------------------------------------------------------------
+| Load Helpers
+|--------------------------------------------------------------------------
+*/
+
 require_once HELPER_PATH . '/email.php';
 require_once HELPER_PATH . '/notifications.php';
-require_once HELPER_PATH . '/meeting.php';
+require_once HELPER_PATH . '/google-meet.php';
 require_once APP_PATH . '/helpers/DateHelper.php';
 require_once APP_PATH . '/helpers/RequestEventHelper.php';
 
-$id = $_GET['id'] ?? 0;
+
+/*
+|--------------------------------------------------------------------------
+| Request ID
+|--------------------------------------------------------------------------
+*/
+
+$id = (int) ($_GET['id'] ?? 0);
+
+if ($id <= 0) {
+    die('Invalid consultation request.');
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Load Customer & Consultation Details
+|--------------------------------------------------------------------------
+*/
+
+if ($isDemoAdmin) {
+
+    $stmt = $consultationPdo->prepare("
+        SELECT
+            r.id AS request_id,
+            r.workflow_stage,
+            c.id AS customer_id,
+            c.name,
+            c.email,
+            s.title AS service_title,
+            cb.id AS booking_id,
+            cs.id AS slot_id,
+            cs.slot_date,
+            cs.slot_time,
+            cs.consultation_method,
+            cs.meeting_link
+        FROM requests r
+        INNER JOIN customers c
+            ON c.id = r.customer_id
+        INNER JOIN services s
+            ON s.id = r.service_id
+        LEFT JOIN consultation_bookings cb
+            ON cb.request_id = r.id
+        LEFT JOIN consultation_slots cs
+            ON cs.id = cb.slot_id
+        WHERE r.id = ?
+          AND c.demo_tenant_id = ?
+          AND c.is_demo_account = 1
+          AND s.demo_tenant_id = ?
+          AND s.is_demo_account = 1
+        LIMIT 1
+    ");
+
+    $stmt->execute([
+        $id,
+        $demoTenantId,
+        $demoTenantId
+    ]);
+
+} else {
+
+    $stmt = $consultationPdo->prepare("
+        SELECT
+            r.id AS request_id,
+            r.workflow_stage,
+            c.id AS customer_id,
+            c.name,
+            c.email,
+            s.title AS service_title,
+            cb.id AS booking_id,
+            cs.id AS slot_id,
+            cs.slot_date,
+            cs.slot_time,
+            cs.consultation_method,
+            cs.meeting_link
+        FROM requests r
+        INNER JOIN customers c
+            ON c.id = r.customer_id
+        INNER JOIN services s
+            ON s.id = r.service_id
+        LEFT JOIN consultation_bookings cb
+            ON cb.request_id = r.id
+        LEFT JOIN consultation_slots cs
+            ON cs.id = cb.slot_id
+        WHERE r.id = ?
+        LIMIT 1
+    ");
+
+    $stmt->execute([$id]);
+}
+
+$request = $stmt->fetch(PDO::FETCH_ASSOC);
+
+if (!$request) {
+    die('Consultation request not found or access denied.');
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Validate Consultation Booking
+|--------------------------------------------------------------------------
+*/
+
+if (empty($request['slot_id'])) {
+    die('No consultation slot is associated with this request.');
+}
+
+$consultationMethod = trim(
+    (string) ($request['consultation_method'] ?? '')
+);
+
+$meetingLink = trim(
+    (string) ($request['meeting_link'] ?? '')
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| Create Google Meet Only When Needed
+|--------------------------------------------------------------------------
+|
+| Important:
+| - A Google Meet is created only when the consultation is confirmed.
+| - If a meeting_link already exists, it is reused.
+| - This prevents duplicate Meet spaces.
+|
+*/
+
+if (
+    strcasecmp($consultationMethod, 'Google Meet') === 0 &&
+    $meetingLink === ''
+) {
+
+    try {
+
+        /*
+        |--------------------------------------------------------------------------
+        | Load Stored Google Refresh Token
+        |--------------------------------------------------------------------------
+        */
+
+        $oauthStmt = $consultationPdo->prepare("
+            SELECT refresh_token
+            FROM google_meet_oauth
+            WHERE provider = 'google_meet'
+            LIMIT 1
+        ");
+
+        $oauthStmt->execute();
+
+        $oauth = $oauthStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (
+            !$oauth ||
+            empty($oauth['refresh_token'])
+        ) {
+            throw new RuntimeException(
+                'Google Meet is not connected. Please connect the Google Meet account first.'
+            );
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Refresh Google Access Token
+        |--------------------------------------------------------------------------
+        */
+
+        $accessToken = refreshGoogleMeetAccessToken(
+            (string) $oauth['refresh_token']
+        );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Create Google Meet Space
+        |--------------------------------------------------------------------------
+        */
+
+        $meetingLink = createGoogleMeetSpace(
+            $accessToken
+        );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Save Meeting Link
+        |--------------------------------------------------------------------------
+        */
+
+        $updateMeeting = $consultationPdo->prepare("
+            UPDATE consultation_slots
+            SET meeting_link = ?
+            WHERE id = ?
+            LIMIT 1
+        ");
+
+        $updateMeeting->execute([
+            $meetingLink,
+            (int) $request['slot_id']
+        ]);
+
+    } catch (Throwable $e) {
+
+        error_log(
+            'Google Meet creation failed for request ' .
+            $id .
+            ': ' .
+            $e->getMessage()
+        );
+
+        die(
+            'The consultation could not be confirmed because the Google Meet could not be created. ' .
+            'Please try again or contact the administrator.'
+        );
+    }
+}
+
 
 /*
 |--------------------------------------------------------------------------
@@ -60,8 +306,10 @@ if ($isDemoAdmin) {
 
     $stmt = $consultationPdo->prepare("
         UPDATE requests r
-        INNER JOIN customers c ON c.id = r.customer_id
-        INNER JOIN services s ON s.id = r.service_id
+        INNER JOIN customers c
+            ON c.id = r.customer_id
+        INNER JOIN services s
+            ON s.id = r.service_id
         SET r.workflow_stage = 'Consultation Confirmed'
         WHERE r.id = ?
           AND c.demo_tenant_id = ?
@@ -70,7 +318,11 @@ if ($isDemoAdmin) {
           AND s.is_demo_account = 1
     ");
 
-    $stmt->execute([$id, $demoTenantId, $demoTenantId]);
+    $stmt->execute([
+        $id,
+        $demoTenantId,
+        $demoTenantId
+    ]);
 
 } else {
 
@@ -84,8 +336,9 @@ if ($isDemoAdmin) {
 }
 
 if ($stmt->rowCount() === 0) {
-    die('Consultation request not found or access denied.');
+    die('Consultation request could not be confirmed.');
 }
+
 
 /*
 |--------------------------------------------------------------------------
@@ -104,79 +357,10 @@ RequestEventHelper::add(
     null
 );
 
-/*
-|--------------------------------------------------------------------------
-| Load Customer & Consultation Details
-|--------------------------------------------------------------------------
-*/
-
-if ($isDemoAdmin) {
-
-    $stmt = $consultationPdo->prepare("
-        SELECT
-            c.id AS customer_id,
-            c.name,
-            c.email,
-            s.title AS service_title,
-            cs.slot_date,
-            cs.slot_time,
-            cs.consultation_method
-        FROM requests r
-        INNER JOIN customers c ON c.id = r.customer_id
-        INNER JOIN services s ON s.id = r.service_id
-        LEFT JOIN consultation_bookings cb ON cb.request_id = r.id
-        LEFT JOIN consultation_slots cs ON cs.id = cb.slot_id
-        WHERE r.id = ?
-          AND c.demo_tenant_id = ?
-          AND c.is_demo_account = 1
-          AND s.demo_tenant_id = ?
-          AND s.is_demo_account = 1
-    ");
-
-    $stmt->execute([$id, $demoTenantId, $demoTenantId]);
-
-} else {
-
-    $stmt = $consultationPdo->prepare("
-        SELECT
-            c.id AS customer_id,
-            c.name,
-            c.email,
-            s.title AS service_title,
-            cs.slot_date,
-            cs.slot_time,
-            cs.consultation_method
-        FROM requests r
-        INNER JOIN customers c ON c.id = r.customer_id
-        INNER JOIN services s ON s.id = r.service_id
-        LEFT JOIN consultation_bookings cb ON cb.request_id = r.id
-        LEFT JOIN consultation_slots cs ON cs.id = cb.slot_id
-        WHERE r.id = ?
-    ");
-
-    $stmt->execute([$id]);
-}
-
-$request = $stmt->fetch();
-
-if (!$request) {
-    die('Consultation request not found or access denied.');
-}
 
 /*
 |--------------------------------------------------------------------------
-| Generate Meeting Link
-|--------------------------------------------------------------------------
-*/
-
-$meetingLink = getMeetingLink(
-    $request['consultation_method'],
-    $request['slot_time']
-);
-
-/*
-|--------------------------------------------------------------------------
-| Send Email
+| Send Confirmation Email
 |--------------------------------------------------------------------------
 */
 
@@ -184,7 +368,11 @@ sendEmail(
     $request['email'],
     'Consultation Confirmed',
     "
-    <h2>Hello {$request['name']},</h2>
+    <h2>Hello " . htmlspecialchars(
+        $request['name'],
+        ENT_QUOTES,
+        'UTF-8'
+    ) . ",</h2>
 
     <p>
         Your consultation has been confirmed.
@@ -192,7 +380,11 @@ sendEmail(
 
     <p>
         <strong>Service:</strong><br>
-        {$request['service_title']}
+        " . htmlspecialchars(
+            $request['service_title'],
+            ENT_QUOTES,
+            'UTF-8'
+        ) . "
     </p>
 
     <p>
@@ -207,40 +399,41 @@ sendEmail(
 
     <p>
         <strong>Method:</strong><br>
-        {$request['consultation_method']}
+        " . htmlspecialchars(
+            $consultationMethod,
+            ENT_QUOTES,
+            'UTF-8'
+        ) . "
     </p>
 
     <hr style='border:none;border-top:1px solid #dddddd;margin:20px 0;'>
 
-<h3 style='margin:0 0 12px 0;font-size:20px;'>
-
-    🔒 Secure Meeting Access
-
-</h3>
-
-<p>
-
-    Your secure
-    <strong>{$request['consultation_method']}</strong>
-    meeting link will become available
-    <strong>10 minutes before your scheduled consultation.</strong>
-
-</p>
-
-<p>
-
-Please log in to your customer portal
-and select
-<strong>Join Meeting</strong>
-when it becomes available.
-
-</p>
-
-<hr style='border:none;border-top:1px solid #dddddd;margin:30px 0;'>
-
+    <h3 style='margin:0 0 12px 0;font-size:20px;'>
+        🔒 Secure Meeting Access
+    </h3>
 
     <p>
-    You can manage your consultation, view updates, and access your meeting from your customer portal.
+        Your secure
+        <strong>" . htmlspecialchars(
+            $consultationMethod,
+            ENT_QUOTES,
+            'UTF-8'
+        ) . "</strong>
+        meeting link will become available
+        <strong>10 minutes before your scheduled consultation.</strong>
+    </p>
+
+    <p>
+        Please log in to your customer portal and select
+        <strong>Join Meeting</strong>
+        when it becomes available.
+    </p>
+
+    <hr style='border:none;border-top:1px solid #dddddd;margin:30px 0;'>
+
+    <p>
+        You can manage your consultation, view updates,
+        and access your meeting from your customer portal.
     </p>
 
     <p>
@@ -254,9 +447,7 @@ when it becomes available.
                 border-radius:5px;
                 display:inline-block;
             '>
-
             Customer Portal
-
         </a>
     </p>
 
@@ -265,6 +456,7 @@ when it becomes available.
     </p>
     "
 );
+
 
 /*
 |--------------------------------------------------------------------------
@@ -280,6 +472,7 @@ createNotification(
     'Your consultation has been confirmed.',
     '?page=customer-requests'
 );
+
 
 /*
 |--------------------------------------------------------------------------
