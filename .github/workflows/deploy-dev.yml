@@ -1,3 +1,68 @@
+name: Deploy to IONOS Dev
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy PHP Application
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # ------------------------------------------------------------
+      # Checkout repository
+      # ------------------------------------------------------------
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+
+      # ------------------------------------------------------------
+      # Install deployment tools
+      # ------------------------------------------------------------
+
+      - name: Install deployment tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lftp apache2-utils
+
+
+      # ------------------------------------------------------------
+      # Deploy application files to IONOS DEV
+      # ------------------------------------------------------------
+
+      - name: Deploy application files to IONOS dev
+        env:
+          SFTP_HOST: ${{ secrets.SFTP_HOST }}
+          SFTP_PORT: ${{ secrets.SFTP_PORT }}
+          SFTP_USERNAME: ${{ secrets.SFTP_USERNAME }}
+          SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
+          SFTP_PATH: ${{ secrets.SFTP_PATH }}
+        run: |
+          lftp -u "$SFTP_USERNAME","$SFTP_PASSWORD" "sftp://$SFTP_HOST:$SFTP_PORT" <<EOF
+          set sftp:auto-confirm yes
+          set net:max-retries 2
+          set net:timeout 30
+
+          mirror --reverse --delete --verbose \
+            --exclude-glob .git \
+            --exclude-glob .github \
+            --exclude-glob .env \
+            --exclude-glob .htaccess \
+            --exclude-glob .htpasswd \
+            --exclude-glob storage/logs \
+            --exclude-glob app/storage/certs/ca.pem \
+            --exclude-glob app/storage/certs/demo-ca.pem \
+            ./ "$SFTP_PATH"
+
+          bye
+          EOF
+
+
       # ------------------------------------------------------------
       # Create DEV environment file
       #
@@ -5,8 +70,6 @@
       #   1. Main System configuration
       #   2. Demo System configuration
       #   3. Stripe configuration
-      #   4. Google Meet configuration
-      #   5. Zoom configuration
       # ------------------------------------------------------------
 
       - name: Create development environment file
@@ -115,4 +178,99 @@
           ZOOM_CLIENT_SECRET=$DEV_ZOOM_CLIENT_SECRET
           ZOOM_USER_EMAIL=$DEV_ZOOM_USER_EMAIL
 
+          EOF
+
+      # ------------------------------------------------------------
+      # Upload DEV environment file
+      # ------------------------------------------------------------
+
+      - name: Upload development environment file
+        env:
+          SFTP_HOST: ${{ secrets.SFTP_HOST }}
+          SFTP_PORT: ${{ secrets.SFTP_PORT }}
+          SFTP_USERNAME: ${{ secrets.SFTP_USERNAME }}
+          SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
+          SFTP_PATH: ${{ secrets.SFTP_PATH }}
+        run: |
+          lftp -u "$SFTP_USERNAME","$SFTP_PASSWORD" "sftp://$SFTP_HOST:$SFTP_PORT" <<EOF
+          set sftp:auto-confirm yes
+          put -O "$SFTP_PATH" .env
+          bye
+          EOF
+
+
+      # ------------------------------------------------------------
+      # Create DEV password file
+      # ------------------------------------------------------------
+
+      - name: Create development password file
+        env:
+          DEV_AUTH_USER: ${{ secrets.DEV_AUTH_USER }}
+          DEV_AUTH_PASSWORD: ${{ secrets.DEV_AUTH_PASSWORD }}
+        run: |
+          htpasswd -nb "$DEV_AUTH_USER" "$DEV_AUTH_PASSWORD" > .htpasswd
+
+
+      # ------------------------------------------------------------
+      # Upload DEV password file
+      # ------------------------------------------------------------
+
+      - name: Upload DEV password file
+        env:
+          SFTP_HOST: ${{ secrets.SFTP_HOST }}
+          SFTP_PORT: ${{ secrets.SFTP_PORT }}
+          SFTP_USERNAME: ${{ secrets.SFTP_USERNAME }}
+          SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
+          SFTP_PATH: ${{ secrets.SFTP_PATH }}
+        run: |
+          lftp -u "$SFTP_USERNAME","$SFTP_PASSWORD" "sftp://$SFTP_HOST:$SFTP_PORT" <<EOF
+          set sftp:auto-confirm yes
+          put -O "$SFTP_PATH" .htpasswd
+          bye
+          EOF
+
+
+      # ------------------------------------------------------------
+      # Create DEV password protection
+      #
+      # The whole DEV website requires Basic Authentication.
+      # cron-runner.php is the single exception.
+      #
+      # cron-runner.php has its own CRON_SECRET protection.
+      # ------------------------------------------------------------
+
+      - name: Create development password protection file
+        run: |
+          mkdir -p public
+
+          cat > public/.htaccess <<'EOF'
+          AuthType Basic
+          AuthName "WAHBIB Development Site"
+          AuthUserFile /homepages/16/d4299801455/htdocs/mysite/dev/.htpasswd
+
+          <Files "cron-runner.php">
+              AuthType None
+              Require all granted
+          </Files>
+
+          Require valid-user
+          EOF
+
+
+      # ------------------------------------------------------------
+      # Upload DEV password protection
+      # ------------------------------------------------------------
+
+      - name: Upload DEV password protection file
+        env:
+          SFTP_HOST: ${{ secrets.SFTP_HOST }}
+          SFTP_PORT: ${{ secrets.SFTP_PORT }}
+          SFTP_USERNAME: ${{ secrets.SFTP_USERNAME }}
+          SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
+          SFTP_PATH: ${{ secrets.SFTP_PATH }}
+        run: |
+          lftp -u "$SFTP_USERNAME","$SFTP_PASSWORD" "sftp://$SFTP_HOST:$SFTP_PORT" <<EOF
+          set sftp:auto-confirm yes
+          put -O "$SFTP_PATH/public" public/.htaccess
+          bye
           EOF
