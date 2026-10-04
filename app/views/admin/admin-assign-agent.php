@@ -67,7 +67,7 @@ if ($isDemoAdmin) {
           AND c.demo_tenant_id = ?
           AND c.is_demo_account = 1
           AND s.demo_tenant_id = ?
-          AND s.is_demo_account = 1
+          
         LIMIT 1
     ");
 
@@ -140,7 +140,7 @@ if ($isDemoAdmin) {
           AND c.demo_tenant_id = ?
           AND c.is_demo_account = 1
           AND s.demo_tenant_id = ?
-          AND s.is_demo_account = 1
+          
           AND a.demo_tenant_id = ?
           AND a.is_demo_account = 1
         LIMIT 1
@@ -415,7 +415,7 @@ if (isset($_POST['reassign_agent'])) {
                       AND c.demo_tenant_id = ?
                       AND c.is_demo_account = 1
                       AND s.demo_tenant_id = ?
-                      AND s.is_demo_account = 1
+                      
                       AND a.demo_tenant_id = ?
                       AND a.is_demo_account = 1
                 ");
@@ -468,7 +468,7 @@ if (isset($_POST['reassign_agent'])) {
                   AND c.demo_tenant_id = ?
                   AND c.is_demo_account = 1
                   AND s.demo_tenant_id = ?
-                  AND s.is_demo_account = 1
+                  
                   AND old_a.demo_tenant_id = ?
                   AND old_a.is_demo_account = 1
                   AND new_a.demo_tenant_id = ?
@@ -542,7 +542,7 @@ if (isset($_POST['reassign_agent'])) {
                   AND c.demo_tenant_id = ?
                   AND c.is_demo_account = 1
                   AND s.demo_tenant_id = ?
-                  AND s.is_demo_account = 1
+                  
                   AND a.demo_tenant_id = ?
                   AND a.is_demo_account = 1
             ");
@@ -709,7 +709,7 @@ if (isset($_POST['assign_agent'])) {
               AND c.demo_tenant_id = ?
               AND c.is_demo_account = 1
               AND s.demo_tenant_id = ?
-              AND s.is_demo_account = 1
+              
               AND a.demo_tenant_id = ?
               AND a.is_demo_account = 1
         ");
