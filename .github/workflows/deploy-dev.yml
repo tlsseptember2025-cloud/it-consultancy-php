@@ -165,18 +165,18 @@ jobs:
           # Google Meet
           # ----------------------------------------------------------
 
-          GOOGLE_MEET_CLIENT_ID=$DEV_GOOGLE_MEET_CLIENT_ID
-          GOOGLE_MEET_CLIENT_SECRET=$DEV_GOOGLE_MEET_CLIENT_SECRET
-          GOOGLE_MEET_REDIRECT_URI=$DEV_GOOGLE_MEET_REDIRECT_URI
+          GOOGLE_MEET_CLIENT_ID="$DEV_GOOGLE_MEET_CLIENT_ID"
+          GOOGLE_MEET_CLIENT_SECRET="$DEV_GOOGLE_MEET_CLIENT_SECRET"
+          GOOGLE_MEET_REDIRECT_URI="$DEV_GOOGLE_MEET_REDIRECT_URI"
 
           # ----------------------------------------------------------
           # Zoom
           # ----------------------------------------------------------
 
-          ZOOM_ACCOUNT_ID=$DEV_ZOOM_ACCOUNT_ID
-          ZOOM_CLIENT_ID=$DEV_ZOOM_CLIENT_ID
-          ZOOM_CLIENT_SECRET=$DEV_ZOOM_CLIENT_SECRET
-          ZOOM_USER_EMAIL=$DEV_ZOOM_USER_EMAIL
+          ZOOM_ACCOUNT_ID="$DEV_ZOOM_ACCOUNT_ID"
+          ZOOM_CLIENT_ID="$DEV_ZOOM_CLIENT_ID"
+          ZOOM_CLIENT_SECRET="$DEV_ZOOM_CLIENT_SECRET"
+          ZOOM_USER_EMAIL="$DEV_ZOOM_USER_EMAIL"
 
           EOF
 
