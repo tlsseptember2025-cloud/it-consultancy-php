@@ -73,8 +73,10 @@ if ($isDemoAdmin) {
 require_once HELPER_PATH . '/email.php';
 require_once HELPER_PATH . '/notifications.php';
 require_once HELPER_PATH . '/google-meet.php';
+require_once HELPER_PATH . '/zoom.php';
 require_once APP_PATH . '/helpers/DateHelper.php';
 require_once APP_PATH . '/helpers/RequestEventHelper.php';
+
 
 
 /*
@@ -290,6 +292,103 @@ if (
 
         die(
             'The consultation could not be confirmed because the Google Meet could not be created. ' .
+            'Please try again or contact the administrator.'
+        );
+    }
+}
+
+/*
+|--------------------------------------------------------------------------
+| Create Zoom Meeting Only When Needed
+|--------------------------------------------------------------------------
+|
+| Important:
+| - A Zoom meeting is created only when the consultation is confirmed.
+| - If a meeting_link already exists, it is reused.
+| - This prevents duplicate Zoom meetings.
+|
+*/
+
+if (
+    strcasecmp($consultationMethod, 'Zoom') === 0 &&
+    $meetingLink === ''
+) {
+
+    try {
+
+        /*
+        |--------------------------------------------------------------------------
+        | Get Zoom Access Token
+        |--------------------------------------------------------------------------
+        */
+
+        $zoomAccessToken = getZoomAccessToken();
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Create Zoom Meeting
+        |--------------------------------------------------------------------------
+        */
+
+        $zoomStartDateTime =
+            $request['slot_date'] . ' ' .
+            $request['slot_time'];
+
+        $zoomMeeting = createZoomMeeting(
+            $zoomAccessToken,
+            'IT Consultancy - ' . $request['service_title'],
+            $zoomStartDateTime,
+            60
+        );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Get Zoom Join URL
+        |--------------------------------------------------------------------------
+        */
+
+        $meetingLink = trim(
+            (string) ($zoomMeeting['join_url'] ?? '')
+        );
+
+        if ($meetingLink === '') {
+            throw new RuntimeException(
+                'Zoom did not return a meeting join URL.'
+            );
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Save Meeting Link
+        |--------------------------------------------------------------------------
+        */
+
+        $updateMeeting = $consultationPdo->prepare("
+            UPDATE consultation_slots
+            SET meeting_link = ?
+            WHERE id = ?
+            LIMIT 1
+        ");
+
+        $updateMeeting->execute([
+            $meetingLink,
+            (int) $request['slot_id']
+        ]);
+
+    } catch (Throwable $e) {
+
+        error_log(
+            'Zoom meeting creation failed for request ' .
+            $id .
+            ': ' .
+            $e->getMessage()
+        );
+
+        die(
+            'The consultation could not be confirmed because the Zoom meeting could not be created. ' .
             'Please try again or contact the administrator.'
         );
     }
