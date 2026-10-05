@@ -75,7 +75,7 @@ $customerConfirmationToken =
     bin2hex(random_bytes(32));
 
 $customerConfirmationExpiresAt =
-    date('Y-m-d H:i:s', time() + 15 * 60);
+    date('Y-m-d H:i:s', time() + 24 * 60 * 60);
 
 $stmt = $pdo->prepare("
     UPDATE demo_requests
@@ -149,7 +149,7 @@ $body = "
 
     <p>
         This confirmation link is valid for
-        <strong>15 minutes</strong>.
+        <strong>24 hours</strong>.
     </p>
 
     <p>

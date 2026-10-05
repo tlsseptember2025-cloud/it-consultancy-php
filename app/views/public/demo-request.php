@@ -1,26 +1,86 @@
 <?php
 
 require_once CONFIG_PATH . '/database.php';
-require_once APP_PATH . '/helpers/email.php';
 require_once APP_PATH . '/helpers/demo_helper.php';
+require_once APP_PATH . '/helpers/captcha.php';
 
 
-if (empty($_SESSION['public_csrf_token']) || !is_string($_SESSION['public_csrf_token'])) {
+/*
+|--------------------------------------------------------------------------
+| Public CSRF Token
+|--------------------------------------------------------------------------
+*/
+
+if (
+    empty($_SESSION['public_csrf_token']) ||
+    !is_string($_SESSION['public_csrf_token'])
+) {
     $_SESSION['public_csrf_token'] = bin2hex(random_bytes(32));
 }
 
 $publicCsrfToken = $_SESSION['public_csrf_token'];
 
 
+/*
+|--------------------------------------------------------------------------
+| CAPTCHA
+|--------------------------------------------------------------------------
+*/
+
+if (empty($_SESSION['demo_captcha_code'])) {
+    generateDemoCaptcha();
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Variables
+|--------------------------------------------------------------------------
+*/
+
 $error = '';
+
+$fullName = '';
+$companyName = '';
+$email = '';
+$phone = '';
+
+$exploreOptions = [];
+
+
+/*
+|--------------------------------------------------------------------------
+| Form Submission
+|--------------------------------------------------------------------------
+*/
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
+    /*
+    |--------------------------------------------------------------------------
+    | CSRF
+    |--------------------------------------------------------------------------
+    */
+
     $submittedCsrf = $_POST['csrf_token'] ?? '';
-    if (!is_string($submittedCsrf) || !hash_equals($publicCsrfToken, $submittedCsrf)) {
+
+    if (
+        !is_string($submittedCsrf) ||
+        !hash_equals($publicCsrfToken, $submittedCsrf)
+    ) {
         http_response_code(400);
-        exit('Invalid form submission. Please refresh the page and try again.');
+
+        exit(
+            'Invalid form submission. Please refresh the page and try again.'
+        );
     }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Form Values
+    |--------------------------------------------------------------------------
+    */
 
     $fullName = trim($_POST['full_name'] ?? '');
     $companyName = trim($_POST['company_name'] ?? '');
@@ -33,15 +93,60 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $exploreOptions = [];
     }
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | Basic Validation
+    |--------------------------------------------------------------------------
+    */
+
     if ($fullName === '') {
+
         $error = 'Please enter your full name.';
+
     } elseif ($companyName === '') {
+
         $error = 'Please enter your company name.';
+
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+
         $error = 'Please enter a valid company email address.';
+
     } elseif ($phone === '') {
+
         $error = 'Please enter your phone number.';
     }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | CAPTCHA Validation
+    |--------------------------------------------------------------------------
+    */
+
+    if ($error === '') {
+
+        $captchaCode = trim(
+            (string) ($_POST['captcha_code'] ?? '')
+        );
+
+        if (!verifyDemoCaptcha($captchaCode)) {
+
+            $error =
+                'The verification code is incorrect or has expired. '
+                . 'Please enter the new code shown in the image.';
+
+            clearDemoCaptcha();
+            generateDemoCaptcha();
+        }
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Company Domain Validation
+    |--------------------------------------------------------------------------
+    */
 
     $companyDomain = null;
 
@@ -49,22 +154,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $companyDomain = getCompanyDomain($email);
 
-if ($companyDomain === null) {
-    $error = 'Please enter a valid business email address.';
-} elseif (isPersonalEmailDomain($companyDomain)) {
-    $error =
-        'Please use your company email address. '
-        . 'Personal email addresses are not accepted for Demo requests.';
-} elseif (!companyDomainExists($companyDomain)) {
-    $error =
-        'The company email domain could not be verified. '
-        . 'Please use a valid company email address.';
-}
+        if ($companyDomain === null) {
+
+            $error =
+                'Please enter a valid business email address.';
+
+        } elseif (isPersonalEmailDomain($companyDomain)) {
+
+            $error =
+                'Please use your company email address. '
+                . 'Personal email addresses are not accepted for Demo requests.';
+
+        } elseif (!companyDomainExists($companyDomain)) {
+
+            $error =
+                'The company email domain could not be verified. '
+                . 'Please use a valid company email address.';
+        }
     }
 
+
     /*
-     * Check whether this company domain has already received a Demo.
-     */
+    |--------------------------------------------------------------------------
+    | Check Demo Domain History
+    |--------------------------------------------------------------------------
+    */
+
     if ($error === '') {
 
         $stmt = $pdo->prepare("
@@ -74,43 +189,60 @@ if ($companyDomain === null) {
             LIMIT 1
         ");
 
-        $stmt->execute([$companyDomain]);
+        $stmt->execute([
+            $companyDomain
+        ]);
 
         if ($stmt->fetch()) {
+
             $error =
                 'This company has already used its Demo access. '
                 . 'A second Demo is not available.';
         }
     }
 
+
     /*
-     * Check for an existing unconfirmed request.
-     */
+    |--------------------------------------------------------------------------
+    | Check Existing Active Demo Request
+    |--------------------------------------------------------------------------
+    */
+
     if ($error === '') {
 
         $stmt = $pdo->prepare("
             SELECT id
             FROM demo_requests
             WHERE company_domain = ?
-            AND status = 'Pending Email Confirmation'
-            AND confirmation_expires_at > NOW()
+            AND status IN (
+                'Confirmed',
+                'Approved',
+                'Customer Confirmed',
+                'Demo Created'
+            )
             LIMIT 1
         ");
 
-        $stmt->execute([$companyDomain]);
+        $stmt->execute([
+            $companyDomain
+        ]);
 
         if ($stmt->fetch()) {
+
             $error =
-                'A Demo confirmation request for this company is already pending. '
-                . 'Please check the company email inbox.';
+                'A Demo request for this company already exists. '
+                . 'Please contact us if you need assistance.';
         }
     }
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | Create Confirmed Demo Request
+    |--------------------------------------------------------------------------
+    */
+
     if ($error === '') {
-
-        $token = bin2hex(random_bytes(32));
-
-        $confirmationExpiresAt = date('Y-m-d H:i:s', time() + 15 * 60);
 
         $optionsJson =
             $exploreOptions
@@ -119,6 +251,7 @@ if ($companyDomain === null) {
                     JSON_UNESCAPED_UNICODE
                 )
                 : null;
+
 
         $stmt = $pdo->prepare("
             INSERT INTO demo_requests (
@@ -130,13 +263,18 @@ if ($companyDomain === null) {
                 explore_options,
                 confirmation_token,
                 confirmation_expires_at,
+                email_confirmed_at,
                 status
             )
             VALUES (
-                ?, ?, ?, ?, ?, ?, ?, ?,
-                'Pending Email Confirmation'
+                ?, ?, ?, ?, ?, ?,
+                NULL,
+                NULL,
+                NULL,
+                'Confirmed'
             )
         ");
+
 
         $stmt->execute([
             $fullName,
@@ -144,85 +282,33 @@ if ($companyDomain === null) {
             $phone,
             $companyName,
             $companyDomain,
-            $optionsJson,
-            $token,
-            $confirmationExpiresAt
+            $optionsJson
         ]);
 
-        $confirmationLink =
-            APP_URL
-            . '/index.php?page=confirm-demo-email&token='
-            . urlencode($token);
 
-        $subject = 'Confirm Your Demo Request';
+        /*
+        |--------------------------------------------------------------------------
+        | Clear CAPTCHA
+        |--------------------------------------------------------------------------
+        */
 
-        $body = "
-            <h2>Hello " . htmlspecialchars($fullName) . ",</h2>
+        clearDemoCaptcha();
 
-            <p>
-                Thank you for requesting an IT Consultancy Demo
-                for <strong>" . htmlspecialchars($companyName) . "</strong>.
-            </p>
 
-            <p>
-                Please confirm that this company email address belongs to you
-                by clicking the button below.
-            </p>
+        /*
+        |--------------------------------------------------------------------------
+        | Success
+        |--------------------------------------------------------------------------
+        */
 
-            <p>
-                <a
-                    href='" . htmlspecialchars($confirmationLink) . "'
-                    style='
-                        display:inline-block;
-                        padding:12px 22px;
-                        background:#0d6efd;
-                        color:#ffffff;
-                        text-decoration:none;
-                        border-radius:6px;
-                    '>
-                    Confirm Demo Request
-                </a>
-            </p>
+        header(
+            'Location: ?page=demo-request&success=1'
+        );
 
-            <p>
-                This confirmation link is valid for
-                <strong>15 minutes</strong>.
-            </p>
-
-            <p>
-                If you did not request a Demo, you can safely ignore this email.
-            </p>
-
-            <p>
-                Kind regards,<br>
-                <strong>" . COMPANY_NAME . "</strong>
-            </p>
-        ";
-
-        if (sendEmail($email, $subject, $body)) {
-
-            header('Location: ?page=demo-request&sent=1');
-            exit;
-
-        } else {
-
-            /*
-             * Do not leave a request that the customer was never
-             * able to confirm if the email could not be sent.
-             */
-            $stmt = $pdo->prepare("
-                DELETE FROM demo_requests
-                WHERE confirmation_token = ?
-            ");
-
-            $stmt->execute([$token]);
-
-            $error =
-                'We could not send the confirmation email. '
-                . 'Please try again later.';
-        }
+        exit;
     }
 }
+
 
 require dirname(__DIR__) . '/layouts/header-public.php';
 require dirname(__DIR__) . '/public/demo-banner.php';
@@ -246,33 +332,51 @@ require dirname(__DIR__) . '/public/demo-banner.php';
                     company Demo environment.
                 </p>
 
-                <?php if (isset($_GET['sent'])): ?>
+
+                <?php if (isset($_GET['success'])): ?>
 
                     <div class="alert alert-success">
 
-                        <strong>Check your company email.</strong>
+                        <strong>
+                            Demo request submitted successfully.
+                        </strong>
 
                         <br>
 
-                        We have sent you a confirmation link.
-                        This confirmation link is valid for 15 minutes.
+                        Your request has been received and is now
+                        awaiting administrator review.
 
                     </div>
 
                 <?php endif; ?>
+
 
                 <?php if ($error): ?>
 
                     <div class="alert alert-danger">
+
                         <?= htmlspecialchars($error) ?>
+
                     </div>
 
                 <?php endif; ?>
 
-                <form method="POST" autocomplete="off">
 
-                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($publicCsrfToken, ENT_QUOTES, 'UTF-8') ?>">
+                <form
+                    method="POST"
+                    autocomplete="off">
 
+                    <input
+                        type="hidden"
+                        name="csrf_token"
+                        value="<?= htmlspecialchars(
+                            $publicCsrfToken,
+                            ENT_QUOTES,
+                            'UTF-8'
+                        ) ?>">
+
+
+                    <!-- Full Name -->
 
                     <div class="mb-3">
 
@@ -285,9 +389,17 @@ require dirname(__DIR__) . '/public/demo-banner.php';
                             name="full_name"
                             class="form-control"
                             maxlength="255"
+                            value="<?= htmlspecialchars(
+                                $fullName,
+                                ENT_QUOTES,
+                                'UTF-8'
+                            ) ?>"
                             required>
 
                     </div>
+
+
+                    <!-- Company Name -->
 
                     <div class="mb-3">
 
@@ -300,9 +412,17 @@ require dirname(__DIR__) . '/public/demo-banner.php';
                             name="company_name"
                             class="form-control"
                             maxlength="255"
+                            value="<?= htmlspecialchars(
+                                $companyName,
+                                ENT_QUOTES,
+                                'UTF-8'
+                            ) ?>"
                             required>
 
                     </div>
+
+
+                    <!-- Company Email -->
 
                     <div class="mb-3">
 
@@ -315,6 +435,11 @@ require dirname(__DIR__) . '/public/demo-banner.php';
                             name="email"
                             class="form-control"
                             maxlength="255"
+                            value="<?= htmlspecialchars(
+                                $email,
+                                ENT_QUOTES,
+                                'UTF-8'
+                            ) ?>"
                             required>
 
                         <div class="form-text">
@@ -322,6 +447,9 @@ require dirname(__DIR__) . '/public/demo-banner.php';
                         </div>
 
                     </div>
+
+
+                    <!-- Phone -->
 
                     <div class="mb-3">
 
@@ -334,9 +462,17 @@ require dirname(__DIR__) . '/public/demo-banner.php';
                             name="phone"
                             class="form-control"
                             maxlength="50"
+                            value="<?= htmlspecialchars(
+                                $phone,
+                                ENT_QUOTES,
+                                'UTF-8'
+                            ) ?>"
                             required>
 
                     </div>
+
+
+                    <!-- Explore Options -->
 
                     <div class="mb-3">
 
@@ -344,65 +480,157 @@ require dirname(__DIR__) . '/public/demo-banner.php';
                             What would you like to explore?
                         </label>
 
-                        <?php
-                        $options = [
-                            'Customer Management',
-                            'Service Management',
-                            'Requests & Workflow',
-                            'Payments',
-                            'Consultations',
-                            'Reports',
-                            'Other'
-                        ];
-                        ?>
+                        <div class="form-check">
 
-                        <?php foreach ($options as $option): ?>
+                            <input
+                                class="form-check-input"
+                                type="checkbox"
+                                name="explore_options[]"
+                                value="Consultancy Services"
+                                id="exploreServices">
 
-                            <div class="form-check">
+                            <label
+                                class="form-check-label"
+                                for="exploreServices">
 
-                                <input
-                                    class="form-check-input"
-                                    type="checkbox"
-                                    name="explore_options[]"
-                                    value="<?= htmlspecialchars($option) ?>"
-                                    id="option-<?= md5($option) ?>">
+                                Consultancy Services
 
-                                <label
-                                    class="form-check-label"
-                                    for="option-<?= md5($option) ?>">
+                            </label>
 
-                                    <?= htmlspecialchars($option) ?>
+                        </div>
 
-                                </label>
+                        <div class="form-check">
 
-                            </div>
+                            <input
+                                class="form-check-input"
+                                type="checkbox"
+                                name="explore_options[]"
+                                value="Customer Management"
+                                id="exploreCustomer">
 
-                        <?php endforeach; ?>
+                            <label
+                                class="form-check-label"
+                                for="exploreCustomer">
+
+                                Customer Management
+
+                            </label>
+
+                        </div>
+
+                        <div class="form-check">
+
+                            <input
+                                class="form-check-input"
+                                type="checkbox"
+                                name="explore_options[]"
+                                value="Service Requests"
+                                id="exploreRequests">
+
+                            <label
+                                class="form-check-label"
+                                for="exploreRequests">
+
+                                Service Requests
+
+                            </label>
+
+                        </div>
+
+                        <div class="form-check">
+
+                            <input
+                                class="form-check-input"
+                                type="checkbox"
+                                name="explore_options[]"
+                                value="Admin Dashboard"
+                                id="exploreAdmin">
+
+                            <label
+                                class="form-check-label"
+                                for="exploreAdmin">
+
+                                Admin Dashboard
+
+                            </label>
+
+                        </div>
 
                     </div>
 
-                   <div class="d-flex gap-2">
 
-    <button
-        type="submit"
-        name="request_demo"
-        class="btn btn-primary flex-grow-1">
+                    <!-- CAPTCHA -->
 
-        Request Demo
+                    <div class="mb-4">
 
-    </button>
+                        <label class="form-label">
+                            Verification Code
+                        </label>
 
-    <a
-        href="?page=home"
-        class="btn btn-secondary">
+                        <div class="mb-2">
 
-        Cancel
+                            <img
+                                id="demoCaptchaImage"
+                                src="demo-captcha.php"
+                                alt="Verification code"
+                                width="320"
+                                height="100"
+                                style="
+                                    display:block;
+                                    max-width:100%;
+                                    height:auto;
+                                ">
 
-    </a>
-
-</div>
+                        </div>
 
 
+                        <div class="text-muted small">
+
+                            New code in
+                            <span
+                                id="demoCaptchaTimer"
+                                class="fw-semibold">
+
+                                60 seconds
+
+                            </span>
+
+                        </div>
+
+
+                        <input
+                            type="text"
+                            name="captcha_code"
+                            class="form-control mt-2"
+                            maxlength="6"
+                            minlength="6"
+                            inputmode="numeric"
+                            pattern="[0-9]{6}"
+                            autocomplete="off"
+                            required>
+
+                        <div class="form-text">
+
+                            Enter the 6-digit code shown in the image.
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- Submit -->
+
+                    <div class="d-grid">
+
+                        <button
+                            type="submit"
+                            class="btn btn-primary">
+
+                            Submit Demo Request
+
+                        </button>
+
+                    </div>
 
                 </form>
 
@@ -413,5 +641,65 @@ require dirname(__DIR__) . '/public/demo-banner.php';
     </div>
 
 </div>
+
+
+<script>
+
+let demoCaptchaTimer;
+let demoCaptchaSeconds = 60;
+
+
+function refreshDemoCaptcha() {
+
+    const image =
+        document.getElementById('demoCaptchaImage');
+
+    image.src =
+        'demo-captcha.php?refresh='
+        + Date.now();
+
+    startDemoCaptchaTimer();
+}
+
+
+function startDemoCaptchaTimer() {
+
+    clearInterval(demoCaptchaTimer);
+
+    demoCaptchaSeconds = 60;
+
+    const timer =
+        document.getElementById('demoCaptchaTimer');
+
+    timer.textContent =
+        demoCaptchaSeconds + ' seconds';
+
+    demoCaptchaTimer = setInterval(function () {
+
+        demoCaptchaSeconds--;
+
+        timer.textContent =
+            demoCaptchaSeconds + ' seconds';
+
+        if (demoCaptchaSeconds <= 0) {
+
+            clearInterval(demoCaptchaTimer);
+
+            refreshDemoCaptcha();
+
+        }
+
+    }, 1000);
+}
+
+
+document.addEventListener('DOMContentLoaded', function () {
+
+    startDemoCaptchaTimer();
+
+});
+
+</script>
+
 
 <?php require dirname(__DIR__) . '/layouts/footer.php'; ?>
