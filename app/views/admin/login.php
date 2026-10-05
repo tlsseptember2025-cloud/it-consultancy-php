@@ -30,6 +30,7 @@ $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $email = trim($_POST['email'] ?? '');
+
     /*
     | Do not trim passwords. Spaces may legitimately be part of a password.
     */
@@ -127,25 +128,80 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             clearRoleSessions();
 
+
             /*
             |--------------------------------------------------------------------------
             | Prevent Session Fixation
             |--------------------------------------------------------------------------
             */
+
             session_regenerate_id(true);
 
 
             /*
             |--------------------------------------------------------------------------
-            | Main / Dev Admin Session
+            | Admin Security Setup Check
             |--------------------------------------------------------------------------
             |
-            | The existing system stores the Admin email
-            | in $_SESSION['user'], so this remains unchanged.
+            | Every Main Admin must have a recovery credential.
+            |
+            */
+
+            $securityStmt = $pdo->prepare("
+                SELECT id
+                FROM admin_security
+                WHERE admin_id = ?
+                LIMIT 1
+            ");
+
+            $securityStmt->execute([
+                $adminId
+            ]);
+
+            $securityRecord = $securityStmt->fetch(PDO::FETCH_ASSOC);
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Recovery Credential Not Yet Created
+            |--------------------------------------------------------------------------
+            |
+            | This is the first-time setup.
+            |
+            | IMPORTANT:
+            | Do NOT create $_SESSION['user'] yet.
+            |
+            */
+
+            if (!$securityRecord) {
+
+                $_SESSION['admin_security_setup_required'] = true;
+                $_SESSION['admin_security_admin_id'] = $adminId;
+
+                header(
+                    'Location: ?page=admin-recovery-credential'
+                );
+
+                exit;
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Security Setup Complete
+            |--------------------------------------------------------------------------
+            |
+            | The Admin already has a recovery credential, so this is
+            | a normal Admin login.
             |
             */
 
             $_SESSION['user'] = $user['email'];
+
+            unset(
+                $_SESSION['admin_security_setup_required'],
+                $_SESSION['admin_security_admin_id']
+            );
 
 
             /*
@@ -179,55 +235,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             /*
             |--------------------------------------------------------------------------
-            | Admin Security Setup
-            |--------------------------------------------------------------------------
-            |
-            | Every Main Admin must have a recovery credential.
-            |
-            */
-
-            $securityStmt = $pdo->prepare("
-                SELECT id
-                FROM admin_security
-                WHERE admin_id = ?
-                LIMIT 1
-            ");
-
-            $securityStmt->execute([
-                $adminId
-            ]);
-
-            $securityRecord = $securityStmt->fetch(PDO::FETCH_ASSOC);
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | Recovery Credential Not Yet Created
+            | Go To Dashboard
             |--------------------------------------------------------------------------
             */
-
-            if (!$securityRecord) {
-
-                $_SESSION['admin_security_setup_required'] = true;
-
-                header(
-                    'Location: ?page=admin-recovery-credential'
-                );
-
-                exit;
-            }
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | Security Setup Complete
-            |--------------------------------------------------------------------------
-            */
-
-            unset(
-                $_SESSION['admin_security_setup_required']
-            );
-
 
             header(
                 'Location: ?page=dashboard'

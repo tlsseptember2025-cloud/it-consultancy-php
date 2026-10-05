@@ -5,6 +5,7 @@ require_once HELPER_PATH . '/auth.php';
 
 requireAdminLogin();
 
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
 $isDemoAdmin = isset($_SESSION['demo_user']);
 
 // Demo Super Admin has its own dashboard and navbar.
@@ -469,6 +470,42 @@ $awaitingRescheduleApproval = $fetchDashboardRows(
 
 /*
 |--------------------------------------------------------------------------
+| Awaiting Schedule Approval
+|--------------------------------------------------------------------------
+| Consultations where the customer has selected a slot
+| but the admin has not yet approved the schedule.
+|--------------------------------------------------------------------------
+*/
+
+$awaitingScheduleApproval = $fetchDashboardRows(
+    $adminPdo,
+    "
+    SELECT
+        r.id,
+        c.name AS customer_name,
+        s.title AS service_title,
+        cs.slot_date AS schedule_date,
+        cs.slot_time AS schedule_time
+    FROM requests r
+    JOIN customers c
+        ON c.id = r.customer_id
+    JOIN services s
+        ON s.id = r.service_id
+    JOIN consultation_bookings cb
+        ON cb.request_id = r.id
+    JOIN consultation_slots cs
+        ON cs.id = cb.slot_id
+    WHERE r.workflow_stage = 'Consultation Scheduled'
+      AND TIMESTAMP(cs.slot_date, cs.slot_time) >= NOW()
+    $dashboardCustomerScope
+    ORDER BY cs.slot_date ASC, cs.slot_time ASC
+    LIMIT 3
+    ",
+    $dashboardCustomerParams
+);
+
+/*
+|--------------------------------------------------------------------------
 | Upcoming Schedule
 |--------------------------------------------------------------------------
 | Shows future confirmed consultations and scheduled services.
@@ -512,11 +549,9 @@ $stmt = $adminPdo->prepare("
     JOIN consultation_slots cs
         ON cs.id = cb.slot_id
 
-    WHERE r.workflow_stage IN (
-    'Consultation Scheduled',
-    'Consultation Confirmed'
-)
-AND TIMESTAMP(cs.slot_date, cs.slot_time) >= NOW()
+    WHERE r.workflow_stage = 'Consultation Confirmed'
+        AND TIMESTAMP(cs.slot_date, cs.slot_time) >= NOW()
+   
     $upcomingCustomerScope
 
 
@@ -935,6 +970,94 @@ $refundRequests = $fetchDashboardRows(
 
             <div class="row g-4">
 
+        <!-- Awaiting Schedule Approval -->
+<div class="col-lg-6">
+
+    <div class="card shadow-sm border-warning h-100">
+
+        <div class="card-header bg-warning text-dark">
+
+            <strong>🟡 Awaiting Schedule Approval</strong>
+
+            <?php if (!empty($awaitingScheduleApproval)): ?>
+
+                <span class="badge bg-dark float-end">
+                    <?= count($awaitingScheduleApproval) ?>
+                </span>
+
+            <?php endif; ?>
+
+        </div>
+
+        <div class="card-body p-0">
+
+            <?php if (empty($awaitingScheduleApproval)): ?>
+
+                <div class="p-4 text-muted text-center">
+                    No consultations are awaiting schedule approval.
+                </div>
+
+            <?php else: ?>
+
+                <?php foreach ($awaitingScheduleApproval as $item): ?>
+
+                    <a
+                        href="?page=review-consultation&id=<?= (int) $item['id'] ?>"
+                        class="text-decoration-none text-dark d-block"
+                    >
+
+                        <div class="p-3 border-bottom dashboard-action-item">
+
+                            <div class="fw-bold">
+                                Request #<?= (int) $item['id'] ?>
+                            </div>
+
+                            <div>
+                                <?= htmlspecialchars($item['customer_name']) ?>
+                            </div>
+
+                            <div class="small text-muted">
+                                <?= htmlspecialchars($item['service_title']) ?>
+                            </div>
+
+                            <div class="mt-2">
+
+                                <span class="badge bg-warning text-dark">
+                                    🟡 Awaiting Approval
+                                </span>
+
+                            </div>
+
+                            <div class="small fw-semibold mt-2">
+
+                                <?= date(
+                                    'd M Y',
+                                    strtotime($item['schedule_date'])
+                                ) ?>
+
+                                at
+
+                                <?= date(
+                                    'h:i A',
+                                    strtotime($item['schedule_time'])
+                                ) ?>
+
+                            </div>
+
+                        </div>
+
+                    </a>
+
+                <?php endforeach; ?>
+
+            <?php endif; ?>
+
+        </div>
+
+    </div>
+
+</div>
+
        
         <!-- Upcoming Schedule -->
         <div class="col-lg-6">
@@ -969,7 +1092,7 @@ $refundRequests = $fetchDashboardRows(
         <a
             href="<?=
                 $item['schedule_type'] === 'Consultation'
-                    ? '?page=approve-consultation&id=' . (int)$item['request_id']
+                    ? '?page=admin-review-consultation&id=' . (int)$item['request_id']
                     : '?page=approve-service-schedule&id=' . (int)$item['request_id']
             ?>"
             class="text-decoration-none text-dark d-block"

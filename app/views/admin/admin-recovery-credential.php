@@ -1,28 +1,46 @@
 <?php
-// CSRF protection for all state-changing POST requests.
-$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $submittedCsrfToken = $_POST['csrf_token'] ?? '';
-    if (!is_string($submittedCsrfToken) || !hash_equals($csrfToken, $submittedCsrfToken)) {
-        http_response_code(403);
-        exit('Invalid CSRF token.');
-    }
-}
-
 
 require_once CONFIG_PATH . '/database.php';
 require_once HELPER_PATH . '/auth.php';
 
-requireAdminLogin();
 
-if (isset($_SESSION['demo_super_admin'])) {
-    header('Location: ?page=demo-super-admin');
+/*
+|--------------------------------------------------------------------------
+| First-Time Admin Security Setup
+|--------------------------------------------------------------------------
+|
+| This page is only accessible immediately after a successful Admin
+| login where no recovery credential exists yet.
+|
+| The normal $_SESSION['user'] session is intentionally NOT created
+| during this first-time setup.
+|
+*/
+
+if (
+    empty($_SESSION['admin_security_setup_required'])
+    || $_SESSION['admin_security_setup_required'] !== true
+) {
+    header('Location: ?page=login');
     exit;
 }
 
-$adminEmail = $_SESSION['user'] ?? '';
 
-if ($adminEmail === '') {
+/*
+|--------------------------------------------------------------------------
+| Get Admin ID From Temporary Setup Session
+|--------------------------------------------------------------------------
+*/
+
+$adminId = (int) ($_SESSION['admin_security_admin_id'] ?? 0);
+
+if ($adminId <= 0) {
+
+    unset(
+        $_SESSION['admin_security_setup_required'],
+        $_SESSION['admin_security_admin_id']
+    );
+
     header('Location: ?page=login');
     exit;
 }
@@ -39,25 +57,33 @@ $stmt = $pdo->prepare("
         id,
         email
     FROM users
-    WHERE email = ?
+    WHERE id = ?
     LIMIT 1
 ");
 
-$stmt->execute([$adminEmail]);
+$stmt->execute([
+    $adminId
+]);
 
 $admin = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$admin) {
-    unset($_SESSION['user']);
+
+    unset(
+        $_SESSION['admin_security_setup_required'],
+        $_SESSION['admin_security_admin_id']
+    );
 
     header('Location: ?page=login');
     exit;
 }
 
 $adminId = (int) $admin['id'];
+$adminEmail = $admin['email'];
 
 $error = '';
 $recoveryCredential = '';
+
 
 /*
 |--------------------------------------------------------------------------
@@ -74,7 +100,9 @@ $stmt = $pdo->prepare("
     LIMIT 1
 ");
 
-$stmt->execute([$adminId]);
+$stmt->execute([
+    $adminId
+]);
 
 $security = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -89,13 +117,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($security) {
 
-        $error = 'A recovery credential already exists for this Admin account.';
+        $error =
+            'A recovery credential already exists for this Admin account.';
 
     } else {
 
         /*
          * Generate a strong random 32-character credential.
          */
+
         $characters =
             'ABCDEFGHJKLMNPQRSTUVWXYZ' .
             'abcdefghijkmnopqrstuvwxyz' .
@@ -107,7 +137,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $characterCount = strlen($characters);
 
         for ($i = 0; $i < 32; $i++) {
-            $recoveryCredential .= $characters[random_int(0, $characterCount - 1)];
+
+            $recoveryCredential .=
+                $characters[random_int(0, $characterCount - 1)];
+
         }
 
 
@@ -117,6 +150,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
          * The plaintext credential is never stored
          * in the database.
          */
+
         $recoveryCredentialHash = password_hash(
             $recoveryCredential,
             PASSWORD_DEFAULT
@@ -139,11 +173,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $recoveryCredentialHash
             ]);
 
+
         } catch (PDOException $e) {
 
             /*
              * Never display database details to the Admin.
              */
+
             error_log(
                 'Main Admin recovery credential creation failed: '
                 . $e->getMessage()
@@ -151,13 +187,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $recoveryCredential = '';
 
-            $error = 'The recovery credential could not be created. Please try again.';
+            $error =
+                'The recovery credential could not be created. Please try again.';
         }
     }
 }
 
 
-require VIEW_PATH . '/layouts/header-admin.php';
+require VIEW_PATH . '/layouts/header-public.php';
 
 ?>
 
@@ -175,12 +212,15 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
             </div>
 
+
             <div class="card-body">
 
                 <?php if ($error !== ''): ?>
 
                     <div class="alert alert-danger">
+
                         <?= htmlspecialchars($error) ?>
+
                     </div>
 
                 <?php endif; ?>
@@ -229,6 +269,7 @@ require VIEW_PATH . '/layouts/header-admin.php';
                             Save Credential
                         </button>
 
+
                         <a
                             href="?page=dashboard"
                             class="btn btn-secondary"
@@ -241,6 +282,7 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
 
                     <script>
+
                     document
                         .getElementById('saveRecoveryCredential')
                         .addEventListener('click', function () {
@@ -251,6 +293,7 @@ require VIEW_PATH . '/layouts/header-admin.php';
                                     .textContent
                                     .trim();
 
+
                             const blob = new Blob(
                                 [credential + "\n"],
                                 {
@@ -258,12 +301,20 @@ require VIEW_PATH . '/layouts/header-admin.php';
                                 }
                             );
 
-                            const url = URL.createObjectURL(blob);
 
-                            const link = document.createElement('a');
+                            const url =
+                                URL.createObjectURL(blob);
+
+
+                            const link =
+                                document.createElement('a');
+
 
                             link.href = url;
-                            link.download = 'admin-recovery-credential.txt';
+
+                            link.download =
+                                'admin-recovery-credential.txt';
+
 
                             document.body.appendChild(link);
 
@@ -273,10 +324,15 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
                             URL.revokeObjectURL(url);
 
+
                             this.textContent = 'Saved';
+
                             this.classList.remove('btn-primary');
+
                             this.classList.add('btn-success');
+
                         });
+
                     </script>
 
 
@@ -317,6 +373,7 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
                     </p>
 
+
                     <div class="alert alert-warning">
 
                         <strong>Important:</strong>
@@ -334,16 +391,16 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
 
                     <form method="POST">
-<input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
                         <div class="d-flex justify-content-between">
 
                             <a
-                                href="?page=dashboard"
+                                href="?page=login"
                                 class="btn btn-secondary"
                             >
                                 Cancel
                             </a>
+
 
                             <button
                                 type="submit"
@@ -365,5 +422,6 @@ require VIEW_PATH . '/layouts/header-admin.php';
     </div>
 
 </div>
+
 
 <?php require VIEW_PATH . '/layouts/footer.php'; ?>

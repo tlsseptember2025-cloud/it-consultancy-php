@@ -970,7 +970,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     . ' at '
                     . $time
                     . '.',
-                '?page=requests'
+                '?page=review-consultation&id=' . $requestId
             );
 
 
@@ -1047,7 +1047,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     <p>
                         <a
-                            href='" . APP_URL . "/?page=requests'
+                            href='" . APP_URL . "/?page=review-consultation&id=" . $requestId . "'
                             style='
                                 background:#0d6efd;
                                 color:#ffffff;

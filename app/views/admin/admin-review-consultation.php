@@ -1,4 +1,5 @@
 <?php
+
 // CSRF protection for all state-changing POST requests.
 $csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -40,7 +41,13 @@ if ($isDemoAdmin) {
 
 $requestId = (int)($_GET['id'] ?? 0);
 
-$stmt = $reviewPdo->prepare("
+/*
+|--------------------------------------------------------------------------
+| Load Consultation
+|--------------------------------------------------------------------------
+*/
+
+$reviewSql = "
     SELECT
         r.*,
 
@@ -74,27 +81,44 @@ $stmt = $reviewPdo->prepare("
         ON cs.id = cb.slot_id
 
     WHERE r.id = ?
-      AND (
-            ? = 0
-            OR (
-                c.demo_tenant_id = ?
-                AND c.is_demo_account = 1
-                AND s.demo_tenant_id = ?
-                AND s.is_demo_account = 1
-                AND a.demo_tenant_id = ?
-                AND a.is_demo_account = 1
-            )
-      )
+";
 
+$reviewParams = [
+    $requestId
+];
+
+
+/*
+|--------------------------------------------------------------------------
+| Demo Tenant Restriction
+|--------------------------------------------------------------------------
+*/
+
+if ($isDemoAdmin) {
+
+    $reviewSql .= "
+        AND c.demo_tenant_id = ?
+        AND c.is_demo_account = 1
+        AND s.demo_tenant_id = ?
+        AND s.is_demo_account = 1
+        AND a.demo_tenant_id = ?
+        AND a.is_demo_account = 1
+    ";
+
+    $reviewParams[] = $demoTenantId;
+    $reviewParams[] = $demoTenantId;
+    $reviewParams[] = $demoTenantId;
+}
+
+
+$reviewSql .= "
     LIMIT 1
-");
+";
 
-$stmt->execute([
-    $requestId,
-    $demoTenantId ?? 0,
-    $demoTenantId ?? 0,
-    $demoTenantId ?? 0
-]);
+
+$stmt = $reviewPdo->prepare($reviewSql);
+
+$stmt->execute($reviewParams);
 
 $consultation = $stmt->fetch(PDO::FETCH_ASSOC);
 

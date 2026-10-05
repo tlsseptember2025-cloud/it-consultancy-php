@@ -226,7 +226,7 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                 </a>
 
                 <a
-                    href="?page=reject-consultation&id=<?= (int) $request['id'] ?>"
+                    href="?page=reject-consultation&id=<?= (int) $request['id'] ?>&csrf_token=<?= urlencode($csrfToken) ?>"
                     class="btn btn-danger"
                 >
                     Reject Schedule
@@ -242,7 +242,7 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                 </a>
 
                 <a
-                    href="?page=reject-consultation&id=<?= (int) $request['id'] ?>"
+                    href="?page=reject-consultation&id=<?= (int) $request['id'] ?>&csrf_token=<?= urlencode($csrfToken) ?>"
                     class="btn btn-danger"
                 >
                     Return to Agent
