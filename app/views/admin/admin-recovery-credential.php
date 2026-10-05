@@ -109,11 +109,85 @@ $security = $stmt->fetch(PDO::FETCH_ASSOC);
 
 /*
 |--------------------------------------------------------------------------
-| Generate Initial Recovery Credential
+| Process POST
 |--------------------------------------------------------------------------
 */
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Complete First-Time Security Setup
+    |--------------------------------------------------------------------------
+    |
+    | The Admin has generated and saved the recovery credential
+    | and is now closing the setup page.
+    |
+    */
+
+    if (isset($_POST['complete_setup'])) {
+
+        /*
+        | Establish the normal Main Admin session.
+        */
+
+        $_SESSION['user'] = $adminEmail;
+
+
+        /*
+        | Remove the temporary first-time setup session.
+        */
+
+        unset(
+            $_SESSION['admin_security_setup_required'],
+            $_SESSION['admin_security_admin_id']
+        );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Admin Presence
+        |--------------------------------------------------------------------------
+        */
+
+        $presenceStmt = $pdo->prepare("
+            INSERT INTO admin_presence
+                (
+                    admin_id,
+                    last_seen,
+                    is_online
+                )
+            VALUES
+                (
+                    ?,
+                    CURRENT_TIMESTAMP,
+                    1
+                )
+            ON DUPLICATE KEY UPDATE
+                last_seen = CURRENT_TIMESTAMP,
+                is_online = 1
+        ");
+
+        $presenceStmt->execute([
+            $adminId
+        ]);
+
+
+        /*
+        | Go to the normal Admin Dashboard.
+        */
+
+        header('Location: ?page=dashboard');
+        exit;
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Generate Initial Recovery Credential
+    |--------------------------------------------------------------------------
+    */
 
     if ($security) {
 
@@ -123,8 +197,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
 
         /*
-         * Generate a strong random 32-character credential.
-         */
+        |--------------------------------------------------------------------------
+        | Generate Strong Random Credential
+        |--------------------------------------------------------------------------
+        */
 
         $characters =
             'ABCDEFGHJKLMNPQRSTUVWXYZ' .
@@ -140,16 +216,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $recoveryCredential .=
                 $characters[random_int(0, $characterCount - 1)];
-
         }
 
 
         /*
-         * Store ONLY the hash.
-         *
-         * The plaintext credential is never stored
-         * in the database.
-         */
+        |--------------------------------------------------------------------------
+        | Store ONLY the Hash
+        |--------------------------------------------------------------------------
+        |
+        | The plaintext recovery credential is never stored
+        | in the database.
+        |
+        */
 
         $recoveryCredentialHash = password_hash(
             $recoveryCredential,
@@ -173,12 +251,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $recoveryCredentialHash
             ]);
 
-
         } catch (PDOException $e) {
 
             /*
-             * Never display database details to the Admin.
-             */
+            | Never display database details to the Admin.
+            */
 
             error_log(
                 'Main Admin recovery credential creation failed: '
@@ -194,9 +271,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 
+/*
+|--------------------------------------------------------------------------
+| Public Header
+|--------------------------------------------------------------------------
+*/
+
 require VIEW_PATH . '/layouts/header-public.php';
 
 ?>
+
 
 <div class="row justify-content-center">
 
@@ -215,6 +299,7 @@ require VIEW_PATH . '/layouts/header-public.php';
 
             <div class="card-body">
 
+
                 <?php if ($error !== ''): ?>
 
                     <div class="alert alert-danger">
@@ -228,11 +313,13 @@ require VIEW_PATH . '/layouts/header-public.php';
 
                 <?php if ($recoveryCredential !== ''): ?>
 
+
                     <div class="alert alert-warning">
 
                         <strong>Important:</strong>
 
                         This recovery credential will only be shown once.
+
                         Save it somewhere secure before closing this page.
 
                     </div>
@@ -241,8 +328,11 @@ require VIEW_PATH . '/layouts/header-public.php';
                     <div class="mb-3">
 
                         <label class="form-label fw-bold">
+
                             Recovery Credential
+
                         </label>
+
 
                         <div
                             id="recoveryCredential"
@@ -253,7 +343,9 @@ require VIEW_PATH . '/layouts/header-public.php';
                                 word-break: break-all;
                             "
                         >
+
                             <?= htmlspecialchars($recoveryCredential) ?>
+
                         </div>
 
                     </div>
@@ -261,22 +353,34 @@ require VIEW_PATH . '/layouts/header-public.php';
 
                     <div class="d-flex gap-2 justify-content-end">
 
+
                         <button
                             type="button"
                             class="btn btn-primary"
                             id="saveRecoveryCredential"
                         >
+
                             Save Credential
+
                         </button>
 
 
-                        <a
-                            href="?page=dashboard"
-                            class="btn btn-secondary"
-                            id="closeRecoveryCredential"
-                        >
-                            Close
-                        </a>
+                        <form method="POST" class="d-inline">
+
+                            <button
+                                type="submit"
+                                name="complete_setup"
+                                value="1"
+                                class="btn btn-secondary"
+                                id="closeRecoveryCredential"
+                            >
+
+                                Close
+
+                            </button>
+
+                        </form>
+
 
                     </div>
 
@@ -286,6 +390,8 @@ require VIEW_PATH . '/layouts/header-public.php';
                     document
                         .getElementById('saveRecoveryCredential')
                         .addEventListener('click', function () {
+
+                            const button = this;
 
                             const credential =
                                 document
@@ -325,11 +431,41 @@ require VIEW_PATH . '/layouts/header-public.php';
                             URL.revokeObjectURL(url);
 
 
-                            this.textContent = 'Saved';
+                            /*
+                            |--------------------------------------------------------------------------
+                            | Prevent Another Save Click
+                            |--------------------------------------------------------------------------
+                            */
 
-                            this.classList.remove('btn-primary');
+                            button.remove();
 
-                            this.classList.add('btn-success');
+
+                            /*
+                            |--------------------------------------------------------------------------
+                            | Show Confirmation
+                            |--------------------------------------------------------------------------
+                            */
+
+                            const message =
+                                document.createElement('span');
+
+                            message.className =
+                                'text-success fw-semibold';
+
+                            message.textContent =
+                                'Credential saved.';
+
+
+                            const closeButton =
+                                document.getElementById(
+                                    'closeRecoveryCredential'
+                                );
+
+
+                            closeButton.parentNode.insertBefore(
+                                message,
+                                closeButton
+                            );
 
                         });
 
@@ -337,6 +473,7 @@ require VIEW_PATH . '/layouts/header-public.php';
 
 
                 <?php elseif ($security): ?>
+
 
                     <div class="alert alert-info">
 
@@ -354,17 +491,26 @@ require VIEW_PATH . '/layouts/header-public.php';
 
                     <div class="text-end">
 
-                        <a
-                            href="?page=dashboard"
-                            class="btn btn-secondary"
-                        >
-                            Close
-                        </a>
+                        <form method="POST" class="d-inline">
+
+                            <button
+                                type="submit"
+                                name="complete_setup"
+                                value="1"
+                                class="btn btn-secondary"
+                            >
+
+                                Close
+
+                            </button>
+
+                        </form>
 
                     </div>
 
 
                 <?php else: ?>
+
 
                     <p class="text-muted">
 
@@ -398,7 +544,9 @@ require VIEW_PATH . '/layouts/header-public.php';
                                 href="?page=login"
                                 class="btn btn-secondary"
                             >
+
                                 Cancel
+
                             </a>
 
 
@@ -406,14 +554,18 @@ require VIEW_PATH . '/layouts/header-public.php';
                                 type="submit"
                                 class="btn btn-primary"
                             >
+
                                 Generate Recovery Credential
+
                             </button>
 
                         </div>
 
                     </form>
 
+
                 <?php endif; ?>
+
 
             </div>
 
