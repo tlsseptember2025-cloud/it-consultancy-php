@@ -606,6 +606,63 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 try {
 
+                    /*
+                    |--------------------------------------------------------------
+                    | Start the Demo period now.
+                    |--------------------------------------------------------------
+                    | Step 1.9 only creates the tenant container. The actual
+                    | five-day Demo starts when Demo Setup is completed.
+                    | If finalization is retried, preserve an already-started
+                    | period rather than extending it.
+                    */
+
+                    $tenantDateStmt = $demoPdo->prepare("
+                        SELECT
+                            started_at,
+                            expires_at
+                        FROM demo_tenants
+                        WHERE id = ?
+                        LIMIT 1
+                    ");
+
+                    $tenantDateStmt->execute([
+                        $tenantId
+                    ]);
+
+                    $tenantDates = $tenantDateStmt->fetch(PDO::FETCH_ASSOC);
+
+                    if (!$tenantDates) {
+                        throw new PDOException(
+                            'Demo tenant not found during finalization.'
+                        );
+                    }
+
+                    if (
+                        empty($tenantDates['started_at']) ||
+                        empty($tenantDates['expires_at'])
+                    ) {
+
+                        $startDemoStmt = $demoPdo->prepare("
+                            UPDATE demo_tenants
+                            SET
+                                started_at = NOW(),
+                                expires_at = DATE_ADD(NOW(), INTERVAL 5 DAY),
+                                status = 'Active'
+                            WHERE id = ?
+                        ");
+
+                        $startDemoStmt->execute([
+                            $tenantId
+                        ]);
+
+                        $tenantDateStmt->execute([
+                            $tenantId
+                        ]);
+
+                        $tenantDates = $tenantDateStmt->fetch(PDO::FETCH_ASSOC);
+                    }
+
+
                     $historyCheckStmt = $pdo->prepare("
                         SELECT id
                         FROM demo_domain_history
@@ -637,8 +694,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $demoAdmin['company_domain'],
                             $demoAdmin['company_name'],
                             $requestId,
-                            $demoAdmin['started_at'],
-                            $demoAdmin['expires_at']
+                            $tenantDates['started_at'],
+                            $tenantDates['expires_at']
                         ]);
                     }
 
@@ -647,13 +704,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         UPDATE demo_requests
                         SET
                             status = 'Demo Created',
-                            demo_created_at = NOW()
+                            demo_created_at = NOW(),
+                            demo_expires_at = ?
                         WHERE id = ?
                           AND status = 'Customer Confirmed'
                           AND demo_created_at IS NULL
                     ");
 
                     $requestStmt->execute([
+                        $tenantDates['expires_at'],
                         $requestId
                     ]);
 
