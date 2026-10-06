@@ -189,18 +189,18 @@ function formatDemoDate(?string $date): string
 
                                     <p class="mb-0">
 
-                                        <strong>Email Confirmed:</strong><br>
+                                        <strong>CAPTCHA Verification:</strong><br>
 
-                                        <?php if (!empty($request['email_confirmed_at'])): ?>
+                                        <?php if ($request['status'] !== 'Pending Email Confirmation'): ?>
 
-                                            <?= formatDemoDate(
-                                                $request['email_confirmed_at']
-                                            ) ?>
+                                            <span class="badge bg-success">
+                                                Verified
+                                            </span>
 
                                         <?php else: ?>
 
-                                            <span class="text-muted">
-                                                Awaiting confirmation
+                                            <span class="badge bg-warning text-dark">
+                                                Awaiting Verification
                                             </span>
 
                                         <?php endif; ?>
@@ -380,32 +380,26 @@ function formatDemoDate(?string $date): string
 
                             <div class="row g-3">
 
-                                <!-- Email Confirmed -->
+                                <!-- CAPTCHA Verification -->
 
                                 <div class="col-md-4">
 
                                     <strong>
-                                        Email Confirmed
+                                        CAPTCHA Verification
                                     </strong>
 
                                     <div class="mt-2">
 
-                                        <?php if (!empty($request['email_confirmed_at'])): ?>
+                                        <?php if ($request['status'] !== 'Pending Email Confirmation'): ?>
 
                                             <span class="badge bg-success">
-                                                Confirmed
+                                                Verified
                                             </span>
-
-                                            <div class="text-muted small mt-1">
-                                                <?= formatDemoDate(
-                                                    $request['email_confirmed_at']
-                                                ) ?>
-                                            </div>
 
                                         <?php else: ?>
 
                                             <span class="badge bg-warning text-dark">
-                                                Awaiting Confirmation
+                                                Awaiting Verification
                                             </span>
 
                                         <?php endif; ?>
