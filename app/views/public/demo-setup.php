@@ -606,24 +606,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 try {
 
-                    $historyStmt = $pdo->prepare("
-                        INSERT INTO demo_domain_history
-                        (
-                            company_domain
-                        )
-                        SELECT ?
-                        WHERE NOT EXISTS
-                        (
-                            SELECT 1
-                            FROM demo_domain_history
-                            WHERE company_domain = ?
-                        )
+                    $historyCheckStmt = $pdo->prepare("
+                        SELECT id
+                        FROM demo_domain_history
+                        WHERE company_domain = ?
+                        LIMIT 1
                     ");
 
-                    $historyStmt->execute([
-                        $demoAdmin['company_domain'],
+                    $historyCheckStmt->execute([
                         $demoAdmin['company_domain']
                     ]);
+
+                    if (!$historyCheckStmt->fetchColumn()) {
+
+                        $historyStmt = $pdo->prepare("
+                            INSERT INTO demo_domain_history
+                            (
+                                company_domain,
+                                company_name,
+                                demo_request_id,
+                                demo_started_at,
+                                demo_expires_at,
+                                demo_completed_at
+                            )
+                            VALUES
+                            (?, ?, ?, ?, ?, NOW())
+                        ");
+
+                        $historyStmt->execute([
+                            $demoAdmin['company_domain'],
+                            $demoAdmin['company_name'],
+                            $requestId,
+                            $demoAdmin['started_at'],
+                            $demoAdmin['expires_at']
+                        ]);
+                    }
 
 
                     $requestStmt = $pdo->prepare("
@@ -936,7 +953,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 
 <body class="bg-light">
-<?php require dirname(__DIR__) . '/public/demo-banner.php'; ?>
 
 
 <div class="container py-5">
