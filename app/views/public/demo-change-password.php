@@ -136,7 +136,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION[$sessionKey] = $updatedDemoUser;
 
             if ($accountType === 'admin') {
-                header('Location: ?page=dashboard');
+                header('Location: ?page=demo-setup');
             } elseif ($accountType === 'customer') {
                 header('Location: ?page=customer-dashboard');
             } else {
@@ -154,7 +154,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 require dirname(__DIR__) . '/layouts/header-public.php';
-require dirname(__DIR__) . '/public/demo-banner.php';
 ?>
 
 <div class="row justify-content-center mt-5">

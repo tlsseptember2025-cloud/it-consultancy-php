@@ -7,6 +7,7 @@ if (!isset($_SESSION['user'])) {
 }
 
 require_once CONFIG_PATH . '/database.php';
+require_once CONFIG_PATH . '/demo-database.php';
 
 $id = (int)($_GET['id'] ?? 0);
 
@@ -44,6 +45,73 @@ $request = $stmt->fetch();
 
 if (!$request) {
     die('Demo request not found.');
+}
+
+/*
+ * Determine the actual Demo provisioning stage when the request has reached
+ * Customer Confirmed. The request remains Customer Confirmed until Demo Setup
+ * creates the Customer, Agent 1 and Agent 2 accounts.
+ */
+$provisioningStage = null;
+
+if ($request['status'] === 'Customer Confirmed') {
+
+    $tenantStmt = $demoPdo->prepare("
+        SELECT id
+        FROM demo_tenants
+        WHERE demo_request_id = ?
+        LIMIT 1
+    ");
+
+    $tenantStmt->execute([(int)$request['id']]);
+    $tenant = $tenantStmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$tenant) {
+        $provisioningStage = 'tenant';
+    } else {
+        $tenantId = (int)$tenant['id'];
+
+        $adminStmt = $demoPdo->prepare("
+            SELECT id
+            FROM users
+            WHERE demo_tenant_id = ?
+              AND is_demo_account = 1
+              AND is_super_admin = 0
+            LIMIT 1
+        ");
+
+        $adminStmt->execute([$tenantId]);
+        $demoAdmin = $adminStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$demoAdmin) {
+            $provisioningStage = 'admin';
+        } else {
+            $customerStmt = $demoPdo->prepare("
+                SELECT COUNT(*)
+                FROM customers
+                WHERE demo_tenant_id = ?
+                  AND is_demo_account = 1
+            ");
+
+            $customerStmt->execute([$tenantId]);
+            $customerCount = (int)$customerStmt->fetchColumn();
+
+            $agentStmt = $demoPdo->prepare("
+                SELECT COUNT(*)
+                FROM agents
+                WHERE demo_tenant_id = ?
+                  AND is_demo_account = 1
+            ");
+
+            $agentStmt->execute([$tenantId]);
+            $agentCount = (int)$agentStmt->fetchColumn();
+
+            $provisioningStage =
+                ($customerCount >= 1 && $agentCount >= 2)
+                    ? 'complete'
+                    : 'setup';
+        }
+    }
 }
 
 $exploreOptions = json_decode(
@@ -189,18 +257,18 @@ function formatDemoDate(?string $date): string
 
                                     <p class="mb-0">
 
-                                        <strong>CAPTCHA Verification:</strong><br>
+                                        <strong>Email Confirmed:</strong><br>
 
-                                        <?php if ($request['status'] !== 'Pending Email Confirmation'): ?>
+                                        <?php if (!empty($request['email_confirmed_at'])): ?>
 
-                                            <span class="badge bg-success">
-                                                Verified
-                                            </span>
+                                            <?= formatDemoDate(
+                                                $request['email_confirmed_at']
+                                            ) ?>
 
                                         <?php else: ?>
 
-                                            <span class="badge bg-warning text-dark">
-                                                Awaiting Verification
+                                            <span class="text-muted">
+                                                Awaiting confirmation
                                             </span>
 
                                         <?php endif; ?>
@@ -380,26 +448,32 @@ function formatDemoDate(?string $date): string
 
                             <div class="row g-3">
 
-                                <!-- CAPTCHA Verification -->
+                                <!-- Email Confirmed -->
 
                                 <div class="col-md-4">
 
                                     <strong>
-                                        CAPTCHA Verification
+                                        Email Confirmed
                                     </strong>
 
                                     <div class="mt-2">
 
-                                        <?php if ($request['status'] !== 'Pending Email Confirmation'): ?>
+                                        <?php if (!empty($request['email_confirmed_at'])): ?>
 
                                             <span class="badge bg-success">
-                                                Verified
+                                                Confirmed
                                             </span>
+
+                                            <div class="text-muted small mt-1">
+                                                <?= formatDemoDate(
+                                                    $request['email_confirmed_at']
+                                                ) ?>
+                                            </div>
 
                                         <?php else: ?>
 
                                             <span class="badge bg-warning text-dark">
-                                                Awaiting Verification
+                                                Awaiting Confirmation
                                             </span>
 
                                         <?php endif; ?>
@@ -665,14 +739,40 @@ function formatDemoDate(?string $date): string
 
                         <?php elseif ($request['status'] === 'Customer Confirmed'): ?>
 
-                            <a
-                                href="?page=create-demo-tenant&id=<?= (int)$request['id'] ?>"
-                                class="btn btn-success"
-                                onclick="return confirm('Create the Demo tenant for this customer?');">
+                            <?php if ($provisioningStage === 'tenant'): ?>
 
-                                Create Demo Tenant
+                                <a
+                                    href="?page=create-demo-tenant&id=<?= (int)$request['id'] ?>"
+                                    class="btn btn-success"
+                                    onclick="return confirm('Create the Demo tenant for this customer?');">
 
-                            </a>
+                                    Create Demo Tenant
+
+                                </a>
+
+                            <?php elseif ($provisioningStage === 'admin'): ?>
+
+                                <a
+                                    href="?page=create-demo-admin&id=<?= (int)$request['id'] ?>"
+                                    class="btn btn-success">
+
+                                    Create Demo Admin
+
+                                </a>
+
+                            <?php elseif ($provisioningStage === 'setup'): ?>
+
+                                <span class="btn btn-warning disabled">
+                                    Awaiting Demo Setup
+                                </span>
+
+                            <?php elseif ($provisioningStage === 'complete'): ?>
+
+                                <span class="btn btn-success disabled">
+                                    Demo Setup Complete
+                                </span>
+
+                            <?php endif; ?>
 
                         <?php endif; ?>
 

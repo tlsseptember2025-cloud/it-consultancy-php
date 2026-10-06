@@ -6,6 +6,7 @@ if (!isset($_SESSION['user'])) {
 }
 
 require_once CONFIG_PATH . '/database.php';
+require_once CONFIG_PATH . '/demo-database.php';
 
 $stmt = $pdo->query("
     SELECT
@@ -24,6 +25,81 @@ $stmt = $pdo->query("
 ");
 
 $demoRequests = $stmt->fetchAll();
+
+/*
+ * Determine the actual Demo provisioning stage for requests that have
+ * reached Customer Confirmed. The request remains Customer Confirmed
+ * while Step 1.9 / Step 1.10 / Demo Setup are being completed.
+ */
+foreach ($demoRequests as &$request) {
+
+    $request['provisioning_stage'] = null;
+
+    if ($request['status'] !== 'Customer Confirmed') {
+        continue;
+    }
+
+    $tenantStmt = $demoPdo->prepare("
+        SELECT id
+        FROM demo_tenants
+        WHERE demo_request_id = ?
+        LIMIT 1
+    ");
+
+    $tenantStmt->execute([(int)$request['id']]);
+    $tenant = $tenantStmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$tenant) {
+        $request['provisioning_stage'] = 'tenant';
+        continue;
+    }
+
+    $tenantId = (int)$tenant['id'];
+
+    $adminStmt = $demoPdo->prepare("
+        SELECT id
+        FROM users
+        WHERE demo_tenant_id = ?
+          AND is_demo_account = 1
+          AND is_super_admin = 0
+        LIMIT 1
+    ");
+
+    $adminStmt->execute([$tenantId]);
+    $demoAdmin = $adminStmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$demoAdmin) {
+        $request['provisioning_stage'] = 'admin';
+        continue;
+    }
+
+    $customerStmt = $demoPdo->prepare("
+        SELECT COUNT(*)
+        FROM customers
+        WHERE demo_tenant_id = ?
+          AND is_demo_account = 1
+    ");
+
+    $customerStmt->execute([$tenantId]);
+    $customerCount = (int)$customerStmt->fetchColumn();
+
+    $agentStmt = $demoPdo->prepare("
+        SELECT COUNT(*)
+        FROM agents
+        WHERE demo_tenant_id = ?
+          AND is_demo_account = 1
+    ");
+
+    $agentStmt->execute([$tenantId]);
+    $agentCount = (int)$agentStmt->fetchColumn();
+
+    if ($customerCount >= 1 && $agentCount >= 2) {
+        $request['provisioning_stage'] = 'complete';
+    } else {
+        $request['provisioning_stage'] = 'setup';
+    }
+}
+unset($request);
 
 ?>
 
@@ -183,11 +259,47 @@ $demoRequests = $stmt->fetchAll();
 
                             <?php elseif ($request['status'] === 'Customer Confirmed'): ?>
 
-                                <a
-                                    href="?page=view-demo-request&id=<?= (int)$request['id'] ?>"
-                                    class="btn btn-success btn-sm">
-                                    Create Demo
-                                </a>
+                                <?php if ($request['provisioning_stage'] === 'tenant'): ?>
+
+                                    <a
+                                        href="?page=view-demo-request&id=<?= (int)$request['id'] ?>"
+                                        class="btn btn-success btn-sm">
+                                        Create Demo Tenant
+                                    </a>
+
+                                <?php elseif ($request['provisioning_stage'] === 'admin'): ?>
+
+                                    <a
+                                        href="?page=create-demo-admin&id=<?= (int)$request['id'] ?>"
+                                        class="btn btn-success btn-sm">
+                                        Create Demo Admin
+                                    </a>
+
+                                <?php elseif ($request['provisioning_stage'] === 'setup'): ?>
+
+                                    <a
+                                        href="?page=view-demo-request&id=<?= (int)$request['id'] ?>"
+                                        class="btn btn-warning btn-sm">
+                                        Awaiting Demo Setup
+                                    </a>
+
+                                <?php elseif ($request['provisioning_stage'] === 'complete'): ?>
+
+                                    <a
+                                        href="?page=view-demo-request&id=<?= (int)$request['id'] ?>"
+                                        class="btn btn-success btn-sm">
+                                        Demo Setup Complete
+                                    </a>
+
+                                <?php else: ?>
+
+                                    <a
+                                        href="?page=view-demo-request&id=<?= (int)$request['id'] ?>"
+                                        class="btn btn-info btn-sm">
+                                        View
+                                    </a>
+
+                                <?php endif; ?>
 
                             <?php elseif ($request['status'] === 'Demo Created'): ?>
 
