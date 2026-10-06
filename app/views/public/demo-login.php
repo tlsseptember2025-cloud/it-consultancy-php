@@ -29,6 +29,27 @@ $error = '';
 
 /*
 |--------------------------------------------------------------------------
+| Start Demo Period On First Successful Demo Admin Login
+|--------------------------------------------------------------------------
+|
+| The 5-day Demo period starts on the Company's first successful Demo
+| Admin login. Tenant creation, Demo Admin creation, and Demo Setup do
+| not start the Demo period.
+|
+| Because the update requires started_at and expires_at to both be NULL,
+| later logins can never reset the Demo period.
+|
+*/
+function startDemoPeriodOnFirstLogin(PDO $demoPdo, int $tenantId): void
+{
+    $stmt = $demoPdo->prepare("\n        UPDATE demo_tenants\n        SET\n            started_at = NOW(),\n            expires_at = DATE_ADD(NOW(), INTERVAL 5 DAY)\n        WHERE id = ?\n          AND started_at IS NULL\n          AND expires_at IS NULL\n    ");
+
+    $stmt->execute([$tenantId]);
+}
+
+
+/*
+|--------------------------------------------------------------------------
 | Process Login
 |--------------------------------------------------------------------------
 */
@@ -369,6 +390,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     /*
                     |--------------------------------------------------------------------------
+                    | Start Demo Period On First Successful Admin Login
+                    |--------------------------------------------------------------------------
+                    */
+
+                    try {
+                        startDemoPeriodOnFirstLogin(
+                            $demoPdo,
+                            (int)$user['demo_tenant_id']
+                        );
+                    } catch (PDOException $e) {
+                        error_log(
+                            'Demo period start failed for tenant #'
+                            . (int)$user['demo_tenant_id']
+                            . ': '
+                            . $e->getMessage()
+                        );
+
+                        die(
+                            'The Demo could not be started. '
+                            . 'Please contact the administrator.'
+                        );
+                    }
+
+                    /*
+                    |--------------------------------------------------------------------------
                     | Clear Other Sessions
                     |--------------------------------------------------------------------------
                     */
@@ -390,6 +436,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     */
 
                     session_regenerate_id(true);
+                    /* Refresh the Demo period values after first-login start. */
+                    $tenantStmt = $demoPdo->prepare("\n                        SELECT started_at, expires_at, status\n                        FROM demo_tenants\n                        WHERE id = ?\n                        LIMIT 1\n                    ");
+
+                    $tenantStmt->execute([
+                        (int)$user['demo_tenant_id']
+                    ]);
+
+                    $tenant = $tenantStmt->fetch(PDO::FETCH_ASSOC);
+
+                    if ($tenant) {
+                        $user['started_at'] = $tenant['started_at'];
+                        $user['expires_at'] = $tenant['expires_at'];
+                        $user['tenant_status'] = $tenant['status'];
+                    }
+
                     $_SESSION['demo_user'] = $user;
 
 
