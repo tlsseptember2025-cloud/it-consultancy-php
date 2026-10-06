@@ -122,7 +122,7 @@ $demoRequests = $stmt->fetchAll();
                             <?php elseif ($request['status'] === 'Approved'): ?>
 
                                 <span class="badge bg-primary">
-                                    Approved
+                                    Awaiting Customer Confirmation
                                 </span>
 
                             <?php elseif ($request['status'] === 'Rejected'): ?>
@@ -133,8 +133,8 @@ $demoRequests = $stmt->fetchAll();
 
                             <?php elseif ($request['status'] === 'Customer Confirmed'): ?>
 
-                                <span class="badge bg-info">
-                                    Customer Confirmed
+                                <span class="badge bg-success">
+                                    Ready to Create Demo
                                 </span>
 
                             <?php elseif ($request['status'] === 'Demo Created'): ?>
@@ -165,11 +165,47 @@ $demoRequests = $stmt->fetchAll();
 
                         <td>
 
-                            <a
-                                href="?page=view-demo-request&id=<?= (int)$request['id'] ?>"
-                                class="btn btn-info btn-sm">
-                                View
-                            </a>
+                            <?php if ($request['status'] === 'Confirmed'): ?>
+
+                                <a
+                                    href="?page=view-demo-request&id=<?= (int)$request['id'] ?>"
+                                    class="btn btn-warning btn-sm">
+                                    Review &amp; Approve
+                                </a>
+
+                            <?php elseif ($request['status'] === 'Approved'): ?>
+
+                                <a
+                                    href="?page=view-demo-request&id=<?= (int)$request['id'] ?>"
+                                    class="btn btn-primary btn-sm">
+                                    Awaiting Customer
+                                </a>
+
+                            <?php elseif ($request['status'] === 'Customer Confirmed'): ?>
+
+                                <a
+                                    href="?page=view-demo-request&id=<?= (int)$request['id'] ?>"
+                                    class="btn btn-success btn-sm">
+                                    Create Demo
+                                </a>
+
+                            <?php elseif ($request['status'] === 'Demo Created'): ?>
+
+                                <a
+                                    href="?page=view-demo-request&id=<?= (int)$request['id'] ?>"
+                                    class="btn btn-success btn-sm">
+                                    View Demo
+                                </a>
+
+                            <?php else: ?>
+
+                                <a
+                                    href="?page=view-demo-request&id=<?= (int)$request['id'] ?>"
+                                    class="btn btn-info btn-sm">
+                                    View
+                                </a>
+
+                            <?php endif; ?>
 
                         </td>
 

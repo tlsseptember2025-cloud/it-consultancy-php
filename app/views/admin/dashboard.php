@@ -5,7 +5,6 @@ require_once HELPER_PATH . '/auth.php';
 
 requireAdminLogin();
 
-$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
 $isDemoAdmin = isset($_SESSION['demo_user']);
 
 // Demo Super Admin has its own dashboard and navbar.
@@ -359,6 +358,8 @@ $fetchDashboardRows = static function (
 */
 
 $demoRequestsActionCount = 0;
+$demoRequestsAwaitingApprovalCount = 0;
+$demoRequestsReadyToCreateCount = 0;
 
 /*
 |--------------------------------------------------------------------------
@@ -382,11 +383,22 @@ if (!isset($_SESSION['demo_user'])) {
 }
 
 if (!isset($_SESSION['demo_user'])) {
-    $demoRequestsActionCount = $pdo->query("
+
+    $demoRequestsAwaitingApprovalCount = (int) $pdo->query("
         SELECT COUNT(*)
         FROM demo_requests
-        WHERE status IN ('Confirmed', 'Customer Confirmed')
+        WHERE status = 'Confirmed'
     ")->fetchColumn();
+
+    $demoRequestsReadyToCreateCount = (int) $pdo->query("
+        SELECT COUNT(*)
+        FROM demo_requests
+        WHERE status = 'Customer Confirmed'
+    ")->fetchColumn();
+
+    $demoRequestsActionCount =
+        $demoRequestsAwaitingApprovalCount
+        + $demoRequestsReadyToCreateCount;
 }
 
 $netRevenue = (float) $totalPayments - (float) $totalRefunded;
@@ -470,42 +482,6 @@ $awaitingRescheduleApproval = $fetchDashboardRows(
 
 /*
 |--------------------------------------------------------------------------
-| Awaiting Schedule Approval
-|--------------------------------------------------------------------------
-| Consultations where the customer has selected a slot
-| but the admin has not yet approved the schedule.
-|--------------------------------------------------------------------------
-*/
-
-$awaitingScheduleApproval = $fetchDashboardRows(
-    $adminPdo,
-    "
-    SELECT
-        r.id,
-        c.name AS customer_name,
-        s.title AS service_title,
-        cs.slot_date AS schedule_date,
-        cs.slot_time AS schedule_time
-    FROM requests r
-    JOIN customers c
-        ON c.id = r.customer_id
-    JOIN services s
-        ON s.id = r.service_id
-    JOIN consultation_bookings cb
-        ON cb.request_id = r.id
-    JOIN consultation_slots cs
-        ON cs.id = cb.slot_id
-    WHERE r.workflow_stage = 'Consultation Scheduled'
-      AND TIMESTAMP(cs.slot_date, cs.slot_time) >= NOW()
-    $dashboardCustomerScope
-    ORDER BY cs.slot_date ASC, cs.slot_time ASC
-    LIMIT 3
-    ",
-    $dashboardCustomerParams
-);
-
-/*
-|--------------------------------------------------------------------------
 | Upcoming Schedule
 |--------------------------------------------------------------------------
 | Shows future confirmed consultations and scheduled services.
@@ -549,9 +525,11 @@ $stmt = $adminPdo->prepare("
     JOIN consultation_slots cs
         ON cs.id = cb.slot_id
 
-    WHERE r.workflow_stage = 'Consultation Confirmed'
-        AND TIMESTAMP(cs.slot_date, cs.slot_time) >= NOW()
-   
+    WHERE r.workflow_stage IN (
+    'Consultation Scheduled',
+    'Consultation Confirmed'
+)
+AND TIMESTAMP(cs.slot_date, cs.slot_time) >= NOW()
     $upcomingCustomerScope
 
 
@@ -970,94 +948,6 @@ $refundRequests = $fetchDashboardRows(
 
             <div class="row g-4">
 
-        <!-- Awaiting Schedule Approval -->
-<div class="col-lg-6">
-
-    <div class="card shadow-sm border-warning h-100">
-
-        <div class="card-header bg-warning text-dark">
-
-            <strong>🟡 Awaiting Schedule Approval</strong>
-
-            <?php if (!empty($awaitingScheduleApproval)): ?>
-
-                <span class="badge bg-dark float-end">
-                    <?= count($awaitingScheduleApproval) ?>
-                </span>
-
-            <?php endif; ?>
-
-        </div>
-
-        <div class="card-body p-0">
-
-            <?php if (empty($awaitingScheduleApproval)): ?>
-
-                <div class="p-4 text-muted text-center">
-                    No consultations are awaiting schedule approval.
-                </div>
-
-            <?php else: ?>
-
-                <?php foreach ($awaitingScheduleApproval as $item): ?>
-
-                    <a
-                        href="?page=review-consultation&id=<?= (int) $item['id'] ?>"
-                        class="text-decoration-none text-dark d-block"
-                    >
-
-                        <div class="p-3 border-bottom dashboard-action-item">
-
-                            <div class="fw-bold">
-                                Request #<?= (int) $item['id'] ?>
-                            </div>
-
-                            <div>
-                                <?= htmlspecialchars($item['customer_name']) ?>
-                            </div>
-
-                            <div class="small text-muted">
-                                <?= htmlspecialchars($item['service_title']) ?>
-                            </div>
-
-                            <div class="mt-2">
-
-                                <span class="badge bg-warning text-dark">
-                                    🟡 Awaiting Approval
-                                </span>
-
-                            </div>
-
-                            <div class="small fw-semibold mt-2">
-
-                                <?= date(
-                                    'd M Y',
-                                    strtotime($item['schedule_date'])
-                                ) ?>
-
-                                at
-
-                                <?= date(
-                                    'h:i A',
-                                    strtotime($item['schedule_time'])
-                                ) ?>
-
-                            </div>
-
-                        </div>
-
-                    </a>
-
-                <?php endforeach; ?>
-
-            <?php endif; ?>
-
-        </div>
-
-    </div>
-
-</div>
-
        
         <!-- Upcoming Schedule -->
         <div class="col-lg-6">
@@ -1092,7 +982,7 @@ $refundRequests = $fetchDashboardRows(
         <a
             href="<?=
                 $item['schedule_type'] === 'Consultation'
-                    ? '?page=admin-review-consultation&id=' . (int)$item['request_id']
+                    ? '?page=approve-consultation&id=' . (int)$item['request_id']
                     : '?page=approve-service-schedule&id=' . (int)$item['request_id']
             ?>"
             class="text-decoration-none text-dark d-block"
@@ -1788,20 +1678,37 @@ if ($item['review_type'] === 'consultation_overdue') {
                 <?php endif; ?>
             </div>
 
-            <div class="card-body text-center p-3">
+            <div class="card-body p-3">
 
                 <?php if ($demoRequestsActionCount > 0): ?>
 
-                    <div class="mb-2">
-                        <strong><?= (int) $demoRequestsActionCount ?></strong>
-                        request<?= $demoRequestsActionCount == 1 ? '' : 's' ?>
-                        need<?= $demoRequestsActionCount == 1 ? 's' : '' ?>
-                        admin action.
-                    </div>
+                    <?php if ($demoRequestsAwaitingApprovalCount > 0): ?>
+                        <div class="alert alert-warning py-2 px-2 mb-2">
+                            <div class="fw-bold">
+                                <?= (int) $demoRequestsAwaitingApprovalCount ?>
+                                Awaiting Approval
+                            </div>
+                            <div class="small">
+                                Review and approve or reject the Demo request.
+                            </div>
+                        </div>
+                    <?php endif; ?>
+
+                    <?php if ($demoRequestsReadyToCreateCount > 0): ?>
+                        <div class="alert alert-success py-2 px-2 mb-2">
+                            <div class="fw-bold">
+                                <?= (int) $demoRequestsReadyToCreateCount ?>
+                                Ready to Create Demo
+                            </div>
+                            <div class="small">
+                                Customer has confirmed. Create the Demo environment.
+                            </div>
+                        </div>
+                    <?php endif; ?>
 
                 <?php else: ?>
 
-                    <div class="text-muted mb-2">
+                    <div class="text-muted text-center mb-2">
                         No Demo requests need action.
                     </div>
 
@@ -1809,9 +1716,9 @@ if ($item['review_type'] === 'consultation_overdue') {
 
                 <a
                     href="?page=demo-requests"
-                    class="btn btn-sm btn-primary"
+                    class="btn btn-sm btn-primary w-100"
                 >
-                    View Requests
+                    View Demo Requests
                 </a>
 
             </div>
