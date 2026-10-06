@@ -57,7 +57,7 @@ $demoExtensionNoticeClass = 'alert-info';
 if ($isDemoAdmin) {
     try {
         $tenantStatusStmt = $adminPdo->prepare("
-            SELECT started_at, expires_at
+            SELECT started_at, expires_at, credentials_resend_used
             FROM demo_tenants
             WHERE id = ?
             LIMIT 1
@@ -67,6 +67,43 @@ if ($isDemoAdmin) {
 
         $demoTenantStarted = $demoTenant['started_at'] ?? null;
         $demoTenantExpiry = $demoTenant['expires_at'] ?? null;
+        $demoCredentialsResendUsed =
+            (int) ($demoTenant['credentials_resend_used'] ?? 0);
+
+        $demoSetupStatusStmt = $adminPdo->prepare("
+            SELECT
+                (
+                    SELECT COUNT(*)
+                    FROM customers
+                    WHERE demo_tenant_id = ?
+                      AND is_demo_account = 1
+                      AND password IS NOT NULL
+                      AND email IS NOT NULL
+                ) AS customer_count,
+                (
+                    SELECT COUNT(*)
+                    FROM agents
+                    WHERE demo_tenant_id = ?
+                      AND is_demo_account = 1
+                      AND username LIKE CONCAT(?, '_agent%')
+                      AND password IS NOT NULL
+                      AND email IS NOT NULL
+                ) AS agent_count
+        ");
+        $demoSetupStatusStmt->execute([
+            $demoTenantId,
+            $demoTenantId,
+            preg_replace('/_admin$/', '', (string) ($_SESSION['demo_user']['username'] ?? ''))
+        ]);
+        $demoSetupStatus =
+            $demoSetupStatusStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
+        $demoSetupComplete =
+            (int) ($demoSetupStatus['customer_count'] ?? 0) >= 1
+            && (int) ($demoSetupStatus['agent_count'] ?? 0) >= 2;
+
+        $demoCanResendCredentials =
+            $demoSetupComplete && $demoCredentialsResendUsed === 0;
 
         $extensionTableStmt = $adminPdo->query(
             "SHOW TABLES LIKE 'demo_extension_requests'"
@@ -837,13 +874,15 @@ $refundRequests = $fetchDashboardRows(
 
                     <div class="d-flex flex-wrap gap-2">
 
-                        <a
-                            href="?page=demo-setup"
-                            class="btn btn-outline-primary"
-                        >
-                            <i class="bi bi-people me-1"></i>
-                            Demo Setup
-                        </a>
+                        <?php if ($demoCanResendCredentials): ?>
+                            <a
+                                href="?page=demo-setup"
+                                class="btn btn-outline-primary"
+                            >
+                                <i class="bi bi-people me-1"></i>
+                                Resend Demo Credentials
+                            </a>
+                        <?php endif; ?>
 
                         <?php if ($demoExtensionCanRequest): ?>
                             <a

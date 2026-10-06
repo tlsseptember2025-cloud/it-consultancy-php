@@ -265,6 +265,9 @@ $setupComplete =
     !empty($agent2['email']) &&
     !empty($agent2['password']);
 
+$credentialsResendUsed =
+    (int) ($demoTenant['credentials_resend_used'] ?? 0);
+
 
 $error = '';
 
@@ -287,6 +290,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit('Invalid form submission. Please refresh the page and try again.');
     }
 
+    if ($setupComplete && $credentialsResendUsed === 1) {
+        $error = 'The one-time Demo credential resend has already been used.';
+    }
+
     $customerEmail = trim($_POST['customer_email'] ?? '');
     $agent1Email   = trim($_POST['agent1_email'] ?? '');
     $agent2Email   = trim($_POST['agent2_email'] ?? '');
@@ -299,8 +306,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     */
 
     if (
-        $customerEmail === '' ||
+        $error === '' &&
+        (
+            $customerEmail === '' ||
         !filter_var($customerEmail, FILTER_VALIDATE_EMAIL)
+        )
     ) {
         $error = 'Please enter a valid Customer email address.';
     }
@@ -927,6 +937,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'The Demo accounts were created, but one or more '
                         . 'credential emails could not be sent. '
                         . 'Please check the mail configuration.';
+                } else {
+                    $markResendStmt = $demoPdo->prepare("
+                        UPDATE demo_tenants
+                        SET credentials_resend_used = 1
+                        WHERE id = ?
+                          AND credentials_resend_used = 0
+                    ");
+
+                    if ($setupComplete) {
+                        $markResendStmt->execute([$tenantId]);
+                        $credentialsResendUsed = 1;
+                    }
                 }
             }
 
@@ -1005,7 +1027,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 <div class="card-body">
 
-                    <?php if ($setupComplete): ?>
+                    <?php if ($setupComplete && $credentialsResendUsed === 1): ?>
+
+                        <div class="alert alert-success">
+
+                            <strong>
+                                Demo Setup Complete
+                            </strong>
+
+                            <br><br>
+
+                            The Customer, Agent 1, and Agent 2 Demo accounts
+                            have already been created and their one-time
+                            credential resend has already been used.
+
+                        </div>
+
+                    <?php elseif ($setupComplete): ?>
 
                         <div class="alert alert-info">
 
@@ -1020,9 +1058,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                             <br><br>
 
-                            Use this page only if you need to resend their
-                            credentials. New temporary passwords will be
-                            generated and the Demo period will not be changed.
+                            If the credentials were not received, you may
+                            resend them once. New temporary passwords will
+                            be generated and the Demo period will not be changed.
 
                         </div>
 
@@ -1157,14 +1195,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </div>
 
 
-                        <button
-                            type="submit"
-                            class="btn btn-primary w-100"
-                        >
-                            <?= $setupComplete
-                                ? 'Resend Demo Credentials'
-                                : 'Complete Demo Setup' ?>
-                        </button>
+                        <?php if (!$setupComplete || $credentialsResendUsed === 0): ?>
+                            <button
+                                type="submit"
+                                class="btn btn-primary w-100"
+                            >
+                                <?= $setupComplete
+                                    ? 'Resend Demo Credentials'
+                                    : 'Complete Demo Setup' ?>
+                            </button>
+                        <?php endif; ?>
 
 
                     </form>
