@@ -911,6 +911,85 @@ $refundRequests = $fetchDashboardRows(
 
 <?php endif; ?>
 
+<?php if ($isDemoAdmin): ?>
+
+<div class="container-fluid mt-4">
+
+    <div class="row justify-content-center">
+
+        <div class="col-12 col-xl-10">
+
+            <div class="card shadow-sm mb-4">
+
+                <div class="card-header bg-dark text-white">
+                    <strong>💰 Financial Summary</strong>
+                </div>
+
+                <div class="card-body">
+
+                    <div class="row g-3">
+
+                        <div class="col-12 col-md-6 col-xl-3">
+                            <div class="card bg-info text-white shadow-sm h-100">
+                                <div class="card-body">
+                                    <h5>Total Payments</h5>
+                                    <h3>
+                                        AED <?= number_format($totalPayments, 2) ?>
+                                    </h3>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-md-6 col-xl-3">
+                            <div class="card bg-danger text-white shadow-sm h-100">
+                                <div class="card-body">
+                                    <h5>Total Refunded</h5>
+                                    <h3>
+                                        AED <?= number_format($totalRefunded, 2) ?>
+                                    </h3>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-md-6 col-xl-3">
+                            <div class="card bg-success text-white shadow-sm h-100">
+                                <div class="card-body">
+                                    <h5>Net Revenue</h5>
+                                    <h3>
+                                        AED <?= number_format($netRevenue, 2) ?>
+                                    </h3>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-md-6 col-xl-3">
+                            <div
+                                class="card shadow-sm h-100"
+                                style="background-color: var(--bs-orange); color: white;"
+                            >
+                                <div class="card-body">
+                                    <h5>Outstanding Balance</h5>
+                                    <h3>
+                                        AED <?= number_format($outstandingBalance, 2) ?>
+                                    </h3>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<?php endif; ?>
+
 <div class="container-fluid mt-4 dashboard-layout">
 
     <div class="row g-4">
@@ -918,6 +997,7 @@ $refundRequests = $fetchDashboardRows(
         <!-- =========================================================
              LEFT SIDEBAR
              ========================================================= -->
+        <?php if (!$isDemoAdmin): ?>
         <div class="col-lg-2">
 
             <!-- Financial Summary -->
@@ -975,10 +1055,13 @@ $refundRequests = $fetchDashboardRows(
         </div>
 
 
+        <?php endif; ?>
+
+
         <!-- =========================================================
             MIDDLE - EXISTING DASHBOARD
             ========================================================= -->
-        <div class="col-lg-8">
+        <div class="<?= $isDemoAdmin ? 'col-lg-8 mx-auto' : 'col-lg-8' ?>">
 
             <div class="row g-4">
 
@@ -1695,6 +1778,7 @@ if ($item['review_type'] === 'consultation_overdue') {
 <!-- =========================================================
      RIGHT SIDEBAR
      ========================================================= -->
+<?php if (!$isDemoAdmin): ?>
 <div class="col-lg-2">
 
     <!-- Demo Requests -->
@@ -1860,6 +1944,7 @@ if ($item['review_type'] === 'consultation_overdue') {
 
 </div>
 <!-- End right sidebar -->
+<?php endif; ?>
 
 </div>
 <!-- End main dashboard row -->
