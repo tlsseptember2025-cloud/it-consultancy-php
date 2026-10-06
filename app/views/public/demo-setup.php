@@ -266,17 +266,11 @@ $setupComplete =
     !empty($agent2['password']);
 
 
-if ($setupComplete) {
-    header('Location: ?page=dashboard');
-    exit;
-}
-
-
 $error = '';
 
-$customerEmail = '';
-$agent1Email = '';
-$agent2Email = '';
+$customerEmail = $setupComplete ? ($customer['email'] ?? '') : '';
+$agent1Email   = $setupComplete ? ($agent1['email'] ?? '') : '';
+$agent2Email   = $setupComplete ? ($agent2['email'] ?? '') : '';
 
 
 /*
@@ -608,12 +602,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     /*
                     |--------------------------------------------------------------
-                    | Start the Demo period now.
+                    | Read the already-started Demo period.
                     |--------------------------------------------------------------
-                    | Step 1.9 only creates the tenant container. The actual
-                    | five-day Demo starts when Demo Setup is completed.
-                    | If finalization is retried, preserve an already-started
-                    | period rather than extending it.
+                    | The five-day Demo period starts at the Company Demo Admin's
+                    | first successful login in demo-login.php. Demo Setup must
+                    | never start or reset the Demo clock.
                     */
 
                     $tenantDateStmt = $demoPdo->prepare("
@@ -631,35 +624,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     $tenantDates = $tenantDateStmt->fetch(PDO::FETCH_ASSOC);
 
-                    if (!$tenantDates) {
-                        throw new PDOException(
-                            'Demo tenant not found during finalization.'
-                        );
-                    }
-
                     if (
+                        !$tenantDates ||
                         empty($tenantDates['started_at']) ||
                         empty($tenantDates['expires_at'])
                     ) {
-
-                        $startDemoStmt = $demoPdo->prepare("
-                            UPDATE demo_tenants
-                            SET
-                                started_at = NOW(),
-                                expires_at = DATE_ADD(NOW(), INTERVAL 5 DAY),
-                                status = 'Active'
-                            WHERE id = ?
-                        ");
-
-                        $startDemoStmt->execute([
-                            $tenantId
-                        ]);
-
-                        $tenantDateStmt->execute([
-                            $tenantId
-                        ]);
-
-                        $tenantDates = $tenantDateStmt->fetch(PDO::FETCH_ASSOC);
+                        throw new PDOException(
+                            'Demo period has not been started by the Company Demo Admin login.'
+                        );
                     }
 
 
@@ -1033,22 +1005,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 <div class="card-body">
 
-                    <div class="alert alert-info">
+                    <?php if ($setupComplete): ?>
 
-                        <strong>
-                            Company Demo Admin Setup
-                        </strong>
+                        <div class="alert alert-info">
 
-                        <br><br>
+                            <strong>
+                                Demo Credentials
+                            </strong>
 
-                        You are the Company Demo Admin.
+                            <br><br>
 
-                        <br><br>
+                            The Customer, Agent 1, and Agent 2 Demo accounts
+                            have already been created.
 
-                        Complete the setup by entering a separate
-                        email address for each Demo role.
+                            <br><br>
 
-                    </div>
+                            Use this page only if you need to resend their
+                            credentials. New temporary passwords will be
+                            generated and the Demo period will not be changed.
+
+                        </div>
+
+                    <?php else: ?>
+
+                        <div class="alert alert-info">
+
+                            <strong>
+                                Company Demo Admin Setup
+                            </strong>
+
+                            <br><br>
+
+                            You are the Company Demo Admin.
+
+                            <br><br>
+
+                            Complete the setup by entering a separate
+                            email address for each Demo role.
+
+                        </div>
+
+                    <?php endif; ?>
 
 
                     <?php if ($error !== ''): ?>
@@ -1145,9 +1142,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                             <br><br>
 
-                            Separate temporary passwords will be
-                            generated and sent to the three email
-                            addresses.
+                            New temporary passwords will be generated
+                            and sent to the three email addresses.
+
+                            <?php if ($setupComplete): ?>
+
+                                <br><br>
+
+                                The existing Demo start and expiry dates
+                                will not be changed.
+
+                            <?php endif; ?>
 
                         </div>
 
@@ -1156,7 +1161,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             type="submit"
                             class="btn btn-primary w-100"
                         >
-                            Complete Demo Setup
+                            <?= $setupComplete
+                                ? 'Resend Demo Credentials'
+                                : 'Complete Demo Setup' ?>
                         </button>
 
 
