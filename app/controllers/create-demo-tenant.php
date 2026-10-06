@@ -237,6 +237,43 @@ try {
 
     $demoPdo->commit();
 
+    /*
+    |--------------------------------------------------------------------------
+    | Mark Demo Request as Provisioned
+    |--------------------------------------------------------------------------
+    |
+    | The Demo tenant has now been created successfully. Update the original
+    | Demo request in the Main/Dev database so the request cannot appear as
+    | ready to create again.
+    |
+    */
+
+    $updateRequestStmt = $pdo->prepare("
+        UPDATE demo_requests
+        SET
+            status = 'Demo Created',
+            demo_created_at = NOW()
+        WHERE id = ?
+          AND status = 'Customer Confirmed'
+        LIMIT 1
+    ");
+
+    $updateRequestStmt->execute([$requestId]);
+
+    if ($updateRequestStmt->rowCount() !== 1) {
+
+        error_log(
+            'Demo tenant #' . $tenantId
+            . ' was created, but Demo request #' . $requestId
+            . ' could not be marked as Demo Created.'
+        );
+
+        die(
+            'The Demo tenant was created, but the Demo request status '
+            . 'could not be updated. Please check the Demo request.'
+        );
+    }
+
 } catch (PDOException $e) {
 
     if ($demoPdo->inTransaction()) {
