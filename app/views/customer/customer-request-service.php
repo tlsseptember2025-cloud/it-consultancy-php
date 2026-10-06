@@ -94,7 +94,6 @@ if ($isDemoCustomer) {
         SELECT *
         FROM services
         WHERE demo_tenant_id = ?
-          AND is_demo_account = 1
         ORDER BY title
     ");
 
@@ -156,7 +155,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 FROM services
                 WHERE id = ?
                   AND demo_tenant_id = ?
-                  AND is_demo_account = 1
                 LIMIT 1
             ");
 
