@@ -209,9 +209,31 @@ unset($request);
 
                             <?php elseif ($request['status'] === 'Customer Confirmed'): ?>
 
-                                <span class="badge bg-success">
-                                    Ready to Create Demo
-                                </span>
+                                <?php if ($request['provisioning_stage'] === 'tenant'): ?>
+
+                                    <span class="badge bg-success">
+                                        Ready to Create Demo Tenant
+                                    </span>
+
+                                <?php elseif ($request['provisioning_stage'] === 'admin'): ?>
+
+                                    <span class="badge bg-primary">
+                                        Ready to Create Demo Admin
+                                    </span>
+
+                                <?php elseif ($request['provisioning_stage'] === 'setup'): ?>
+
+                                    <span class="badge bg-warning text-dark">
+                                        Awaiting Demo Setup
+                                    </span>
+
+                                <?php elseif ($request['provisioning_stage'] === 'complete'): ?>
+
+                                    <span class="badge bg-success">
+                                        Demo Setup Complete
+                                    </span>
+
+                                <?php endif; ?>
 
                             <?php elseif ($request['status'] === 'Demo Created'): ?>
 

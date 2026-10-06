@@ -822,10 +822,10 @@ try {
                     <div class="text-center mt-4">
 
                         <a
-                            href="?page=view-demo-request&id=<?= (int)$request['id'] ?>"
+                            href="?page=demo-requests"
                             class="btn btn-secondary"
                         >
-                            Back to Demo Request
+                            Back to Demo Requests
                         </a>
 
                     </div>
