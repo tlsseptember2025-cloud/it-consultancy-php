@@ -358,8 +358,6 @@ $fetchDashboardRows = static function (
 */
 
 $demoRequestsActionCount = 0;
-$demoRequestsAwaitingApprovalCount = 0;
-$demoRequestsReadyToCreateCount = 0;
 
 /*
 |--------------------------------------------------------------------------
@@ -383,22 +381,11 @@ if (!isset($_SESSION['demo_user'])) {
 }
 
 if (!isset($_SESSION['demo_user'])) {
-
-    $demoRequestsAwaitingApprovalCount = (int) $pdo->query("
+    $demoRequestsActionCount = $pdo->query("
         SELECT COUNT(*)
         FROM demo_requests
-        WHERE status = 'Confirmed'
+        WHERE status IN ('Confirmed', 'Customer Confirmed')
     ")->fetchColumn();
-
-    $demoRequestsReadyToCreateCount = (int) $pdo->query("
-        SELECT COUNT(*)
-        FROM demo_requests
-        WHERE status = 'Customer Confirmed'
-    ")->fetchColumn();
-
-    $demoRequestsActionCount =
-        $demoRequestsAwaitingApprovalCount
-        + $demoRequestsReadyToCreateCount;
 }
 
 $netRevenue = (float) $totalPayments - (float) $totalRefunded;
@@ -849,6 +836,14 @@ $refundRequests = $fetchDashboardRows(
                     </div>
 
                     <div class="d-flex flex-wrap gap-2">
+
+                        <a
+                            href="?page=demo-setup"
+                            class="btn btn-outline-primary"
+                        >
+                            <i class="bi bi-people me-1"></i>
+                            Demo Setup
+                        </a>
 
                         <?php if ($demoExtensionCanRequest): ?>
                             <a
@@ -1678,37 +1673,20 @@ if ($item['review_type'] === 'consultation_overdue') {
                 <?php endif; ?>
             </div>
 
-            <div class="card-body p-3">
+            <div class="card-body text-center p-3">
 
                 <?php if ($demoRequestsActionCount > 0): ?>
 
-                    <?php if ($demoRequestsAwaitingApprovalCount > 0): ?>
-                        <div class="alert alert-warning py-2 px-2 mb-2">
-                            <div class="fw-bold">
-                                <?= (int) $demoRequestsAwaitingApprovalCount ?>
-                                Awaiting Approval
-                            </div>
-                            <div class="small">
-                                Review and approve or reject the Demo request.
-                            </div>
-                        </div>
-                    <?php endif; ?>
-
-                    <?php if ($demoRequestsReadyToCreateCount > 0): ?>
-                        <div class="alert alert-success py-2 px-2 mb-2">
-                            <div class="fw-bold">
-                                <?= (int) $demoRequestsReadyToCreateCount ?>
-                                Ready to Create Demo
-                            </div>
-                            <div class="small">
-                                Customer has confirmed. Create the Demo environment.
-                            </div>
-                        </div>
-                    <?php endif; ?>
+                    <div class="mb-2">
+                        <strong><?= (int) $demoRequestsActionCount ?></strong>
+                        request<?= $demoRequestsActionCount == 1 ? '' : 's' ?>
+                        need<?= $demoRequestsActionCount == 1 ? 's' : '' ?>
+                        admin action.
+                    </div>
 
                 <?php else: ?>
 
-                    <div class="text-muted text-center mb-2">
+                    <div class="text-muted mb-2">
                         No Demo requests need action.
                     </div>
 
@@ -1716,9 +1694,9 @@ if ($item['review_type'] === 'consultation_overdue') {
 
                 <a
                     href="?page=demo-requests"
-                    class="btn btn-sm btn-primary w-100"
+                    class="btn btn-sm btn-primary"
                 >
-                    View Demo Requests
+                    View Requests
                 </a>
 
             </div>
