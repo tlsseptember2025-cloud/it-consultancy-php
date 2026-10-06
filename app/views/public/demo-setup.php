@@ -75,6 +75,7 @@ $stmt = $demoPdo->prepare("
         t.demo_request_id,
         t.started_at,
         t.expires_at,
+        t.credentials_resend_used,
         t.status AS tenant_status
     FROM users u
     INNER JOIN demo_tenants t
@@ -266,7 +267,7 @@ $setupComplete =
     !empty($agent2['password']);
 
 $credentialsResendUsed =
-    (int) ($demoTenant['credentials_resend_used'] ?? 0);
+    (int) ($demoAdmin['credentials_resend_used'] ?? 0);
 
 
 $error = '';
@@ -294,9 +295,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'The one-time Demo credential resend has already been used.';
     }
 
-    $customerEmail = trim($_POST['customer_email'] ?? '');
-    $agent1Email   = trim($_POST['agent1_email'] ?? '');
-    $agent2Email   = trim($_POST['agent2_email'] ?? '');
+    if ($setupComplete) {
+        $customerEmail = (string) ($customer['email'] ?? '');
+        $agent1Email   = (string) ($agent1['email'] ?? '');
+        $agent2Email   = (string) ($agent2['email'] ?? '');
+    } else {
+        $customerEmail = trim($_POST['customer_email'] ?? '');
+        $agent1Email   = trim($_POST['agent1_email'] ?? '');
+        $agent2Email   = trim($_POST['agent2_email'] ?? '');
+    }
 
 
     /*
@@ -606,7 +613,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $requestId = (int)$demoAdmin['demo_request_id'];
 
-            if ($requestId > 0) {
+            if (!$setupComplete && $requestId > 0) {
 
                 try {
 
