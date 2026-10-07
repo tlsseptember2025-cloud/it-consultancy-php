@@ -39,7 +39,45 @@ require_once CONFIG_PATH . '/demo-database.php';
 require_once APP_PATH . '/helpers/email.php';
 
 
-$requestId = (int)($_GET['id'] ?? 0);
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    ?>
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Confirm Demo Admin Creation</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    </head>
+    <body class="bg-light">
+    <div class="container py-5">
+        <div class="card shadow-sm mx-auto" style="max-width: 650px;">
+            <div class="card-body">
+                <h4 class="mb-3">Create Company Demo Admin</h4>
+                <p>This action will create the Company Demo Admin account for the confirmed Demo tenant.</p>
+                <form method="post">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="hidden" name="id" value="<?= (int) ($_GET['id'] ?? 0) ?>">
+                    <button type="submit" class="btn btn-primary">Create Demo Admin</button>
+                    <a href="?page=demo-requests" class="btn btn-secondary">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+    </body>
+    </html>
+    <?php
+    exit;
+}
+
+if (!isset($_POST['csrf_token']) || !hash_equals((string) $csrfToken, (string) $_POST['csrf_token'])) {
+    http_response_code(403);
+    exit('Invalid security token.');
+}
+
+$requestId = (int) ($_POST['id'] ?? 0);
 
 if ($requestId <= 0) {
     die('Invalid Demo request ID.');
@@ -93,6 +131,10 @@ if ($companyDomain === '') {
 
 if ($registeredEmail === '') {
     die('The Demo request does not contain a registered email address.');
+}
+
+if (!filter_var($registeredEmail, FILTER_VALIDATE_EMAIL)) {
+    die('The Demo request contains an invalid registered email address.');
 }
 
 
@@ -235,6 +277,22 @@ if ($stmt->fetch()) {
     die(
         'The generated Demo Admin username is already in use: '
         . htmlspecialchars($adminUsername)
+    );
+}
+
+$stmt = $demoPdo->prepare("
+    SELECT id
+    FROM users
+    WHERE email = ?
+      AND is_demo_account = 1
+      AND is_super_admin = 0
+    LIMIT 1
+");
+$stmt->execute([$registeredEmail]);
+
+if ($stmt->fetch()) {
+    die(
+        'The registered email address is already assigned to another Demo Admin account.'
     );
 }
 
@@ -399,6 +457,12 @@ $safeCompany = htmlspecialchars(
     'UTF-8'
 );
 
+$safeRegisteredEmail = htmlspecialchars(
+    $registeredEmail,
+    ENT_QUOTES,
+    'UTF-8'
+);
+
 $safeUsername = htmlspecialchars(
     $adminUsername,
     ENT_QUOTES,
@@ -465,7 +529,7 @@ $emailBody = "
 
         <tr>
             <th align='left'>Demo Admin Email</th>
-            <td><code>{$registeredEmail}</code></td>
+            <td><code>{$safeRegisteredEmail}</code></td>
         </tr>
 
         <tr>
@@ -766,28 +830,12 @@ try {
 
 
                     <div class="alert alert-warning">
-
-                        <strong>
-                            Temporary Password
-                        </strong>
-
-                        <div class="mt-2">
-
-                            <code class="fs-5">
-                                <?= htmlspecialchars($temporaryPassword) ?>
-                            </code>
-
-                        </div>
-
+                        <strong>Temporary Password</strong>
                         <div class="small mt-2">
-
-                            Save this password for testing.
-                            It is intentionally temporary.
-
+                            The temporary password was sent to the registered Demo Admin email address.
+                            It is not displayed here.
                         </div>
-
                     </div>
-
 
                     <div class="alert alert-info mb-0">
 

@@ -57,18 +57,50 @@ require_once CONFIG_PATH . '/demo-database.php';
 |--------------------------------------------------------------------------
 */
 
-$requestId = (int)($_GET['id'] ?? 0);
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    ?>
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Confirm Demo Account Creation</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    </head>
+    <body class="bg-light">
+    <div class="container py-5">
+        <div class="card shadow-sm mx-auto" style="max-width: 650px;">
+            <div class="card-body">
+                <h4 class="mb-3">Create Demo Customer and Agents</h4>
+                <p>This action will create the Demo Customer and both Demo Agents for the confirmed Demo tenant.</p>
+                <form method="post">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="hidden" name="id" value="<?= (int) ($_GET['id'] ?? 0) ?>">
+                    <button type="submit" class="btn btn-primary">Create Demo Accounts</button>
+                    <a href="?page=demo-requests" class="btn btn-secondary">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+    </body>
+    </html>
+    <?php
+    exit;
+}
+
+if (!isset($_POST['csrf_token']) || !hash_equals((string) $csrfToken, (string) $_POST['csrf_token'])) {
+    http_response_code(403);
+    exit('Invalid security token.');
+}
+
+$requestId = (int) ($_POST['id'] ?? 0);
 
 if ($requestId <= 0) {
     die('Invalid Demo request ID.');
 }
 
-
-/*
-|--------------------------------------------------------------------------
-| Load Demo Request
-|--------------------------------------------------------------------------
-*/
 
 $stmt = $pdo->prepare("
     SELECT
@@ -690,60 +722,6 @@ try {
         die(
             'The Demo was created, but the company domain could not '
             . 'be recorded in Demo history. Please contact the administrator.'
-        );
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Mark Demo Request as Created
-    |--------------------------------------------------------------------------
-    |
-    | This is done only after:
-    | - Demo tenant exists
-    | - Company Demo Admin exists
-    | - Demo Customer exists
-    | - Demo Agent 1 exists
-    | - Demo Agent 2 exists
-    | - Demo domain history has been recorded
-    |
-    |--------------------------------------------------------------------------
-    */
-
-    try {
-
-        $requestStmt = $pdo->prepare("
-            UPDATE demo_requests
-            SET
-                status = 'Demo Created',
-                demo_created_at = NOW()
-            WHERE id = ?
-              AND status = 'Customer Confirmed'
-              AND demo_created_at IS NULL
-        ");
-
-        $requestStmt->execute([
-            $requestId
-        ]);
-
-        if ($requestStmt->rowCount() !== 1) {
-
-            throw new RuntimeException(
-                'The Demo request could not be marked as created.'
-            );
-        }
-
-    } catch (PDOException $e) {
-
-        error_log(
-            'Demo request status update failed for request #'
-            . $requestId
-            . ': '
-            . $e->getMessage()
-        );
-
-        die(
-            'The Demo was created, but the Demo request could not '
-            . 'be marked as created. Please contact the administrator.'
         );
     }
 
