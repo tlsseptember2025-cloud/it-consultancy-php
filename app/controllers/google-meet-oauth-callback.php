@@ -11,6 +11,20 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
 }
 
+require_once APP_PATH . '/helpers/auth.php';
+
+if (isset($_SESSION['demo_user']) || isset($_SESSION['demo_super_admin'])) {
+    header('Location: ?page=demo-super-admin-dashboard');
+    exit;
+}
+
+if (!isset($_SESSION['user'])) {
+    header('Location: ?page=login');
+    exit;
+}
+
+requireAdminLogin();
+
 require_once CONFIG_PATH . '/database.php';
 
 /*

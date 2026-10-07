@@ -20,7 +20,18 @@ require_once CONFIG_PATH . '/database.php';
 
 require_once HELPER_PATH . '/auth.php';
 
+if (isset($_SESSION['demo_user']) || isset($_SESSION['demo_super_admin'])) {
+    header('Location: ?page=demo-super-admin-dashboard');
+    exit;
+}
+
+if (!isset($_SESSION['user'])) {
+    header('Location: ?page=login');
+    exit;
+}
+
 requireAdminLogin();
+
 
 /*
 |--------------------------------------------------------------------------

@@ -13,7 +13,58 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 require_once CONFIG_PATH . '/database.php';
 require_once HELPER_PATH . '/auth.php';
 
+if (isset($_SESSION['demo_user']) || isset($_SESSION['demo_super_admin'])) {
+    header('Location: ?page=demo-super-admin-dashboard');
+    exit;
+}
+
+if (!isset($_SESSION['user'])) {
+    header('Location: ?page=login');
+    exit;
+}
+
 requireAdminLogin();
+
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    ?>
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Confirm Google Meet API Test</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    </head>
+    <body class="bg-light">
+    <div class="container py-5">
+        <div class="card shadow-sm mx-auto" style="max-width: 650px;">
+            <div class="card-body">
+                <h4 class="mb-3">Confirm Google Meet API Test</h4>
+                <p>This test creates an external meeting using the configured integration.</p>
+                <form method="post">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+                    <button type="submit" class="btn btn-primary">Create Test Google Meet</button>
+                    <a href="?page=dashboard" class="btn btn-secondary">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+    </body>
+    </html>
+    <?php
+    exit;
+}
+
+if (
+    !isset($_POST['csrf_token'])
+    || !hash_equals((string) $csrfToken, (string) $_POST['csrf_token'])
+) {
+    http_response_code(403);
+    exit('Invalid security token.');
+}
+
 
 /*
 |--------------------------------------------------------------------------
