@@ -159,8 +159,16 @@ function stripeCompleteCheckoutPayment(
     $paymentIntentId = (string) ($session['payment_intent'] ?? '');
     $paymentStatus = (string) ($session['payment_status'] ?? '');
     $requestId = (int) ($session['metadata']['request_id'] ?? $session['client_reference_id'] ?? 0);
+    $amountTotal = isset($session['amount_total'])
+        ? (int) $session['amount_total']
+        : 0;
 
-    if ($sessionId === '' || $requestId <= 0 || $paymentStatus !== 'paid') {
+    if (
+        $sessionId === ''
+        || $requestId <= 0
+        || $paymentStatus !== 'paid'
+        || $amountTotal <= 0
+    ) {
         return false;
     }
 
@@ -184,6 +192,14 @@ function stripeCompleteCheckoutPayment(
 
     if (!$request) {
         throw new RuntimeException('Stripe payment references an unknown request.');
+    }
+
+    $expectedAmount = (int) round((float) $request['quoted_price'] * 100);
+
+    if ($amountTotal !== $expectedAmount) {
+        throw new RuntimeException(
+            'Stripe payment amount does not match the request amount.'
+        );
     }
 
     $pdo->beginTransaction();

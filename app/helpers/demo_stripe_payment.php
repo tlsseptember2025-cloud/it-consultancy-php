@@ -212,7 +212,7 @@ function demoStripeCompleteCheckoutPayment(
 
     $expectedAmount = (int) round((float) $request['quoted_price'] * 100);
 
-    if ($amountTotal > 0 && $amountTotal !== $expectedAmount) {
+    if ($amountTotal !== $expectedAmount) {
         throw new RuntimeException('Demo Stripe payment amount does not match the request amount.');
     }
 
@@ -343,7 +343,8 @@ function demoStripeCompleteCheckoutPayment(
         $request['customer_name'] . ' completed a Demo Stripe Test/Sandbox payment of AED '
             . number_format((float) $request['quoted_price'], 2)
             . ' for ' . $request['service_title'] . '.',
-        '?page=view-request&id=' . $requestId
+        '?page=view-request&id=' . $requestId,
+        $demoTenantId
     );
 
     return true;

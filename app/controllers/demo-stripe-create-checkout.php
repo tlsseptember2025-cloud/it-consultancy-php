@@ -21,6 +21,16 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit('Method Not Allowed');
 }
 
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+
+if (
+    !isset($_POST['csrf_token'])
+    || !hash_equals((string) $csrfToken, (string) $_POST['csrf_token'])
+) {
+    http_response_code(403);
+    exit('Invalid security token.');
+}
+
 $requestId = (int) ($_POST['request_id'] ?? 0);
 $customerId = (int) ($_SESSION['demo_customer']['id'] ?? 0);
 $demoTenantId = (int) ($_SESSION['demo_customer']['demo_tenant_id'] ?? 0);

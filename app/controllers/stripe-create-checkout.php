@@ -2,6 +2,22 @@
 
 require_once HELPER_PATH . '/auth.php';
 requireCustomerLogin();
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    exit('Method Not Allowed');
+}
+
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+
+if (
+    !isset($_POST['csrf_token'])
+    || !hash_equals((string) $csrfToken, (string) $_POST['csrf_token'])
+) {
+    http_response_code(403);
+    exit('Invalid security token.');
+}
+
 require_once HELPER_PATH . '/stripe_payment.php';
 
 $requestId = (int) ($_POST['request_id'] ?? 0);
