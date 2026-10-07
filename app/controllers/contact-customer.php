@@ -13,6 +13,8 @@ if (!isset($_SESSION['agent'])) {
 
 $agent = $_SESSION['agent'];
 
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+
 
 $requestId = (int) ($_GET['request_id'] ?? 0);
 
@@ -95,6 +97,13 @@ if ($request['workflow_stage'] !== 'Customer Contact') {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
+    $submittedToken = (string) ($_POST['csrf_token'] ?? '');
+
+    if ($submittedToken === '' || !hash_equals((string) $csrfToken, $submittedToken)) {
+        http_response_code(403);
+        die('Invalid security token.');
+    }
+
     $contactResult    = trim($_POST['contact_result'] ?? '');
     $agentNotes       = trim($_POST['agent_notes'] ?? '');
     $customerDecision = trim($_POST['customer_decision'] ?? '');
@@ -106,16 +115,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     |--------------------------------------------------------------------------
     */
 
-    if ($contactResult === '' || $agentNotes === '') {
+    $allowedContactResults = [
+        'No Answer',
+        'Wrong Number',
+        'Customer Answered'
+    ];
+
+    $allowedCustomerDecisions = [
+        'Continue Current Appointment',
+        'Continue New Appointment',
+        'Close Request'
+    ];
+
+    if (
+        $contactResult === ''
+        || $agentNotes === ''
+        || !in_array($contactResult, $allowedContactResults, true)
+        || mb_strlen($agentNotes) > 5000
+    ) {
         die('Please complete all required fields.');
     }
 
 
     if (
         $contactResult === 'Customer Answered'
-        && $customerDecision === ''
+        && !in_array($customerDecision, $allowedCustomerDecisions, true)
     ) {
-        die('Please select the customer decision.');
+        die('Please select a valid customer decision.');
+    }
+
+    if (
+        $contactResult !== 'Customer Answered'
+        && $customerDecision !== ''
+    ) {
+        die('Customer decision is only valid when the customer answered.');
     }
 
 
@@ -337,6 +370,8 @@ if ($contactResult === 'Customer Answered') {
             contact_result = ?,
             contact_attempts = ?
         WHERE id = ?
+          AND agent_id = ?
+          AND workflow_stage = 'Customer Contact'
     ");
 
 
@@ -347,8 +382,13 @@ if ($contactResult === 'Customer Answered') {
         $agentNotes,
         $contactResult,
         $contactAttempts,
-        $request['id']
+        $request['id'],
+        $agent['id']
     ]);
+
+    if ($stmt->rowCount() !== 1) {
+        die('The request status changed before the contact result could be saved.');
+    }
 
     /*
 |--------------------------------------------------------------------------

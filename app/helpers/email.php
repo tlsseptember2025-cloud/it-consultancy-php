@@ -68,10 +68,12 @@ function sendEmail(
 
 function sendConsultationApprovedEmail($email, $name)
 {
+    $safeName = htmlspecialchars($name, ENT_QUOTES, 'UTF-8');
+
     $subject = 'Consultation Confirmed';
 
     $body = "
-        <h2>Hello {$name},</h2>
+        <h2>Hello {$safeName},</h2>
 
         <p>Your consultation request has been approved.</p>
 
@@ -90,10 +92,13 @@ function sendPaymentRequestEmail(
     string $paymentRequestPath
 ): bool {
 
+    $safeCustomerName = htmlspecialchars($customerName, ENT_QUOTES, 'UTF-8');
+    $safeService = htmlspecialchars($service, ENT_QUOTES, 'UTF-8');
+
     $subject = 'Payment Request';
 
     $body = "
-        <h2>Hello {$customerName},</h2>
+        <h2>Hello {$safeCustomerName},</h2>
 
         <p>
             Thank you for accepting our proposal.
@@ -104,7 +109,7 @@ function sendPaymentRequestEmail(
         </p>
 
         <p>
-            <strong>{$service}</strong>
+            <strong>{$safeService}</strong>
         </p>
 
         <p>
@@ -139,6 +144,9 @@ function sendServiceCompletedEmail(
     int $serviceBookingId = 0
     ): bool {
 
+    $safeName = htmlspecialchars($name, ENT_QUOTES, 'UTF-8');
+    $safeService = htmlspecialchars($service, ENT_QUOTES, 'UTF-8');
+
     $subject = 'Your IT Service Has Been Successfully Completed';
 
     $ratingLink =
@@ -146,7 +154,7 @@ function sendServiceCompletedEmail(
     . $serviceBookingId;
 
     $body = "
-    <h2>Hello {$name},</h2>
+    <h2>Hello {$safeName},</h2>
 
     <p>
         We are pleased to inform you that your requested IT service
@@ -154,7 +162,7 @@ function sendServiceCompletedEmail(
     </p>
 
     <p>
-        <strong>Service:</strong> {$service}
+        <strong>Service:</strong> {$safeService}
     </p>
 
     <p>
@@ -215,19 +223,6 @@ function sendServiceCompletedEmail(
     to explore our services and learn about our upcoming
     monthly and annual business support plans.
 </p>
-
-        📧 <a href='mailto:<?= SUPPORT_EMAIL ?>'><?= SUPPORT_EMAIL ?></a><br>
-        📞 <?= SUPPORT_PHONE ?><br>
-        🌐 <a href='<?= COMPANY_WEBSITE ?>'><?= COMPANY_WEBSITE ?></a>
-    </p>
-
-    <p>
-        <strong>Need additional IT assistance?</strong><br>
-        Visit <a href='<?= COMPANY_WEBSITE ?>'>https://ramiphp.com</a>
-        to explore our services and learn about our upcoming
-        monthly and annual business support plans.
-    </p>
-
     <p>
         Kind regards,<br>
         <strong>IT Consultancy Team</strong>
@@ -260,6 +255,11 @@ function sendContractLeadNotification(
     string $comments
 ): bool {
 
+    $safeCompanyName = htmlspecialchars($companyName, ENT_QUOTES, 'UTF-8');
+    $safeContactPerson = htmlspecialchars($contactPerson, ENT_QUOTES, 'UTF-8');
+    $safeEmail = htmlspecialchars($email, ENT_QUOTES, 'UTF-8');
+    $safePhone = htmlspecialchars($phone, ENT_QUOTES, 'UTF-8');
+
     $subject = 'New Company Support Lead';
 
     $body = "
@@ -271,13 +271,13 @@ function sendContractLeadNotification(
 
         <hr>
 
-        <p><strong>Company:</strong> {$companyName}</p>
+        <p><strong>Company:</strong> {$safeCompanyName}</p>
 
-        <p><strong>Contact Person:</strong> {$contactPerson}</p>
+        <p><strong>Contact Person:</strong> {$safeContactPerson}</p>
 
-        <p><strong>Email:</strong> {$email}</p>
+        <p><strong>Email:</strong> {$safeEmail}</p>
 
-        <p><strong>Phone:</strong> {$phone}</p>
+        <p><strong>Phone:</strong> {$safePhone}</p>
 
         <p><strong>Employees:</strong> " . ($employees ?? 'Not specified') . "</p>
 
@@ -309,16 +309,20 @@ function sendPasswordResetEmail(
     string $token
     ): bool {
 
+    $safeCustomerName = htmlspecialchars($customerName, ENT_QUOTES, 'UTF-8');
+
     $subject = 'Reset Your Password';
 
    $resetLink =
     APP_URL . '/index.php?page=customer-reset-password&token='
     . urlencode($token);
 
+    $resetLink = htmlspecialchars($resetLink, ENT_QUOTES, 'UTF-8');
+
     $body = "
         <h2>Password Reset Request</h2>
 
-        <p>Hello {$customerName},</p>
+        <p>Hello {$safeCustomerName},</p>
 
         <p>
             We received a request to reset your password.
@@ -363,16 +367,20 @@ function sendAgentPasswordResetEmail(
     string $token
 ): bool {
 
+    $safeAgentName = htmlspecialchars($agentName, ENT_QUOTES, 'UTF-8');
+
     $subject = 'Change Your Agent Password';
 
    $resetLink =
     APP_URL . '/index.php?page=agent-reset-password&token='
     . urlencode($token);
 
+    $resetLink = htmlspecialchars($resetLink, ENT_QUOTES, 'UTF-8');
+
     $body = "
         <h2>Agent Password Change</h2>
 
-        <p>Hello {$agentName},</p>
+        <p>Hello {$safeAgentName},</p>
 
         <p>
             We received a request to change the password for your
@@ -422,13 +430,17 @@ function sendAgentAssignmentEmail(
     string $serviceName
 ): bool {
 
+    $safeAgentName = htmlspecialchars($agentName, ENT_QUOTES, 'UTF-8');
+    $safeCustomerName = htmlspecialchars($customerName, ENT_QUOTES, 'UTF-8');
+    $safeServiceName = htmlspecialchars($serviceName, ENT_QUOTES, 'UTF-8');
+
     $subject = 'New Service Request Assigned to You';
 
     $portalLink =
-        APP_URL . '/?page=agent-dashboard';
+        htmlspecialchars(APP_URL . '/?page=agent-dashboard', ENT_QUOTES, 'UTF-8');
 
     $body = "
-        <h2>Hello {$agentName},</h2>
+        <h2>Hello {$safeAgentName},</h2>
 
         <p>
             A new service request has been assigned to you.
@@ -443,12 +455,12 @@ function sendAgentAssignmentEmail(
 
         <p>
             <strong>Customer:</strong>
-            {$customerName}
+            {$safeCustomerName}
         </p>
 
         <p>
             <strong>Service:</strong>
-            {$serviceName}
+            {$safeServiceName}
         </p>
 
         <hr>

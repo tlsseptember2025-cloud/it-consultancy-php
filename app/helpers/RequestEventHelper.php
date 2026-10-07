@@ -208,9 +208,37 @@ public static function addCurrentUser(
 
         $eventSource = self::SOURCE_ADMINISTRATOR;
 
+        if (is_numeric($_SESSION['user'])) {
+            $sourceId = (int) $_SESSION['user'];
+        } else {
+            $adminStmt = $pdo->prepare("
+                SELECT id
+                FROM users
+                WHERE email = ?
+                LIMIT 1
+            ");
+            $adminStmt->execute([
+                (string) $_SESSION['user']
+            ]);
+
+            $sourceId = (int) ($adminStmt->fetchColumn() ?: 0);
+            if ($sourceId <= 0) {
+                $sourceId = null;
+            }
+        }
+
     } elseif (isset($_SESSION['demo_user'])) {
 
         $eventSource = self::SOURCE_ADMINISTRATOR;
+
+        if (
+            is_array($_SESSION['demo_user'])
+            && isset($_SESSION['demo_user']['id'])
+        ) {
+            $sourceId = (int) $_SESSION['demo_user']['id'];
+        } elseif (is_numeric($_SESSION['demo_user'])) {
+            $sourceId = (int) $_SESSION['demo_user'];
+        }
 
     } elseif (isset($_SESSION['agent'])) {
 

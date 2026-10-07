@@ -84,7 +84,7 @@ if ($isDemoAdmin) {
          FROM demo_tenants
          WHERE id = ?
            AND status = 'Active'
-           AND (expires_at IS NULL OR expires_at >= CURDATE())
+           AND (expires_at IS NULL OR expires_at > NOW())
          LIMIT 1"
     );
     $tenantStmt->execute([$demoTenantId]);
@@ -200,9 +200,11 @@ if ($isDemoAdmin) {
     $requestSql .= "
         AND c.demo_tenant_id = ?
         AND c.is_demo_account = 1
+        AND s.demo_tenant_id = ?
     ";
 
     $requestParams[] = $demoTenantId;
+$requestParams[] = $demoTenantId;
 }
 
 
@@ -472,6 +474,9 @@ if (
         INNER JOIN customers c
             ON c.id = r.customer_id
 
+        INNER JOIN services s
+            ON s.id = r.service_id
+
         SET
             r.workflow_stage = ?,
             r.job_status = ?
@@ -493,8 +498,10 @@ if (
         $updateSql .= "
             AND c.demo_tenant_id = ?
             AND c.is_demo_account = 1
+            AND s.demo_tenant_id = ?
         ";
 
+        $updateParams[] = $demoTenantId;
         $updateParams[] = $demoTenantId;
     }
 

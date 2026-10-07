@@ -12,6 +12,8 @@ if (isset($_SESSION['demo_super_admin']) || isset($_SESSION['demo_user'])) {
 
 requireAdminLogin();
 
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+
 require_once CONFIG_PATH . '/database.php';
 require_once APP_PATH . '/helpers/RequestEventHelper.php';
 
@@ -103,6 +105,13 @@ $maximumAttemptsReached =
 
 if (isset($_POST['approve_contact'])) {
 
+    $submittedToken = (string) ($_POST['csrf_token'] ?? '');
+
+    if ($submittedToken === '' || !hash_equals((string) $csrfToken, $submittedToken)) {
+        http_response_code(403);
+        die('Invalid security token.');
+    }
+
     $adminInstruction = trim($_POST['admin_instruction'] ?? '');
 
     if ($adminInstruction === '') {
@@ -121,13 +130,18 @@ if (isset($_POST['approve_contact'])) {
             admin_instruction = ?,
             workflow_stage = ?
         WHERE id = ?
+          AND workflow_stage = 'Needs Admin Review'
     ");
 
     $stmt->execute([
-    $adminInstruction,
-    'Customer Contact',
-    $consultation['id']
+        $adminInstruction,
+        'Customer Contact',
+        $consultation['id']
     ]);
+
+    if ($stmt->rowCount() !== 1) {
+        die('The request status changed before the contact approval could be saved.');
+    }
 
     /*
     |--------------------------------------------------------------------------
@@ -220,6 +234,13 @@ if (isset($_POST['approve_contact'])) {
 
 if (isset($_POST['send_contact_email'])) {
 
+    $submittedToken = (string) ($_POST['csrf_token'] ?? '');
+
+    if ($submittedToken === '' || !hash_equals((string) $csrfToken, $submittedToken)) {
+        http_response_code(403);
+        die('Invalid security token.');
+    }
+
     $stmt = $pdo->prepare("
     SELECT id
     FROM users
@@ -247,6 +268,7 @@ $adminId = $admin['id'];
         workflow_stage = ?,
         job_status = ?
     WHERE id = ?
+      AND workflow_stage = 'Needs Admin Review'
     ");
 
     $stmt->execute([
@@ -254,6 +276,10 @@ $adminId = $admin['id'];
         'Pending',
         $consultation['id']
     ]);
+
+    if ($stmt->rowCount() !== 1) {
+        die('The request status changed before the verification email could be sent.');
+    }
 
     $subject = 'Action Required: We Could Not Reach You Regarding Your Consultation';
 
