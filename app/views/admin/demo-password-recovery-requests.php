@@ -1,5 +1,7 @@
 <?php
 
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+
 if (!isset($_SESSION['user'])) {
     header('Location: ?page=login');
     exit;
@@ -293,6 +295,7 @@ require VIEW_PATH . '/layouts/header-admin.php';
                                                 action="?page=admin-demo-password-recovery"
                                                 class="d-inline"
                                                 onsubmit="return confirm('Approve this Demo password recovery request?');">
+    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
                                                 <input
                                                     type="hidden"

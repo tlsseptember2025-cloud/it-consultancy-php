@@ -143,7 +143,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pendingRequest = $pendingStmt->fetchColumn();
 
                 if ($pendingRequest) {
-                    $success = 'A password recovery request for this Demo account is already waiting for Admin review.';
+                    /*
+                     * Keep the response generic so this page cannot be used
+                     * to enumerate valid Demo accounts.
+                     */
+                    $success = 'If the Demo account details are valid, your password recovery request has been submitted for Admin review.';
                 } else {
 
                     $insertStmt = $demoPdo->prepare("

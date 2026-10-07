@@ -13,6 +13,17 @@ if (isset($_SESSION['demo_super_admin']) || isset($_SESSION['demo_user'])) {
 
 requireAdminLogin();
 
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+
+if (
+    $_SERVER['REQUEST_METHOD'] !== 'POST'
+    || !isset($_POST['csrf_token'])
+    || !hash_equals((string) $csrfToken, (string) $_POST['csrf_token'])
+) {
+    http_response_code(403);
+    exit('Invalid security token.');
+}
+
 $requestId = isset($_POST['request_id'])
     ? (int) $_POST['request_id']
     : 0;
@@ -46,6 +57,33 @@ $stmt->execute([$requestId]);
 $request = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$request) {
+    header('Location: ?page=demo-password-recovery-requests');
+    exit;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Verify Demo Tenant
+|--------------------------------------------------------------------------
+*/
+$recoveryTenantId = (int) ($request['demo_tenant_id'] ?? 0);
+
+$tenantStmt = $demoPdo->prepare("
+    SELECT id
+    FROM demo_tenants
+    WHERE id = ?
+      AND status = 'Active'
+      AND (
+          expires_at IS NULL
+          OR expires_at > NOW()
+      )
+    LIMIT 1
+");
+$tenantStmt->execute([$recoveryTenantId]);
+
+if (!$tenantStmt->fetchColumn()) {
+    $_SESSION['demo_password_recovery_error'] =
+        'The Demo account is no longer active.';
     header('Location: ?page=demo-password-recovery-requests');
     exit;
 }
@@ -444,7 +482,7 @@ if ($action === 'approve') {
         |--------------------------------------------------------------------------
         */
 
-        $loginLink = APP_URL . '/?page=demo-login';
+        $loginLink = rtrim((string) (defined('DEMO_APP_URL') ? DEMO_APP_URL : APP_URL), '/') . '/?page=demo-login';
 
         $accountLabel = ucfirst($accountType);
 
