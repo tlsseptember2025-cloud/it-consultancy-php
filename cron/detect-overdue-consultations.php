@@ -29,11 +29,32 @@ define('CONFIG_PATH', BASE_PATH . '/config');
 define('VIEW_PATH', APP_PATH . '/views');
 
 require_once CONFIG_PATH . '/settings.php';
-require_once CONFIG_PATH . '/database.php';
+$isDemoCron = defined('CRON_ENVIRONMENT')
+    && CRON_ENVIRONMENT === 'demo';
+
+if ($isDemoCron) {
+
+    require_once CONFIG_PATH . '/demo-database.php';
+    $cronPdo = $demoPdo;
+
+} else {
+
+    require_once CONFIG_PATH . '/database.php';
+    $cronPdo = $pdo;
+
+}
+
+$demoTenantFilter = $isDemoCron
+    ? "AND c.is_demo_account = 1
+        AND c.demo_tenant_id IS NOT NULL
+        AND s.demo_tenant_id = c.demo_tenant_id"
+    : '';
 
 require_once APP_PATH . '/helpers/RequestEventHelper.php';
 
 date_default_timezone_set('Asia/Dubai');
+
+echo "Cron environment: " . (CRON_ENVIRONMENT ?? 'main') . "\n";
 
 echo "Starting overdue consultation detection...\n";
 
@@ -53,7 +74,7 @@ echo "Current UAE time: {$nowString}\n";
 |--------------------------------------------------------------------------
 */
 
-$stmt = $pdo->prepare("
+$stmt = $cronPdo->prepare("
     SELECT
         r.id,
         r.customer_id,
@@ -88,6 +109,8 @@ $stmt = $pdo->prepare("
         AND TIMESTAMP(cs.slot_date, cs.slot_time)
             <= DATE_SUB(?, INTERVAL 1 HOUR)
 
+        {$demoTenantFilter}
+
     ORDER BY
         cs.slot_date,
         cs.slot_time
@@ -121,7 +144,7 @@ foreach ($consultations as $consultation) {
     |--------------------------------------------------------------------------
     */
 
-    $update = $pdo->prepare("
+    $update = $cronPdo->prepare("
     UPDATE requests
 
     SET
@@ -155,7 +178,7 @@ foreach ($consultations as $consultation) {
     */
 
     RequestEventHelper::add(
-        $pdo,
+        $cronPdo,
         $requestId,
         'CONSULTATION_SESSION_EXPIRED',
         RequestEventHelper::TYPE_CONSULTATION,

@@ -123,6 +123,28 @@ $jobs = [
 |--------------------------------------------------------------------------
 */
 
+$environment = $_GET['env'] ?? 'main';
+
+if (!in_array($environment, ['main', 'demo'], true)) {
+
+    http_response_code(400);
+    exit('Invalid cron environment.');
+
+}
+
+if (!defined('CRON_ENVIRONMENT')) {
+    define('CRON_ENVIRONMENT', $environment);
+}
+
+$cronAppUrl = $environment === 'demo'
+    ? (string) ($env['DEMO_APP_URL'] ?? '')
+    : (string) ($env['APP_URL'] ?? '');
+
+if (!defined('CRON_APP_URL')) {
+    define('CRON_APP_URL', rtrim($cronAppUrl, '/'));
+}
+
+
 $job = $_GET['job'] ?? '';
 
 if (!isset($jobs[$job])) {

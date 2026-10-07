@@ -19,10 +19,31 @@ define('APP_PATH', BASE_PATH . '/app');
 define('CONFIG_PATH', BASE_PATH . '/config');
 
 require_once CONFIG_PATH . '/settings.php';
-require_once CONFIG_PATH . '/database.php';
+$isDemoCron = defined('CRON_ENVIRONMENT')
+    && CRON_ENVIRONMENT === 'demo';
+
+if ($isDemoCron) {
+
+    require_once CONFIG_PATH . '/demo-database.php';
+    $cronPdo = $demoPdo;
+
+} else {
+
+    require_once CONFIG_PATH . '/database.php';
+    $cronPdo = $pdo;
+
+}
+
+$demoTenantFilter = $isDemoCron
+    ? "AND c.is_demo_account = 1
+        AND c.demo_tenant_id IS NOT NULL
+        AND s.demo_tenant_id = c.demo_tenant_id"
+    : '';
 require_once APP_PATH . '/helpers/RequestEventHelper.php';
 
 date_default_timezone_set('Asia/Dubai');
+
+echo "Cron environment: " . (CRON_ENVIRONMENT ?? 'main') . "\n";
 
 echo "Starting missed service detection...\n";
 
@@ -42,7 +63,7 @@ echo "Current UAE time: {$nowString}\n";
 |--------------------------------------------------------------------------
 */
 
-$stmt = $pdo->prepare("
+$stmt = $cronPdo->prepare("
     SELECT
         r.id,
         r.customer_id,
@@ -77,6 +98,8 @@ $stmt = $pdo->prepare("
         AND TIMESTAMP(ss.service_date, ss.service_time)
             <= DATE_SUB(?, INTERVAL 1 HOUR)
 
+        {$demoTenantFilter}
+
     ORDER BY
         ss.service_date,
         ss.service_time
@@ -110,7 +133,7 @@ foreach ($jobs as $job) {
     |--------------------------------------------------------------------------
     */
 
-$update = $pdo->prepare("
+$update = $cronPdo->prepare("
     UPDATE requests
 
     SET
@@ -144,7 +167,7 @@ $update = $pdo->prepare("
     */
 
     RequestEventHelper::add(
-        $pdo,
+        $cronPdo,
         $requestId,
         'SERVICE_MISSED',
         RequestEventHelper::TYPE_SERVICE,

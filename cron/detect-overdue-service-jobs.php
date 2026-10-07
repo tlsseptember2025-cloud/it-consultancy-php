@@ -25,11 +25,33 @@ define('APP_PATH', BASE_PATH . '/app');
 define('CONFIG_PATH', BASE_PATH . '/config');
 
 require_once CONFIG_PATH . '/settings.php';
-require_once CONFIG_PATH . '/database.php';
+$isDemoCron = defined('CRON_ENVIRONMENT')
+    && CRON_ENVIRONMENT === 'demo';
+
+if ($isDemoCron) {
+
+    require_once CONFIG_PATH . '/demo-database.php';
+    $cronPdo = $demoPdo;
+
+} else {
+
+    require_once CONFIG_PATH . '/database.php';
+    $cronPdo = $pdo;
+
+}
+
+$demoTenantFilter = $isDemoCron
+    ? "AND c.is_demo_account = 1
+        AND c.demo_tenant_id IS NOT NULL
+        AND s.demo_tenant_id = c.demo_tenant_id"
+    : '';
+
 
 require_once APP_PATH . '/helpers/RequestEventHelper.php';
 
 date_default_timezone_set('Asia/Dubai');
+
+echo "Cron environment: " . (defined('CRON_ENVIRONMENT') ? CRON_ENVIRONMENT : 'main') . "\n";
 
 echo "Starting overdue service detection...\n";
 
@@ -56,7 +78,7 @@ echo "Current UAE time: {$nowString}\n";
 |--------------------------------------------------------------------------
 */
 
-$stmt = $pdo->prepare("
+$stmt = $cronPdo->prepare("
     SELECT
 
         r.id,
@@ -93,6 +115,8 @@ $stmt = $pdo->prepare("
 
         AND r.workflow_stage <> 'Needs Admin Review'
 
+        {$demoTenantFilter}
+
     ORDER BY
         ss.service_date,
         ss.service_time
@@ -126,7 +150,7 @@ foreach ($jobs as $job) {
     |--------------------------------------------------------------------------
     */
 
-    $update = $pdo->prepare("
+    $update = $cronPdo->prepare("
         UPDATE requests
 
         SET
@@ -163,7 +187,7 @@ foreach ($jobs as $job) {
     */
 
     RequestEventHelper::add(
-        $pdo,
+        $cronPdo,
         $requestId,
         'SERVICE_OVERDUE',
         RequestEventHelper::TYPE_SERVICE,

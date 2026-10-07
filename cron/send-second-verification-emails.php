@@ -7,15 +7,37 @@ define('CONFIG_PATH', BASE_PATH . '/config');
 define('VIEW_PATH', APP_PATH . '/views');
 
 require_once CONFIG_PATH . '/settings.php';
-require_once CONFIG_PATH . '/database.php';
+$isDemoCron = defined('CRON_ENVIRONMENT')
+    && CRON_ENVIRONMENT === 'demo';
+
+if ($isDemoCron) {
+
+    require_once CONFIG_PATH . '/demo-database.php';
+    $cronPdo = $demoPdo;
+
+} else {
+
+    require_once CONFIG_PATH . '/database.php';
+    $cronPdo = $pdo;
+
+}
+
+$demoTenantFilter = $isDemoCron
+    ? "AND c.is_demo_account = 1
+        AND c.demo_tenant_id IS NOT NULL
+        AND s.demo_tenant_id = c.demo_tenant_id"
+    : '';
+
 
 require_once APP_PATH . '/helpers/email.php';
 require_once APP_PATH . '/helpers/contact_history_helper.php';
 require_once APP_PATH . '/helpers/RequestEventHelper.php';
 
+echo "Cron environment: " . (defined('CRON_ENVIRONMENT') ? CRON_ENVIRONMENT : 'main') . "\n";
+
 echo "Starting second verification email process...\n";
 
-$stmt = $pdo->prepare("
+$stmt = $cronPdo->prepare("
     SELECT
         r.*,
         c.name AS customer_name,
@@ -43,6 +65,8 @@ $stmt = $pdo->prepare("
         AND r.verification_email_count = 1
         AND r.second_verification_email_at IS NULL
         AND r.first_verification_email_at <= DATE_SUB(NOW(), INTERVAL 2 DAY)
+
+        {$demoTenantFilter}
 ");
 
 $stmt->execute();
@@ -90,7 +114,7 @@ foreach ($requests as $consultation) {
 
     echo "Email sent successfully.\n";
 
-    $stmt = $pdo->prepare("
+    $stmt = $cronPdo->prepare("
     UPDATE requests
     SET
         verification_email_count = 2,
@@ -103,7 +127,7 @@ $stmt->execute([
 ]);
 
 addContactHistory(
-    $pdo,
+    $cronPdo,
     $consultation['id'],
     null,
     null,
@@ -114,7 +138,7 @@ addContactHistory(
 
 RequestEventHelper::add(
 
-    $pdo,
+    $cronPdo,
 
     $consultation['id'],
 
