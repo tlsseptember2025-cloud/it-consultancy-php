@@ -133,11 +133,12 @@ WHERE r.id = ?
       OR (
           c.demo_tenant_id = ?
           AND c.is_demo_account = 1
+          AND s.demo_tenant_id = ?
       )
   )
 LIMIT 1
 ");
-$stmt->execute([$requestId, $demoTenantId, $demoTenantId]);
+$stmt->execute([$requestId, $demoTenantId, $demoTenantId, $demoTenantId]);
 $consultation = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$consultation) {
@@ -198,6 +199,7 @@ if (isset($_POST['save_customer_response'])) {
             workflow_stage = ?,
             job_status = ?
         WHERE id = ?
+          AND workflow_stage = 'Awaiting Customer Response'
     ");
 
     $stmt->execute([
@@ -205,6 +207,10 @@ if (isset($_POST['save_customer_response'])) {
         $jobStatus,
         $consultation['id']
     ]);
+
+    if ($stmt->rowCount() !== 1) {
+        die('The customer response could not be recorded because the request status has changed.');
+    }
 
     addContactHistory(
 
@@ -268,9 +274,14 @@ if (isset($_POST['continue_consultation'])) {
                 job_status = 'Pending',
                 admin_instruction = '__RESCHEDULE_ALLOWED__'
             WHERE id = ?
+              AND workflow_stage = 'Awaiting Customer Response'
         ");
 
         $stmt->execute([$requestId]);
+
+        if ($stmt->rowCount() !== 1) {
+            die('The consultation response could not be recorded because the request status has changed.');
+        }
 
         addContactHistory(
 
@@ -324,9 +335,14 @@ if (isset($_POST['continue_consultation'])) {
                 workflow_stage = 'Consultation Confirmed',
                 job_status = 'Pending'
             WHERE id = ?
+              AND workflow_stage = 'Awaiting Customer Response'
         ");
 
         $stmt->execute([$requestId]);
+
+        if ($stmt->rowCount() !== 1) {
+            die('The consultation response could not be recorded because the request status has changed.');
+        }
 
         addContactHistory(
 

@@ -1,5 +1,7 @@
 <?php
 
+require_once HELPER_PATH . '/auth.php';
+
 /*
 |--------------------------------------------------------------------------
 | Agent Authentication
@@ -22,6 +24,8 @@ if (!$isDemoAgent && !isset($_SESSION['agent'])) {
 */
 
 if ($isDemoAgent) {
+
+    requireDemoAgent();
 
     require_once CONFIG_PATH . '/demo-database.php';
 
@@ -46,7 +50,15 @@ if ($isDemoAgent) {
 }
 
 
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+
 $notificationId = (int) ($_GET['id'] ?? 0);
+
+if (!hash_equals($csrfToken, $_GET['csrf_token'] ?? '')) {
+    $_SESSION['error'] = 'Invalid or expired security request.';
+    header('Location: ?page=agent-notifications');
+    exit;
+}
 
 if ($notificationId <= 0) {
 

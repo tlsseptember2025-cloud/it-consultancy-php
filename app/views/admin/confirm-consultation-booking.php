@@ -127,7 +127,6 @@ if ($isDemoAdmin) {
           AND c.demo_tenant_id = ?
           AND c.is_demo_account = 1
           AND s.demo_tenant_id = ?
-          AND s.is_demo_account = 1
         LIMIT 1
     ");
 
@@ -414,7 +413,6 @@ if ($isDemoAdmin) {
           AND c.demo_tenant_id = ?
           AND c.is_demo_account = 1
           AND s.demo_tenant_id = ?
-          AND s.is_demo_account = 1
     ");
 
     $stmt->execute([
@@ -434,7 +432,7 @@ if ($isDemoAdmin) {
     $stmt->execute([$id]);
 }
 
-if ($stmt->rowCount() === 0) {
+if (!$stmt) {
     die('Consultation request could not be confirmed.');
 }
 

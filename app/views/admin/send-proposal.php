@@ -27,8 +27,8 @@ if ($isDemoAdmin) {
         SELECT id
         FROM demo_tenants
         WHERE id = ?
-          AND status = 'active'
-          AND (expires_at IS NULL OR expires_at >= CURDATE())
+          AND status = 'Active'
+          AND (expires_at IS NULL OR expires_at >= NOW())
         LIMIT 1
     ");
     $tenantStmt->execute([$adminTenantId]);
@@ -101,42 +101,39 @@ $stmt = $proposalPdo->prepare("
     WHERE r.id = ?
       AND (
           ? = 0
-          OR (c.demo_tenant_id = ? AND c.is_demo_account = 1)
+          OR (
+              c.demo_tenant_id = ?
+              AND c.is_demo_account = 1
+              AND s.demo_tenant_id = ?
+          )
       )
 ");
-
-$stmt->execute([$id, $adminTenantId, $adminTenantId]);
+$stmt->execute([
+    $id,
+    $adminTenantId,
+    $adminTenantId,
+    $adminTenantId
+]);
 
 $request = $stmt->fetch();
 
 if (!$request) {
-
     $_SESSION['error'] = 'Request not found.';
-
     header('Location: ?page=requests');
     exit;
 }
 
 if (empty(trim($request['proposal']))) {
-
     $_SESSION['error'] = 'Please create the proposal before sending it.';
-
     header('Location: ?page=create-proposal&id=' . $id);
     exit;
 }
 
-if (empty($request['quoted_price'])) {
-
+if ($request['quoted_price'] === null || $request['quoted_price'] === '') {
     $_SESSION['error'] = 'Please enter the quoted price before sending the proposal.';
-
     header('Location: ?page=create-proposal&id=' . $id);
     exit;
 }
-
-
-// =======================================
-// Generate Proposal PDF
-// =======================================
 
 $pdfPath = dirname(__DIR__, 2)
     . '/storage/proposals/proposal_' . $id . '.pdf';
@@ -146,6 +143,9 @@ generateProposalPdf(
     $pdfPath
 );
 
+$baseUrl = $isDemoAdmin
+    ? (defined('DEMO_APP_URL') && DEMO_APP_URL ? DEMO_APP_URL : APP_URL)
+    : APP_URL;
 
 $emailSent = sendEmail(
     $request['email'],
@@ -178,7 +178,7 @@ $emailSent = sendEmail(
     <p>
         <strong>Important:</strong>
         Before proceeding, please review our
-        <a href='" . APP_URL . "/?page=rules' target='_blank'>
+        <a href='" . htmlspecialchars($baseUrl . '/?page=rules', ENT_QUOTES, 'UTF-8') . "' target='_blank'>
             IT Consultancy Rules & Regulations
         </a>
     </p>
@@ -190,7 +190,7 @@ $emailSent = sendEmail(
 
     <p>
         <a
-            href='" . APP_URL . "/?page=public-login'
+            href='" . htmlspecialchars($baseUrl . '/?page=public-login', ENT_QUOTES, 'UTF-8') . "'
             style='
                 background:#0d6efd;
                 color:white;
@@ -212,9 +212,7 @@ $emailSent = sendEmail(
 );
 
 if (!$emailSent) {
-
     $_SESSION['error'] = 'Failed to send the proposal email.';
-
     header('Location: ?page=admin-view-proposal&id=' . $id);
     exit;
 }
@@ -230,18 +228,11 @@ createNotification(
 
 $update = $proposalPdo->prepare("
     UPDATE requests
-    SET
-        workflow_stage = 'Proposal Sent'
+    SET workflow_stage = 'Proposal Sent'
     WHERE id = ?
+      AND workflow_stage <> 'Proposal Sent'
 ");
-
 $update->execute([$id]);
-
-/*
-|--------------------------------------------------------------------------
-| Record Proposal Sent Event
-|--------------------------------------------------------------------------
-*/
 
 RequestEventHelper::addCurrentUser(
     $proposalPdo,

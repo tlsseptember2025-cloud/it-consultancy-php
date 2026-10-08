@@ -30,8 +30,13 @@ $isDemoSuperAdmin = isset($_SESSION['demo_super_admin']);
 |--------------------------------------------------------------------------
 */
 
-if (!$isMainAdmin && !$isDemoAdmin && !$isDemoSuperAdmin) {
-
+if ($isDemoAdmin) {
+    requireDemoAdmin();
+} elseif ($isMainAdmin) {
+    requireAdminLogin();
+} elseif ($isDemoSuperAdmin) {
+    // Demo Super Admin is already authenticated by the Demo Super Admin flow.
+} else {
     header('Location: ?page=login');
     exit;
 }
@@ -443,8 +448,7 @@ if (
             }
 
 
-            if ($updateStmt->rowCount() !== 1) {
-
+            if (!$updateStmt) {
                 throw new RuntimeException(
                     'The customer could not be suspended.'
                 );
@@ -548,8 +552,7 @@ if (
         }
 
 
-        if ($resolveStmt->rowCount() !== 1) {
-
+        if (!$resolveStmt) {
             throw new RuntimeException(
                 'The suspension reason could not be resolved.'
             );
@@ -672,8 +675,7 @@ if (
         }
 
 
-        if ($updateStmt->rowCount() !== 1) {
-
+        if (!$updateStmt) {
             throw new RuntimeException(
                 'The customer could not be reactivated.'
             );

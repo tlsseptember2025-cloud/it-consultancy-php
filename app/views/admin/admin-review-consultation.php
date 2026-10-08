@@ -36,7 +36,11 @@ if ($isDemoAdmin) {
 
     $reviewPdo = $demoPdo;
 
-    $demoTenantId = (int) $_SESSION['demo_user']['demo_tenant_id'];
+    $demoTenantId = (int) ($_SESSION['demo_user']['demo_tenant_id'] ?? 0);
+
+    if ($demoTenantId <= 0) {
+        die('Invalid Demo tenant.');
+    }
 }
 
 $requestId = (int)($_GET['id'] ?? 0);
@@ -100,7 +104,7 @@ if ($isDemoAdmin) {
         AND c.demo_tenant_id = ?
         AND c.is_demo_account = 1
         AND s.demo_tenant_id = ?
-        AND s.is_demo_account = 1
+
         AND a.demo_tenant_id = ?
         AND a.is_demo_account = 1
     ";
@@ -163,12 +167,12 @@ if ($isDemoAdmin) {
     ]);
 }
 
-$availableAgents =
-    $agentsStmt->fetchAll(PDO::FETCH_ASSOC);
-
 if (!$consultation) {
     die('Consultation not found.');
 }
+
+$availableAgents =
+    $agentsStmt->fetchAll(PDO::FETCH_ASSOC);
 
 
 /*
@@ -268,16 +272,40 @@ if (
     |--------------------------------------------------------------------------
     */
 
-    $adminStmt = $reviewPdo->prepare("
-        SELECT id
-        FROM users
-        WHERE email = ?
-        LIMIT 1
-    ");
+    $adminEmail = $isDemoAdmin
+        ? ($_SESSION['demo_user']['email'] ?? '')
+        : ($_SESSION['user'] ?? '');
 
-    $adminStmt->execute([
-        $_SESSION['user']
-    ]);
+    if ($adminEmail === '') {
+        die('Unable to identify the current administrator.');
+    }
+
+    if ($isDemoAdmin) {
+        $adminStmt = $reviewPdo->prepare("
+            SELECT id
+            FROM users
+            WHERE email = ?
+              AND demo_tenant_id = ?
+              AND is_demo_account = 1
+            LIMIT 1
+        ");
+
+        $adminStmt->execute([
+            $adminEmail,
+            $demoTenantId
+        ]);
+    } else {
+        $adminStmt = $reviewPdo->prepare("
+            SELECT id
+            FROM users
+            WHERE email = ?
+            LIMIT 1
+        ");
+
+        $adminStmt->execute([
+            $adminEmail
+        ]);
+    }
 
     $currentAdmin =
         $adminStmt->fetch(PDO::FETCH_ASSOC);
@@ -335,7 +363,6 @@ if ($decision === 'accept') {
                   AND c.demo_tenant_id = ?
                   AND c.is_demo_account = 1
                   AND s.demo_tenant_id = ?
-                  AND s.is_demo_account = 1
                   AND a.demo_tenant_id = ?
                   AND a.is_demo_account = 1
             ");
@@ -486,7 +513,7 @@ if ($isDemoAdmin) {
         SET cb.agent_id = ?
         WHERE cb.id = ?
           AND c.demo_tenant_id = ? AND c.is_demo_account = 1
-          AND s.demo_tenant_id = ? AND s.is_demo_account = 1
+          AND s.demo_tenant_id = ?
           AND old_a.demo_tenant_id = ? AND old_a.is_demo_account = 1
           AND new_a.demo_tenant_id = ? AND new_a.is_demo_account = 1
     ");
@@ -532,7 +559,7 @@ if ($isDemoAdmin) {
           AND r.workflow_stage = 'Needs Admin Review'
           AND r.review_type = 'consultation_not_completed'
           AND c.demo_tenant_id = ? AND c.is_demo_account = 1
-          AND s.demo_tenant_id = ? AND s.is_demo_account = 1
+          AND s.demo_tenant_id = ?
           AND new_a.demo_tenant_id = ? AND new_a.is_demo_account = 1
     ");
     $requestUpdate->execute([$newAgentId, $newAgentId, $comments, $consultation['id'],
@@ -600,7 +627,7 @@ $history->execute([
 */
 
 RequestEventHelper::addCurrentUser(
-    $pdo,
+    $reviewPdo,
     (int) $consultation['id'],
     'CONSULTATION_REASSIGNED',
     RequestEventHelper::TYPE_CONSULTATION,
@@ -669,7 +696,7 @@ if ($decision === 'approve') {
             SET r.admin_review_comments = ?, r.workflow_stage = 'Proposal Draft'
             WHERE r.id = ?
               AND c.demo_tenant_id = ? AND c.is_demo_account = 1
-              AND s.demo_tenant_id = ? AND s.is_demo_account = 1
+              AND s.demo_tenant_id = ?
               AND a.demo_tenant_id = ? AND a.is_demo_account = 1
         ");
         $update->execute([$comments, $consultation['id'], $demoTenantId, $demoTenantId, $demoTenantId]);
@@ -784,7 +811,7 @@ if ($decision === 'approve') {
                 r.job_status = 'In Progress'
             WHERE r.id = ?
               AND c.demo_tenant_id = ? AND c.is_demo_account = 1
-              AND s.demo_tenant_id = ? AND s.is_demo_account = 1
+              AND s.demo_tenant_id = ?
               AND a.demo_tenant_id = ? AND a.is_demo_account = 1
         ");
         $update->execute([$comments, $consultation['id'], $demoTenantId, $demoTenantId, $demoTenantId]);
@@ -1019,7 +1046,7 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
             </div>
 
-            
+
 
         </div>
 
@@ -1308,7 +1335,7 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
 
                 <div class="row g-4">
-                
+
                 <?php if ($isOverdueConsultationReview): ?>
 
                     <!-- Accept Explanation -->
@@ -1688,7 +1715,7 @@ require VIEW_PATH . '/layouts/header-admin.php';
 
         </p>
 
-        
+
 
         <h4 class="mb-3">Workflow Decisions</h4>
 

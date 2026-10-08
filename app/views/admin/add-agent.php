@@ -13,26 +13,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 require_once HELPER_PATH . '/auth.php';
 requireAdminLogin();
 
-$isDemoAdmin = isset($_SESSION['demo_user']);
-if (isset($_SESSION['demo_super_admin'])) {
-    header('Location: ?page=demo-super-admin');
+if (isset($_SESSION['demo_user']) || isset($_SESSION['demo_super_admin'])) {
+    header('Location: ?page=dashboard');
     exit;
 }
 
-if ($isDemoAdmin) {
-    require_once CONFIG_PATH . '/demo-database.php';
-    $agentPdo = $demoPdo;
-    $demoTenantId = (int) ($_SESSION['demo_user']['demo_tenant_id'] ?? 0);
-    if ($demoTenantId <= 0) {
-        unset($_SESSION['demo_user']);
-        header('Location: ?page=demo-login');
-        exit;
-    }
-} else {
-    require_once CONFIG_PATH . '/database.php';
-    $agentPdo = $pdo;
-    $demoTenantId = null;
-}
+$isDemoAdmin = false;
+require_once CONFIG_PATH . '/database.php';
+$agentPdo = $pdo;
+$demoTenantId = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
@@ -42,29 +31,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     } else {
 
-        if ($isDemoAdmin) {
-            $stmt = $agentPdo->prepare("
-                SELECT id
-                FROM agents
-                WHERE email = ?
-                  AND demo_tenant_id = ?
-                  AND is_demo_account = 1
-                LIMIT 1
-            ");
-            $stmt->execute([
-                trim($_POST['email'] ?? ''),
-                $demoTenantId
-            ]);
-        } else {
-            $stmt = $agentPdo->prepare("
-                SELECT id
-                FROM agents
-                WHERE email = ?
-                  AND (is_demo_account = 0 OR is_demo_account IS NULL)
-                LIMIT 1
-            ");
-            $stmt->execute([trim($_POST['email'] ?? '')]);
-        }
+        $stmt = $agentPdo->prepare("
+            SELECT id
+            FROM agents
+            WHERE email = ?
+              AND (is_demo_account = 0 OR is_demo_account IS NULL)
+            LIMIT 1
+        ");
+        $stmt->execute([trim($_POST['email'] ?? '')]);
         if ($stmt->fetch()) {
 
             $error = "An agent with this email already exists.";

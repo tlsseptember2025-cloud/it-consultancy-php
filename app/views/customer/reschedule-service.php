@@ -1,4 +1,6 @@
 <?php
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+
 
 require_once HELPER_PATH . '/security.php';
 require_once HELPER_PATH . '/auth.php';
@@ -587,7 +589,7 @@ require dirname(__DIR__) . '/layouts/header-customer.php';
                     <td>
 
                         <a
-                            href="?page=confirm-reschedule-service&request_id=<?= $requestId ?>&slot_id=<?= (int) $slot['id'] ?>"
+                            href="?page=confirm-reschedule-service&request_id=<?= $requestId ?>&slot_id=<?= (int) $slot['id'] ?>&csrf_token=<?= urlencode($csrfToken) ?>"
                             class="btn btn-success btn-sm">
 
                             Book

@@ -1,5 +1,7 @@
 <?php
 
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+
 require_once APP_PATH . '/helpers/DateHelper.php';
 require_once APP_PATH . '/helpers/SearchPaginationHelper.php';
 
@@ -1225,6 +1227,7 @@ $hasNormalRescheduleAvailable =
     <div class="d-flex flex-wrap gap-2">
 
         <form method="POST" action="?page=stripe-create-checkout" class="d-inline">
+    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="request_id" value="<?= (int) $request['id'] ?>">
             <button type="submit" class="btn btn-primary btn-sm">
                 <i class="bi bi-credit-card"></i>

@@ -70,7 +70,6 @@ if ($isDemoAdmin) {
           AND c.demo_tenant_id = ?
           AND c.is_demo_account = 1
           AND s.demo_tenant_id = ?
-          AND s.is_demo_account = 1
     ");
 
     $stmt->execute([
@@ -125,8 +124,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               AND c.demo_tenant_id = ?
               AND c.is_demo_account = 1
               AND s.demo_tenant_id = ?
-              AND s.is_demo_account = 1
-        ");
+              ");
 
         $stmt->execute([
             $proposalText,
@@ -154,8 +152,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ]);
     }
 
-    if ($stmt->rowCount() === 0) {
-        die('Request not found or access denied.');
+    if (!$stmt) {
+        die('Unable to save proposal.');
     }
 
     header('Location: ?page=requests');

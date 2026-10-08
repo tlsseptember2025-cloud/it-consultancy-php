@@ -59,11 +59,18 @@ if ($id <= 0) {
 
 $completionNotes = trim($_POST['completion_notes'] ?? '');
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    header('Location: ?page=complete-service-form&id=' . $id);
+    exit;
+}
 
-    $notes = trim($_POST['completion_notes'] ?? '');
+$notes = trim($_POST['completion_notes'] ?? '');
 
-    if ($isDemoAdmin) {
+if ($notes === '') {
+    die('Completion notes are required.');
+}
+
+if ($isDemoAdmin) {
 
         $stmt = $servicePdo->prepare("
             UPDATE requests r
@@ -81,7 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               AND c.demo_tenant_id = ?
               AND c.is_demo_account = 1
               AND s.demo_tenant_id = ?
-              AND s.is_demo_account = 1
+              AND r.workflow_stage <> 'Closed'
         ");
 
         $stmt->execute([
@@ -103,6 +110,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 completed_at = NOW(),
                 completion_notes = ?
             WHERE id = ?
+              AND workflow_stage <> 'Closed'
         ");
 
         $stmt->execute([
@@ -112,8 +120,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ]);
     }
 
-    if ($stmt->rowCount() === 0) {
-        die('Service request not found or access denied.');
+    if ($stmt->rowCount() !== 1) {
+        die('Service request not found, already completed, or access denied.');
     }
 
 /*
@@ -131,8 +139,6 @@ RequestEventHelper::addCurrentUser(
     'The service has been completed successfully.',
     true
 );
-
-}
 
 if ($isDemoAdmin) {
 
@@ -171,7 +177,6 @@ if ($isDemoAdmin) {
           AND c.demo_tenant_id = ?
           AND c.is_demo_account = 1
           AND s.demo_tenant_id = ?
-          AND s.is_demo_account = 1
 
         ORDER BY p.payment_date DESC
 

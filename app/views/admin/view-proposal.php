@@ -105,11 +105,12 @@ WHERE r.id = ?
       OR (
           c.demo_tenant_id = ?
           AND c.is_demo_account = 1
+          AND s.demo_tenant_id = ?
       )
   )
 ");
 
-$stmt->execute([$requestId, $demoTenantId, $demoTenantId]);
+$stmt->execute([$requestId, $demoTenantId, $demoTenantId, $demoTenantId]);
 $request = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$request) {

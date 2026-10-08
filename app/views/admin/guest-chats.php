@@ -13,6 +13,11 @@ if (isset($_SESSION['demo_super_admin'])) {
     exit;
 }
 
+if (isset($_SESSION['demo_user'])) {
+    header('Location: ?page=demo-dashboard');
+    exit;
+}
+
 
 /*
 |--------------------------------------------------------------------------

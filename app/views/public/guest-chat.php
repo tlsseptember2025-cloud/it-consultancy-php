@@ -5,6 +5,26 @@ require_once HELPER_PATH . '/GuestChatHelper.php';
 require_once HELPER_PATH . '/notifications.php';
 
 
+/*
+ * Guest Chat is a public-only workflow.
+ * Authenticated Main Admin and Demo sessions must not create
+ * public guest-chat conversations.
+ */
+if (isset($_SESSION['user'])) {
+    header('Location: ?page=admin-dashboard');
+    exit;
+}
+
+if (isset($_SESSION['demo_super_admin'])) {
+    header('Location: ?page=demo-super-admin');
+    exit;
+}
+
+if (isset($_SESSION['demo_user'])) {
+    header('Location: ?page=demo-dashboard');
+    exit;
+}
+
 if (empty($_SESSION['public_csrf_token']) || !is_string($_SESSION['public_csrf_token'])) {
     $_SESSION['public_csrf_token'] = bin2hex(random_bytes(32));
 }
@@ -103,6 +123,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
      * Always re-check availability immediately before
      * creating the conversation.
      */
+    /*
+     * Prevent duplicate submissions from creating multiple active
+     * conversations in the same browser session.
+     */
+    if (!empty($_SESSION['guest_chat_conversation_id'])) {
+        $existingConversationId = (int) $_SESSION['guest_chat_conversation_id'];
+
+        if ($existingConversationId > 0) {
+            $existingStmt = $pdo->prepare("
+                SELECT id
+                FROM guest_chat_conversations
+                WHERE id = ?
+                  AND status = 'Open'
+                LIMIT 1
+            ");
+            $existingStmt->execute([$existingConversationId]);
+
+            if ($existingStmt->fetchColumn() !== false) {
+                header(
+                    'Location: ?page=guest-chat-conversation&id='
+                    . $existingConversationId
+                );
+                exit;
+            }
+
+            unset($_SESSION['guest_chat_conversation_id']);
+        }
+    }
+
     $guestChatAvailability = getGuestChatAvailability($pdo);
 
     if (!$guestChatAvailability['available']) {
@@ -129,6 +178,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($guestName === '') {
             $errors[] = 'Please enter your name.';
+        } elseif (mb_strlen($guestName) > 150) {
+            $errors[] = 'Your name must not exceed 150 characters.';
         }
 
         if (
@@ -136,10 +187,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             || !filter_var($guestEmail, FILTER_VALIDATE_EMAIL)
         ) {
             $errors[] = 'Please enter a valid email address.';
+        } elseif (mb_strlen($guestEmail) > 254) {
+            $errors[] = 'Your email address must not exceed 254 characters.';
         }
 
         if ($subject === '') {
             $errors[] = 'Please enter a subject.';
+        } elseif (mb_strlen($subject) > 255) {
+            $errors[] = 'The subject must not exceed 255 characters.';
         }
 
         if (empty($errors)) {
@@ -342,6 +397,7 @@ require dirname(__DIR__) . '/public/demo-banner.php';
                                     ? ''
                                     : 'disabled'
                                 ?>
+                                maxlength="150"
                                 required>
 
                         </div>
@@ -366,6 +422,7 @@ require dirname(__DIR__) . '/public/demo-banner.php';
                                     ? ''
                                     : 'disabled'
                                 ?>
+                                maxlength="254"
                                 required>
 
                         </div>
@@ -390,6 +447,7 @@ require dirname(__DIR__) . '/public/demo-banner.php';
                                     ? ''
                                     : 'disabled'
                                 ?>
+                                maxlength="255"
                                 required>
 
                         </div>

@@ -66,6 +66,7 @@ $stmt = $db->prepare("
     WHERE password_reset_token = ?
       AND password_reset_expires_at IS NOT NULL
       AND password_reset_expires_at > NOW()
+      AND (is_demo_account = 0 OR is_demo_account IS NULL)
     LIMIT 1
 ");
 
@@ -88,15 +89,19 @@ if (!$agent) {
 
     $stmt = $db->prepare("
         SELECT
-            id,
-            name,
-            email
-        FROM agents
-        WHERE password_reset_token = ?
-          AND password_reset_expires_at IS NOT NULL
-          AND password_reset_expires_at > NOW()
-          AND is_demo_account = 1
-          AND demo_tenant_id IS NOT NULL
+            a.id,
+            a.name,
+            a.email
+        FROM agents a
+        INNER JOIN demo_tenants dt
+            ON dt.id = a.demo_tenant_id
+        WHERE a.password_reset_token = ?
+          AND a.password_reset_expires_at IS NOT NULL
+          AND a.password_reset_expires_at > NOW()
+          AND a.is_demo_account = 1
+          AND a.demo_tenant_id IS NOT NULL
+          AND dt.status = 'Active'
+          AND (dt.expires_at IS NULL OR dt.expires_at > NOW())
         LIMIT 1
     ");
 
@@ -165,16 +170,33 @@ if (
          * being used after the page was opened.
          */
 
-        $stmt = $db->prepare("
-            SELECT
-                id
-            FROM agents
-            WHERE id = ?
-              AND password_reset_token = ?
-              AND password_reset_expires_at IS NOT NULL
-              AND password_reset_expires_at > NOW()
-            LIMIT 1
-        ");
+        if ($isDemoReset) {
+            $stmt = $db->prepare("
+                SELECT a.id
+                FROM agents a
+                INNER JOIN demo_tenants dt
+                    ON dt.id = a.demo_tenant_id
+                WHERE a.id = ?
+                  AND a.password_reset_token = ?
+                  AND a.password_reset_expires_at IS NOT NULL
+                  AND a.password_reset_expires_at > NOW()
+                  AND a.is_demo_account = 1
+                  AND dt.status = 'Active'
+                  AND (dt.expires_at IS NULL OR dt.expires_at > NOW())
+                LIMIT 1
+            ");
+        } else {
+            $stmt = $db->prepare("
+                SELECT id
+                FROM agents
+                WHERE id = ?
+                  AND password_reset_token = ?
+                  AND password_reset_expires_at IS NOT NULL
+                  AND password_reset_expires_at > NOW()
+                  AND (is_demo_account = 0 OR is_demo_account IS NULL)
+                LIMIT 1
+            ");
+        }
 
         $stmt->execute([
             $agent['id'],

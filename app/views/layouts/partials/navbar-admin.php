@@ -172,18 +172,33 @@ endif;
 |
 */
 
-$adminPdo = $pdo;
+$isDemoAdmin = isset($_SESSION['demo_user']) && is_array($_SESSION['demo_user']);
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
 
-if (
-    isset($_SESSION['demo_super_admin']) ||
-    isset($_SESSION['demo_user'])
-) {
+if ($isDemoAdmin) {
 
     if (!isset($demoPdo)) {
         require_once CONFIG_PATH . '/demo-database.php';
     }
 
     $adminPdo = $demoPdo;
+
+    $demoAdminId = (int) ($_SESSION['demo_user']['id'] ?? 0);
+    $demoTenantId = (int) ($_SESSION['demo_user']['demo_tenant_id'] ?? 0);
+
+    if ($demoAdminId <= 0 || $demoTenantId <= 0) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+} else {
+
+    require_once CONFIG_PATH . '/database.php';
+    $adminPdo = $pdo;
+
+    $demoAdminId = 0;
+    $demoTenantId = 0;
 }
 
 
@@ -197,12 +212,24 @@ $notificationCount = 0;
 
 try {
 
-    $stmt = $adminPdo->query("
-        SELECT COUNT(*)
-        FROM notifications
-        WHERE recipient_type = 'admin'
-          AND is_read = 0
-    ");
+    if ($isDemoAdmin) {
+        $stmt = $adminPdo->prepare("
+            SELECT COUNT(*)
+            FROM notifications
+            WHERE recipient_type = 'admin'
+              AND recipient_id = ?
+              AND is_read = 0
+        ");
+        $stmt->execute([$demoAdminId]);
+    } else {
+        $stmt = $adminPdo->query("
+            SELECT COUNT(*)
+            FROM notifications
+            WHERE recipient_type = 'admin'
+              AND recipient_id IS NULL
+              AND is_read = 0
+        ");
+    }
 
     $notificationCount = (int) $stmt->fetchColumn();
 
@@ -223,15 +250,39 @@ $needsAdminReviewCount = 0;
 
 try {
 
-    $stmt = $adminPdo->prepare("
-        SELECT COUNT(*) AS total
-        FROM requests
-        WHERE workflow_stage = ?
-    ");
+    if ($isDemoAdmin) {
 
-    $stmt->execute([
-        'Needs Admin Review'
-    ]);
+        $stmt = $adminPdo->prepare("
+            SELECT COUNT(*) AS total
+            FROM requests r
+            INNER JOIN customers c
+                ON c.id = r.customer_id
+            INNER JOIN services s
+                ON s.id = r.service_id
+            WHERE r.workflow_stage = ?
+              AND c.demo_tenant_id = ?
+              AND c.is_demo_account = 1
+              AND s.demo_tenant_id = ?
+        ");
+
+        $stmt->execute([
+            'Needs Admin Review',
+            $demoTenantId,
+            $demoTenantId
+        ]);
+
+    } else {
+
+        $stmt = $adminPdo->prepare("
+            SELECT COUNT(*) AS total
+            FROM requests
+            WHERE workflow_stage = ?
+        ");
+
+        $stmt->execute([
+            'Needs Admin Review'
+        ]);
+    }
 
     $needsAdminReviewCount =
         (int) $stmt->fetch(PDO::FETCH_ASSOC)['total'];
@@ -723,14 +774,28 @@ try {
 
                         <?php
 
-                        $stmt = $adminPdo->query("
-                            SELECT *
-                            FROM notifications
-                            WHERE recipient_type = 'admin'
-                              AND is_read = 0
-                            ORDER BY created_at DESC
-                            LIMIT 10
-                        ");
+                        if ($isDemoAdmin) {
+                            $stmt = $adminPdo->prepare("
+                                SELECT *
+                                FROM notifications
+                                WHERE recipient_type = 'admin'
+                                  AND recipient_id = ?
+                                  AND is_read = 0
+                                ORDER BY created_at DESC
+                                LIMIT 10
+                            ");
+                            $stmt->execute([$demoAdminId]);
+                        } else {
+                            $stmt = $adminPdo->query("
+                                SELECT *
+                                FROM notifications
+                                WHERE recipient_type = 'admin'
+                                  AND recipient_id IS NULL
+                                  AND is_read = 0
+                                ORDER BY created_at DESC
+                                LIMIT 10
+                            ");
+                        }
 
                         $notifications = $stmt->fetchAll();
 
@@ -753,7 +818,7 @@ try {
 
                                     <a
                                         class="dropdown-item"
-                                        href="?page=open-notification&id=<?= (int) $notification['id'] ?>">
+                                        href="?page=open-notification&id=<?= (int) $notification['id'] ?>&csrf_token=<?= urlencode($csrfToken) ?>">
 
                                         <strong>
 

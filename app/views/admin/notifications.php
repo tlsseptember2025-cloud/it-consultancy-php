@@ -26,6 +26,8 @@ requireAdminLogin();
 $isDemoAdmin = isset($_SESSION['demo_user']);
 $isDemoSuperAdmin = isset($_SESSION['demo_super_admin']);
 $isMainAdmin = isset($_SESSION['user']);
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+$demoAdminId = (int) ($_SESSION['demo_user']['id'] ?? 0);
 
 
 /*
@@ -85,9 +87,23 @@ $page = getPageNumber();
 
 $params = [];
 
-$where = "
-    WHERE recipient_type = 'admin'
-";
+if ($isDemoAdmin) {
+    if ($demoAdminId <= 0) {
+        http_response_code(403);
+        exit('Invalid Demo Admin session.');
+    }
+
+    $where = "
+        WHERE recipient_type = 'admin'
+          AND recipient_id = ?
+    ";
+    $params[] = $demoAdminId;
+} else {
+    $where = "
+        WHERE recipient_type = 'admin'
+          AND recipient_id IS NULL
+    ";
+}
 
 
 /*
@@ -247,7 +263,7 @@ $adminNotifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
             <?php if (!empty($adminNotifications)): ?>
 
                 <a
-                    href="?page=mark-all-notifications-read"
+                    href="?page=mark-all-notifications-read&csrf_token=<?= urlencode($csrfToken) ?>"
                     class="btn btn-primary btn-sm"
                     onclick="return confirm('Mark all notifications as read?');">
 
@@ -368,7 +384,7 @@ $adminNotifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                 <td>
 
                                     <a
-                                        href="?page=open-notification&id=<?= (int) $notification['id'] ?>"
+                                        href="?page=open-notification&id=<?= (int) $notification['id'] ?>&csrf_token=<?= urlencode($csrfToken) ?>"
                                         class="btn btn-sm btn-primary">
 
                                         Open

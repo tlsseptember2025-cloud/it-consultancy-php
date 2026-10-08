@@ -302,7 +302,7 @@ require dirname(__DIR__) . '/layouts/header-customer.php';
             </a>
 
             <a
-                href="?page=reject-proposal&request_id=<?= $requestId ?>"
+                href="?page=reject-proposal&request_id=<?= $requestId ?>&csrf_token=<?= urlencode($csrfToken) ?>"
                 class="btn btn-danger">
 
                 Reject Proposal

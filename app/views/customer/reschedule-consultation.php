@@ -1,4 +1,6 @@
 <?php
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+
 
 require_once HELPER_PATH . '/security.php';
 require_once HELPER_PATH . '/auth.php';
@@ -752,7 +754,8 @@ continueButton.addEventListener('click', function () {
         '?page=confirm-reschedule-consultation'
         + '&request_id=<?= $requestId ?>'
         + '&slot_id='
-        + encodeURIComponent(slotId);
+        + encodeURIComponent(slotId)
+        + '&csrf_token=<?= urlencode($csrfToken) ?>';
 
 });
 

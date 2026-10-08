@@ -25,6 +25,8 @@ $stmt = $pdo->prepare("
     SELECT id
     FROM users
     WHERE email = ?
+      AND is_demo_account = 0
+      AND is_super_admin = 0
     LIMIT 1
 ");
 
@@ -50,11 +52,11 @@ $presenceStmt = $pdo->prepare("
     VALUES
         (
             ?,
-            CURRENT_TIMESTAMP,
+            UTC_TIMESTAMP(),
             1
         )
     ON DUPLICATE KEY UPDATE
-        last_seen = CURRENT_TIMESTAMP,
+        last_seen = UTC_TIMESTAMP(),
         is_online = 1
 ");
 

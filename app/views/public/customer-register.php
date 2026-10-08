@@ -1,7 +1,20 @@
 <?php
 
-require CONFIG_PATH . '/database.php';
+require_once CONFIG_PATH . '/database.php';
 require_once HELPER_PATH . '/email.php';
+
+/*
+ * Customer registration belongs to the Main site.
+ * Demo customers are created by Demo Setup and must never be created
+ * through this public registration form.
+ */
+$registrationHost = strtolower($_SERVER['HTTP_HOST'] ?? '');
+$registrationHost = preg_replace('/:\\d+$/', '', $registrationHost) ?? $registrationHost;
+
+if ($registrationHost === 'demo.wahbibconsultancy.com') {
+    header('Location: ?page=demo-login');
+    exit;
+}
 
 
 if (empty($_SESSION['public_csrf_token']) || !is_string($_SESSION['public_csrf_token'])) {
@@ -37,7 +50,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     |--------------------------------------------------------------------------
     */
 
-    if ($password !== $confirmPassword) {
+    if (
+        $name === ''
+        || mb_strlen($name) > 255
+    ) {
+
+        $error = 'Please enter a valid name.';
+
+    } elseif (
+        !filter_var($email, FILTER_VALIDATE_EMAIL)
+        || mb_strlen($email) > 255
+    ) {
+
+        $error = 'Please enter a valid email address.';
+
+    } elseif (
+        $phone === ''
+        || mb_strlen($phone) > 50
+    ) {
+
+        $error = 'Please enter a valid phone number.';
+
+    } elseif (strlen($password) < 8) {
+
+        $error = 'Password must be at least 8 characters long.';
+
+    } elseif ($password !== $confirmPassword) {
 
         $error = 'Passwords do not match.';
 
@@ -112,6 +150,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $verificationToken,
                 $verificationExpires
             ]);
+
+            $customerId = (int) $pdo->lastInsertId();
 
             /*
             |--------------------------------------------------------------------------
@@ -210,11 +250,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $delete = $pdo->prepare("
                     DELETE FROM customers
-                    WHERE email = ?
+                    WHERE id = ?
                 ");
 
                 $delete->execute([
-                    $email
+                    $customerId
                 ]);
 
                 $error = 'Unable to send the verification email. Please try again later.';

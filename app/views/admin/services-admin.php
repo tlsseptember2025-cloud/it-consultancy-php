@@ -32,7 +32,7 @@ if ($isDemoAdmin) {
     $tenantStmt->execute([$adminTenantId]);
     $tenant = $tenantStmt->fetch(PDO::FETCH_ASSOC);
 
-    if (!$tenant || $tenant['status'] !== 'active' ||
+    if (!$tenant || $tenant['status'] !== 'Active' ||
         (!empty($tenant['expires_at']) && strtotime($tenant['expires_at']) < time())) {
         unset($_SESSION['demo_user']);
         header('Location: ?page=demo-login');
@@ -63,7 +63,6 @@ if ($isDemoAdmin) {
         SELECT *
         FROM services
         WHERE demo_tenant_id = ?
-          AND is_demo_account = 1
         ORDER BY created_at DESC
     " );
     $stmt->execute([$adminTenantId]);
@@ -74,7 +73,6 @@ if ($isDemoAdmin) {
     $stmt = $servicesPdo->query("
         SELECT *
         FROM services
-        WHERE COALESCE(is_demo_account, 0) = 0
         ORDER BY created_at DESC
     " );
 }
@@ -103,7 +101,7 @@ $services = $stmt->fetchAll(PDO::FETCH_ASSOC);
             <tr>
                 <td>
                     <?php if (!empty($service['image'])): ?>
-                        <img src="../public/uploads/services/<?= htmlspecialchars($service['image']) ?>" width="80" class="img-thumbnail">
+                        <img src="/uploads/services/<?= rawurlencode($service['image']) ?>" width="80" class="img-thumbnail">
                     <?php endif; ?>
                 </td>
 

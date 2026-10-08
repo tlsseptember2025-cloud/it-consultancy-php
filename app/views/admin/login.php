@@ -24,10 +24,28 @@ if (isset($_SESSION['user'])) {
 }
 
 require_once CONFIG_PATH . '/database.php';
+require_once HELPER_PATH . '/auth.php';
+
+$csrfKey = 'main_admin_login_csrf';
+if (empty($_SESSION[$csrfKey])) {
+    $_SESSION[$csrfKey] = bin2hex(random_bytes(32));
+}
 
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+    $submittedToken = (string) ($_POST['csrf_token'] ?? '');
+    $sessionToken = (string) ($_SESSION[$csrfKey] ?? '');
+
+    if (
+        $sessionToken === ''
+        || $submittedToken === ''
+        || !hash_equals($sessionToken, $submittedToken)
+    ) {
+        http_response_code(403);
+        die('Invalid security token.');
+    }
 
     $email = trim($_POST['email'] ?? '');
 
@@ -285,6 +303,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     method="POST"
                     autocomplete="off"
                 >
+                    <input
+                        type="hidden"
+                        name="csrf_token"
+                        value="<?= htmlspecialchars($_SESSION[$csrfKey] ?? '', ENT_QUOTES, 'UTF-8') ?>">
 
                     <div class="mb-3">
 

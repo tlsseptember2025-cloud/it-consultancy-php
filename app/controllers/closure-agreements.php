@@ -32,6 +32,45 @@ if ($isDemoAdmin) {
         header('Location: ?page=demo-login');
         exit;
     }
+
+    $tenantStmt = $closurePdo->prepare("
+        SELECT id
+        FROM demo_tenants
+        WHERE id = ?
+          AND status = 'Active'
+          AND (
+              expires_at IS NULL
+              OR expires_at > NOW()
+          )
+        LIMIT 1
+    ");
+    $tenantStmt->execute([$demoTenantId]);
+
+    if (!$tenantStmt->fetchColumn()) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    $adminStmt = $closurePdo->prepare("
+        SELECT id
+        FROM users
+        WHERE id = ?
+          AND demo_tenant_id = ?
+          AND is_demo_account = 1
+          AND is_super_admin = 0
+        LIMIT 1
+    ");
+    $adminStmt->execute([
+        (int) ($_SESSION['demo_user']['id'] ?? 0),
+        $demoTenantId
+    ]);
+
+    if (!$adminStmt->fetchColumn()) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
 }
 
 $search = getSearchTerm();
@@ -81,6 +120,7 @@ $sql = "
     FROM consultation_closure_agreements cca
     INNER JOIN requests r
         ON r.id = cca.request_id
+        AND r.customer_id = cca.customer_id
     INNER JOIN customers c
         ON c.id = cca.customer_id
     INNER JOIN services s
@@ -99,7 +139,8 @@ $countSql = "
     SELECT COUNT(*)
     FROM consultation_closure_agreements cca
     INNER JOIN requests r
-        ON r.id = cca.request_id
+    ON r.id = cca.request_id
+   AND r.customer_id = cca.customer_id
     INNER JOIN customers c
         ON c.id = cca.customer_id
     INNER JOIN services s

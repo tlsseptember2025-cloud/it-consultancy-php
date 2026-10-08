@@ -95,10 +95,11 @@ if ($isDemoAdmin) {
         WHERE requests.id = ?
           AND customers.demo_tenant_id = ?
           AND customers.is_demo_account = 1
+          AND services.demo_tenant_id = ?
         LIMIT 1
     ");
 
-    $stmt->execute([$id, $demoTenantId]);
+    $stmt->execute([$id, $demoTenantId, $demoTenantId]);
 } else {
     $stmt = $requestPdo->prepare("
         SELECT
@@ -135,7 +136,7 @@ if (!$request) {
 */
 
 $events = RequestEventHelper::get(
-    $pdo,
+    $requestPdo,
     (int)$request['id']
 );
 

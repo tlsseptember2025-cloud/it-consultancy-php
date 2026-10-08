@@ -3,6 +3,20 @@
 require_once CONFIG_PATH . '/database.php';
 require_once HELPER_PATH . '/auth.php';
 
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $submittedCsrfToken = $_POST['csrf_token'] ?? '';
+
+    if (
+        !is_string($submittedCsrfToken)
+        || !hash_equals($csrfToken, $submittedCsrfToken)
+    ) {
+        http_response_code(403);
+        exit('Invalid CSRF token.');
+    }
+}
+
 
 /*
 |--------------------------------------------------------------------------
@@ -366,6 +380,7 @@ require VIEW_PATH . '/layouts/header-public.php';
 
 
                         <form method="POST" class="d-inline">
+                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
                             <button
                                 type="submit"
@@ -492,6 +507,7 @@ require VIEW_PATH . '/layouts/header-public.php';
                     <div class="text-end">
 
                         <form method="POST" class="d-inline">
+                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
                             <button
                                 type="submit"
@@ -537,6 +553,7 @@ require VIEW_PATH . '/layouts/header-public.php';
 
 
                     <form method="POST">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
                         <div class="d-flex justify-content-between">
 

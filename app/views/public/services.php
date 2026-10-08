@@ -25,14 +25,14 @@ $services = $stmt->fetchAll();
 
                     <?php if (!empty($service['image'])): ?>
                         <img
-                            src="../public/uploads/services/<?= htmlspecialchars($service['image']) ?>"
-                            alt="<?= htmlspecialchars($service['title']) ?>"
+                            src="/uploads/services/<?= htmlspecialchars($service['image'], ENT_QUOTES, 'UTF-8') ?>"
+                            alt="<?= htmlspecialchars($service['title'], ENT_QUOTES, 'UTF-8') ?>"
                             class="img-fluid rounded mb-3"
                             style="width:120px;height:120px;object-fit:cover;">
                     <?php endif; ?>
 
                     <h4 class="card-title">
-                        <?= htmlspecialchars($service['title']) ?>
+                        <?= htmlspecialchars($service['title'], ENT_QUOTES, 'UTF-8') ?>
                     </h4>
 
                     <?php

@@ -92,10 +92,11 @@ if ($isDemoAdmin) {
         WHERE payments.id = ?
           AND customers.demo_tenant_id = ?
           AND customers.is_demo_account = 1
+          AND services.demo_tenant_id = ?
         LIMIT 1
     ");
 
-    $stmt->execute([$id, $demoTenantId]);
+    $stmt->execute([$id, $demoTenantId, $demoTenantId]);
 } else {
     $stmt = $paymentPdo->prepare("
         SELECT

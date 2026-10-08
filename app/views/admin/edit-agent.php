@@ -13,11 +13,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 require_once HELPER_PATH . '/auth.php';
 requireAdminLogin();
 
-if (isset($_SESSION['demo_super_admin'])) {
-    header('Location: ?page=demo-super-admin');
+if (isset($_SESSION['demo_user']) || isset($_SESSION['demo_super_admin'])) {
+    header('Location: ?page=dashboard');
     exit;
 }
-require CONFIG_PATH . '/database.php';
+
+require_once CONFIG_PATH . '/database.php';
+$agentPdo = $pdo;
 
 $id = $_GET['id'] ?? 0;
 
@@ -41,24 +43,8 @@ $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    // Check duplicate email within the current environment/tenant.
-    if ($isDemoAdmin) {
-        $stmt = $agentPdo->prepare("
-            SELECT id
-            FROM agents
-            WHERE email = ?
-              AND id != ?
-              AND demo_tenant_id = ?
-              AND is_demo_account = 1
-            LIMIT 1
-        ");
-        $stmt->execute([
-            trim($_POST['email'] ?? ''),
-            $id,
-            $demoTenantId
-        ]);
-    } else {
-        $stmt = $agentPdo->prepare("
+    // Check duplicate email among Main Admin agents.
+    $stmt = $agentPdo->prepare("
             SELECT id
             FROM agents
             WHERE email = ?
@@ -66,11 +52,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               AND (is_demo_account = 0 OR is_demo_account IS NULL)
             LIMIT 1
         ");
-        $stmt->execute([
-            trim($_POST['email'] ?? ''),
-            $id
-        ]);
-    }
+    $stmt->execute([
+        trim($_POST['email'] ?? ''),
+        $id
+    ]);
 
     if ($stmt->fetch()) {
 

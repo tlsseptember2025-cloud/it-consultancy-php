@@ -83,7 +83,6 @@ if ($isDemoAdmin) {
           AND customers.demo_tenant_id = ?
           AND customers.is_demo_account = 1
           AND services.demo_tenant_id = ?
-          AND services.is_demo_account = 1
         LIMIT 1
     ");
 
@@ -163,7 +162,7 @@ if ($isDemoAdmin) {
     ]);
 }
 
-if ($stmt->rowCount() !== 1) {
+if (!$stmt) {
     die('The consultation request could not be approved.');
 }
 

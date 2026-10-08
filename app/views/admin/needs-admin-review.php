@@ -209,8 +209,10 @@ if ($isDemoAdmin) {
     $where .= "
         AND c.demo_tenant_id = ?
         AND c.is_demo_account = 1
+        AND s.demo_tenant_id = ?
     ";
 
+    $params[] = $demoTenantId;
     $params[] = $demoTenantId;
 }
 

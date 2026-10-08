@@ -141,10 +141,19 @@ if (!$consultation) {
 |--------------------------------------------------------------------------
 */
 
+
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+
 if (
     $_SERVER['REQUEST_METHOD'] === 'POST'
     && isset($_POST['save_contact_result'])
 ) {
+    if (!hash_equals($csrfToken, $_POST['csrf_token'] ?? '')) {
+        $_SESSION['error'] = 'Invalid or expired security request.';
+        header('Location: ?page=view-consultation&id=' . $requestId);
+        exit;
+    }
+
 
     $contactResult    = trim($_POST['contact_result'] ?? '');
     $contactNotes     = trim($_POST['contact_notes'] ?? '');
@@ -274,6 +283,12 @@ $meetingLink = trim(
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
+    if (!hash_equals($csrfToken, $_POST['csrf_token'] ?? '')) {
+        $_SESSION['error'] = 'Invalid or expired security request.';
+        header('Location: ?page=view-consultation&id=' . $requestId);
+        exit;
+    }
+
 
     /*
     |--------------------------------------------------------------------------
@@ -309,6 +324,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     */
 
     elseif (isset($_POST['complete_consultation'])) {
+
+        if (($consultation['job_status'] ?? '') !== 'In Progress') {
+            die('This consultation cannot be completed from its current status.');
+        }
+
 
         // Customer Contact requests must not be completed from this form.
         if ($consultation['workflow_stage'] === 'Customer Contact') {
@@ -783,6 +803,8 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
                 <form method="POST">
 
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+
                     <div class="mb-3">
 
                         <label class="form-label">
@@ -1010,6 +1032,8 @@ require VIEW_PATH . '/layouts/header-agent.php';
         <div class="card-body">
 
             <form method="POST">
+
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
                 <textarea
                     class="form-control"

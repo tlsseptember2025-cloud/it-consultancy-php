@@ -3,8 +3,10 @@
 /** @var array $consultation */
 /** @var string $action */
 
+// CSRF protection for state-changing contact workflow forms.
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+
 require_once APP_PATH . '/helpers/DateHelper.php';
-require_once CONFIG_PATH . '/database.php';
 require VIEW_PATH . '/layouts/header-admin.php';
 
 
@@ -170,6 +172,7 @@ $maximumAttemptsReached =
     <div class="card-body">
 
         <form method="post">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
             <div class="mb-3">
 
@@ -264,6 +267,7 @@ $maximumAttemptsReached =
         <?php else: ?>
 
             <form method="POST">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
                 <button
                     type="submit"
@@ -483,6 +487,7 @@ $maximumAttemptsReached =
 
 <?php if ($action === ''): ?>
     <form method="post">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
         <div class="card shadow-sm mb-4">
 
             <div class="card-header bg-success text-white">
@@ -572,6 +577,9 @@ $maximumAttemptsReached =
             </div>
     
 
+        <form method="POST" id="phone-update-form">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+
         <div id="phone-update-card" class="card border-success mt-4" style="display:none;">
 
     <div class="card-header bg-success text-white">
@@ -628,6 +636,8 @@ $maximumAttemptsReached =
     </div>
 
 </div>
+
+        </form>
 
     </div>
 

@@ -33,6 +33,10 @@ if ($isDemoAdmin) {
     require_once CONFIG_PATH . '/demo-database.php';
     $serviceReviewPdo = $demoPdo;
     $demoTenantId = (int) ($_SESSION['demo_user']['demo_tenant_id'] ?? 0);
+
+    if ($demoTenantId <= 0) {
+        die('Invalid Demo tenant.');
+    }
 }
 
 
@@ -108,7 +112,6 @@ $stmt = $serviceReviewPdo->prepare("
                 c.demo_tenant_id = ?
                 AND c.is_demo_account = 1
                 AND s.demo_tenant_id = ?
-                AND s.is_demo_account = 1
                 AND (
                     sb.agent_id IS NULL
                     OR EXISTS (
@@ -177,6 +180,55 @@ $isServiceOverdue =
 
 $isServiceNotCompleted =
     $serviceJob['review_type'] === 'service_not_completed';
+
+/*
+|--------------------------------------------------------------------------
+| Identify Current Administrator
+|--------------------------------------------------------------------------
+*/
+
+if ($isDemoAdmin) {
+    $adminStmt = $serviceReviewPdo->prepare("
+        SELECT id
+        FROM users
+        WHERE id = ?
+          AND demo_tenant_id = ?
+          AND is_demo_account = 1
+        LIMIT 1
+    ");
+
+    $adminStmt->execute([
+        (int) ($_SESSION['demo_user']['id'] ?? 0),
+        $demoTenantId
+    ]);
+
+    $currentAdmin = $adminStmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$currentAdmin) {
+        die('Unable to identify the current Demo administrator.');
+    }
+
+    $currentAdminId = (int) $currentAdmin['id'];
+} else {
+    $adminStmt = $serviceReviewPdo->prepare("
+        SELECT id
+        FROM users
+        WHERE email = ?
+        LIMIT 1
+    ");
+
+    $adminStmt->execute([
+        $_SESSION['user']
+    ]);
+
+    $currentAdmin = $adminStmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$currentAdmin) {
+        die('Unable to identify the current administrator.');
+    }
+
+    $currentAdminId = (int) $currentAdmin['id'];
+}
 
 /*
 |--------------------------------------------------------------------------
@@ -277,7 +329,7 @@ if ($decision === 'reject') {
 
     $history->execute([
         $serviceJob['request_id'],
-        (int) $_SESSION['user'],
+        $currentAdminId,
         $comments
     ]);
 
@@ -326,8 +378,7 @@ if ($decision === 'reject') {
                           c.demo_tenant_id = ?
                           AND c.is_demo_account = 1
                           AND s.demo_tenant_id = ?
-                          AND s.is_demo_account = 1
-                          AND (
+                                    AND (
                               sb.agent_id IS NULL
                               OR EXISTS (
                                   SELECT 1
@@ -428,7 +479,7 @@ if ($decision === 'accept') {
 
     $history->execute([
         $serviceJob['request_id'],
-        (int) $_SESSION['user'],
+        $currentAdminId,
         $comments
     ]);
 
@@ -459,13 +510,7 @@ if ($decision === 'accept') {
         ");
 
         $update->execute([
-            $comments,
-            (int) $_SESSION['user'],
-            $serviceJob['request_id'],
-            $demoTenantId ?? 0,
-            $demoTenantId ?? 0,
-            $demoTenantId ?? 0,
-            $demoTenantId ?? 0
+            $serviceJob['request_id']
         ]);
 
 
@@ -543,8 +588,7 @@ if ($decision === 'accept') {
                           c.demo_tenant_id = ?
                           AND c.is_demo_account = 1
                           AND s.demo_tenant_id = ?
-                          AND s.is_demo_account = 1
-                          AND (
+                                    AND (
                               sb.agent_id IS NULL
                               OR EXISTS (
                                   SELECT 1
@@ -632,7 +676,7 @@ if ($decision === 'reschedule') {
 
     $history->execute([
         $serviceJob['request_id'],
-        (int) $_SESSION['user'],
+        $currentAdminId,
         $comments
     ]);
 
@@ -671,8 +715,7 @@ if ($decision === 'reschedule') {
                           c.demo_tenant_id = ?
                           AND c.is_demo_account = 1
                           AND s.demo_tenant_id = ?
-                          AND s.is_demo_account = 1
-                          AND (
+                                    AND (
                               sb.agent_id IS NULL
                               OR EXISTS (
                                   SELECT 1
@@ -689,7 +732,7 @@ if ($decision === 'reschedule') {
 
     $update->execute([
         $comments,
-        (int) $_SESSION['user'],
+        $currentAdminId,
         $serviceJob['request_id'],
         $demoTenantId ?? 0,
         $demoTenantId ?? 0,
@@ -738,37 +781,6 @@ if ($decision === 'reschedule') {
 }
 
 
-if ($isDemoAdmin) {
-    $currentAdminId = (int) ($_SESSION['demo_user']['id'] ?? 0);
-
-    if ($currentAdminId <= 0) {
-        die('Unable to identify the current Demo administrator.');
-    }
-} else {
-    if ($isDemoAdmin) {
-        $currentAdminId = (int) ($_SESSION['demo_user']['id'] ?? 0);
-    } else {
-        $adminStmt = $serviceReviewPdo->prepare("
-            SELECT id
-            FROM users
-            WHERE email = ?
-            LIMIT 1
-        ");
-
-        $adminStmt->execute([
-            $_SESSION['user']
-        ]);
-
-        $currentAdmin = $adminStmt->fetch(PDO::FETCH_ASSOC);
-
-        if (!$currentAdmin) {
-            die('Unable to identify the current administrator.');
-        }
-
-        $currentAdminId = (int) $currentAdmin['id'];
-    }
-}
-
 /*
 |--------------------------------------------------------------------------
 | Reassign Service
@@ -776,25 +788,6 @@ if ($isDemoAdmin) {
 */
 
 if ($decision === 'reassign') {
-
-    $adminStmt = $serviceReviewPdo->prepare("
-        SELECT id
-        FROM users
-        WHERE email = ?
-        LIMIT 1
-    ");
-
-    $adminStmt->execute([
-        $_SESSION['user']
-    ]);
-
-    $currentAdmin = $adminStmt->fetch(PDO::FETCH_ASSOC);
-
-    if (!$currentAdmin) {
-        die('Unable to identify the current administrator.');
-    }
-
-    $currentAdminId = (int) $currentAdmin['id'];
 
     $newAgentId = (int) ($_POST['new_agent_id'] ?? 0);
 
@@ -909,8 +902,7 @@ if ($decision === 'reassign') {
                       c.demo_tenant_id = ?
                       AND c.is_demo_account = 1
                       AND s.demo_tenant_id = ?
-                      AND s.is_demo_account = 1
-                      AND old_a.demo_tenant_id = ?
+                            AND old_a.demo_tenant_id = ?
                       AND old_a.is_demo_account = 1
                       AND new_a.demo_tenant_id = ?
                       AND new_a.is_demo_account = 1
@@ -971,8 +963,7 @@ if ($decision === 'reassign') {
                               c.demo_tenant_id = ?
                               AND c.is_demo_account = 1
                               AND s.demo_tenant_id = ?
-                              AND s.is_demo_account = 1
-                              AND new_a.demo_tenant_id = ?
+                                            AND new_a.demo_tenant_id = ?
                               AND new_a.is_demo_account = 1
                           )
                       )

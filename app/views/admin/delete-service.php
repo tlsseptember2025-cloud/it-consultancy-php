@@ -16,9 +16,17 @@ if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
 if (isset($_SESSION['demo_user'])) {
     require_once CONFIG_PATH . '/demo-database.php';
     $servicesPdo = $demoPdo;
+
+    $demoTenantId = (int) ($_SESSION['demo_user']['demo_tenant_id'] ?? 0);
+
+    if ($demoTenantId <= 0) {
+        exit('Invalid Demo tenant.');
+    }
 } else {
     require CONFIG_PATH . '/database.php';
     $servicesPdo = $pdo;
+
+    $demoTenantId = null;
 }
 
 $id = (int) $_GET['id'];
@@ -35,8 +43,36 @@ if (empty($_SESSION[$csrfKey])) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    $stmt = $servicesPdo->prepare('SELECT id, title FROM services WHERE id = ? LIMIT 1');
-    $stmt->execute([$id]);
+
+    if ($demoTenantId !== null) {
+
+        $stmt = $servicesPdo->prepare(
+            'SELECT id, title
+             FROM services
+             WHERE id = ?
+               AND demo_tenant_id = ?
+             LIMIT 1'
+        );
+
+        $stmt->execute([
+            $id,
+            $demoTenantId
+        ]);
+
+    } else {
+
+        $stmt = $servicesPdo->prepare(
+            'SELECT id, title
+             FROM services
+             WHERE id = ?
+             LIMIT 1'
+        );
+
+        $stmt->execute([
+            $id
+        ]);
+    }
+
     $service = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$service) {
@@ -54,9 +90,13 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                     Are you sure you want to delete
                     <strong><?= htmlspecialchars($service['title']) ?></strong>?
                 </p>
-                <p class="text-danger mb-4">This action cannot be undone.</p>
+
+                <p class="text-danger mb-4">
+                    This action cannot be undone.
+                </p>
 
                 <form method="post" action="?page=delete-service&amp;id=<?= $id ?>">
+
                     <input
                         type="hidden"
                         name="csrf_token"
@@ -66,9 +106,13 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                     <button type="submit" class="btn btn-danger">
                         Delete Service
                     </button>
-                    <a href="?page=services-admin" class="btn btn-secondary">
+
+                    <a
+                        href="?page=services-admin"
+                        class="btn btn-secondary">
                         Cancel
                     </a>
+
                 </form>
             </div>
         </div>
@@ -80,21 +124,72 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $submittedToken = (string) ($_POST['csrf_token'] ?? '');
 $sessionToken = (string) ($_SESSION[$csrfKey] ?? '');
 
-if ($sessionToken === '' || !hash_equals($sessionToken, $submittedToken)) {
+if (
+    $sessionToken === '' ||
+    !hash_equals($sessionToken, $submittedToken)
+) {
     http_response_code(403);
     exit('Invalid security token. Please try again.');
 }
 
-$stmt = $servicesPdo->prepare('SELECT id FROM services WHERE id = ? LIMIT 1');
-$stmt->execute([$id]);
+if ($demoTenantId !== null) {
+
+    $stmt = $servicesPdo->prepare(
+        'SELECT id
+         FROM services
+         WHERE id = ?
+           AND demo_tenant_id = ?
+         LIMIT 1'
+    );
+
+    $stmt->execute([
+        $id,
+        $demoTenantId
+    ]);
+
+} else {
+
+    $stmt = $servicesPdo->prepare(
+        'SELECT id
+         FROM services
+         WHERE id = ?
+         LIMIT 1'
+    );
+
+    $stmt->execute([
+        $id
+    ]);
+}
 
 if (!$stmt->fetchColumn()) {
     header('Location: ?page=services-admin');
     exit;
 }
 
-$deleteStmt = $servicesPdo->prepare('DELETE FROM services WHERE id = ?');
-$deleteStmt->execute([$id]);
+if ($demoTenantId !== null) {
+
+    $deleteStmt = $servicesPdo->prepare(
+        'DELETE FROM services
+         WHERE id = ?
+           AND demo_tenant_id = ?'
+    );
+
+    $deleteStmt->execute([
+        $id,
+        $demoTenantId
+    ]);
+
+} else {
+
+    $deleteStmt = $servicesPdo->prepare(
+        'DELETE FROM services
+         WHERE id = ?'
+    );
+
+    $deleteStmt->execute([
+        $id
+    ]);
+}
 
 unset($_SESSION[$csrfKey]);
 

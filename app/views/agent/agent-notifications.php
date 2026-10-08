@@ -30,7 +30,7 @@ if ($isDemoAgent) {
 } else {
 
     if (!isset($_SESSION['agent'])) {
-        header('Location: ?page=public-login');
+        header('Location: ?page=agent-notifications');
         exit;
     }
 
@@ -49,10 +49,19 @@ if ($isDemoAgent) {
 |--------------------------------------------------------------------------
 */
 
+
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+
 if (
     $_SERVER['REQUEST_METHOD'] === 'POST'
     && isset($_POST['mark_all_read'])
 ) {
+    if (!hash_equals($csrfToken, $_POST['csrf_token'] ?? '')) {
+        $_SESSION['error'] = 'Invalid or expired security request.';
+        header('Location: ?page=public-login');
+        exit;
+    }
+
 
     if ($isDemoAgent) {
 
@@ -181,6 +190,8 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
                     <form method="POST" class="mb-0">
 
+                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+
                         <button
                             type="submit"
                             name="mark_all_read"
@@ -305,7 +316,7 @@ require VIEW_PATH . '/layouts/header-agent.php';
                                     <td>
 
                                         <a
-                                            href="?page=agent-open-notification&id=<?= (int) $notification['id'] ?>"
+                                            href="?page=agent-open-notification&id=<?= (int) $notification['id'] ?>&csrf_token=<?= urlencode($csrfToken) ?>"
                                             class="btn btn-sm btn-primary">
 
                                             Open

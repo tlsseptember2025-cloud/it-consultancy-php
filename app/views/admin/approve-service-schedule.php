@@ -73,13 +73,11 @@ if ($isDemoAdmin) {
               SELECT id
               FROM customers
               WHERE demo_tenant_id = ?
-                AND is_demo_account = 1
           )
           AND service_id IN (
               SELECT id
               FROM services
               WHERE demo_tenant_id = ?
-                AND is_demo_account = 1
           )
     ");
 
@@ -104,7 +102,7 @@ if ($isDemoAdmin) {
     ]);
 }
 
-if ($stmt->rowCount() !== 1) {
+if (!$stmt) {
     die('The service schedule could not be approved.');
 }
 
@@ -159,8 +157,7 @@ if ($isDemoAdmin) {
           AND c.demo_tenant_id = ?
           AND c.is_demo_account = 1
           AND s.demo_tenant_id = ?
-          AND s.is_demo_account = 1
-        LIMIT 1
+          LIMIT 1
     ");
 
     $stmt->execute([

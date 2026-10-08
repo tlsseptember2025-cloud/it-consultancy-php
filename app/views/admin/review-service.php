@@ -107,12 +107,13 @@ $stmt = $reviewPdo->prepare("
           OR (
               c.demo_tenant_id = ?
               AND c.is_demo_account = 1
+              AND s.demo_tenant_id = ?
           )
       )
     LIMIT 1
 ");
 
-$stmt->execute([$id, $adminTenantId, $adminTenantId]);
+$stmt->execute([$id, $adminTenantId, $adminTenantId, $adminTenantId]);
 $request = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$request) {

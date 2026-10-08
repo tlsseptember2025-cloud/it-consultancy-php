@@ -210,10 +210,12 @@ if (isset($_SESSION['demo_user'])) {
         WHERE ps.status = 'Pending'
           AND c.demo_tenant_id = ?
           AND c.is_demo_account = 1
+          AND s.demo_tenant_id = ?
         ORDER BY ps.uploaded_at ASC
     ");
 
     $stmt->execute([
+        (int) $_SESSION['demo_user']['demo_tenant_id'],
         (int) $_SESSION['demo_user']['demo_tenant_id']
     ]);
 
@@ -367,6 +369,7 @@ if ($isDemoAdmin) {
     $dashboardCustomerScope = "
         AND c.demo_tenant_id = :dashboard_demo_tenant_id
         AND c.is_demo_account = 1
+        AND s.demo_tenant_id = :dashboard_demo_tenant_id
     ";
     $dashboardCustomerParams['dashboard_demo_tenant_id'] = $demoTenantId;
 }

@@ -27,7 +27,11 @@ $demoTenantId = null;
 if ($isDemoAdmin) {
     require_once CONFIG_PATH . '/demo-database.php';
     $closePdo = $demoPdo;
-    $demoTenantId = (int) $_SESSION['demo_user']['demo_tenant_id'];
+    $demoTenantId = (int) ($_SESSION['demo_user']['demo_tenant_id'] ?? 0);
+
+    if ($demoTenantId <= 0) {
+        die('Invalid Demo tenant.');
+    }
 }
 require_once APP_PATH . '/helpers/email.php';
 require_once APP_PATH . '/helpers/RequestEventHelper.php';
@@ -68,7 +72,6 @@ $stmt = $closePdo->prepare("
               c.demo_tenant_id = ?
               AND c.is_demo_account = 1
               AND s.demo_tenant_id = ?
-              AND s.is_demo_account = 1
           )
       )
     LIMIT 1
@@ -94,18 +97,34 @@ if (!$request) {
 |--------------------------------------------------------------------------
 */
 
-$stmt = $closePdo->prepare("
-    SELECT id
-    FROM users
-    WHERE email = ?
-    LIMIT 1
-");
-
 $adminEmail = $isDemoAdmin
     ? ($_SESSION['demo_user']['email'] ?? '')
     : ($_SESSION['user'] ?? '');
 
-$stmt->execute([$adminEmail]);
+if ($isDemoAdmin) {
+    $stmt = $closePdo->prepare("
+        SELECT id
+        FROM users
+        WHERE email = ?
+          AND demo_tenant_id = ?
+          AND is_demo_account = 1
+        LIMIT 1
+    ");
+
+    $stmt->execute([
+        $adminEmail,
+        $demoTenantId
+    ]);
+} else {
+    $stmt = $closePdo->prepare("
+        SELECT id
+        FROM users
+        WHERE email = ?
+        LIMIT 1
+    ");
+
+    $stmt->execute([$adminEmail]);
+}
 
 $admin = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -137,7 +156,6 @@ if ($isDemoAdmin) {
           AND c.demo_tenant_id = ?
           AND c.is_demo_account = 1
           AND s.demo_tenant_id = ?
-          AND s.is_demo_account = 1
         ORDER BY cca.id DESC
         LIMIT 1
     ");
@@ -475,7 +493,6 @@ if (
               AND c.demo_tenant_id = ?
               AND c.is_demo_account = 1
               AND s.demo_tenant_id = ?
-              AND s.is_demo_account = 1
         ");
 
         $update->execute([
@@ -503,7 +520,7 @@ if (
         ]);
     }
 
-    if ($update->rowCount() !== 1) {
+    if (!$update) {
         die('The request could not be updated.');
     }
 
@@ -892,7 +909,7 @@ require VIEW_PATH . '/layouts/header-admin.php';
                     <div class="d-flex justify-content-between">
 
                         <a
-                            href="?page="
+                            href="?page=needs-admin-review"
                             class="btn btn-secondary">
 
                             ← Back

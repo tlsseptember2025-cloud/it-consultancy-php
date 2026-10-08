@@ -1,53 +1,84 @@
 <?php
 
+require_once HELPER_PATH . '/auth.php';
+
 $customerNotificationCount = 0;
 $customerNotifications = [];
 
-if (
-    isset($_SESSION['customer']) ||
-    isset($_SESSION['demo_customer'])
-) {
+$isDemoCustomer = isset($_SESSION['demo_customer']) && is_array($_SESSION['demo_customer']);
 
-    $isDemoCustomer = isset($_SESSION['demo_customer']);
+if ($isDemoCustomer) {
 
-    if ($isDemoCustomer) {
-        require_once CONFIG_PATH . '/demo-database.php';
+    requireDemoCustomer();
 
-        $customerNavPdo = $demoPdo;
-        $customerId = (int) ($_SESSION['demo_customer']['id'] ?? 0);
-        $demoTenantId = (int) (
-            $_SESSION['demo_customer']['demo_tenant_id'] ?? 0
-        );
+    require_once CONFIG_PATH . '/demo-database.php';
 
-        if ($customerId > 0 && $demoTenantId > 0) {
-            $demoCustomerCheck = $customerNavPdo->prepare("
-                SELECT id
-                FROM customers
-                WHERE id = ?
-                  AND demo_tenant_id = ?
-                  AND is_demo_account = 1
-                LIMIT 1
-            ");
+    $customerNavPdo = $demoPdo;
+    $customerId = (int) ($_SESSION['demo_customer']['id'] ?? 0);
+    $demoTenantId = (int) ($_SESSION['demo_customer']['demo_tenant_id'] ?? 0);
 
-            $demoCustomerCheck->execute([
-                $customerId,
-                $demoTenantId
-            ]);
-
-            if (!$demoCustomerCheck->fetchColumn()) {
-                $customerId = 0;
-            }
-        } else {
-            $customerId = 0;
-        }
-
-    } else {
-        $customerNavPdo = $pdo;
-        $customerId = (int) $_SESSION['customer']['id'];
+    if ($customerId <= 0 || $demoTenantId <= 0) {
+        unset($_SESSION['demo_customer']);
+        header('Location: ?page=demo-login');
+        exit;
     }
 
-    if ($customerId > 0) {
-        $stmt = $customerNavPdo->prepare("
+    $demoCustomerCheck = $customerNavPdo->prepare("
+        SELECT id
+        FROM customers
+        WHERE id = ?
+          AND demo_tenant_id = ?
+          AND is_demo_account = 1
+        LIMIT 1
+    ");
+
+    $demoCustomerCheck->execute([
+        $customerId,
+        $demoTenantId
+    ]);
+
+    if (!$demoCustomerCheck->fetchColumn()) {
+        unset($_SESSION['demo_customer']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    $demoTenantCheck = $customerNavPdo->prepare("
+        SELECT id
+        FROM demo_tenants
+        WHERE id = ?
+          AND status = 'Active'
+          AND (expires_at IS NULL OR expires_at > NOW())
+        LIMIT 1
+    ");
+
+    $demoTenantCheck->execute([$demoTenantId]);
+
+    if (!$demoTenantCheck->fetchColumn()) {
+        unset($_SESSION['demo_customer']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+} else {
+
+    requireCustomerLogin();
+
+    require_once CONFIG_PATH . '/database.php';
+
+    $customerNavPdo = $pdo;
+    $customerId = (int) ($_SESSION['customer']['id'] ?? 0);
+
+    if ($customerId <= 0) {
+        unset($_SESSION['customer']);
+        header('Location: ?page=public-login');
+        exit;
+    }
+}
+
+if ($customerId > 0) {
+
+    $stmt = $customerNavPdo->prepare("
         SELECT COUNT(*)
         FROM notifications
         WHERE recipient_type = 'customer'
@@ -55,9 +86,7 @@ if (
           AND is_read = 0
     ");
 
-    $stmt->execute([
-        $customerId
-    ]);
+    $stmt->execute([$customerId]);
 
     $customerNotificationCount = (int) $stmt->fetchColumn();
 
@@ -67,20 +96,16 @@ if (
         WHERE recipient_type = 'customer'
           AND recipient_id = ?
           AND is_read = 0
-        ORDER BY created_at DESC
+        ORDER BY created_at DESC, id DESC
         LIMIT 5
     ");
 
-    $stmt->execute([
-        $customerId
-    ]);
+    $stmt->execute([$customerId]);
 
     $customerNotifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
 }
 
 ?>
-
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark py-3">
 
     <div class="container-fluid">
@@ -274,9 +299,7 @@ if (
 
                     <a
                         class="nav-link text-danger"
-                        href="<?= isset($_SESSION['demo_customer'])
-                            ? '?page=customer-logout'
-                            : '?page=customer-logout' ?>">
+                        href="?page=customer-logout" ">
 
                         Logout
 

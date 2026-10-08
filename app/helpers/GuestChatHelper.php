@@ -47,6 +47,7 @@ function getGuestChatAvailability(PDO $pdo): array
     $hours = $hoursStmt->fetch(PDO::FETCH_ASSOC);
 
     $officeOpen = false;
+    $currentTime = $nowDubai->format('H:i:s');
 
     if (
         $hours
@@ -54,33 +55,57 @@ function getGuestChatAvailability(PDO $pdo): array
         && !empty($hours['open_time'])
         && !empty($hours['close_time'])
     ) {
-
-        $currentTime = $nowDubai->format('H:i:s');
-
         /*
          * Normal same-day office hours.
-         *
-         * Example:
-         * 10:00:00 - 16:00:00
          */
         if ($hours['open_time'] < $hours['close_time']) {
-
             $officeOpen =
                 $currentTime >= $hours['open_time']
                 && $currentTime < $hours['close_time'];
 
-        } else {
-
+        } elseif ($hours['open_time'] > $hours['close_time']) {
             /*
-             * Support an overnight schedule if one is
-             * configured in the future.
+             * Overnight schedule.
              *
-             * Example:
-             * 22:00:00 - 02:00:00
+             * During the first half of an overnight period,
+             * the current day's schedule is authoritative.
              */
-            $officeOpen =
-                $currentTime >= $hours['open_time']
-                || $currentTime < $hours['close_time'];
+            $officeOpen = $currentTime >= $hours['open_time'];
+        }
+
+        /*
+         * If today's schedule does not currently make the office open,
+         * check whether the previous day's overnight schedule continues
+         * past midnight into today. This must be checked regardless of
+         * whether today's own schedule is normal or overnight.
+         */
+        if (!$officeOpen) {
+            $previousDay = $dayOfWeek === 1 ? 7 : $dayOfWeek - 1;
+
+            $previousHoursStmt = $pdo->prepare("
+                SELECT
+                    is_open,
+                    open_time,
+                    close_time
+                FROM guest_chat_office_hours
+                WHERE day_of_week = ?
+                LIMIT 1
+            ");
+
+            $previousHoursStmt->execute([$previousDay]);
+
+            $previousHours = $previousHoursStmt->fetch(PDO::FETCH_ASSOC);
+
+            if (
+                $previousHours
+                && (int) $previousHours['is_open'] === 1
+                && !empty($previousHours['open_time'])
+                && !empty($previousHours['close_time'])
+                && $previousHours['open_time'] > $previousHours['close_time']
+            ) {
+                $officeOpen =
+                    $currentTime < $previousHours['close_time'];
+            }
         }
     }
 

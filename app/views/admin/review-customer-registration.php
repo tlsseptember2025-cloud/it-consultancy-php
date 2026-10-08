@@ -3,41 +3,22 @@ $csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
 
 require_once HELPER_PATH . '/auth.php';
 
-/*
-|--------------------------------------------------------------------------
-| Determine Admin Context
-|--------------------------------------------------------------------------
-*/
+$isDemoAdmin = false;
+$isDemoSuperAdmin = false;
 
-$isMainAdmin      = isset($_SESSION['user']);
-$isDemoAdmin      = isset($_SESSION['demo_user']);
-$isDemoSuperAdmin = isset($_SESSION['demo_super_admin']);
-
-if (!$isMainAdmin && !$isDemoAdmin && !$isDemoSuperAdmin) {
+if (!isset($_SESSION['user']) || isset($_SESSION['demo_user']) || isset($_SESSION['demo_super_admin'])) {
     header('Location: ?page=login');
     exit;
 }
 
-
 /*
 |--------------------------------------------------------------------------
-| Select Database
+| Main Admin Database
 |--------------------------------------------------------------------------
 */
 
-if ($isDemoAdmin || $isDemoSuperAdmin) {
-
-    require_once CONFIG_PATH . '/demo-database.php';
-
-    $adminPdo = $demoPdo;
-
-} else {
-
-    require_once CONFIG_PATH . '/database.php';
-
-    $adminPdo = $pdo;
-}
-
+require_once CONFIG_PATH . '/database.php';
+$adminPdo = $pdo;
 
 /*
 |--------------------------------------------------------------------------

@@ -31,7 +31,11 @@ if ($isDemoAdmin) {
     require_once CONFIG_PATH . '/demo-database.php';
 
     $approvalPdo = $demoPdo;
-    $demoTenantId = (int) $_SESSION['demo_user']['demo_tenant_id'];
+    $demoTenantId = (int) ($_SESSION['demo_user']['demo_tenant_id'] ?? 0);
+
+    if ($demoTenantId <= 0) {
+        die('Invalid Demo tenant.');
+    }
 }
 
 
@@ -97,7 +101,6 @@ if ($isDemoAdmin) {
             AND c.demo_tenant_id = ?
             AND c.is_demo_account = 1
             AND s.demo_tenant_id = ?
-            AND s.is_demo_account = 1
             AND a.demo_tenant_id = ?
             AND a.is_demo_account = 1
 
@@ -212,7 +215,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     AND c.demo_tenant_id = ?
                     AND c.is_demo_account = 1
                     AND s.demo_tenant_id = ?
-                    AND s.is_demo_account = 1
                     AND a.demo_tenant_id = ?
                     AND a.is_demo_account = 1
             ");

@@ -1,4 +1,6 @@
 <?php
+
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
 require VIEW_PATH . '/layouts/header-customer.php';
 ?>
 
@@ -6,6 +8,9 @@ require VIEW_PATH . '/layouts/header-customer.php';
 
     <form method="post"
       action="index.php?page=consultation-closure-agreement&request_id=<?= $request['id'] ?>">
+    <input type="hidden"
+           name="csrf_token"
+           value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
         <h2 class="mb-4">
             Consultation Closure Agreement
@@ -151,7 +156,11 @@ require VIEW_PATH . '/layouts/header-customer.php';
 
                                 <strong style="font-size:24px; letter-spacing:1px;">
 
-                                    <?= strtoupper($request['customer_name']) ?>
+                                    <?= htmlspecialchars(
+    strtoupper($request['customer_name']),
+    ENT_QUOTES,
+    'UTF-8'
+) ?>
 
                                 </strong>
 

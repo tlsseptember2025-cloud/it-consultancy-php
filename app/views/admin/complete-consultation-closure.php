@@ -183,6 +183,15 @@ require VIEW_PATH . '/layouts/header-admin.php';
 </div>
 
 <form method="POST">
+    <input
+        type="hidden"
+        name="csrf_token"
+        value="<?= htmlspecialchars(
+            $_SESSION['csrf_token'] ?? '',
+            ENT_QUOTES,
+            'UTF-8'
+        ) ?>"
+    >
 
     <div class="form-check mb-3">
 

@@ -74,6 +74,25 @@ if ($isDemoCustomer) {
         exit;
     }
 
+    $tenantStmt = $db->prepare("
+        SELECT id
+        FROM demo_tenants
+        WHERE id = ?
+          AND status = 'Active'
+          AND (
+              expires_at IS NULL
+              OR expires_at > NOW()
+          )
+        LIMIT 1
+    ");
+    $tenantStmt->execute([$demoTenantId]);
+
+    if (!$tenantStmt->fetchColumn()) {
+        unset($_SESSION['demo_customer']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
 } else {
 
     if (!isset($_SESSION['customer'])) {
@@ -222,6 +241,19 @@ $typedName = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
+    $errors = [];
+
+    $csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+    $submittedToken = (string) ($_POST['csrf_token'] ?? '');
+
+    if (
+        $submittedToken === ''
+        || !hash_equals((string) $csrfToken, $submittedToken)
+    ) {
+        $errors[] =
+            'Invalid security token. Please refresh the page and try again.';
+    }
+
     /*
     |--------------------------------------------------------------------------
     | IMPORTANT
@@ -239,8 +271,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $agreementAccepted =
         isset($_POST['agreement_accepted']);
-
-    $errors = [];
 
 
     /*

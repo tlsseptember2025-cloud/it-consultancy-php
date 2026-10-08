@@ -1,5 +1,6 @@
 <?php
 
+require_once CONFIG_PATH . '/database.php';
 require_once HELPER_PATH . '/GuestChatHelper.php';
 
 /*

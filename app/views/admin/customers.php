@@ -21,11 +21,16 @@ $isDemoSuperAdmin = isset($_SESSION['demo_super_admin']);
 |--------------------------------------------------------------------------
 */
 
-if (
-    !$isMainAdmin &&
-    !$isDemoAdmin &&
-    !$isDemoSuperAdmin
-) {
+if ($isDemoAdmin) {
+    requireDemoAdmin();
+} elseif ($isDemoSuperAdmin) {
+    if (!isset($_SESSION['demo_super_admin'])) {
+        header('Location: ?page=demo-login');
+        exit;
+    }
+} elseif ($isMainAdmin) {
+    requireAdminLogin();
+} else {
     header('Location: ?page=login');
     exit;
 }

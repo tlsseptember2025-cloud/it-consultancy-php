@@ -35,10 +35,12 @@ if ($isDemoAdmin) {
         ON r.service_id = s.id
     WHERE c.demo_tenant_id = ?
       AND c.is_demo_account = 1
+      AND r.customer_id = c.id
+      AND s.demo_tenant_id = ?
     ORDER BY ps.uploaded_at DESC
 ");
 
-    $stmt->execute([$demoTenantId]);
+    $stmt->execute([$demoTenantId, $demoTenantId]);
     $slips = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } else {
     require_once CONFIG_PATH . '/database.php';

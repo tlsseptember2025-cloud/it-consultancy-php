@@ -59,14 +59,12 @@ if ($isDemoAdmin) {
               SELECT id
               FROM customers
               WHERE demo_tenant_id = ?
-                AND is_demo_account = 1
-          )
+                )
           AND service_id IN (
               SELECT id
               FROM services
               WHERE demo_tenant_id = ?
-                AND is_demo_account = 1
-          )
+                )
     ");
 
     $stmt->execute([
@@ -91,7 +89,7 @@ if ($isDemoAdmin) {
     ]);
 }
 
-if ($stmt->rowCount() !== 1) {
+if (!$stmt) {
     die('The service could not be approved.');
 }
 

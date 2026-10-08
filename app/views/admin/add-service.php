@@ -52,16 +52,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         );
     }
 
-    $stmt = $servicesPdo->prepare("
-    INSERT INTO services (title, description, image)
-    VALUES (?, ?, ?)
-");
+    if (isset($_SESSION['demo_user'])) {
+        $demoTenantId = (int) ($_SESSION['demo_user']['demo_tenant_id'] ?? 0);
 
-    $stmt->execute([
-        $title,
-        $description,
-        $image
-    ]);
+        if ($demoTenantId <= 0) {
+            exit('Invalid Demo tenant.');
+        }
+
+        $stmt = $servicesPdo->prepare("
+            INSERT INTO services (title, description, image, demo_tenant_id)
+            VALUES (?, ?, ?, ?)
+        ");
+
+        $stmt->execute([
+            $title,
+            $description,
+            $image,
+            $demoTenantId
+        ]);
+    } else {
+        $stmt = $servicesPdo->prepare("
+            INSERT INTO services (title, description, image)
+            VALUES (?, ?, ?)
+        ");
+
+        $stmt->execute([
+            $title,
+            $description,
+            $image
+        ]);
+    }
 
     header('Location: ?page=services-admin');
     exit;

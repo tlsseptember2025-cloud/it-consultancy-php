@@ -84,6 +84,25 @@ if ($isDemoAdmin) {
         exit;
     }
 
+    $tenantStmt = $reviewPdo->prepare("
+        SELECT id
+        FROM demo_tenants
+        WHERE id = ?
+          AND status = 'Active'
+          AND (
+              expires_at IS NULL
+              OR expires_at > NOW()
+          )
+        LIMIT 1
+    ");
+    $tenantStmt->execute([$demoTenantId]);
+
+    if (!$tenantStmt->fetchColumn()) {
+        unset($_SESSION['demo_user']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
     /*
     |--------------------------------------------------------------------------
     | Verify Demo Admin Belongs To This Tenant
@@ -183,8 +202,10 @@ if ($isDemoAdmin) {
     $requestSql .= "
         AND c.demo_tenant_id = ?
         AND c.is_demo_account = 1
+        AND s.demo_tenant_id = ?
     ";
 
+    $requestParams[] = $demoTenantId;
     $requestParams[] = $demoTenantId;
 }
 

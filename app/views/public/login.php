@@ -1,6 +1,20 @@
 <?php
 
-require CONFIG_PATH . '/database.php';
+require_once CONFIG_PATH . '/database.php';
+require_once HELPER_PATH . '/auth.php';
+
+/*
+ * The Demo site has its own authentication flow and database.
+ * Never allow the Main customer/agent login to authenticate against
+ * the Main database from the deployed Demo host.
+ */
+$loginHost = strtolower($_SERVER['HTTP_HOST'] ?? '');
+$loginHost = preg_replace('/:\\d+$/', '', $loginHost) ?? $loginHost;
+
+if ($loginHost === 'demo.wahbibconsultancy.com') {
+    header('Location: ?page=demo-login');
+    exit;
+}
 
 
 if (empty($_SESSION['public_csrf_token']) || !is_string($_SESSION['public_csrf_token'])) {
@@ -42,6 +56,8 @@ if (
     password_verify($password, $customer['password'])
 ) {
 
+    clearRoleSessions();
+    session_regenerate_id(true);
     $_SESSION['customer'] = $customer;
 
     header('Location: ?page=customer-dashboard');
@@ -69,6 +85,8 @@ if (
     password_verify($password, $agent['password'])
 ) {
 
+    clearRoleSessions();
+    session_regenerate_id(true);
     $_SESSION['agent'] = $agent;
 
     header('Location: ?page=agent-dashboard');
@@ -112,7 +130,7 @@ require dirname(__DIR__) . '/public/demo-banner.php';
 
                     <div class="alert alert-danger">
 
-                        <?= $error ?>
+                        <?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?>
 
                     </div>
 

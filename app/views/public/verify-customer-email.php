@@ -1,10 +1,22 @@
 <?php
 
-require CONFIG_PATH . '/database.php';
+require_once CONFIG_PATH . '/database.php';
 require_once HELPER_PATH . '/notifications.php';
 require_once HELPER_PATH . '/email.php';
 
-$token = trim($_GET['token'] ?? '');
+/*
+ * Customer email verification belongs to the Main registration flow.
+ * Demo customers are provisioned during Demo Setup and do not use this route.
+ */
+$verifyHost = strtolower($_SERVER['HTTP_HOST'] ?? '');
+$verifyHost = preg_replace('/:\\d+$/', '', $verifyHost) ?? $verifyHost;
+
+if ($verifyHost === 'demo.wahbibconsultancy.com') {
+    header('Location: ?page=demo-login');
+    exit;
+}
+
+$token = is_string($_GET['token'] ?? null) ? trim($_GET['token']) : '';
 
 $error = '';
 $success = '';

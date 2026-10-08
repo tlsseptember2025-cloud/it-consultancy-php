@@ -268,6 +268,30 @@ if ($isDemoAdmin) {
 
     $adminId = (int) ($_SESSION['demo_user']['id'] ?? 0);
 
+    if ($adminId <= 0) {
+        die('Unable to identify the current Demo administrator.');
+    }
+
+    // Confirm the Demo Admin account belongs to the current Demo tenant.
+    $demoAdminStmt = $chatPdo->prepare("
+        SELECT id
+        FROM users
+        WHERE id = ?
+          AND demo_tenant_id = ?
+          AND is_demo_account = 1
+          AND is_super_admin = 0
+        LIMIT 1
+    ");
+
+    $demoAdminStmt->execute([
+        $adminId,
+        $demoTenantId
+    ]);
+
+    if (!$demoAdminStmt->fetchColumn()) {
+        die('Invalid Demo administrator account.');
+    }
+
 } elseif ($isDemoSuperAdmin) {
 
     $adminId = (int) ($_SESSION['demo_super_admin']['id'] ?? 0);
@@ -468,6 +492,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
              */
 
             $chatPdo->beginTransaction();
+
+            /*
+             * Re-check that the customer is still suspended before accepting
+             * a new suspension-chat message.
+             */
+            if ($isDemoAdmin) {
+                $customerStatusStmt = $chatPdo->prepare("
+                    SELECT id
+                    FROM customers
+                    WHERE id = ?
+                      AND demo_tenant_id = ?
+                      AND is_demo_account = 1
+                      AND status = 'Suspended'
+                    LIMIT 1
+                ");
+
+                $customerStatusStmt->execute([
+                    $customerId,
+                    $demoTenantId
+                ]);
+            } else {
+                $customerStatusStmt = $chatPdo->prepare("
+                    SELECT id
+                    FROM customers
+                    WHERE id = ?
+                      AND status = 'Suspended'
+                    LIMIT 1
+                ");
+
+                $customerStatusStmt->execute([
+                    $customerId
+                ]);
+            }
+
+            if (!$customerStatusStmt->fetchColumn()) {
+                throw new RuntimeException(
+                    'This customer is no longer suspended.'
+                );
+            }
 
 
             /*

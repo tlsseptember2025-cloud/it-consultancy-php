@@ -23,7 +23,7 @@ if ($isMainAdmin) {
                 ON u.id = ap.admin_id
             SET
                 ap.is_online = 0,
-                ap.last_seen = CURRENT_TIMESTAMP
+                ap.last_seen = UTC_TIMESTAMP()
             WHERE u.email = ?
         ");
 

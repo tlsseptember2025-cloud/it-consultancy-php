@@ -49,6 +49,24 @@ if (isset($_SESSION['demo_super_admin'])) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
+    if ($isDemoAdmin) {
+        http_response_code(403);
+        exit('Demo Admins cannot create global consultation slots.');
+    }
+
+    $slotDate = trim((string) ($_POST['slot_date'] ?? ''));
+    $slotTime = trim((string) ($_POST['slot_time'] ?? ''));
+    $consultationMethod = trim((string) ($_POST['consultation_method'] ?? ''));
+    $meetingLink = trim((string) ($_POST['meeting_link'] ?? ''));
+
+    if ($slotDate === '' || $slotTime === '' || $consultationMethod === '') {
+        die('Date, time, and consultation method are required.');
+    }
+
+    if (!in_array($consultationMethod, ['Google Meet', 'Zoom'], true)) {
+        die('Invalid consultation method.');
+    }
+
     $stmt = $slotPdo->prepare("
         INSERT INTO consultation_slots
         (
@@ -61,10 +79,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     ");
 
     $stmt->execute([
-        $_POST['slot_date'] ?? '',
-        $_POST['slot_time'] ?? '',
-        $_POST['consultation_method'] ?? '',
-        trim($_POST['meeting_link'] ?? '')
+        $slotDate,
+        $slotTime,
+        $consultationMethod,
+        $meetingLink
     ]);
 }
 
@@ -114,6 +132,7 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
             Consultation Slots
         </h2>
 
+        <?php if (!$isDemoAdmin): ?>
         <form method="POST" class="row g-3 mb-4">
 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
@@ -183,6 +202,7 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
     </div>
 
 </form>
+        <?php endif; ?>
 
         <table class="table table-bordered">
 
@@ -218,8 +238,8 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
     !empty($slot['meeting_link'])
     &&
     shouldShowMeetingLink(
-        $consultation['slot_date'],
-        $consultation['slot_time']
+        $slot['slot_date'],
+        $slot['slot_time']
     )
 ): ?>
 

@@ -64,9 +64,13 @@ if ($isDemoAdmin) {
     $where = "
         WHERE customers.demo_tenant_id = ?
           AND customers.is_demo_account = 1
+          AND services.demo_tenant_id = ?
     ";
 
-    $params = [$demoTenantId];
+    $params = [
+        $demoTenantId,
+        $demoTenantId
+    ];
 
 } else {
 
@@ -127,8 +131,10 @@ if (isset($_SESSION['demo_user'])) {
     $countWhere = "
         WHERE customers.demo_tenant_id = ?
           AND customers.is_demo_account = 1
+          AND services.demo_tenant_id = ?
     ";
 
+    $countParams[] = $demoTenantId;
     $countParams[] = $demoTenantId;
 }
 

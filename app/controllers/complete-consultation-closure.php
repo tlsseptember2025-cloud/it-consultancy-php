@@ -39,6 +39,8 @@ if ($isDemoAdmin) {
     exit;
 }
 
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+
 $requestId = (int) ($_GET['request_id'] ?? 0);
 
 if ($requestId <= 0) {
@@ -143,6 +145,13 @@ if (!$agreement) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
+    $submittedToken = (string) ($_POST['csrf_token'] ?? '');
+
+    if ($submittedToken === '' || !hash_equals((string) $csrfToken, $submittedToken)) {
+        http_response_code(403);
+        die('Invalid security token.');
+    }
+
     if (!isset($_POST['confirm_closure'])) {
 
         die('Please confirm the consultation closure.');
@@ -172,8 +181,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                   SELECT id
                   FROM services
                   WHERE demo_tenant_id = ?
-                    AND is_demo_account = 1
               )
+              AND workflow_stage = 'Closure Approved'
         ");
 
         $stmt->execute([
@@ -184,6 +193,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $demoTenantId
         ]);
 
+        if ($stmt->rowCount() !== 1) {
+            throw new RuntimeException('The request status changed before closure could be completed.');
+        }
+
     } else {
 
         $stmt = $closurePdo->prepare("
@@ -193,6 +206,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 job_status = ?,
                 completed_at = NOW()
             WHERE id = ?
+              AND workflow_stage = 'Closure Approved'
         ");
 
         $stmt->execute([
@@ -200,6 +214,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'Completed',
             $requestId
         ]);
+
+        if ($stmt->rowCount() !== 1) {
+            throw new RuntimeException('The request status changed before closure could be completed.');
+        }
     }
 
     /*

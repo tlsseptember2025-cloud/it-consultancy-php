@@ -97,6 +97,7 @@ $stmt = $slipPdo->prepare("
           OR (
               c.demo_tenant_id = ?
               AND c.is_demo_account = 1
+              AND s.demo_tenant_id = ?
           )
       )
     LIMIT 1
@@ -104,6 +105,7 @@ $stmt = $slipPdo->prepare("
 
 $stmt->execute([
     $id,
+    $isDemoAdmin ? $demoTenantId : 0,
     $isDemoAdmin ? $demoTenantId : 0,
     $isDemoAdmin ? $demoTenantId : 0
 ]);

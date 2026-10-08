@@ -4,7 +4,6 @@ $pageTitle = 'Review Closure Agreement';
 
 require_once APP_PATH . '/helpers/auth.php';
 require_once APP_PATH . '/helpers/RequestEventHelper.php';
-
 requireAdminLogin();
 
 $isDemoAdmin = isset($_SESSION['demo_user']);
@@ -19,6 +18,7 @@ require_once CONFIG_PATH . '/database.php';
 
 $reviewPdo = $pdo;
 $demoTenantId = null;
+$adminId = null;
 
 if ($isDemoAdmin) {
     require_once CONFIG_PATH . '/demo-database.php';
@@ -70,6 +70,25 @@ if ($isDemoAdmin) {
         header('Location: ?page=demo-login');
         exit;
     }
+
+    $adminId = (int) ($_SESSION['demo_user']['id'] ?? 0);
+} else {
+    $adminStmt = $reviewPdo->prepare("
+        SELECT id
+        FROM users
+        WHERE email = ?
+          AND is_demo_account = 0
+        LIMIT 1
+    ");
+    $adminStmt->execute([$_SESSION['user'] ?? '']);
+    $admin = $adminStmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$admin) {
+        http_response_code(403);
+        die('Administrator account could not be verified.');
+    }
+
+    $adminId = (int) $admin['id'];
 }
 
 $agreementId = (int) ($_GET['agreement_id'] ?? 0);
@@ -86,7 +105,8 @@ $stmt = $reviewPdo->prepare("
         s.title AS service_name
     FROM consultation_closure_agreements AS cca
     INNER JOIN requests AS r
-        ON r.id = cca.request_id
+    ON r.id = cca.request_id
+   AND r.customer_id = cca.customer_id
     INNER JOIN customers AS c
         ON c.id = cca.customer_id
     INNER JOIN services AS s
@@ -97,12 +117,13 @@ $stmt = $reviewPdo->prepare("
           OR (
               c.demo_tenant_id = ?
               AND c.is_demo_account = 1
+              AND s.demo_tenant_id = ?
           )
       )
     LIMIT 1
 ");
 
-$stmt->execute([$agreementId, $demoTenantId ?? 0, $demoTenantId ?? 0]);
+$stmt->execute([$agreementId, $demoTenantId ?? 0, $demoTenantId ?? 0, $demoTenantId ?? 0]);
 
 $agreement = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -114,7 +135,12 @@ $errors = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    if (!verifyCsrfToken($_POST['csrf_token'] ?? '')) {
+    $csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+
+    if (
+        !isset($_POST['csrf_token'])
+        || !hash_equals((string) $csrfToken, (string) $_POST['csrf_token'])
+    ) {
         $errors[] = 'Invalid security token. Please refresh the page and try again.';
     }
 
@@ -143,70 +169,123 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (empty($errors)) {
 
+        try {
+            $reviewPdo->beginTransaction();
+
+            $stmt = $reviewPdo->prepare("
+                UPDATE consultation_closure_agreements
+                SET
+                    status = ?,
+                    admin_notes = ?,
+                    reviewed_by = ?,
+                    reviewed_at = NOW()
+                WHERE id = ?
+                  AND status = 'Pending'
+            ");
+
+            $stmt->execute([
+                $decision,
+                $adminNotes,
+                $adminId,
+                $agreementId
+            ]);
+
+            if ($stmt->rowCount() !== 1) {
+                throw new RuntimeException(
+                    'The closure agreement has already been reviewed.'
+                );
+            }
+
+            $nextWorkflowStage =
+                $decision === 'Approved'
+                    ? 'Closure Approved'
+                    : 'Closure Rejected';
+
+         if ($isDemoAdmin) {
     $stmt = $reviewPdo->prepare("
-        UPDATE consultation_closure_agreements
-        SET
-            status = ?,
-            admin_notes = ?,
-            reviewed_at = NOW()
-        WHERE id = ?
+        UPDATE requests r
+        INNER JOIN customers c
+            ON c.id = r.customer_id
+           AND c.demo_tenant_id = ?
+           AND c.is_demo_account = 1
+        INNER JOIN services s
+            ON s.id = r.service_id
+           AND s.demo_tenant_id = ?
+        SET r.workflow_stage = ?
+        WHERE r.id = ?
+          AND r.customer_id = ?
+          AND r.workflow_stage = 'Closure Agreement Submitted'
     ");
 
     $stmt->execute([
-        $decision,
-        $adminNotes,
-        $agreementId
+        $demoTenantId,
+        $demoTenantId,
+        $nextWorkflowStage,
+        $agreement['request_id'],
+        $agreement['customer_id']
     ]);
-
-    $stmt = $reviewPdo->prepare("
-    UPDATE requests
-    SET workflow_stage = ?
-    WHERE id = ?
-");
-
-$stmt->execute([
-    $decision === 'Approved'
-        ? 'Closure Approved'
-        : 'Closure Rejected',
-    $agreement['request_id']
-]);
-
-/*
-|--------------------------------------------------------------------------
-| Record Closure Agreement Review Event
-|--------------------------------------------------------------------------
-*/
-
-if ($decision === 'Approved') {
-
-    RequestEventHelper::addCurrentUser(
-        $reviewPdo,
-        (int) $agreement['request_id'],
-        RequestEventHelper::EVENT_CLOSURE_AGREEMENT_APPROVED,
-        RequestEventHelper::TYPE_CONSULTATION,
-        'Closure Agreement Approved',
-        'The administrator approved the customer’s Consultation Closure Agreement.',
-        false
-    );
-
 } else {
+    $stmt = $reviewPdo->prepare("
+        UPDATE requests
+        SET workflow_stage = ?
+        WHERE id = ?
+          AND customer_id = ?
+          AND workflow_stage = 'Closure Agreement Submitted'
+    ");
 
-    RequestEventHelper::addCurrentUser(
-        $reviewPdo,
-        (int) $agreement['request_id'],
-        RequestEventHelper::EVENT_CLOSURE_AGREEMENT_REJECTED,
-        RequestEventHelper::TYPE_CONSULTATION,
-        'Closure Agreement Rejected',
-        'The administrator rejected the customer’s Consultation Closure Agreement.',
-        false
-    );
-
+    $stmt->execute([
+        $nextWorkflowStage,
+        $agreement['request_id'],
+        $agreement['customer_id']
+    ]);
 }
 
-header('Location: index.php?page=closure-agreements&success=review-saved');
-exit;
+            if ($stmt->rowCount() !== 1) {
+                throw new RuntimeException(
+                    'The request workflow could not be updated.'
+                );
+            }
 
-}
+            if ($decision === 'Approved') {
+                RequestEventHelper::addCurrentUser(
+                    $reviewPdo,
+                    (int) $agreement['request_id'],
+                    RequestEventHelper::EVENT_CLOSURE_AGREEMENT_APPROVED,
+                    RequestEventHelper::TYPE_CONSULTATION,
+                    'Closure Agreement Approved',
+                    'The administrator approved the customer’s Consultation Closure Agreement.',
+                    false
+                );
+            } else {
+                RequestEventHelper::addCurrentUser(
+                    $reviewPdo,
+                    (int) $agreement['request_id'],
+                    RequestEventHelper::EVENT_CLOSURE_AGREEMENT_REJECTED,
+                    RequestEventHelper::TYPE_CONSULTATION,
+                    'Closure Agreement Rejected',
+                    'The administrator rejected the customer’s Consultation Closure Agreement.',
+                    false
+                );
+            }
+
+            $reviewPdo->commit();
+
+            header('Location: index.php?page=closure-agreements&success=review-saved');
+            exit;
+
+        } catch (Throwable $e) {
+            if ($reviewPdo->inTransaction()) {
+                $reviewPdo->rollBack();
+            }
+
+            error_log(
+                'Closure agreement review failed: ' . $e->getMessage()
+            );
+
+            $errors[] =
+                'The closure agreement could not be reviewed. Please try again.';
+        }
+    }
 
 }
 

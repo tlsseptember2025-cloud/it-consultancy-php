@@ -1,6 +1,19 @@
 <?php
 
+require_once CONFIG_PATH . '/database.php';
 require_once HELPER_PATH . '/email.php';
+
+/*
+ * This is the Main customer password-reset flow.
+ * Demo accounts use the separate Demo password-change/recovery flow.
+ */
+$resetHost = strtolower($_SERVER['HTTP_HOST'] ?? '');
+$resetHost = preg_replace('/:\\d+$/', '', $resetHost) ?? $resetHost;
+
+if ($resetHost === 'demo.wahbibconsultancy.com') {
+    header('Location: ?page=demo-password-recovery');
+    exit;
+}
 
 if (empty($_SESSION['public_csrf_token']) || !is_string($_SESSION['public_csrf_token'])) {
     $_SESSION['public_csrf_token'] = bin2hex(random_bytes(32));
@@ -9,7 +22,7 @@ if (empty($_SESSION['public_csrf_token']) || !is_string($_SESSION['public_csrf_t
 $publicCsrfToken = $_SESSION['public_csrf_token'];
 
 
-$token = $_GET['token'] ?? '';
+$token = is_string($_GET['token'] ?? null) ? trim($_GET['token']) : '';
 
 $stmt = $pdo->prepare("
     SELECT *
@@ -21,13 +34,20 @@ $stmt->execute([$token]);
 
 $customer = $stmt->fetch();
 
-if (!$customer) {
+if (
+    $token === ''
+    || !$customer
+) {
 
+    http_response_code(400);
     die('This password reset link is invalid.');
 
 }
 
-if (strtotime($customer['reset_token_expires']) < time()) {
+if (
+    empty($customer['reset_token_expires'])
+    || strtotime($customer['reset_token_expires']) < time()
+) {
 
     header('Location: ?page=customer-forgot-password&expired=1');
     exit;

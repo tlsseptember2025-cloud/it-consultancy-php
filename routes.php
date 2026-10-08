@@ -163,6 +163,7 @@ if ($isDemoEnvironment) {
     'admin-account-recovery',
     'customer-forgot-password',
     'customer-reset-password',
+    'demo-password-recovery',
     'rules',
 ];
 
@@ -191,13 +192,16 @@ if ($isDemoEnvironment) {
         'view-agent',
         'requests',
         'view-request',
+        'needs-admin-review',
+        'awaiting-customer-response',
+        'view-awaiting-customer-response',
+        'review-cancellation-request',
+        'closure-agreements',
+        'review-closure-agreement',
         'closed-requests',
         'review-closed-request',
         'archived-requests',
         'view-archived-request',
-        'retention-review',
-        'review-retention',
-        'export-retention',
         'refunds',
         'refund-requests',
         'complete-refund',
@@ -210,6 +214,7 @@ if ($isDemoEnvironment) {
         'admin-review-consultation',
         'admin-final-approve-consultation',
         'admin-reschedule-consultation',
+        'review-reschedule-consultation',
         'admin-assign-agent',
         'admin-contact-customer',
         'admin-close-request',
@@ -219,6 +224,8 @@ if ($isDemoEnvironment) {
         'reject-service',
         'approve-service-schedule',
         'complete-service',
+        'admin-review-service-job',
+        'review-reschedule-service',
         'review-refund',
         'missed-consultation-approvals',
         'review-missed-consultation',
@@ -232,6 +239,7 @@ if ($isDemoEnvironment) {
         'pending-contract-leads',
         'view-contract-lead',
         'complete-service-form',
+    'admin-suspension-chat',
     ];
 
     /**
@@ -261,13 +269,16 @@ if ($isDemoEnvironment) {
         'add-request',
         'view-request',
         'edit-request',
+        'needs-admin-review',
+        'awaiting-customer-response',
+        'view-awaiting-customer-response',
+        'review-cancellation-request',
+        'closure-agreements',
+        'review-closure-agreement',
         'closed-requests',
         'review-closed-request',
         'archived-requests',
         'view-archived-request',
-        'retention-review',
-        'review-retention',
-        'export-retention',
 
         'refunds',
         'refund-requests',
@@ -277,6 +288,10 @@ if ($isDemoEnvironment) {
 
         'payments',
         'view-payment',
+        'deposit-slips',
+        'view-slip',
+        'approve-slip',
+        'reject-slip',
 
         'consultation-slots',
         'review-consultation',
@@ -287,6 +302,7 @@ if ($isDemoEnvironment) {
         'admin-review-consultation',
         'admin-final-approve-consultation',
         'admin-reschedule-consultation',
+        'review-reschedule-consultation',
         'admin-assign-agent',
         'admin-contact-customer',
         'admin-close-request',
@@ -297,10 +313,14 @@ if ($isDemoEnvironment) {
         'approve-service',
         'reject-service',
         'complete-service',
+        'admin-review-service-job',
+        'review-reschedule-service',
         'review-refund',
 
         'missed-consultation-approvals',
         'review-missed-consultation',
+        'customer-status',
+        'admin-suspension-chat',
 
         'create-proposal',
         'admin-view-proposal',
@@ -717,6 +737,7 @@ case 'admin-suspension-chat':
 
     case 'review-reschedule-service':
     require VIEW_PATH . '/admin/review-reschedule-service.php';
+    break;
 
     case 'explain-overdue-consultation':
     require VIEW_PATH . '/agent/explain-overdue-consultation.php';

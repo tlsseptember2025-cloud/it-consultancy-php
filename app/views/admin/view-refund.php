@@ -95,9 +95,10 @@ if ($isDemoAdmin) {
         WHERE rr.id = ?
           AND c.demo_tenant_id = ?
           AND c.is_demo_account = 1
+          AND s.demo_tenant_id = ?
         LIMIT 1
     ");
-    $stmt->execute([$refundId, $demoTenantId]);
+    $stmt->execute([$refundId, $demoTenantId, $demoTenantId]);
 } else {
     $stmt = $refundPdo->prepare("\
         SELECT

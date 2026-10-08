@@ -127,12 +127,17 @@ $stmt = $reviewPdo->prepare("
         AND r.missed_consultation_reason <> ''
         AND (
             ? = 0
-            OR (c.demo_tenant_id = ? AND c.is_demo_account = 1)
+            OR (
+                c.demo_tenant_id = ?
+                AND c.is_demo_account = 1
+                AND s.demo_tenant_id = ?
+            )
         )
 ");
 
 $stmt->execute([
     $requestId,
+    $demoTenantId,
     $demoTenantId,
     $demoTenantId
 ]);

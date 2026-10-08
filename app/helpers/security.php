@@ -16,22 +16,47 @@ function verifyCustomerRequest(PDO $pdo, int $requestId): void
     $customerId = (int) ($session['id'] ?? 0);
 
     if ($customerId <= 0) {
-        header('Location: ' . ($isDemoCustomer ? '?page=demo-login' : '?page=public-login'));
+        header('Location: ?page=' . ($isDemoCustomer ? 'demo-login' : 'public-login'));
         exit;
     }
 
     if ($isDemoCustomer) {
+        $demoTenantId = (int) ($session['demo_tenant_id'] ?? 0);
+
+        if ($demoTenantId <= 0) {
+            unset($_SESSION['demo_customer']);
+            header('Location: ?page=demo-login');
+            exit;
+        }
+
         $stmt = $pdo->prepare("
             SELECT r.id
             FROM requests r
             INNER JOIN customers c
                 ON c.id = r.customer_id
+            INNER JOIN services s
+                ON s.id = r.service_id
+            INNER JOIN demo_tenants t
+                ON t.id = c.demo_tenant_id
             WHERE r.id = ?
               AND r.customer_id = ?
+              AND c.demo_tenant_id = ?
               AND c.is_demo_account = 1
-              AND c.demo_tenant_id IS NOT NULL
+              AND s.demo_tenant_id = ?
+              AND t.status = 'Active'
+              AND (
+                  t.expires_at IS NULL
+                  OR t.expires_at > NOW()
+              )
             LIMIT 1
         ");
+
+        $stmt->execute([
+            $requestId,
+            $customerId,
+            $demoTenantId,
+            $demoTenantId
+        ]);
     } else {
         $stmt = $pdo->prepare("
             SELECT id
@@ -40,15 +65,15 @@ function verifyCustomerRequest(PDO $pdo, int $requestId): void
               AND customer_id = ?
             LIMIT 1
         ");
+
+        $stmt->execute([
+            $requestId,
+            $customerId
+        ]);
     }
 
-    $stmt->execute([
-        $requestId,
-        $customerId
-    ]);
-
     if (!$stmt->fetch()) {
-        header('Location: ' . ($isDemoCustomer ? '?page=customer-requests' : '?page=customer-requests'));
+        header('Location: ?page=customer-requests');
         exit;
     }
 }

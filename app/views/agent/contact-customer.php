@@ -1,5 +1,7 @@
 <?php
 
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+
 /** @var array $agent */
 /** @var array $request */
 
@@ -178,6 +180,7 @@ require VIEW_PATH . '/layouts/header-agent.php';
         <div class="card-body">
 
             <form method="POST">
+    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
                 <!-- Step 1 -->
 

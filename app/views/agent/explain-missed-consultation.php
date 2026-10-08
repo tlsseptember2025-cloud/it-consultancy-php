@@ -290,7 +290,16 @@ if ($consultation['workflow_stage'] !== 'Consultation Decision Required') {
 
 
 
+
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!hash_equals($csrfToken, $_POST['csrf_token'] ?? '')) {
+        $_SESSION['error'] = 'Invalid or expired security request.';
+        header('Location: ?page=explain-missed-consultation&id=' . $requestId);
+        exit;
+    }
+
 
 
 
@@ -1027,6 +1036,8 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
 
             <form method="POST">
+
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
 
 

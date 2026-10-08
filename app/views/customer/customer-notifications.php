@@ -1,5 +1,19 @@
 <?php
 
+/* --------------------------------------------------------------------------
+ | CSRF protection for state-changing POST requests
+ |-------------------------------------------------------------------------- */
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $submittedCsrfToken = $_POST['csrf_token'] ?? '';
+    if (!is_string($submittedCsrfToken) || !hash_equals($csrfToken, $submittedCsrfToken)) {
+        http_response_code(403);
+        exit('Invalid CSRF token.');
+    }
+}
+
+
 require_once APP_PATH . '/helpers/DateHelper.php';
 require_once HELPER_PATH . '/auth.php';
 
@@ -217,6 +231,7 @@ require dirname(__DIR__) . '/layouts/header-customer.php';
             <?php if (!empty($notifications)): ?>
 
                 <form method="POST" class="mb-0">
+<input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
                     <button
                         type="submit"

@@ -37,7 +37,11 @@ if ($isDemoAdmin) {
 
     $assignPdo = $demoPdo;
 
-    $demoTenantId = (int) $_SESSION['demo_user']['demo_tenant_id'];
+    $demoTenantId = (int) ($_SESSION['demo_user']['demo_tenant_id'] ?? 0);
+
+    if ($demoTenantId <= 0) {
+        die('Invalid Demo tenant.');
+    }
 }
 
 $requestId = (int) ($_GET['id'] ?? 0);
@@ -338,16 +342,35 @@ if (isset($_POST['reassign_agent'])) {
         }
 
 
-        $stmt = $assignPdo->prepare("
-            SELECT id
-            FROM users
-            WHERE email = ?
-            LIMIT 1
-        ");
+        if ($isDemoAdmin) {
 
-        $stmt->execute([
-            $adminEmail
-        ]);
+            $stmt = $assignPdo->prepare("
+                SELECT id
+                FROM users
+                WHERE email = ?
+                  AND demo_tenant_id = ?
+                  AND is_demo_account = 1
+                LIMIT 1
+            ");
+
+            $stmt->execute([
+                $adminEmail,
+                $demoTenantId
+            ]);
+
+        } else {
+
+            $stmt = $assignPdo->prepare("
+                SELECT id
+                FROM users
+                WHERE email = ?
+                LIMIT 1
+            ");
+
+            $stmt->execute([
+                $adminEmail
+            ]);
+        }
 
         $admin = $stmt->fetch(PDO::FETCH_ASSOC);
 

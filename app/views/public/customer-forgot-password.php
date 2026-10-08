@@ -1,6 +1,19 @@
 <?php
 
+require_once CONFIG_PATH . '/database.php';
 require_once HELPER_PATH . '/email.php';
+
+/*
+ * This is the Main customer password-recovery flow.
+ * Demo accounts use the separate Demo password-recovery process.
+ */
+$forgotHost = strtolower($_SERVER['HTTP_HOST'] ?? '');
+$forgotHost = preg_replace('/:\\d+$/', '', $forgotHost) ?? $forgotHost;
+
+if ($forgotHost === 'demo.wahbibconsultancy.com') {
+    header('Location: ?page=demo-password-recovery');
+    exit;
+}
 
 if (empty($_SESSION['public_csrf_token']) || !is_string($_SESSION['public_csrf_token'])) {
     $_SESSION['public_csrf_token'] = bin2hex(random_bytes(32));

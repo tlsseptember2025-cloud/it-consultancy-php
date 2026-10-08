@@ -112,6 +112,7 @@ $stmt = $archivePdo->prepare("
           OR (
               customers.demo_tenant_id = ?
               AND customers.is_demo_account = 1
+              AND services.demo_tenant_id = ?
           )
       )
 

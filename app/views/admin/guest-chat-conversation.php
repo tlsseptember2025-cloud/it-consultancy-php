@@ -12,6 +12,11 @@ if (isset($_SESSION['demo_super_admin'])) {
     exit;
 }
 
+if (isset($_SESSION['demo_user'])) {
+    header('Location: ?page=demo-dashboard');
+    exit;
+}
+
 /*
  * Main Admin session stores the Admin email.
  * Resolve it to the actual users.id for message ownership.
@@ -27,6 +32,8 @@ $adminStmt = $pdo->prepare("
     SELECT id, email
     FROM users
     WHERE email = ?
+      AND is_demo_account = 0
+      AND is_super_admin = 0
     LIMIT 1
 ");
 
@@ -39,6 +46,15 @@ if (!$admin) {
 }
 
 $adminId = (int) $admin['id'];
+
+/*
+ * One-time token for Admin reply submissions.
+ * This prevents a browser retry/double-submit from creating
+ * the same reply more than once.
+ */
+$guestChatReplyToken = bin2hex(random_bytes(32));
+$_SESSION['guest_chat_reply_token'] = $guestChatReplyToken;
+
 
 $conversationId = (int) ($_GET['id'] ?? 0);
 
@@ -154,6 +170,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
 
     /*
+     * Consume the one-time reply token before processing the reply.
+     * A replayed POST therefore cannot insert another message.
+     */
+    if ($action === 'send_message') {
+        $submittedReplyToken = (string) ($_POST['reply_token'] ?? '');
+        $storedReplyToken = (string) ($_SESSION['guest_chat_reply_token'] ?? '');
+
+        if (
+            $submittedReplyToken === ''
+            || $storedReplyToken === ''
+            || !hash_equals($storedReplyToken, $submittedReplyToken)
+        ) {
+            $_SESSION['error'] =
+                'This reply form has already been submitted. Please use the current form.';
+            header(
+                'Location: ?page=guest-chat-conversation-admin&id='
+                . $conversationId
+            );
+            exit;
+        }
+
+        unset($_SESSION['guest_chat_reply_token']);
+    }
+
+    /*
      * ---------------------------------------------------------------
      * Send Admin reply
      * ---------------------------------------------------------------
@@ -189,9 +230,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         try {
 
+            $pdo->beginTransaction();
+
             /*
-             * Validate the optional Admin attachment before opening
-             * the database transaction.
+             * Lock the conversation row and re-check that it is still Open.
+             * This prevents an Admin reply from being inserted after another
+             * request has already closed the conversation.
+             */
+            $lockStmt = $pdo->prepare("
+                SELECT status
+                FROM guest_chat_conversations
+                WHERE id = ?
+                LIMIT 1
+                FOR UPDATE
+            ");
+            $lockStmt->execute([$conversationId]);
+            $lockedConversation = $lockStmt->fetch(PDO::FETCH_ASSOC);
+
+            if (
+                !$lockedConversation
+                || $lockedConversation['status'] !== 'Open'
+            ) {
+                throw new RuntimeException(
+                    'This guest chat has already been closed.'
+                );
+            }
+
+            /*
+             * Validate the optional Admin attachment before inserting
+             * the database records.
              */
             if ($hasAttachment) {
 
@@ -262,11 +329,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     (string) ($file['name'] ?? 'attachment')
                 );
 
+                $originalName = mb_substr(
+                    $originalName,
+                    0,
+                    255
+                );
+
+                $originalName = str_replace(
+                    ["\r", "\n", '"'],
+                    '',
+                    $originalName
+                );
+
+                if ($originalName === '') {
+                    $originalName = 'attachment';
+                }
+
                 $mimeType = $detectedMime;
                 $fileSize = (int) $file['size'];
             }
-
-            $pdo->beginTransaction();
 
             $messageStmt = $pdo->prepare("
                 INSERT INTO guest_chat_messages
@@ -342,7 +423,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 @unlink($storedFilePath);
             }
 
-            $_SESSION['error'] = $e->getMessage();
+            error_log(
+                'Guest chat admin reply failed: ' . $e->getMessage()
+            );
+
+            $_SESSION['error'] =
+                'The message could not be sent. Please try again.';
         }
 
         header(
@@ -381,6 +467,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ");
 
         $closeStmt->execute([$conversationId]);
+
+        if ($closeStmt->rowCount() !== 1) {
+            $_SESSION['error'] = 'This guest chat has already been closed.';
+            header('Location: ?page=guest-chats');
+            exit;
+        }
 
         /*
          * Reload the conversation so the email contains the
@@ -989,6 +1081,11 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                         type="hidden"
                         name="action"
                         value="send_message">
+
+                    <input
+                        type="hidden"
+                        name="reply_token"
+                        value="<?= htmlspecialchars($guestChatReplyToken, ENT_QUOTES, 'UTF-8') ?>">
 
                     <div class="mb-3">
 

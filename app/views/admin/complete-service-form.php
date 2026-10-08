@@ -39,6 +39,16 @@ $id = (int) ($_GET['id'] ?? 0);
             method="POST"
             action="?page=complete-service&id=<?= $id ?>">
 
+            <input
+                type="hidden"
+                name="csrf_token"
+                value="<?= htmlspecialchars(
+                    $_SESSION['csrf_token'] ?? '',
+                    ENT_QUOTES,
+                    'UTF-8'
+                ) ?>"
+            >
+
             <div class="mb-3">
 
                 <label class="form-label">

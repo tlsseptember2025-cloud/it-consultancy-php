@@ -1,33 +1,17 @@
 <?php
 
 require_once APP_PATH . '/helpers/auth.php';
+
+if (!isset($_SESSION['user']) || isset($_SESSION['demo_user']) || isset($_SESSION['demo_super_admin'])) {
+    header('Location: ?page=login');
+    exit;
+}
+
 require_once CONFIG_PATH . '/database.php';
 require_once APP_PATH . '/helpers/SearchPaginationHelper.php';
 
-$isDemoAdmin = isset($_SESSION['demo_user']);
-
-if ($isDemoAdmin) {
-    requireDemoAdmin();
-    require_once CONFIG_PATH . '/demo-database.php';
-
-    $reviewPdo = $demoPdo;
-    $demoTenantId = (int) ($_SESSION['demo_user']['demo_tenant_id'] ?? 0);
-
-    if ($demoTenantId <= 0) {
-        unset($_SESSION['demo_user']);
-        header('Location: ?page=demo-login');
-        exit;
-    }
-} else {
-    requireAdminLogin();
-
-if (isset($_SESSION['demo_super_admin'])) {
-    header('Location: ?page=demo-super-admin');
-    exit;
-}
-    $reviewPdo = $pdo;
-    $demoTenantId = 0;
-}
+$reviewPdo = $pdo;
+$demoTenantId = 0;
 
 $search = getSearchTerm();
 $page = getPageNumber();
@@ -53,14 +37,6 @@ $where = "
 
 $params = ['Archived'];
 
-if ($isDemoAdmin) {
-    $where .= "
-      AND c.demo_tenant_id = ?
-      AND c.is_demo_account = 1
-    ";
-
-    $params[] = $demoTenantId;
-}
 
 if ($search !== '') {
     $where .= "

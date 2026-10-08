@@ -1,5 +1,7 @@
 <?php
 
+require_once HELPER_PATH . '/auth.php';
+
 require_once APP_PATH . '/helpers/DateHelper.php';
 
 
@@ -25,6 +27,8 @@ if (!$isDemoAgent && !isset($_SESSION['agent'])) {
 */
 
 if ($isDemoAgent) {
+
+    requireDemoAgent();
 
     require_once CONFIG_PATH . '/demo-database.php';
 
@@ -201,10 +205,19 @@ if (!$job) {
 |--------------------------------------------------------------------------
 */
 
+
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+
 if (
     $_SERVER['REQUEST_METHOD'] === 'POST'
     && isset($_POST['start_service'])
 ) {
+    if (!hash_equals($csrfToken, $_POST['csrf_token'] ?? '')) {
+        $_SESSION['error'] = 'Invalid or expired security request.';
+        header('Location: ?page=view-service-job&id=' . $bookingId);
+        exit;
+    }
+
 
     /*
     |--------------------------------------------------------------------------
@@ -734,6 +747,8 @@ require VIEW_PATH . '/layouts/header-agent.php';
                 </p>
 
                 <form method="POST">
+
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
                     <button
                         type="submit"

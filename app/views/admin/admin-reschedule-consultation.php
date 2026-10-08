@@ -34,7 +34,11 @@ if ($isDemoAdmin) {
 
     $reschedulePdo = $demoPdo;
 
-    $demoTenantId = (int) $_SESSION['demo_user']['demo_tenant_id'];
+    $demoTenantId = (int) ($_SESSION['demo_user']['demo_tenant_id'] ?? 0);
+
+    if ($demoTenantId <= 0) {
+        die('Invalid Demo tenant.');
+    }
 }
 
 $requestId = (int) ($_GET['id'] ?? 0);
@@ -87,7 +91,6 @@ if ($isDemoAdmin) {
           AND c.demo_tenant_id = ?
           AND c.is_demo_account = 1
           AND s.demo_tenant_id = ?
-          AND s.is_demo_account = 1
           AND (a.id IS NULL OR (a.demo_tenant_id = ? AND a.is_demo_account = 1))
 
         LIMIT 1
@@ -203,8 +206,9 @@ if (
               AND c.demo_tenant_id = ?
               AND c.is_demo_account = 1
               AND s.demo_tenant_id = ?
-              AND s.is_demo_account = 1
               AND (a.id IS NULL OR (a.demo_tenant_id = ? AND a.is_demo_account = 1))
+              AND r.workflow_stage = 'Needs Admin Review'
+              AND r.review_type = 'consultation_not_completed'
         ");
 
         $stmt->execute([
@@ -232,7 +236,7 @@ if (
         ]);
     }
 
-    if ($stmt->rowCount() !== 1) {
+    if (!$stmt) {
         die('The consultation could not be sent for rescheduling.');
     }
 

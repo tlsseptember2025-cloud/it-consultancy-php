@@ -9,6 +9,12 @@ if (empty($_SESSION['public_csrf_token']) || !is_string($_SESSION['public_csrf_t
 
 $publicCsrfToken = $_SESSION['public_csrf_token'];
 
+if (empty($_SESSION['guest_chat_message_token']) || !is_string($_SESSION['guest_chat_message_token'])) {
+    $_SESSION['guest_chat_message_token'] = bin2hex(random_bytes(32));
+}
+
+$guestChatMessageToken = $_SESSION['guest_chat_message_token'];
+
 
 $conversationId = (int) ($_GET['id'] ?? 0);
 
@@ -133,7 +139,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit('Invalid form submission. Please refresh the page and try again.');
     }
 
+    $submittedMessageToken = $_POST['message_token'] ?? '';
+    if (
+        !is_string($submittedMessageToken)
+        || !is_string($_SESSION['guest_chat_message_token'] ?? null)
+        || !hash_equals($_SESSION['guest_chat_message_token'], $submittedMessageToken)
+    ) {
+        $_SESSION['guest_chat_error'] =
+            'This message form has already been submitted. Please try again.';
+
+        header(
+            'Location: ?page=guest-chat-conversation&id='
+            . $conversationId
+        );
+
+        exit;
+    }
+
+    // Consume the one-time token immediately so a repeated POST cannot
+    // create a second message from the same form submission.
+    unset($_SESSION['guest_chat_message_token']);
+
     $message = trim($_POST['message'] ?? '');
+
+    if (mb_strlen($message) > 5000) {
+        $_SESSION['guest_chat_error'] =
+            'Your message must not exceed 5,000 characters.';
+
+        header(
+            'Location: ?page=guest-chat-conversation&id='
+            . $conversationId
+        );
+
+        exit;
+    }
 
     $uploadedFile = $_FILES['attachment'] ?? null;
 
@@ -268,6 +307,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             255
         );
 
+        $originalName = str_replace(
+            ["\r", "\n", '"'],
+            '',
+            $originalName
+        );
+
+        if ($originalName === '') {
+            $originalName = 'attachment';
+        }
+
         $extension = $allowedMimeTypes[$mimeType];
 
         $storedName =
@@ -337,6 +386,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
 
         $pdo->beginTransaction();
+
+        /*
+         * Re-check the conversation status while holding a row lock.
+         * The earlier status check is useful for normal requests, but it
+         * cannot prevent an Admin from closing the conversation between
+         * that check and this INSERT.
+         */
+        $statusStmt = $pdo->prepare("
+            SELECT status
+            FROM guest_chat_conversations
+            WHERE id = ?
+            LIMIT 1
+            FOR UPDATE
+        ");
+
+        $statusStmt->execute([$conversationId]);
+
+        $lockedConversationStatus = $statusStmt->fetchColumn();
+
+        if ($lockedConversationStatus !== 'Open') {
+            throw new RuntimeException(
+                'Guest chat conversation is no longer open.'
+            );
+        }
 
         $messageStmt = $pdo->prepare("
             INSERT INTO guest_chat_messages
@@ -415,7 +488,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $_SESSION['guest_chat_error'] =
-            'The message could not be saved. Please try again.';
+            $e instanceof RuntimeException
+                && $e->getMessage() ===
+                    'Guest chat conversation is no longer open.'
+                ? 'This conversation has already been closed.'
+                : 'The message could not be saved. Please try again.';
 
         header(
             'Location: ?page=guest-chat-conversation&id='
@@ -708,6 +785,7 @@ require dirname(__DIR__) . '/public/demo-banner.php';
                                 method="POST"
                                 enctype="multipart/form-data">
                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($publicCsrfToken, ENT_QUOTES, 'UTF-8') ?>">
+                        <input type="hidden" name="message_token" value="<?= htmlspecialchars($guestChatMessageToken, ENT_QUOTES, 'UTF-8') ?>">
 
 
                                 <div class="mb-2">
@@ -716,7 +794,8 @@ require dirname(__DIR__) . '/public/demo-banner.php';
                                         name="message"
                                         class="form-control"
                                         rows="2"
-                                        placeholder="Type your message..."></textarea>
+                                        placeholder="Type your message..."
+                                        maxlength="5000"></textarea>
 
                                 </div>
 

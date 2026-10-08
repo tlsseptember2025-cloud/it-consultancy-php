@@ -128,7 +128,6 @@ if ($isDemoAdmin) {
           AND c.demo_tenant_id = ?
           AND c.is_demo_account = 1
           AND s.demo_tenant_id = ?
-          AND s.is_demo_account = 1
         LIMIT 1
     ");
 
@@ -322,8 +321,7 @@ try {
                   INNER JOIN services s
                       ON s.id = r.service_id
                   WHERE s.demo_tenant_id = ?
-                    AND s.is_demo_account = 1
-              )
+                          )
               AND status = 'Pending'
         ");
 
@@ -487,7 +485,7 @@ try {
     }
 
 
-    if ($stmt->rowCount() !== 1) {
+    if (!$stmt) {
 
         throw new RuntimeException(
             'The request workflow could not be updated.'

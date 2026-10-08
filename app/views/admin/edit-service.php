@@ -9,9 +9,18 @@ if (isset($_SESSION['demo_super_admin'])) {
     exit;
 }
 
-if (isset($_SESSION['demo_user'])) {
+$isDemoAdmin = isset($_SESSION['demo_user']);
+$demoTenantId = 0;
+
+if ($isDemoAdmin) {
     require_once CONFIG_PATH . '/demo-database.php';
     $servicesPdo = $demoPdo;
+
+    $demoTenantId = (int) ($_SESSION['demo_user']['demo_tenant_id'] ?? 0);
+
+    if ($demoTenantId <= 0) {
+        die('Invalid Demo tenant.');
+    }
 } else {
     require CONFIG_PATH . '/database.php';
     $servicesPdo = $pdo;
@@ -30,11 +39,24 @@ if (empty($_SESSION[$csrfKey])) {
     $_SESSION[$csrfKey] = bin2hex(random_bytes(32));
 }
 
-$stmt = $servicesPdo->prepare("
-    SELECT * FROM services WHERE id = ?
-");
-
-$stmt->execute([$id]);
+if ($isDemoAdmin) {
+    $stmt = $servicesPdo->prepare("
+        SELECT *
+        FROM services
+        WHERE id = ?
+          AND demo_tenant_id = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$id, $demoTenantId]);
+} else {
+    $stmt = $servicesPdo->prepare("
+        SELECT *
+        FROM services
+        WHERE id = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$id]);
+}
 
 $service = $stmt->fetch();
 
@@ -134,18 +156,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    $stmt = $servicesPdo->prepare("
-        UPDATE services
-        SET title = ?, description = ?, image = ?
-        WHERE id = ?
-    ");
+    if ($isDemoAdmin) {
+        $stmt = $servicesPdo->prepare("
+            UPDATE services
+            SET title = ?, description = ?, image = ?
+            WHERE id = ?
+              AND demo_tenant_id = ?
+        ");
 
-    $stmt->execute([
-        $title,
-        $description,
-        $image,
-        $id
-    ]);
+        $stmt->execute([
+            $title,
+            $description,
+            $image,
+            $id,
+            $demoTenantId
+        ]);
+    } else {
+        $stmt = $servicesPdo->prepare("
+            UPDATE services
+            SET title = ?, description = ?, image = ?
+            WHERE id = ?
+        ");
+
+        $stmt->execute([
+            $title,
+            $description,
+            $image,
+            $id
+        ]);
+    }
 
     header('Location: ?page=services-admin');
     exit;
@@ -168,6 +207,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </h2>
 
                 <form method="POST" enctype="multipart/form-data">
+
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION[$csrfKey], ENT_QUOTES, 'UTF-8') ?>">
 
                     <div class="mb-3">
 
@@ -240,7 +281,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <?php if (!empty($service['image'])): ?>
 
                                     <img
-                                        src="../public/uploads/services/<?= htmlspecialchars($service['image']) ?>"
+                                        src="/uploads/services/<?= rawurlencode(basename((string) $service['image'])) ?>"
                                         width="120"
                                         class="img-thumbnail mb-3">
 

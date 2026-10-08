@@ -23,7 +23,43 @@ if ($isDemoAgent) {
     $activeAgentId = (int) $activeAgent['id'];
     $demoTenantId = (int) ($activeAgent['demo_tenant_id'] ?? 0);
 
-    if ($demoTenantId <= 0) {
+    if ($demoTenantId <= 0 || $activeAgentId <= 0) {
+        unset($_SESSION['demo_agent']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    $tenantStmt = $demoPdo->prepare("
+        SELECT id
+        FROM demo_tenants
+        WHERE id = ?
+          AND status = 'Active'
+          AND (expires_at IS NULL OR expires_at > NOW())
+        LIMIT 1
+    ");
+    $tenantStmt->execute([$demoTenantId]);
+
+    if (!$tenantStmt->fetchColumn()) {
+        unset($_SESSION['demo_agent']);
+        header('Location: ?page=demo-login');
+        exit;
+    }
+
+    $agentCheck = $demoPdo->prepare("
+        SELECT id
+        FROM agents
+        WHERE id = ?
+          AND demo_tenant_id = ?
+          AND is_demo_account = 1
+          AND status = 'Active'
+        LIMIT 1
+    ");
+    $agentCheck->execute([
+        $activeAgentId,
+        $demoTenantId
+    ]);
+
+    if (!$agentCheck->fetchColumn()) {
         unset($_SESSION['demo_agent']);
         header('Location: ?page=demo-login');
         exit;

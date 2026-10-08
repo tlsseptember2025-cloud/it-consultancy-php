@@ -66,7 +66,24 @@ if (!$attachment) {
 |--------------------------------------------------------------------------
 */
 
-$isMainAdmin = isset($_SESSION['user']);
+$isMainAdmin = false;
+
+if (isset($_SESSION['user']) && !isset($_SESSION['demo_user'])) {
+    $adminEmail = trim((string) $_SESSION['user']);
+
+    if ($adminEmail !== '') {
+        $adminStmt = $pdo->prepare("
+            SELECT id
+            FROM users
+            WHERE email = ?
+            LIMIT 1
+        ");
+
+        $adminStmt->execute([$adminEmail]);
+
+        $isMainAdmin = (bool) $adminStmt->fetchColumn();
+    }
+}
 
 /*
 |--------------------------------------------------------------------------

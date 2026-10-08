@@ -232,6 +232,7 @@ $requestsStmt = $customerPdo->prepare("
                     AND c.demo_tenant_id = ?
                     AND c.is_demo_account = 1
               )
+              AND services.demo_tenant_id = ?
           )
       )
     ORDER BY requests.created_at DESC
@@ -239,6 +240,7 @@ $requestsStmt = $customerPdo->prepare("
 
 $requestsStmt->execute([
     $id,
+    $isDemoAdmin ? $demoTenantId : 0,
     $isDemoAdmin ? $demoTenantId : 0,
     $isDemoAdmin ? $demoTenantId : 0
 ]);
@@ -272,6 +274,7 @@ $paymentsStmt = $customerPdo->prepare("
                     AND c.demo_tenant_id = ?
                     AND c.is_demo_account = 1
               )
+              AND services.demo_tenant_id = ?
           )
       )
     ORDER BY payments.created_at DESC
@@ -279,6 +282,7 @@ $paymentsStmt = $customerPdo->prepare("
 
 $paymentsStmt->execute([
     $id,
+    $isDemoAdmin ? $demoTenantId : 0,
     $isDemoAdmin ? $demoTenantId : 0,
     $isDemoAdmin ? $demoTenantId : 0
 ]);

@@ -1,5 +1,7 @@
 <?php
 
+require_once HELPER_PATH . '/auth.php';
+
 /*
 |--------------------------------------------------------------------------
 | Agent Authentication / Database Selection
@@ -51,7 +53,7 @@ if ($isDemoAgent) {
 } else {
 
     if (!isset($_SESSION['agent'])) {
-        header('Location: ?page=public-login');
+        header('Location: ?page=agent-change-password');
         exit;
     }
 
@@ -84,10 +86,19 @@ if ($isDemoAgent) {
 }
 
 
+
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+
 if (
     $_SERVER['REQUEST_METHOD'] === 'POST'
     && isset($_POST['request_password_change'])
 ) {
+    if (!hash_equals($csrfToken, $_POST['csrf_token'] ?? '')) {
+        $_SESSION['error'] = 'Invalid or expired security request.';
+        header('Location: ?page=public-login');
+        exit;
+    }
+
 
     /*
      * Generate a cryptographically secure token.
@@ -218,6 +229,8 @@ require VIEW_PATH . '/layouts/header-agent.php';
                     </div>
 
                     <form method="POST">
+
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
                         <button
                             type="submit"

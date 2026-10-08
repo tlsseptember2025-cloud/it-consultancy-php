@@ -1,4 +1,12 @@
 <?php
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+
+$submittedCsrfToken = $_GET['csrf_token'] ?? '';
+if (!is_string($submittedCsrfToken) || !hash_equals($csrfToken, $submittedCsrfToken)) {
+    http_response_code(403);
+    exit('Invalid CSRF token.');
+}
+
 
 require_once HELPER_PATH . '/auth.php';
 require_once HELPER_PATH . '/security.php';

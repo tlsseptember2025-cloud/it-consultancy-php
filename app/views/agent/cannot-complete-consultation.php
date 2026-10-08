@@ -1,5 +1,7 @@
 <?php
 
+require_once HELPER_PATH . '/auth.php';
+
 require_once APP_PATH . '/helpers/RequestEventHelper.php';
 
 
@@ -25,6 +27,8 @@ if (!$isDemoAgent && !isset($_SESSION['agent'])) {
 */
 
 if ($isDemoAgent) {
+
+    requireDemoAgent();
 
     require_once CONFIG_PATH . '/demo-database.php';
 
@@ -165,7 +169,23 @@ if (!$request) {
 |--------------------------------------------------------------------------
 */
 
+
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+
+if (
+    ($request['job_status'] ?? '') !== 'In Progress'
+    || ($request['workflow_stage'] ?? '') === 'Customer Contact'
+) {
+    die('This consultation cannot be marked as incomplete from its current workflow state.');
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!hash_equals($csrfToken, $_POST['csrf_token'] ?? '')) {
+        $_SESSION['error'] = 'Invalid or expired security request.';
+        header('Location: ?page=view-consultation&id=' . $requestId);
+        exit;
+    }
+
 
     $reason = trim(
         $_POST['reason'] ?? ''
@@ -387,6 +407,8 @@ require VIEW_PATH . '/layouts/header-agent.php';
 
 
             <form method="POST">
+
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
                 <div class="mb-3">
 

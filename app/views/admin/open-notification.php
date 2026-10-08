@@ -14,6 +14,7 @@ requireAdminLogin();
 $isDemoAdmin = isset($_SESSION['demo_user']);
 $isDemoSuperAdmin = isset($_SESSION['demo_super_admin']);
 $isMainAdmin = isset($_SESSION['user']);
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
 
 
 /*
@@ -61,6 +62,14 @@ $id = isset($_GET['id'])
     ? (int) $_GET['id']
     : 0;
 
+if (
+    !isset($_GET['csrf_token'])
+    || !hash_equals((string) $csrfToken, (string) $_GET['csrf_token'])
+) {
+    http_response_code(403);
+    exit('Invalid security token.');
+}
+
 
 if ($id <= 0) {
 
@@ -75,16 +84,39 @@ if ($id <= 0) {
 |--------------------------------------------------------------------------
 */
 
-$stmt = $adminPdo->prepare("
-    SELECT *
-    FROM notifications
-    WHERE id = ?
-      AND recipient_type = 'admin'
-");
+if ($isDemoAdmin) {
+    $demoAdminId = (int) ($_SESSION['demo_user']['id'] ?? 0);
 
-$stmt->execute([
-    $id
-]);
+    if ($demoAdminId <= 0) {
+        http_response_code(403);
+        exit('Invalid Demo Admin session.');
+    }
+
+    $stmt = $adminPdo->prepare("
+        SELECT *
+        FROM notifications
+        WHERE id = ?
+          AND recipient_type = 'admin'
+          AND recipient_id = ?
+    ");
+
+    $stmt->execute([
+        $id,
+        $demoAdminId
+    ]);
+} else {
+    $stmt = $adminPdo->prepare("
+        SELECT *
+        FROM notifications
+        WHERE id = ?
+          AND recipient_type = 'admin'
+          AND recipient_id IS NULL
+    ");
+
+    $stmt->execute([
+        $id
+    ]);
+}
 
 $notification = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -102,15 +134,32 @@ if (!$notification) {
 |--------------------------------------------------------------------------
 */
 
-$stmt = $adminPdo->prepare("
-    UPDATE notifications
-    SET is_read = 1
-    WHERE id = ?
-");
+if ($isDemoAdmin) {
+    $stmt = $adminPdo->prepare("
+        UPDATE notifications
+        SET is_read = 1
+        WHERE id = ?
+          AND recipient_type = 'admin'
+          AND recipient_id = ?
+    ");
 
-$stmt->execute([
-    $id
-]);
+    $stmt->execute([
+        $id,
+        $demoAdminId
+    ]);
+} else {
+    $stmt = $adminPdo->prepare("
+        UPDATE notifications
+        SET is_read = 1
+        WHERE id = ?
+          AND recipient_type = 'admin'
+          AND recipient_id IS NULL
+    ");
+
+    $stmt->execute([
+        $id
+    ]);
+}
 
 
 /*

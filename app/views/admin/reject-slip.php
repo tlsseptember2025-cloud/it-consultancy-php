@@ -109,6 +109,7 @@ $stmt = $adminPdo->prepare("
           OR (
               c.demo_tenant_id = ?
               AND c.is_demo_account = 1
+              AND s.demo_tenant_id = ?
           )
       )
 ");
@@ -116,6 +117,7 @@ $stmt = $adminPdo->prepare("
 
 $stmt->execute([
     $id,
+    $adminTenantId,
     $adminTenantId,
     $adminTenantId
 ]);
@@ -185,15 +187,27 @@ if ($isDemoAdmin && isset($_SESSION['demo_user'])) {
 */
 
 $rejectStmt = $adminPdo->prepare("
-    UPDATE payment_slips
+    UPDATE payment_slips ps
     SET status = 'Rejected'
-    WHERE id = ?
-      AND status = 'Pending'
+    WHERE ps.id = ?
+      AND ps.status = 'Pending'
+      AND (
+          ? = 0
+          OR EXISTS (
+              SELECT 1
+              FROM customers c
+              WHERE c.id = ps.customer_id
+                AND c.demo_tenant_id = ?
+                AND c.is_demo_account = 1
+          )
+      )
 ");
 
 
 $rejectStmt->execute([
-    $id
+    $id,
+    $adminTenantId,
+    $adminTenantId
 ]);
 
 
@@ -203,7 +217,7 @@ $rejectStmt->execute([
 |--------------------------------------------------------------------------
 */
 
-if ($rejectStmt->rowCount() !== 1) {
+if (!$rejectStmt) {
 
     header('Location: ?page=requests');
     exit;
@@ -217,16 +231,29 @@ if ($rejectStmt->rowCount() !== 1) {
 */
 
 $requestStmt = $adminPdo->prepare("
-    UPDATE requests
+    UPDATE requests r
     SET
         workflow_stage = 'Proposal Accepted',
         status = 'Pending'
-    WHERE id = ?
+    WHERE r.id = ?
+      AND r.workflow_stage <> 'Proposal Accepted'
+      AND (
+          ? = 0
+          OR EXISTS (
+              SELECT 1
+              FROM customers c
+              WHERE c.id = r.customer_id
+                AND c.demo_tenant_id = ?
+                AND c.is_demo_account = 1
+          )
+      )
 ");
 
 
 $requestStmt->execute([
-    (int) $data['request_id']
+    (int) $data['request_id'],
+    $adminTenantId,
+    $adminTenantId
 ]);
 
 

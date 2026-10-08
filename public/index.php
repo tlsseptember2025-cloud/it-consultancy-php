@@ -36,5 +36,16 @@ require_once HELPER_PATH . '/slot_generator.php';
 
 require_once ROOT_PATH . '/routes.php';
 
-ensureConsultationSlots($pdo);
-ensureServiceSlots($pdo);
+// Slot generation must use the database belonging to the current web environment.
+// Using the Main DB on the Demo host would mutate Main scheduling data during Demo requests.
+$host = strtolower($_SERVER['HTTP_HOST'] ?? '');
+$isDemoEnvironment = ($host === 'demo.wahbibconsultancy.com');
+
+$slotPdo = $isDemoEnvironment
+    ? ($demoPdo ?? null)
+    : ($pdo ?? null);
+
+if ($slotPdo instanceof PDO) {
+    ensureConsultationSlots($slotPdo);
+    ensureServiceSlots($slotPdo);
+}

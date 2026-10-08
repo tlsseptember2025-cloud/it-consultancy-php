@@ -83,7 +83,6 @@ if ($isDemoAdmin) {
         AND c.demo_tenant_id = ?
         AND c.is_demo_account = 1
         AND s.demo_tenant_id = ?
-        AND s.is_demo_account = 1
     ";
 
     $params[] = $demoTenantId;
@@ -205,6 +204,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $updateWhere = "
         WHERE id = ?
+          AND workflow_stage <> 'Service Rejected'
     ";
 
     $updateParams = [
@@ -239,7 +239,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $updateStmt->execute($updateParams);
 
-    if ($updateStmt->rowCount() !== 1) {
+    if (!$updateStmt) {
         die('The service rejection could not be completed.');
     }
 

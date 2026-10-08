@@ -9,44 +9,25 @@ if (!is_string($submittedCsrfToken) || !hash_equals($csrfToken, $submittedCsrfTo
 
 
 require_once HELPER_PATH . '/auth.php';
+
+$isDemoAdmin = false;
+$isDemoSuperAdmin = false;
+
+if (!isset($_SESSION['user']) || isset($_SESSION['demo_user']) || isset($_SESSION['demo_super_admin'])) {
+    header('Location: ?page=login');
+    exit;
+}
 require_once HELPER_PATH . '/email.php';
 
 
 /*
 |--------------------------------------------------------------------------
-| Determine Admin Context
+| Main Admin Database
 |--------------------------------------------------------------------------
 */
 
-$isMainAdmin      = isset($_SESSION['user']);
-$isDemoAdmin      = isset($_SESSION['demo_user']);
-$isDemoSuperAdmin = isset($_SESSION['demo_super_admin']);
-
-if (!$isMainAdmin && !$isDemoAdmin && !$isDemoSuperAdmin) {
-    header('Location: ?page=login');
-    exit;
-}
-
-
-/*
-|--------------------------------------------------------------------------
-| Select Database
-|--------------------------------------------------------------------------
-*/
-
-if ($isDemoAdmin || $isDemoSuperAdmin) {
-
-    require_once CONFIG_PATH . '/demo-database.php';
-
-    $adminPdo = $demoPdo;
-
-} else {
-
-    require_once CONFIG_PATH . '/database.php';
-
-    $adminPdo = $pdo;
-}
-
+require_once CONFIG_PATH . '/database.php';
+$adminPdo = $pdo;
 
 /*
 |--------------------------------------------------------------------------

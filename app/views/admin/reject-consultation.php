@@ -209,7 +209,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     |--------------------------------------------------------------------------
     */
 
-    $updateStmt = $pdo->prepare("
+    $updateWhere = "
+        WHERE id = ?
+          AND workflow_stage <> 'Consultation Rejected'
+    ";
+
+    $updateParams = [
+        $reason,
+        $admin['id'],
+        $requestId
+    ];
+
+    if ($isDemoAdmin) {
+        $updateWhere .= "
+          AND customer_id IN (
+              SELECT id
+              FROM customers
+              WHERE demo_tenant_id = ?
+                AND is_demo_account = 1
+          )
+        ";
+        $updateParams[] = $demoTenantId;
+    }
+
+    $updateStmt = $adminPdo->prepare("
         UPDATE requests
         SET
             workflow_stage = 'Consultation Rejected',
@@ -217,14 +240,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             consultation_rejected_at = NOW(),
             consultation_rejected_by = ?,
             consultation_reschedules = 0
-        WHERE id = ?
+        $updateWhere
     ");
 
-    $updateStmt->execute([
-        $reason,
-        $admin['id'],
-        $requestId
-    ]);
+    $updateStmt->execute($updateParams);
+
+    if ($updateStmt->rowCount() !== 1) {
+        die('The consultation rejection could not be completed because its status changed.');
+    }
 
     /*
     |--------------------------------------------------------------------------
@@ -264,9 +287,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ON s.id = r.service_id
 
         WHERE r.id = ?
+        " . ($isDemoAdmin ? "AND c.demo_tenant_id = ?" : "") . "
     ");
 
-    $customerStmt->execute([$requestId]);
+    $customerStmt->execute(
+        $isDemoAdmin
+            ? [$requestId, $demoTenantId]
+            : [$requestId]
+    );
 
     $customer = $customerStmt->fetch();
 
@@ -327,7 +355,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <p>
             <a
-                href='" . APP_URL . "/?page=public-login'
+                href='" . (($isDemoAdmin || $isDemoSuperAdmin) ? (getenv('DEMO_APP_URL') ?: APP_URL) : APP_URL) . "/?page=public-login'
                 style='
                     background:#0d6efd;
                     color:#ffffff;
