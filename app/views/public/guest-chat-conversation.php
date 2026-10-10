@@ -254,23 +254,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
-        $maxFileSize = 5 * 1024 * 1024;
+        
+$maxFileSize = 5 * 1024 * 1024;
 
-        if (
-            (int) ($uploadedFile['size'] ?? 0)
-            > $maxFileSize
-        ) {
+$actualFileSize = filesize($uploadedFile['tmp_name']);
 
-            $_SESSION['guest_chat_error'] =
-                'The attachment must be 5 MB or smaller.';
+if (
+    $actualFileSize === false
+    || $actualFileSize <= 0
+    || $actualFileSize > $maxFileSize
+) {
+    $_SESSION['guest_chat_error'] =
+        'The attachment must be greater than 0 bytes and no larger than 5 MB.';
 
-            header(
-                'Location: ?page=guest-chat-conversation&id='
-                . $conversationId
-            );
+    header(
+        'Location: ?page=guest-chat-conversation&id='
+        . $conversationId
+    );
 
-            exit;
-        }
+    exit;
+}
+
 
         $finfo = new finfo(FILEINFO_MIME_TYPE);
 
@@ -376,7 +380,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'stored_name' => $storedName,
             'file_path' => $storagePath,
             'mime_type' => $mimeType,
-            'file_size' => (int) $uploadedFile['size']
+            'file_size' => $actualFileSize
         ];
     }
 

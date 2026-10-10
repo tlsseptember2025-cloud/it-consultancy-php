@@ -155,18 +155,32 @@ if (
     exit('Access denied.');
 }
 
+
 /*
 |--------------------------------------------------------------------------
 | Serve file
 |--------------------------------------------------------------------------
 */
 
-$mimeType =
-    trim((string) $attachment['mime_type']);
+// Validate the actual file MIME type.
+$finfo = new finfo(FILEINFO_MIME_TYPE);
+$actualMimeType = $finfo->file($filePath);
 
-if ($mimeType === '') {
-    $mimeType = 'application/octet-stream';
+$allowedMimeTypes = [
+    'image/jpeg',
+    'image/png',
+    'application/pdf',
+];
+
+if (
+    $actualMimeType === false
+    || !in_array($actualMimeType, $allowedMimeTypes, true)
+) {
+    http_response_code(403);
+    exit('Unsupported attachment type.');
 }
+
+$mimeType = $actualMimeType;
 
 $downloadName =
     basename((string) $attachment['original_name']);

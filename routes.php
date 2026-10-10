@@ -1128,6 +1128,15 @@ case 'agent-mark-all-notifications-read':
     require VIEW_PATH . '/agent/mark-all-notifications-read.php';
     break;
 
+
+case 'guest-chat':
+    require VIEW_PATH . '/public/guest-chat.php';
+    break;
+
+case 'guest-chat-conversation':
+    require VIEW_PATH . '/public/guest-chat-conversation.php';
+    break;
+
 case 'guest-chats':
     require VIEW_PATH . '/admin/guest-chats.php';
     break;
@@ -1135,6 +1144,7 @@ case 'guest-chats':
 case 'guest-chat-conversation-admin':
     require VIEW_PATH . '/admin/guest-chat-conversation.php';
     break;
+
 
     /*
     |--------------------------------------------------------------------------

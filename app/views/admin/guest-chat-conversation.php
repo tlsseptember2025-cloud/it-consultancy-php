@@ -30,11 +30,9 @@ if ($adminEmail === '') {
 
 $adminStmt = $pdo->prepare("
     SELECT id, email
-    FROM users
-    WHERE email = ?
-      AND is_demo_account = 0
-      AND is_super_admin = 0
-    LIMIT 1
+        FROM users
+        WHERE email = ?
+        LIMIT 1
 ");
 
 $adminStmt->execute([$adminEmail]);
@@ -49,12 +47,16 @@ $adminId = (int) $admin['id'];
 
 /*
  * One-time token for Admin reply submissions.
- * This prevents a browser retry/double-submit from creating
- * the same reply more than once.
+ * Keep the current token until a reply is submitted.
  */
-$guestChatReplyToken = bin2hex(random_bytes(32));
-$_SESSION['guest_chat_reply_token'] = $guestChatReplyToken;
+if (
+    empty($_SESSION['guest_chat_reply_token'])
+    || !is_string($_SESSION['guest_chat_reply_token'])
+) {
+    $_SESSION['guest_chat_reply_token'] = bin2hex(random_bytes(32));
+}
 
+$guestChatReplyToken = $_SESSION['guest_chat_reply_token'];
 
 $conversationId = (int) ($_GET['id'] ?? 0);
 
@@ -268,19 +270,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new RuntimeException('The attachment could not be uploaded.');
                 }
 
-                $maxFileSize = 5 * 1024 * 1024;
+                
+$maxFileSize = 5 * 1024 * 1024;
 
-                if ((int) ($file['size'] ?? 0) <= 0) {
-                    throw new RuntimeException('The attachment is empty.');
-                }
+if (
+    !isset($file['tmp_name'])
+    || !is_string($file['tmp_name'])
+    || !is_uploaded_file($file['tmp_name'])
+) {
+    throw new RuntimeException('Invalid attachment upload.');
+}
 
-                if ((int) $file['size'] > $maxFileSize) {
-                    throw new RuntimeException('The attachment must not exceed 5 MB.');
-                }
+$actualFileSize = filesize($file['tmp_name']);
 
-                if (!is_uploaded_file($file['tmp_name'])) {
-                    throw new RuntimeException('Invalid attachment upload.');
-                }
+if (
+    $actualFileSize === false
+    || $actualFileSize <= 0
+    || $actualFileSize > $maxFileSize
+) {
+    throw new RuntimeException(
+        'The attachment must be greater than 0 bytes and no larger than 5 MB.'
+    );
+}
+
 
                 $finfo = new finfo(FILEINFO_MIME_TYPE);
                 $detectedMime = $finfo->file($file['tmp_name']);
@@ -346,7 +358,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 $mimeType = $detectedMime;
-                $fileSize = (int) $file['size'];
+                $fileSize = $actualFileSize;
             }
 
             $messageStmt = $pdo->prepare("
