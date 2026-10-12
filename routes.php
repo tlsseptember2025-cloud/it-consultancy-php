@@ -1145,6 +1145,10 @@ case 'guest-chat-conversation-admin':
     require VIEW_PATH . '/admin/guest-chat-conversation.php';
     break;
 
+case 'admin-active-guest-chat-count':
+    require APP_PATH . '/controllers/admin-active-guest-chat-count.php';
+    exit;
+
 
     /*
     |--------------------------------------------------------------------------

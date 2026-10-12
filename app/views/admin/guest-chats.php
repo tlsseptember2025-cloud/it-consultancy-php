@@ -349,29 +349,29 @@ require dirname(__DIR__) . '/layouts/header-admin.php';
                                     </td>
 
 
-                                    <td>
+                                     <td>
+    <?= htmlspecialchars(
+        (new DateTime(
+            $conversation['started_at'],
+            new DateTimeZone('UTC')
+        ))->setTimezone(new DateTimeZone('Asia/Dubai'))
+          ->format('d-m-Y h:i A')
+    ) ?>
+</td>
 
-                                        <?= formatDateTime(
-                                            $conversation['started_at']
-                                        ) ?>
-
-                                    </td>
-
-
-                                    <td>
-
-                                        <?= !empty(
-                                            $conversation['ended_at']
-                                        )
-
-                                            ? formatDateTime(
-                                                $conversation['ended_at']
-                                            )
-
-                                            : '—'
-                                        ?>
-
-                                    </td>
+<td>
+    <?php if (!empty($conversation['ended_at'])): ?>
+        <?= htmlspecialchars(
+            (new DateTime(
+                $conversation['ended_at'],
+                new DateTimeZone('UTC')
+            ))->setTimezone(new DateTimeZone('Asia/Dubai'))
+              ->format('d-m-Y h:i A')
+        ) ?>
+    <?php else: ?>
+        —
+    <?php endif; ?>
+</td>
 
 
                                     <td>

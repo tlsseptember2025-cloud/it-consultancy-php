@@ -181,6 +181,31 @@ if ($isDemoAdmin) {
 require_once APP_PATH . '/helpers/retention_review_helper.php';
 require dirname(__DIR__) . '/layouts/header-admin.php';
 
+
+
+/*
+ * Active Guest Chats — Main Admin only.
+ * Guest Chat is not part of the Demo tenant workflow.
+ */
+$activeGuestChatCount = 0;
+
+if (!$isDemoAdmin) {
+    try {
+        $guestChatCountStmt = $adminPdo->query("
+            SELECT COUNT(*)
+            FROM guest_chat_conversations
+            WHERE status = 'Open'
+        ");
+
+        $activeGuestChatCount = (int) $guestChatCountStmt->fetchColumn();
+    } catch (Throwable $e) {
+        error_log(
+            'Dashboard active Guest Chat count failed: ' . $e->getMessage()
+        );
+    }
+}
+
+
 /*
 |--------------------------------------------------------------------------
 | Pending Payments
@@ -1002,6 +1027,108 @@ $refundRequests = $fetchDashboardRows(
              ========================================================= -->
         <?php if (!$isDemoAdmin): ?>
         <div class="col-lg-2">
+
+            
+
+<!-- Active Guest Chats -->
+<div
+    id="activeGuestChatsCard"
+    class="card shadow-sm border-primary mb-4"
+>
+    <div class="card-header bg-primary text-white">
+        <strong>💬 Active Guest Chats</strong>
+
+        <span
+            id="activeGuestChatCount"
+            class="badge <?= $activeGuestChatCount > 0
+                ? 'bg-warning text-dark'
+                : 'bg-light text-primary' ?> float-end"
+            aria-live="polite"
+        >
+            <?= (int) $activeGuestChatCount ?>
+        </span>
+    </div>
+
+    <div class="card-body text-center p-3">
+        <p id="activeGuestChatMessage" class="mb-3">
+            <?php if ($activeGuestChatCount > 0): ?>
+                <?= (int) $activeGuestChatCount ?>
+                open conversation<?= $activeGuestChatCount === 1 ? '' : 's' ?>
+                may need attention.
+            <?php else: ?>
+                <span class="text-muted">No active Guest Chats.</span>
+            <?php endif; ?>
+        </p>
+
+        <a href="?page=guest-chats" class="btn btn-sm btn-primary">
+            View Guest Chats
+        </a>
+    </div>
+</div>
+
+
+
+<script>
+(function () {
+    const card = document.getElementById('activeGuestChatsCard');
+    const countBadge = document.getElementById('activeGuestChatCount');
+    const message = document.getElementById('activeGuestChatMessage');
+
+    if (!card || !countBadge || !message) {
+        return;
+    }
+
+    async function refreshActiveGuestChats() {
+        try {
+            const response = await fetch(
+                '?page=admin-active-guest-chat-count',
+                {
+                    method: 'GET',
+                    credentials: 'same-origin',
+                    cache: 'no-store',
+                    headers: { 'Accept': 'application/json' }
+                }
+            );
+
+            if (!response.ok) {
+                return;
+            }
+
+            const data = await response.json();
+            const count = Number(data.count);
+
+            if (!Number.isSafeInteger(count) || count < 0) {
+                return;
+            }
+
+            countBadge.textContent = String(count);
+            countBadge.className = count > 0
+                ? 'badge bg-warning text-dark float-end'
+                : 'badge bg-light text-primary float-end';
+
+            message.textContent = count === 0
+                ? 'No active Guest Chats.'
+                : count + ' open conversation'
+                    + (count === 1 ? '' : 's')
+                    + ' may need attention.';
+
+            card.classList.toggle('border-danger', count > 0);
+            card.classList.toggle('border-primary', count === 0);
+
+            const header = card.querySelector('.card-header');
+            if (header) {
+                header.classList.toggle('bg-danger', count > 0);
+                header.classList.toggle('bg-primary', count === 0);
+            }
+        } catch (error) {
+            // Keep the last successful count if a refresh fails.
+        }
+    }
+
+    refreshActiveGuestChats();
+    window.setInterval(refreshActiveGuestChats, 30000);
+})();
+</script>
 
             <!-- Financial Summary -->
             <div class="card shadow-sm mb-4">
